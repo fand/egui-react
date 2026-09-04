@@ -242,3 +242,17 @@ eframe の `App::ui` で `Store` を `begin_pass` / `end_pass` し、Counter と
 - `elsa::FrozenMap` の `as_mut()` が使いにくい場合、`Store` を `slots: UnsafeCell<HashMap<Id, Box<Slot>>>` で自前実装してもよい。その場合は安全性の根拠(insert は `Box` の中身を動かさない、削除は `&mut self` でのみ行う)をコメントに書く。
 - kittest で `num_completed_passes` を直接読めない場合は、ルート閉包の呼び出し回数を `Store` 外のカウンタで数える。
 - テスト 5(b) で egui_taffy が discard を要求しない場合は、(a) の手動版が通っていれば項目 5 は満たしたとみなし、(b) は削除して理由を PR 本文に書く。
+
+## 8. 実装で判明した差分(手順 2〜3)
+
+本書のスケッチと実際の実装の差分。設計上の意味があるものは ARCHITECTURE.md にも反映済み。
+
+- **2.1** `elsa::FrozenMap` を採用。unsafe なし。sweep は `AsMut::as_mut` trait 経由で `&mut HashMap` を取り `retain` する(本書の書き方と異なり inherent method ではない)。
+- **2.2** `Cx::scope` の `source` は `impl Hash` ではなく `impl Hash + Debug`。egui 0.36 の `Ui::push_id` が `AsIdSalt = Hash + Debug` を要求する。`rsx!` の `key={..}` にも `Debug` が必要になる。
+- **2.3** `State` は `inner: Option<RefMut<'s, T>>` を持つ。`Drop` を実装した型からフィールドを move out できないため、`into_handle` は `inner = None` で借用を解放してから `Handle` を作る。`ctx` は所有ではなく `&'s egui::Context`(`Store` が clone を 1 つ持ち、`State` と `Handle` の両方が借りる)。`Store::new()` の時点では `Context::default()` を仮に持ち、初回 `begin_pass` で置き換える。
+- **2.4** `IntoCleanup` の `()` と `FnOnce()` の blanket impl は E0119 で衝突する。`IntoCleanup<Marker>` としてマーカー型(`NoCleanup` / `FnCleanup`)で区別する。呼び出し側は変わらない。
+- **2.6** `Handler` も同じ手法で解決し、`call0` / `call1` の分割は不要になった。最終形は `Handler<A, Marker>` で、impl は `F: FnOnce() -> R` に `(Arity0, R)`、`F: FnOnce(A) -> R` に `(Arity1, R)`。マーカーに `R` を含めないと非 `()` を返す本体でエラーになる。推論は全ての形(引数型注釈なし、ペイロード破棄、借用ペイロード、`fn` item)で曖昧にならないことをテスト `fused_events::handler_call_shapes` で固定した。マクロは `::react_egui::Handler::call(closure, a)` を完全修飾で emit する。
+- **2.6** `Emitter` の lifetime は 1 つでは構築できない(`RefCell<T>` が不変で、ローカル `RefCell` の借用が props の lifetime より短いため)。最終形は `EventSink<'e, E> = RefCell<&'e mut (dyn FnMut(E) + 'e)>` と `Emitter<'a, 'e, E> { sink: &'a EventSink<'e, E> }`。
+- **3** ハンドラの `(|| ..)()` 展開に clippy の `redundant_closure_call` が出る。テストでは file-level `allow`。`rsx!` は展開結果に `#[allow(clippy::redundant_closure_call)]` を付ける必要がある。
+- **4 テスト 9** 毎パス state を書き換えると毎パス repaint が要求され、`Harness::run` が `ExceededMaxSteps` で panic する。毎フレーム書き換えるテストは `harness.step()` を使う。
+- **新規の借用制約** 同一要素に、state を借用する値 prop と同じ state を変更するハンドラを渡すと E0502(`title={&*title} on_rename={|s| *title = s}`)。テストでは値を先に clone した。ARCHITECTURE.md 3.7 に追記済み。
