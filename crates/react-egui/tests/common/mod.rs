@@ -55,3 +55,40 @@ pub fn named_counter(cx: &mut Cx<'_, '_>, name: &str, initial: i32) {
         }
     });
 }
+
+/// The event enum `#[component]` will generate from the `#[event]` arguments of
+/// `Dialog`. `Ok` / `Cancel` carry no payload; `Rename` carries one.
+pub enum DialogEvent {
+    Ok(()),
+    Cancel(()),
+    Rename(String),
+}
+
+/// The props struct `#[component]` will generate for `Dialog`.
+pub struct DialogProps<'e> {
+    pub title: &'e str,
+    pub events: &'e mut dyn FnMut(DialogEvent),
+}
+
+/// The hand-written expansion of `<Dialog title={..} on_ok={..} on_cancel={..}
+/// on_rename={..} />`.
+///
+/// Three emitters over one sink are alive at the same time, which is the point:
+/// each `#[event]` prop becomes an `Emitter` borrowing the same fused closure.
+pub fn dialog(cx: &mut Cx<'_, '_>, props: DialogProps<'_>) {
+    let sink: EventSink<'_, DialogEvent> = EventSink::new(props.events);
+    let on_ok = Emitter::new(&sink);
+    let on_cancel = Emitter::new(&sink);
+    let on_rename = Emitter::new(&sink);
+
+    cx.ui.label(props.title);
+    if cx.ui.button("OK").clicked() {
+        on_ok.emit(DialogEvent::Ok(()));
+    }
+    if cx.ui.button("Cancel").clicked() {
+        on_cancel.emit(DialogEvent::Cancel(()));
+    }
+    if cx.ui.button("Rename").clicked() {
+        on_rename.emit(DialogEvent::Rename(String::from("Renamed?")));
+    }
+}
