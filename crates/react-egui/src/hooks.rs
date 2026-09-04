@@ -17,7 +17,7 @@ pub fn use_state<'s, T: 'static>(cx: &mut Cx<'s, '_>, init: impl FnOnce() -> T) 
     let store = cx.store;
     let id = cx.scope_id().with(location_key(location));
     let slot = store.slot(id, location, || Box::new(init()) as Box<dyn Any>);
-    State::new(slot, store.ctx())
+    State::new(slot, store.ctx(), location)
 }
 
 /// Like [`use_state`], but returns a `Copy` [`Handle`] instead of a guard.

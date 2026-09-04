@@ -34,6 +34,14 @@ impl Slot {
         })
     }
 
+    /// Mutably borrow the slot value as `T`, or `None` if it is already borrowed.
+    pub(crate) fn try_borrow_mut<T: 'static>(&self) -> Option<RefMut<'_, T>> {
+        let value = self.value.try_borrow_mut().ok()?;
+        Some(RefMut::map(value, |v| {
+            (**v).downcast_mut::<T>().expect("hook slot type mismatch")
+        }))
+    }
+
     /// The deps hash recorded by the last `use_effect` run, if any.
     pub(crate) fn deps_hash(&self) -> Option<u64> {
         self.deps_hash.get()

@@ -3,6 +3,7 @@
 use std::cell::RefMut;
 use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
+use std::panic::Location;
 
 use crate::store::Slot;
 
@@ -21,9 +22,23 @@ pub struct State<'s, T: 'static> {
 }
 
 impl<'s, T: 'static> State<'s, T> {
-    pub(crate) fn new(slot: &'s Slot, ctx: &'s egui::Context) -> Self {
+    pub(crate) fn new(
+        slot: &'s Slot,
+        ctx: &'s egui::Context,
+        location: &'static Location<'static>,
+    ) -> Self {
+        // A slot that is already borrowed means two hooks share one id and the
+        // first guard is still alive. Report that instead of the bare
+        // `RefCell` "already mutably borrowed" panic.
+        let inner = slot.try_borrow_mut::<T>().unwrap_or_else(|| {
+            panic!(
+                "react-egui: hook id collision at {location}: the same hook \
+                 slot is already borrowed in this pass. Wrap custom hooks in \
+                 #[hook] (hook_scope) or add key= inside loops."
+            )
+        });
         Self {
-            inner: Some(slot.borrow_mut::<T>()),
+            inner: Some(inner),
             slot,
             ctx,
             dirty: false,

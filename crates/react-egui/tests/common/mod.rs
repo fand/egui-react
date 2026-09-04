@@ -92,3 +92,20 @@ pub fn dialog(cx: &mut Cx<'_, '_>, props: DialogProps<'_>) {
         on_rename.emit(DialogEvent::Rename(String::from("Renamed?")));
     }
 }
+
+/// The hand-written expansion of a `#[hook]`-annotated custom hook.
+///
+/// `#[hook]` adds `#[track_caller]` and wraps the body in `hook_scope`, so the
+/// hook ids inside are keyed by *where the custom hook was called*, not by the
+/// single line inside it.
+#[track_caller]
+pub fn use_counter<'s>(cx: &mut Cx<'s, '_>) -> State<'s, i32> {
+    let location = std::panic::Location::caller();
+    cx.hook_scope(location, |cx| use_state(cx, || 0))
+}
+
+/// The same custom hook *without* `#[hook]`: every call site shares one id.
+#[allow(clippy::let_and_return)]
+pub fn use_counter_unscoped<'s>(cx: &mut Cx<'s, '_>) -> State<'s, i32> {
+    use_state(cx, || 0)
+}
