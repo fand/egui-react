@@ -1,6 +1,6 @@
 //! The hook state store: a map from [`egui::Id`] to a slot holding one hook's value.
 
-use std::any::Any;
+use std::any::{Any, TypeId};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::panic::Location;
 
@@ -11,6 +11,7 @@ use elsa::FrozenMap;
 /// Slots are boxed inside a [`FrozenMap`], so a `&Slot` handed out by
 /// [`Store::slot`] stays valid while later hooks insert further slots.
 pub(crate) struct Slot {
+    id: egui::Id,
     value: RefCell<Box<dyn Any>>,
     last_visited: Cell<u64>,
     cleanup: RefCell<Option<Box<dyn FnOnce()>>>,
@@ -20,6 +21,11 @@ pub(crate) struct Slot {
 }
 
 impl Slot {
+    /// The id this slot is stored under.
+    pub(crate) fn id(&self) -> egui::Id {
+        self.id
+    }
+
     /// Borrow the slot value as `T`.
     pub(crate) fn borrow<T: 'static>(&self) -> Ref<'_, T> {
         Ref::map(self.value.borrow(), |v| {
@@ -84,6 +90,8 @@ pub struct Store {
     pass: Cell<u64>,
     ctx: egui::Context,
     collisions: RefCell<Vec<Collision>>,
+    /// The `provide_context` stack: the slot id each type is currently bound to.
+    contexts: RefCell<Vec<(TypeId, egui::Id)>>,
 }
 
 impl Default for Store {
@@ -103,6 +111,7 @@ impl Store {
             pass: Cell::new(0),
             ctx: egui::Context::default(),
             collisions: RefCell::new(Vec::new()),
+            contexts: RefCell::new(Vec::new()),
         }
     }
 
@@ -111,6 +120,7 @@ impl Store {
         self.ctx = ctx.clone();
         self.pass.set(self.pass.get() + 1);
         self.collisions.borrow_mut().clear();
+        self.contexts.borrow_mut().clear();
     }
 
     /// Finish the pass: drop every slot that was not visited and run its cleanup.
@@ -159,6 +169,34 @@ impl Store {
         self.len() == 0
     }
 
+    /// Look up a slot without visiting it.
+    ///
+    /// Used by `use_context`, which reaches a slot some ancestor already
+    /// visited this pass rather than declaring a hook of its own.
+    pub(crate) fn slot_by_id(&self, id: egui::Id) -> Option<&Slot> {
+        self.slots.get(&id)
+    }
+
+    /// Push a context binding for the duration of a subtree.
+    pub(crate) fn push_context(&self, type_id: TypeId, slot: egui::Id) {
+        self.contexts.borrow_mut().push((type_id, slot));
+    }
+
+    /// Pop the most recent context binding.
+    pub(crate) fn pop_context(&self) {
+        self.contexts.borrow_mut().pop();
+    }
+
+    /// The innermost binding for `type_id`, if any.
+    pub(crate) fn lookup_context(&self, type_id: TypeId) -> Option<egui::Id> {
+        self.contexts
+            .borrow()
+            .iter()
+            .rev()
+            .find(|(t, _)| *t == type_id)
+            .map(|(_, id)| *id)
+    }
+
     /// Get the slot for `id`, creating it with `init` on first visit.
     ///
     /// Visiting the same id twice in one pass is a collision and is recorded.
@@ -182,6 +220,7 @@ impl Store {
         self.slots.insert(
             id,
             Box::new(Slot {
+                id,
                 value: RefCell::new(init()),
                 last_visited: Cell::new(pass),
                 cleanup: RefCell::new(None),

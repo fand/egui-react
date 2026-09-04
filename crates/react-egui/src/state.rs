@@ -122,6 +122,11 @@ impl<T: 'static> Handle<'_, T> {
         self.ctx.request_repaint();
     }
 
+    /// The store id of the slot this handle points at.
+    pub(crate) fn slot_id(&self) -> egui::Id {
+        self.slot.id()
+    }
+
     /// Mutate the value in place and request a repaint.
     pub fn update<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
         let r = f(&mut self.slot.borrow_mut::<T>());
