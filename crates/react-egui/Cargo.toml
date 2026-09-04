@@ -1,0 +1,21 @@
+[package]
+name = "react-egui"
+description = "React-like views, components and hooks for egui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "react_egui"
+path = "src/lib.rs"
+
+[dependencies]
+egui.workspace = true
+elsa.workspace = true
+log.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true
+egui_taffy.workspace = true
