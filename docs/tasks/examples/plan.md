@@ -153,6 +153,8 @@ examples 節を表にする。
 
 ## 3. PR C: canvas(wgpu)
 
+**PR C は [docs/tasks/canvas/](../canvas/task.md) に切り出した。** 以下は切り出し時点の記録として残す。
+
 コンポーネントの中で wgpu の shader アニメーションを描く。core は無変更で済む。ランナー、elements、example の 3 段。
 
 ### 3.1 `react-egui-app` の `wgpu` feature

@@ -22,7 +22,8 @@
 | PR2 | 2, 3, 4, 5 | `docs/tasks/core/` |
 | PR3 | 6 | `docs/tasks/async/` |
 | PR4 | 7 | `docs/tasks/mobile/` |
-| PR5, PR6, PR7 | 6.5 | `docs/tasks/examples/` |
+| PR5, PR6 | 6.5 | `docs/tasks/examples/` |
+| PR7 | 6.5(canvas) | `docs/tasks/canvas/` |
 
 フェーズ 8(公開準備)は PR4 の後に別途計画する。
 
