@@ -8,16 +8,19 @@
 
 **1 PR では終わらない。main に入るものと、`a11y-spike` ブランチに置くものに割る。** task.md の決めごと「react-egui の main に fork した eframe を依存として入れない」を守るためで、境界は「crates.io の依存だけで完結するか」に置く。
 
+**割り方は着手後に変わった。** 当初は手順 6 以降をまるごと `a11y-spike` に置く前提だったが、1.2 で「`TreeUpdate` を受け取るのに eframe の fork は要らない」(2.2 の案 C)ことが分かった。**手順 6〜10 は crates.io の依存だけで閉じるので main に入れる。** fork が要るのは手順 11(F2)だけで、そこだけが spike に残る。
+
 | | 場所 | 内容 |
 |---|---|---|
-| この PR | main | 本書、ARCHITECTURE 1 章 / 8 章の一文、README の一文、`react-egui-elements` のラベル固め(`Image` の `alt`、`Button` の `label`)、名前の無いウィジェットを検出する kittest |
-| 続き | `a11y-spike` ブランチ | `accesskit_web` の原型(adapter crate)、gallery を VoiceOver で触るための wasm ビルド、必要なら fork した eframe |
+| PR #4(済) | main | 本書、ARCHITECTURE 1 章 / 8 章の一文、README の一文、`react-egui-elements` のラベル固め(`Image` の `alt`、`Button` の `label`)、名前の無いウィジェットを検出する kittest |
+| PR #5(この続き) | main | `accesskit-web`(adapter crate)、`react_egui_app::a11y::WebA11y`(egui の plugin)、gallery での有効化、DOM → `ActionRequest`、フォーカス F1 |
+| 続き | `a11y-spike` ブランチ | 手順 11 だけ: fork した eframe で `has_focus` を緩める F2 |
 | その後 | 上流 | AccessKit へ web adapter の PR、eframe / egui へ差し込み口の issue |
 
 割り方の根拠は 2 つ。
 
 1. **ラベル固めは上流と無関係に効く。** native の VoiceOver / NVDA / Orca には今日から効き、web adapter が入った日にもそのまま効く。むしろ adapter が動いた瞬間に「名前の無いボタン」が全部露見するので、先に潰しておく方が試作が読みやすい。
-2. **試作は crates.io の依存だけでは閉じない可能性が残る**(2.3。フォーカスの往復で eframe に手を入れる必要が出うる)。閉じるなら main に入れてもよいが、それは動かしてみるまで分からない。分からないものを main の Cargo.toml に入れない。
+2. **fork が要るかどうかは 1 点に絞れた。** 当初は「試作は crates.io の依存だけでは閉じない可能性が残る」と書いたが、閉じないのは**フォーカスの往復だけ**である(2.3)。ツリーを受け取る側も `ActionRequest` を返す側も egui の `Plugin` で足りる。だから spike に残すのは F2 の 1 コミットで済む。
 
 ## 1. 調査結果
 
@@ -325,7 +328,7 @@ ARCHITECTURE / README に足す一文は次の趣旨。
 
 ## 3. 手順
 
-### この PR(main)
+### PR #4(main、済)
 
 1. **本書と task.md の訂正。** 1.1 で分かった `web-basics` ブランチの存在を task.md の背景表に反映する(「無い」→「リリース版は無い。試作ブランチが 1 本ある」)。コミット。
 2. **`Image` の `alt`、`Button` の `label`。** `crates/react-egui-elements/src/widgets.rs`。kittest を `tests/widgets.rs` に 2 本(A-1、A-2)。コミット。
@@ -333,16 +336,24 @@ ARCHITECTURE / README に足す一文は次の趣旨。
 4. **名前の無いノードを見つける kittest**(A-3)。gallery の全 example を 1 つずつ描き、focusable なノードに空でない名前があることを確かめる。コミット。
 5. **ARCHITECTURE 1 章 / 8 章と README の一文。** README は「Examples」節の gallery の段落(`Every example but one runs in the browser ..`)の末尾に足す。コミット。PR。
 
-### `a11y-spike` ブランチ(この PR の後)
+### PR #5(main、この続き)
 
-`main` から切る。fork した eframe を入れることになってもこのブランチに閉じる。
+0 章のとおり、ここは fork を必要としないので main に入れる。
 
-6. **`accesskit_web` の骨格を移植する。** `web-basics` の 4 ファイルを `crates/accesskit-web/`(spike のみ)に置き、accesskit 0.24.1 / consumer 0.38 に合わせて直す(`name()` → `label()`、`is_focusable(&filter)`、`TreeId`)。まだ座標もイベントも無い。ビルドが通ることだけ確かめる。
+6. **`accesskit_web` の骨格を移植する。** `web-basics` の 4 ファイルを `crates/accesskit-web/` に置き、accesskit 0.24.1 / consumer 0.38 に合わせて直す(`name()` → `label()`、`is_focusable(&filter)`、`TreeId`)。まだ座標もイベントも無い。ビルドが通ることだけ確かめる。
 7. **座標とホストの CSS**(2.1)。`bounding_box()` を `position: absolute` に落とし、canvas に重ねる。DevTools で矩形がウィジェットの上に乗っていることを目視。
 8. **`react_egui_app::a11y::WebA11y`(plugin)と `Options::setup` からの起動**(2.2)。gallery を trunk でビルドし、DOM が毎フレーム更新されることを目視。捨てられたパスを弾く条件がちゃんと効いているかを、taffy が 2 パス回る example(layout)で確かめる。
 9. **DOM → `ActionRequest`**(2.1 の表)。click と Enter / Space で counter の `+` が増えるところまで。
 10. **フォーカス F1**(2.3)。`aria-activedescendant` 版。VoiceOver(macOS Safari / Chrome)で counter / todo / form を触る。
+
+### `a11y-spike` ブランチ(PR #5 の後)
+
+`main` から切る。fork した eframe はこのブランチに閉じる。
+
 11. **F1 で足りなければ F2。** eframe を fork し、`has_focus` を「canvas の親の中に activeElement があるか」に緩める。`[patch.crates-io]` で git fork を指す。**このコミットは spike ブランチだけに置く。**
+
+### 上流
+
 12. **上流。** AccessKit に discussions#514 の続きとして「web-basics を現行 API に起こし、座標とイベントを足した。引き取れるか」を書く。eframe / egui に「web で AccessKit ツリーが捨てられている。adapter を eframe が持つ形を提案する」の issue を立てる。
 
 ## 4. テスト / 確認
@@ -359,7 +370,7 @@ kittest は AccessKit ツリーをそのまま歩く(`egui_kittest::Harness::roo
 
 A-3 は「今後 example を足した人が名前を忘れたら赤くなる」ための仕掛けなので、失敗メッセージに「`label` を渡してください」と書く。窓は既存の `examples/gallery/tests/gallery.rs` と同じ 1280×1000 にする(`ScrollArea` が描かなかったウィジェットはツリーにも居ないので、小さい窓だと見逃す)。
 
-### spike(手で確かめる)
+### web(手で確かめる)
 
 wasm の自動テストは `wasm-bindgen-test` で DOM の形(ノード数、`role`、`aria-label`、矩形)までは書けるが、**支援技術が実際にどう読むかは自動化できない**。VoiceOver の挙動が全てなので、チェックリストを置いて手で回す。
 
@@ -381,17 +392,17 @@ wasm の自動テストは `wasm-bindgen-test` で DOM の形(ノード数、`ro
 
 ## 5. 終了条件との対応
 
-task.md の終了条件は 3 つある。この PR で満たせるのは 3 番目だけで、残りは spike の後。
+task.md の終了条件は 3 つある。3 番目は PR #4 で済み、1 番目は手順 10(必要なら 11)、2 番目は手順 12。
 
 | 終了条件 | どこで |
 |---|---|
 | gallery(web)の counter / todo / form を VoiceOver で読み上げ・Tab・Enter / Space | 手順 10(必要なら 11)、4 章のチェックリスト |
 | 上流に web adapter と eframe の差し込み口の提案が出ている | 手順 12 |
-| ARCHITECTURE.md に web の a11y の現状と方針が書かれている | 手順 5(**この PR**) |
+| ARCHITECTURE.md に web の a11y の現状と方針が書かれている | 手順 5(**PR #4 で済**) |
 
 ## 6. 実装で判明した差分
 
-手順 2〜5(main に入るラベル固め)を実装したときに分かったこと。
+手順 2〜5(PR #4、ラベル固め)は 6.1〜6.5、手順 6〜9(PR #5、ミラー本体)は 6.6〜6.9。
 
 ### 6.1 `Button` の `label` は 3 章のとおり。`Image` の `alt` も同じ
 
@@ -428,3 +439,36 @@ counter と custom-hook のボタン。名前は空ではない(「プラス」�
 ### 6.5 A-3 は `run` ではなく `run_steps(2)`
 
 `shader`(と `clock`)は毎フレーム再描画を要求するので、`Harness::run` が「4 ステップで落ち着かない」と panic する。`fetch` は描いた瞬間に本物の HTTP を投げるので、既存の `gallery.rs` と同じ理由で外してある。
+
+### 6.6 手順 6: 移植で変わったところ
+
+- `accesskit_consumer` 0.38 でも `TreeChangeHandler` / `TreeState` は `ChangeHandler` / `State` の別名として残っていたので、そのまま使えた。変わるのは `HashMap` のキーで、`accesskit::NodeId` ではなく**木の index を含む consumer 側の `NodeId`** になる。
+- `Role::Directory` は accesskit 0.24 に無いので role 表から落とした。他の 150 行はそのまま通る。
+- `Adapter::new` は `-> Self` ではなく **`-> Option<Self>`**。`window()` / `document()` の `unwrap()` を wasm に持ち込まないため。親も id 文字列ではなく `&Element` で受ける(2.1 のとおり)。`set_attribute` の `unwrap()` も全部落とした(属性名は定数なので失敗しない)。
+- **`focus_moved` は空にした。** `element.focus()` は 1.3 の壁そのもので、`blur()` は 1.4 の教訓から呼ばない。egui → DOM のフォーカスは手順 10 の仕事。
+- root のホストに `role="application"` は付けていない(2.1 の保留どおり)。egui の root ノードが `role="window"` として 1 段下に出る。
+- **native でも `web-sys` はビルドが通る**ので、crate 全体を `cfg` で切らずに置いた。workspace の `clippy --all-targets` と `test` が accesskit-web も見る。
+- clippy の `large_enum_variant` に言われて `State::Active` の `Tree` は `Box` に入れた。
+
+### 6.7 手順 7: 座標
+
+- **子の `left/top` は親の矩形からの相対にする必要があった。** 絶対配置の親が絶対配置の子の包含ブロックになるので、`bounding_box()` をそのまま書くと入れ子のぶんだけ二重にずれる。矩形を持たない祖先は飛ばし、一番近い「矩形を持つ祖先」を原点にする。Flutter の `recomputeChildrenAdjustment` と同じ話で、2.1 に書き落としていた。
+- デバッグ表示は `Adapter::set_debug(bool)`。`filter: opacity(0%)` を外して緑の `outline` を出す。plugin 側は URL に `?a11y-debug` があれば on にする。
+- `tabindex` は `is_focusable(&filter)` が真なら `"0"`。ただしこれで Tab がミラーに入るようになるので、1.3 の壁に当たるのは手順 10 の宿題として残る。
+- `Role::Label` に `role="paragraph"` を明示した(1.4 の Safari のマージ対策)。
+- **`Role::Label` の文字は `label()` ではなく `value()` に入っている**(`Node::label_comes_from_value`。egui もそう書いている)。ブラウザで見るまで気付かず、ミラーの文字が全部空だった。同じ文字を `aria-valuetext` に重ねて出さないようにもした。
+
+### 6.8 手順 8: plugin
+
+- **捨てられるパスの判定は `requested_discard()` だけでは足りない。** `max_passes` を使い切った最後のパスでもフラグは立ったままで、そこで捨てると最終形が DOM に出ない。`Context::run` のループの抜け条件と同じ `requested_discard() && num_completed_passes < max_passes` にした。**`ctx.will_discard()` は使えない**: `end_pass` が viewport の output を `mem::take` した後に plugin が呼ばれるので、常に false になる。
+- `Options::setup` は `FnOnce` が 1 本なので、gallery では `shader::gpu::setup(cc)` と `add_plugin` を同じクロージャに並べた。
+- `accesskit` は `egui::accesskit`(egui の再エクスポート)を使う。版がずれようがない。`accesskit-web` は wasm32 の依存にだけ入れ、native の `WebA11y` は空の plugin にした。
+
+### 6.9 手順 9: DOM → `ActionRequest`
+
+- 要素ごとに listener を張らず、**ホスト 1 枚に張って委譲**した。要素には `data-accesskit-node` / `data-accesskit-tree` を書いておき、イベントはそこから親を辿って target を作る。ノード数ぶんのクロージャを持たずに済む。`focus` は bubble しないので `focusin` を使う。
+- `ActionHandler` は `Rc<RefCell<Box<dyn ActionHandler>>>` で listener と共有する。plugin 側の実装はキューに積むだけで、`input_hook` が `RawInput` に流す。
+- **`ctx.request_repaint()` が要る。** egui は必要なときしか描かないので、キューに積んだだけでは次のフレームが来ない。支援技術のクリックは egui にとって「何も起きていない」のと同じ。これが無いと押しても無反応で、実測するまで気付かなかった。
+- 2.1 の表のうち `input` / `change` は、ミラーが今 `<div>` なので実際には飛んでこない(本物の `<input>` にしたときのため)。チェックボックスの toggle は合成 `click` の方で届く。
+- **headless Chrome での実測**(gallery、`?a11y-debug`): ミラーの button を `click()` すると example が切り替わり、counter の `+` で数が増える。`keydown` の Enter / Space も効く。`elementFromPoint` はミラーではなく canvas を返す(`pointer-events: none` が効いている)。
+- `crates/accesskit-web/tests/mirror.rs` は `#![cfg(target_arch = "wasm32")]` で囲ってあるので `cargo test --workspace` は素通りする。`wasm-pack test --headless --chrome crates/accesskit-web` で 4 本通る。
