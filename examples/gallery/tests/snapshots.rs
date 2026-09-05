@@ -202,6 +202,12 @@ single!(theme, egui::vec2(420.0, 420.0));
 // The module is the crate's lib name, so the image is `custom_hook.png`.
 single!(custom_hook, egui::vec2(420.0, 620.0));
 single!(escape_hatch, egui::vec2(420.0, 620.0), two_samples);
+// `shader` has no picture here. Its canvas is a wgpu paint callback, and the
+// pipeline behind it is built by `Options::setup` from eframe's render state —
+// which `WgpuTestRenderer` does not hand out, so the callback would find no
+// `ShaderResources` and draw nothing. On top of that the app asks for a repaint
+// every frame, so the picture would never be the same twice. Checked by eye
+// instead; see plan.md section 3.
 
 /// The clock, written out rather than through [`single!`], because its picture
 /// has to be pinned to a time.

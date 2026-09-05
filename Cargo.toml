@@ -21,6 +21,14 @@ eframe = "0.36.1"
 # `wgpu` and `snapshot` are intentionally left off: the tests run headless.
 egui_kittest = { version = "0.36.1", default-features = false }
 egui_taffy = "0.14.0"
+# The version eframe 0.36.1 depends on. Pinned here so an example that builds
+# a render pipeline links against the same wgpu eframe does.
+wgpu = "30.0"
+# The same version eframe 0.36.1 pulls in, with the same (default) features, so
+# `Callback::new_paint_callback` speaks to the renderer eframe set up.
+egui-wgpu = "0.36.1"
+# For `#[derive(Pod, Zeroable)]` on the shader example's uniform block.
+bytemuck = { version = "1.25", features = ["derive"] }
 # Only the gallery uses it, for `syntax_highlighting::code_view_ui`. No
 # features: `syntect` would make the wasm much bigger and the built-in
 # highlighter is enough.

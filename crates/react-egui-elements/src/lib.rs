@@ -11,12 +11,14 @@
 //!   re-enter the tree with the inner `Ui`.
 //!
 //! Plus [`Suspense`](suspense::Suspense), which draws a fallback until the
-//! `use_future`s below it are ready.
+//! `use_future`s below it are ready, and [`Canvas`](canvas::Canvas), a leaf
+//! taffy sizes and the caller paints.
 //!
 //! Every element accepts the layout attributes of
 //! [`ItemStyle`](react_egui::ItemStyle) through a `style` prop, which `rsx!`
 //! fills in from `w=` / `grow=` / `p=` and friends.
 
+pub mod canvas;
 pub mod containers;
 pub mod suspense;
 pub mod view;
@@ -28,6 +30,7 @@ pub mod widgets;
 /// The event enums have to be in scope wherever `<Button on_click=../>` is
 /// written, because that is the name the fused closure matches on.
 pub mod prelude {
+    pub use crate::canvas::{Canvas, CanvasEvent};
     pub use crate::containers::{
         CentralPanel, Collapsing, Frame, Grid, Horizontal, Panel, Row, ScrollArea, Side, Vertical,
         Window,

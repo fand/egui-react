@@ -19,6 +19,7 @@ use fetch::App as FetchApp;
 use form::App as FormApp;
 use layout::App as LayoutApp;
 use list_10k::App as ListApp;
+use shader::App as ShaderApp;
 use showcase::App as ShowcaseApp;
 use theme::App as ThemeApp;
 use todo::App as TodoApp;
@@ -38,6 +39,7 @@ pub const EXAMPLES: &[Meta] = &[
     clock::META,
     custom_hook::META,
     escape_hatch::META,
+    shader::META,
     list_10k::META,
     layout::META,
     fetch::META,
@@ -221,6 +223,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "clock" => { <ClockApp/> }
                 "custom-hook" => { <CustomHookApp/> }
                 "escape-hatch" => { <EscapeHatchApp/> }
+                "shader" => { <ShaderApp/> }
                 // A thousand, not the ten thousand the binary opens with: at
                 // 10k a frame takes ~85ms, and the gallery around it would
                 // crawl too. The slider still reaches 10k for anyone curious.

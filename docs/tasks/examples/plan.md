@@ -153,6 +153,8 @@ examples 節を表にする。
 
 ## 3. PR C: canvas(wgpu)
 
+**PR C は [docs/tasks/canvas/](../canvas/task.md) に切り出した。** 以下は切り出し時点の記録として残す。
+
 コンポーネントの中で wgpu の shader アニメーションを描く。core は無変更で済む。ランナー、elements、example の 3 段。
 
 ### 3.1 `react-egui-app` の `wgpu` feature
@@ -547,3 +549,18 @@ pub fn VirtualList(
 - 途中でディスクが一杯になり(`ld: write() failed, errno=28`)、`target/debug/incremental`(6.9GB)を消して続けた。このセッションで target が 27GB まで育っている。
 
 **gallery の並び替え。** `showcase` を先頭にした(訪問者が最初に見るべきもの)。以下 counter / todo / form / theme / clock / custom-hook / escape-hatch / list-10k / layout / fetch。`Running` の `match` の既定は `<ShowcaseApp/>` に変え、`"counter"` の腕を明示した。gallery のテストが「最初は counter」を前提にしていたので直した(トグルのテストは、showcase に生 egui 版が無いので counter を選んでから確かめる)。README の表も同じ順にし、導入の一文に「まず showcase を見て、他は 1 つずつの話」と書いた。
+
+## 9. PR C の記録
+
+### 手順 6: `Options.setup`(と `wgpu` feature を置かない判断)
+
+**3.1 の前提が間違っていた。「eframe は default(glow)のまま」は eframe 0.36 では成り立たない。** eframe 0.36.1 の `default` feature は `["accesskit", "default_fonts", "links", "wayland", "web_screen_reader", "wgpu", "winit/default", "x11"]` で、**`glow` は入っていない**。`Renderer::Glow` は `glow` feature が無いと存在すらせず、`Renderer::default()` は `Wgpu` を返す。つまり **このリポジトリは最初から wgpu で描いていた**。0.35 までとは逆で、今は glow の方が opt-in である。
+
+そのため **`wgpu` feature は置かない**。一度は `wgpu = ["eframe/wgpu"]` を足したが、今日の eframe では何も変えない feature であり、API の雑音にしかならない。5 章の「wgpu を唯一の backend にするか」は、eframe 側が先に決めてくれた形になる。glow で動かしたい人は `eframe/glow` を明示する話で、それはこの crate の仕事ではない。判断の根拠は `crates/react-egui-app/Cargo.toml` のコメントと ARCHITECTURE 8 章に残した。
+
+**WebGL fallback も何もしなくても入っている。** `eframe/wgpu` → `egui-wgpu/default` → `wgpu/webgl`。3.1 の「wasm は `wgpu` の `webgl` feature を on にする」は不要だった。`[workspace.dependencies]` には `wgpu = "30.0"`(eframe 0.36.1 が使う版)を pin だけしてある。shader example が pipeline を組むときに同じ wgpu へリンクするため。
+
+**`Options.setup`** は 3.2 のとおり足した。型は `Option<Setup>`、`pub type Setup = Box<dyn FnOnce(&eframe::CreationContext<'_>)>`(clippy の `type_complexity` が生の型を蹴るので別名にした。API としてもこちらが読みやすい)。`ReactApp::new` の先頭で `take()` して呼ぶ。1 フレーム目に paint callback が追加されうるので、store を作るより前に走らせる。`ReactApp::new` の `options` 引数を `&Options` から `&mut Options` にし、native / wasm どちらの起動閉包も `options` を move で持って `take` する(閉包はどちらも 1 回しか呼ばれない)。
+
+- テストは `crates/react-egui-app/src/lib.rs` の `#[cfg(test)] mod tests` に 1 つ、`setup` の既定が `None` であること。kittest は eframe を動かせないので、実際に wgpu で描かれることの確認は目視(`RUST_LOG=eframe=info`)に委ねる。
+- ARCHITECTURE 7 章(`Options` の一覧と `setup`)と 8 章(バックエンドと WebGL fallback)を更新。
