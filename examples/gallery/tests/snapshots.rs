@@ -173,6 +173,8 @@ same!(counter, egui::vec2(400.0, 300.0), 200, as_it_opens);
 same!(todo, egui::vec2(400.0, 400.0), 100, two_items);
 same!(form, egui::vec2(420.0, 420.0), 0, edited);
 single!(theme, egui::vec2(420.0, 420.0));
+// The module is the crate's lib name, so the image is `custom_hook.png`.
+single!(custom_hook, egui::vec2(420.0, 620.0));
 
 /// The clock, written out rather than through [`single!`], because its picture
 /// has to be pinned to a time.

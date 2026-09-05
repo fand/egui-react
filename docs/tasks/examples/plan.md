@@ -410,3 +410,21 @@ CI、Pages、README。
   - `single!` はプロパティを渡せないので、clock の snapshot だけマクロを使わず手で書いた。
 - テストは kittest の `Role::Label` のラベルが `Node::label()` ではなく `Node::value()` に入る(accesskit の仕様)ことに注意。ストップウォッチの表示を読むヘルパーで踏んだ。
 - gallery 一覧では theme の次、layout の前。
+
+### 手順 5-4: custom-hook
+
+`#[hook]` で書いた 3 つの hook を、それぞれ 2 つのコンポーネントから呼ぶ。パッケージ名 `custom-hook` / lib 名 `custom_hook`。
+
+| hook | 中身 | 呼ぶ側 |
+|---|---|---|
+| `use_debounce(cx, &str, f64) -> String` | `use_state` 3 つ(最新値 / 変わった時刻 / 落ち着いた値)。時刻は `i.time`。待っている間は誰も次のフレームを要求しないので、hook 自身が `request_repaint_after(残り)` する | `SearchBox` / `Mirror` |
+| `use_previous<T>(cx, T) -> Option<T>` | `use_state((現在, 直前))` の 3 行 | `SearchBox`(落ち着いたクエリの 1 つ前)/ `Counter` |
+| `use_window_size(cx) -> Vec2` | `cx.ctx().viewport_rect().size()`。state を持たない hook | `Responsive`(幅で row / column を切り替える)/ `SizeReadout` |
+
+- **`#[hook]` の効き目がそのまま example になる**。`SearchBox` と `Mirror` は同じ `use_debounce` を呼ぶが、片方に打ち込んでももう片方の表示は動かない。`#[hook]` が `Location::caller()` で呼び出し位置ごとにスコープを切るためで、テストがそれを固定している。
+- `egui::Context` に `screen_rect()` は無い。`viewport_rect()` を使う。
+- **gallery に埋めると `use_window_size` は gallery の窓の大きさを返す**(中央の列ではなく)。hook の意味としては正しい(窓の大きさを聞いているので)が、埋め込みでは `layout: row` 側に倒れる。単体で動かすと窓を狭めて切り替わるのが見える。
+- state を持たない `use_window_size` に `#[hook]` を付けるかは迷ったが、付けた。hook は「`Cx` から読む再利用可能な関数」であって、state の有無は本質ではない。あとで state を足しても呼び出し側が変わらない。
+- snapshot の名前は lib 名に合わせて `custom_hook.png`(`single!` が `stringify!` するため)。example 名は `custom-hook`。
+- **テストで `use_debounce` の時間を止められる**。`harness.input_mut().time = Some(t)` は `RawInput::take()` が `time` を保つので次のフレームにも残る。0.1 秒では `settled` が動かず、5.0 秒にすると追いつくところまで固定した。
+- gallery 一覧では clock の次、layout の前。

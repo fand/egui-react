@@ -33,6 +33,7 @@ example-meta.workspace = true
 
 clock = { path = "../clock" }
 counter = { path = "../counter" }
+custom-hook = { path = "../custom-hook" }
 fetch = { path = "../fetch" }
 form = { path = "../form" }
 layout = { path = "../layout" }
