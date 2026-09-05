@@ -18,6 +18,7 @@ use escape_hatch::App as EscapeHatchApp;
 use fetch::App as FetchApp;
 use form::App as FormApp;
 use layout::App as LayoutApp;
+use list_10k::App as ListApp;
 use theme::App as ThemeApp;
 use todo::App as TodoApp;
 
@@ -35,6 +36,7 @@ pub const EXAMPLES: &[Meta] = &[
     clock::META,
     custom_hook::META,
     escape_hatch::META,
+    list_10k::META,
     layout::META,
     fetch::META,
 ];
@@ -204,6 +206,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
             match name {
                 "todo" => { <TodoPlain/> }
                 "form" => { <FormPlain/> }
+                "list-10k" => { <ListPlain/> }
                 "layout" => { <LayoutPlain/> }
                 _ => { <CounterPlain/> }
             }
@@ -215,6 +218,10 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "clock" => { <ClockApp/> }
                 "custom-hook" => { <CustomHookApp/> }
                 "escape-hatch" => { <EscapeHatchApp/> }
+                // A thousand, not the ten thousand the binary opens with: at
+                // 10k a frame takes ~85ms, and the gallery around it would
+                // crawl too. The slider still reaches 10k for anyone curious.
+                "list-10k" => { <ListApp initial_count={1_000}/> }
                 "layout" => { <LayoutApp/> }
                 "fetch" => { <FetchApp/> }
                 _ => { <CounterApp/> }
@@ -249,6 +256,17 @@ macro_rules! plain_example {
 plain_example!(CounterPlain, counter::plain);
 plain_example!(TodoPlain, todo::plain);
 plain_example!(FormPlain, form::plain);
+
+/// The plain list, written out rather than through [`plain_example!`], so both
+/// versions show the same number of rows and the comparison is fair. The
+/// virtualised one would not have minded ten thousand.
+#[component]
+fn ListPlain(cx: &mut Cx) {
+    let mut state = use_state(cx, || list_10k::plain::PlainState::with_count(1_000));
+    cx.leaf_fill(&ItemStyle::default().grow(1.0), |ui| {
+        list_10k::plain::ui(ui, state.bind());
+    });
+}
 plain_example!(LayoutPlain, layout::plain);
 
 /// The code column, and the toggle between the two versions.

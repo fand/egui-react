@@ -446,3 +446,24 @@ CI、Pages、README。
 - `egui::ProgressBar` は accesskit に何も出さない(`ProgressIndicator` の label も value も `None`)。読めるように隣に `<Text>{format!("progress {:.2}", ..)}</Text>` を並べ、テストはそれを見る。
 - snapshot は `single!` に drive 関数を渡せる形(2 引数版が 3 引数版に展開される)を足し、「add sample」を 2 回押した状態で撮る。1 点だけではスパークラインが線にならない。
 - gallery 一覧では custom-hook の次、layout の前。
+
+### 手順 5-6: list-10k
+
+長いリストの値段を正直に見せる。パッケージ `list-10k` / lib `list_10k`、生 egui 版あり。
+
+**測った数字**(`cargo test --release -p list-10k --test bench -- --ignored --nocapture`。`Harness::step` を 20 フレーム、600x800、GPU 無しなので「1 フレームの CPU 側」。M4 Max)。
+
+| 行数 | react-egui | 生 egui(`show_rows`) |
+|---|---|---|
+| 100 | 0.84 ms | 0.18 ms |
+| 1,000 | 5.03 ms | 0.14 ms |
+| 10,000 | 86.82 ms | 0.17 ms |
+
+react-egui は全行を描く。`rsx!` の `for` は本物のループで、1 行が `<View>` + 子 3 つ、10k 行で taffy ノードが 4 万個になる。生 egui 版は `ScrollArea::show_rows` で見えている 15 行前後しか描かず、残りは高さの予約だけなので、行数を 100 倍にしても frame time が動かない。**この example は生 egui が勝つ。** 数字は README には書かない(ここと example の module doc にある)。
+
+- **`<ScrollArea>` の仮想化 prop は足さなかった**。plan 5 章の候補だが、`<ScrollArea>` は children を `impl View` という不透明な閉包で受け取るので、`for` ループの中身を切り出すことができない。`rows={(count, row_height)}` を意味あるものにするには「index を受け取って View を返す閉包」を prop に取る別の要素(`<VirtualList rows={n} row_h={h} render={|i| ..}/>`)が要る。40 行では収まらないし、`for` の書き味も変わる。今回は見送り、example が正直にコストを見せ、生 egui 版が仮想化の効果を見せる形にした。
+- **既定の行数**。`DEFAULT_COUNT = 10_000`(名前どおり)。ただし gallery は `initial_count={1_000}` を渡す。10k だと 1 フレーム 85ms で gallery 全体が 12fps になり、「react-egui が遅い」と読まれてしまう。スライダーは 10k まで届くので、押したい人は押せる。生 egui 版も gallery では 1,000 に揃える(仮想化されているので 10k でも平気だが、トグルで行数が変わると比較にならない)。
+- **snapshot は別名**(`list_10k_react.png` / `list_10k_plain.png`)。同名で撮ると 9,373 px ずれる。中身は同じリストだが、片方は全行を描き、片方は見えている 12〜14 行を描いて残りを予約するので、行の中の 3px 程度のずれが行数ぶん繰り返される。詰めるには生 egui 版を taffy の計算に合わせて書くことになり、5 章の線を越える。form / counter / todo / layout と違ってここは構造が違う。
+- **kittest: `ScrollArea` の中のボタンは `click()` では押せない**。シミュレートしたポインタ押下がスクロール領域に吸われて widget に届かない。`click_accesskit()` なら効く。行の削除テストで踏んだ。
+- ベンチは `#[ignore]` のテストとして置いた(`tests/bench.rs`)。release でしか意味が無く、アサーションでもないため。
+- gallery 一覧では escape-hatch の次、layout の前。

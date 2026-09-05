@@ -38,6 +38,7 @@ escape-hatch = { path = "../escape-hatch" }
 fetch = { path = "../fetch" }
 form = { path = "../form" }
 layout = { path = "../layout" }
+list-10k = { path = "../list-10k" }
 theme = { path = "../theme" }
 todo = { path = "../todo" }
 

@@ -210,4 +210,43 @@ mod clock {
         harness.snapshot("clock");
     }
 }
+/// The two long lists, written out rather than through [`same!`], because both
+/// sides need telling how many rows to show. A hundred: ten thousand would look
+/// the same and take a second to draw.
+///
+/// Separate images, unlike the other pairs. The two are the same list, but one
+/// draws every row and the other draws the dozen the viewport covers and
+/// reserves the rest, and the small differences that follow — where a row sits
+/// inside the scrolled area, a point of padding here and there — repeat once
+/// per visible row. Closing them would mean writing the plain version to match
+/// taffy's arithmetic rather than to be read, which is the line plan.md
+/// section 5 draws.
+mod list_10k {
+    use super::*;
+    use ::list_10k::App as ExampleApp;
+    use ::list_10k::plain::{self, PlainState};
+
+    const SIZE: egui::Vec2 = egui::vec2(520.0, 420.0);
+    const COUNT: usize = 100;
+
+    #[test]
+    fn react_egui() {
+        let mut harness = react(SIZE, |cx| {
+            rsx! { <ExampleApp initial_count={COUNT}/> }.show(cx)
+        });
+        harness.run();
+        harness.snapshot("list_10k_react");
+    }
+
+    #[test]
+    fn plain_egui() {
+        let mut harness = harness(SIZE, PlainState::with_count(COUNT), |ui, state| {
+            ui.set_min_size(ui.available_size());
+            plain::ui(ui, state);
+        });
+        harness.run();
+        harness.snapshot("list_10k_plain");
+    }
+}
+
 same!(layout, egui::vec2(520.0, 900.0), 1000, as_it_opens);
