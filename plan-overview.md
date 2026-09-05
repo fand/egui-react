@@ -22,6 +22,7 @@
 | PR2 | 2, 3, 4, 5 | `docs/tasks/core/` |
 | PR3 | 6 | `docs/tasks/async/` |
 | PR4 | 7 | `docs/tasks/mobile/` |
+| PR5, PR6, PR7 | 6.5 | `docs/tasks/examples/` |
 
 フェーズ 8(公開準備)は PR4 の後に別途計画する。
 
@@ -69,6 +70,13 @@
 
 - `use_future`(native は thread / tokio、wasm は wasm-bindgen-futures)。完了時の `request_repaint`。
 - fetch example。
+
+### フェーズ 6.5: examples と gallery
+
+- 既存 example を lib + bin に分割し、全 example をブラウザで試せる gallery(1 wasm)を GitHub Pages に置く。
+- gallery で example と実装コードを並べ、生 egui 版と切り替えて差を見せる。
+- examples を足す: form、theme、clock、custom-hook、escape-hatch、list-10k、shell、showcase。
+- `react-egui-app` の `wgpu` feature と `Options.setup`、`<Canvas>` 要素、shader example。
 
 ### フェーズ 7: モバイル
 

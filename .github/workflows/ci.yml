@@ -7,6 +7,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Incremental artifacts double the size of `target/`; CI never reuses them.
+  CARGO_INCREMENTAL: 0
 
 jobs:
   ci:
@@ -14,6 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # `cargo test --workspace` links one debug binary per test file, several
+      # hundred MB each with egui inside. The runner's ~14 GB was not enough
+      # and `ld` died with a bus error, so drop the toolchains we never use.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup
+          df -h /
 
       # eframe (pulled in by the examples, which `cargo test --workspace`
       # builds) needs the X11 / Wayland / GTK development headers on Linux.
@@ -56,14 +66,17 @@ jobs:
 
       # `trunk build <path>` resolves the cargo root package from the current
       # directory, so the example's Trunk.toml is passed instead.
-      - name: trunk build (counter)
-        run: trunk build --release --config examples/counter/Trunk.toml
-
-      # Also the only check that the wasm `spawn_local` path of `use_future`
-      # really links.
-      - name: trunk build (fetch)
-        run: trunk build --release --config examples/fetch/Trunk.toml
+      #
+      # Every example, the gallery included. `fetch` is also the only check
+      # that the wasm `spawn_local` path of `use_future` really links.
+      - name: trunk build (every example)
+        run: |
+          for config in examples/*/Trunk.toml; do
+            echo "==> $config"
+            trunk build --release --config "$config"
+          done
 
 # The pixel snapshot tests (`cargo test -p react-egui-elements --features
-# snapshot`) are deliberately not run here: the committed images are rendered on
-# macOS and would not match this runner's software renderer. See the README.
+# snapshot` and `cargo test -p gallery --features snapshot`) are deliberately
+# not run here: the committed images are rendered on macOS and would not match
+# this runner's software renderer. See the README.

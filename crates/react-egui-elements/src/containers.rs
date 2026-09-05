@@ -82,10 +82,16 @@ pub fn Collapsing(
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
     cx.leaf(&style, move |ui| {
+        // The header has no `wrap_mode` builder, so the mode goes on the leaf's
+        // `Ui` (see the `widgets` module docs). The body puts it back: what the
+        // children draw is the caller's business.
+        let outer = ui.style().wrap_mode;
+        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
         egui::CollapsingHeader::new(header)
             .id_salt(scope)
             .default_open(default_open)
             .show(ui, move |ui| {
+                ui.style_mut().wrap_mode = outer;
                 let mut cx = Cx::new(store, ui, scope);
                 children.show(&mut cx);
             });

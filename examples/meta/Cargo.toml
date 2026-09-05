@@ -1,0 +1,15 @@
+[package]
+name = "example-meta"
+description = "Shared metadata type for the react-egui examples"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "example_meta"
+path = "src/lib.rs"
+
+[dependencies]

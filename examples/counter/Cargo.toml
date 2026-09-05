@@ -8,9 +8,17 @@ repository.workspace = true
 rust-version.workspace = true
 publish = false
 
+[lib]
+name = "counter"
+path = "src/lib.rs"
+
 [[bin]]
 name = "counter"
 path = "src/main.rs"
+
+[[bin]]
+name = "counter-plain"
+path = "src/plain_main.rs"
 
 [dependencies]
 eframe.workspace = true
@@ -18,3 +26,7 @@ egui.workspace = true
 react-egui.workspace = true
 react-egui-app.workspace = true
 react-egui-elements.workspace = true
+example-meta.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true
