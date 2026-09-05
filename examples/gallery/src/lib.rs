@@ -132,19 +132,15 @@ fn List(
     }
 }
 
-/// A small button that keeps its label on one line.
+/// A small button, optionally showing whether it is on.
 ///
-/// `<Button>` would do, except for how a taffy leaf is measured. egui_taffy
-/// caches the size a leaf reported the last time it was drawn and hands that
-/// back to taffy as both the min- and the max-content size. The first draw
-/// happens in a zero-width `Ui`, so a widget that wraps its text reports one
-/// character there and the node never grows again: the label ends up written
-/// downwards, one letter per line. `<Text>` avoids this by setting
-/// `TextWrapMode::Extend` (ARCHITECTURE 6); `<Button>` keeps egui's default, so
-/// the gallery sets the wrap mode on the leaf's `Ui` itself. Buttons with
-/// `grow` are unaffected, because then taffy, not the content, sets the width.
-///
-/// This belongs in `react-egui-elements` — see the report for step 2.
+/// The escape hatch, because `react-egui-elements` has no toggle element and a
+/// tag wants to look pressed while it is filtering. `egui::SelectableLabel` has
+/// no `wrap_mode` builder, so the mode goes on the leaf's `Ui`: a taffy leaf is
+/// measured from its first draw, which happens in a zero-width `Ui`, and a
+/// widget left to wrap reports one character wide and stays that way. The
+/// elements set this for themselves (see `widgets`); a hand-written leaf has
+/// to do it too.
 #[component]
 fn Chip(
     cx: &mut Cx,

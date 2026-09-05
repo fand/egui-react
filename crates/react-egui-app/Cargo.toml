@@ -17,6 +17,10 @@ egui.workspace = true
 log.workspace = true
 react-egui.workspace = true
 
+[dev-dependencies]
+egui_kittest.workspace = true
+react-egui-elements.workspace = true
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true

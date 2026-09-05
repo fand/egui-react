@@ -14,6 +14,30 @@ const STORAGE_KEY: &str = "react_egui";
 /// The egui id of the root taffy container.
 const ROOT_ID: &str = "react_egui_root";
 
+/// The egui id of the root taffy container, as the runner builds it.
+///
+/// Exposed so tests and hand-written runners can reproduce the runner's frame.
+pub fn root_id() -> egui::Id {
+    egui::Id::new(ROOT_ID)
+}
+
+/// The taffy style of the root container: a column that fills the window.
+///
+/// The 100% minimums are what make the window the reference for the whole
+/// tree. `reserve_available_space` tells egui_taffy how much room there is,
+/// but it leaves the root node's own `size` at `auto`, so taffy sizes that node
+/// by its content: a `<View grow={1.0} justify="center">` child would then find
+/// no free space to grow into and nothing to be centred in, and the app would
+/// sit in the window's top-left corner. Minimums rather than fixed sizes, so
+/// content taller than the window still lays out at its own height.
+///
+/// Exposed for the same reason as [`root_id`].
+pub fn root_style() -> react_egui::taffy::Style {
+    ContainerStyle::default()
+        .direction("column")
+        .merge(&ItemStyle::default().min_w("100%").min_h("100%"))
+}
+
 /// How to run the app.
 pub struct Options {
     /// The native window title. Ignored on wasm.
@@ -128,12 +152,9 @@ where
             store.begin_pass(ui.ctx());
             {
                 let store: &Store = store;
-                let mut cx = Cx::new(store, ui, egui::Id::new(ROOT_ID));
+                let mut cx = Cx::new(store, ui, root_id());
                 let view = root(&mut cx);
-                let style = ContainerStyle::default()
-                    .direction("column")
-                    .merge(&ItemStyle::default());
-                cx.root_container(egui::Id::new(ROOT_ID), style, |cx| view.show(cx));
+                cx.root_container(root_id(), root_style(), |cx| view.show(cx));
             }
             // Every guard died with the component bodies above, so the sweep is
             // safe.

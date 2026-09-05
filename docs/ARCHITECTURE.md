@@ -310,9 +310,10 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 ```
 
 - `Cx` が「今 taffy コンテナの中か」を `Surface` として持つ(3.1)。`cx.leaf(&style, f)` は中なら `tui.style(style.to_taffy()).ui(f)`、外なら素の `ui` に流す。`cx.container(id, style, f)` は中なら子ノードの追加、外なら新しい `egui_taffy::tui(..)` ツリーの開始で、いずれも `f` には Taffy モードの `Cx` を渡す。
-- Ui モード直下の `container` は `reserve_available_width()` を既定とし、ランナーのルートだけ `reserve_available_space()` を使う。`grow` や `justify="space-between"` は余白の分配なので、`<View>` 自身に幅(`w`)が無いと効かない。
+- Ui モード直下の `container` は `reserve_available_width()` を既定とし、ランナーのルートだけ `reserve_available_space()` を使う。`grow` や `justify="space-between"` は余白の分配なので、`<View>` 自身に幅(`w`)が無いと効かない。`reserve_available_space()` は egui_taffy に「これだけ場所がある」と伝えるだけで、ルートノード自身の `size` は `auto` のままである。そのためランナーのルート item style は `min_w`/`min_h` を `100%` にする(7 章)。これが無いとルートノードは中身の大きさになり、`<View grow={1.0} justify="center">` は広がる余地も中央寄せする先も持たず、アプリは左上に寄る。
 - egui 標準の `<Vertical>` / `<Horizontal>` / `<Grid>` などのコンテナも leaf として残し、パフォーマンスが要る箇所の逃げ道にする。Taffy モードから呼ばれた場合、これらの egui-native なコンテナは 1 つの leaf として振る舞い、その中の子は Ui モードで描かれる。 `ScrollArea` だけは `leaf_fill`(3.1)で置く。与えられた空間を埋めるウィジェットなので、内容で測る leaf では最初のフレームの大きさに固定されてしまう。`<View>` の中の `ScrollArea` には `grow` か `h` を与える。
-- `<Text>` はデフォルトの wrap を `Extend` にし、egui_taffy が警告する「テキストが縦一列になる」問題を避ける。`<Label>` は egui 既定の wrap で、両者の違いはそこだけである。
+- テキストを持つ leaf は全て wrap を `Extend` にする(`Text` `Label` `Button` `Checkbox` `Slider` `ComboBox` のラベル、`Collapsing` のヘッダ)。egui_taffy は leaf を「前回描いた時の大きさ」で測り、その 1 つの値を min-content としても max-content としても taffy に返す。最初の描画は幅 0 の `Ui` で起きるので、wrap する widget はそこで「1 文字幅」を報告し、ノードはその細さのまま固定され、ラベルが 1 文字ずつ縦に並ぶ。`grow` や `w` を持つ leaf は taffy が幅を決めるので影響を受けない。`wrap_mode` の builder がある widget(`Button` / `Label`)はそれを使い、無いもの(`Checkbox` / `Slider` / `ComboBox` / `CollapsingHeader`)は leaf の `Ui` の `style.wrap_mode` に置く。`Collapsing` は本体に入る前に元の値へ戻す(children が描くものは呼び出し側の領分)。
+- `<Text>` と `<Label>` は共に `wrap` 属性で egui 既定の折り返しに切り替えられる。折り返すには幅が要るので、`w` か(幅の決まったコンテナの中の)`grow` と併せて使う。両者の違いは `Text` が `size` / `color` / `strong` を持つことだけである。
 - ルートパネルは既定で `direction="column"` の `<View>` で包む。
 
 ### 要素一覧(`react-egui-elements`)
@@ -322,7 +323,7 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 | 種類 | 要素 |
 |---|---|
 | レイアウト | `View`(`display` / `direction` / `wrap` / `justify` / `align` / `align_content` / `gap` / `cols`)、`Text`(`size` / `color` / `strong` / `wrap`) |
-| ウィジェット | `Button`(`enabled`, `on_click`)、`Label`、`TextEdit`(`bind` / `multiline` / `hint` / `desired_width`, `on_change` / `on_submit`)、`Checkbox`(`bind` / `label`, `on_change`)、`Slider<T: Numeric>`(`bind` / `range` / `label`, `on_change`)、`ComboBox`(`bind` / `options` / `label`, `on_change`)、`Image`(`source` / `fit`)、`Separator`(`vertical`) |
+| ウィジェット | `Button`(`enabled`, `on_click`)、`Label`(`wrap`)、`TextEdit`(`bind` / `multiline` / `hint` / `desired_width`, `on_change` / `on_submit`)、`Checkbox`(`bind` / `label`, `on_change`)、`Slider<T: Numeric>`(`bind` / `range` / `label`, `on_change`)、`ComboBox`(`bind` / `options` / `label`, `on_change`)、`Image`(`source` / `fit`)、`Separator`(`vertical`) |
 | コンテナ | `ScrollArea`、`Collapsing`、`Frame`、`Window`、`Panel`(`side`)、`CentralPanel`、`Vertical`、`Horizontal`、`Grid` + `row()` |
 | 非同期 | `Suspense`(`fallback: impl View`、`shares_ui`。中の `use_future` が 1 つでも `Pending` なら children の代わりに `fallback` を描く。5.8) |
 
@@ -356,7 +357,7 @@ examples/              counter, todo (use_reducer + use_persisted), layout, fetc
 
 1. `CentralPanel` で包む(eframe が渡すルート `Ui` には余白も背景も無く、ライトモードで文字が読めないため)。
 2. `store.begin_pass(ctx)`。
-3. ルートの `Cx` を作り、`root(cx)` が返した `View` を `cx.root_container(..)`(`direction: column`、`reserve_available_space`)の中で `show` する。ネストしたコンテナは幅だけを確保するので、ルートだけが高さも取る。
+3. ルートの `Cx` を作り、`root(cx)` が返した `View` を `cx.root_container(..)`(`direction: column`、`min_w`/`min_h` は `100%`、`reserve_available_space`)の中で `show` する。ネストしたコンテナは幅だけを確保するので、ルートだけが高さも取る。この id とスタイルは `react_egui_app::root_id()` / `root_style()` として公開し、テストや自作ランナーが同じ枠を再現できるようにする。
 4. `store.end_pass()`。
 
 `Options` は `title` / `max_passes`(既定 3、`ctx.options_mut` で明示設定。5.3 参照)/ `persist` / `canvas_id`(wasm)/ `native`(native のみ)を持つ。`App::save` が `store.save_persisted()` を `Storage` の `"react_egui"` キーに書き、`CreationContext::storage` から `load_persisted` する。wasm では `cfg(target_arch = "wasm32")` で `WebRunner` を `wasm_bindgen_futures::spawn_local` に載せ、canvas は `canvas_id` で引く。
