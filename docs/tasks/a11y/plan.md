@@ -375,18 +375,20 @@ A-3 は「今後 example を足した人が名前を忘れたら赤くなる」�
 wasm の自動テストは `wasm-bindgen-test` で DOM の形(ノード数、`role`、`aria-label`、矩形)までは書けるが、**支援技術が実際にどう読むかは自動化できない**。VoiceOver の挙動が全てなので、チェックリストを置いて手で回す。
 
 - `wasm-bindgen-test`(headless Chrome): `TreeUpdate` を手で作って `Adapter` に流し、DOM に期待どおりの要素と属性と座標が並ぶこと。差分更新でノードが増減すること。adapter は egui 非依存なので、このテストに egui は出てこない。
-- VoiceOver チェックリスト(macOS、Safari と Chrome の両方。gallery の counter / todo / form):
+- VoiceOver チェックリスト(macOS、Safari と Chrome の両方。gallery の counter / todo / form)。
 
-  | | 確かめること |
-  |---|---|
-  | 1 | VO+右矢印でウィジェットを順に読み、ボタン名が読まれる |
-  | 2 | Tab でフォーカスが移り、VoiceOver のカーソルが追随する |
-  | 3 | Enter / Space でボタンが押され、結果(カウンタの値)が読まれる |
-  | 4 | チェックボックスの「オン/オフ」が読まれ、切り替えられる |
-  | 5 | テキスト欄に入力でき、入力した値が読まれる |
-  | 6 | スライダーの値が読まれ、矢印キーで動かせる |
-  | 7 | ミラーがマウス操作を邪魔していない(`pointer-events`。Flutter が [#188859](https://github.com/flutter/flutter/issues/188859) / [#160560](https://github.com/flutter/flutter/issues/160560) で踏んでいる穴) |
-  | 8 | フォーカスされているノードが**目でも**分かる(egui 側のフォーカスリングが出ている)。Flutter web は透明なミラーのせいでこれが出ず、[#186044](https://github.com/flutter/flutter/issues/186044) が open のまま |
+  **状態: まだ回していない。人間が要る。** 手順 10 までは headless Chrome で確かめられる範囲を全部確かめたが(6.10)、支援技術が実際にどう読むかは自動化できないと 4 章の頭に書いたとおりで、下の 8 行は人が VoiceOver を入れて触るまで空欄のままである。**F1 を続けるか F2 に落ちるかはこの表の結果で決まる**ので、手順 11 に進む前にここを埋める。1 と 2 が落ちるなら F2、通るなら F1 のまま上流に出せる。
+
+  | | 確かめること | 結果 |
+  |---|---|---|
+  | 1 | VO+右矢印でウィジェットを順に読み、ボタン名が読まれる | 未 |
+  | 2 | Tab でフォーカスが移り、VoiceOver のカーソルが追随する | 未 |
+  | 3 | Enter / Space でボタンが押され、結果(カウンタの値)が読まれる | 未 |
+  | 4 | チェックボックスの「オン/オフ」が読まれ、切り替えられる | 未 |
+  | 5 | テキスト欄に入力でき、入力した値が読まれる | 未 |
+  | 6 | スライダーの値が読まれ、矢印キーで動かせる | 未 |
+  | 7 | ミラーがマウス操作を邪魔していない(`pointer-events`。Flutter が [#188859](https://github.com/flutter/flutter/issues/188859) / [#160560](https://github.com/flutter/flutter/issues/160560) で踏んでいる穴) | 未 |
+  | 8 | フォーカスされているノードが**目でも**分かる(egui 側のフォーカスリングが出ている)。Flutter web は透明なミラーのせいでこれが出ず、[#186044](https://github.com/flutter/flutter/issues/186044) が open のまま | 未 |
 
   読み上げの様子は動画に録って上流の issue に貼る。
 
@@ -402,7 +404,7 @@ task.md の終了条件は 3 つある。3 番目は PR #4 で済み、1 番目�
 
 ## 6. 実装で判明した差分
 
-手順 2〜5(PR #4、ラベル固め)は 6.1〜6.5、手順 6〜9(PR #5、ミラー本体)は 6.6〜6.9。
+手順 2〜5(PR #4、ラベル固め)は 6.1〜6.5、手順 6〜9(PR #5、ミラー本体)は 6.6〜6.9、手順 10(フォーカス F1)は 6.10。
 
 ### 6.1 `Button` の `label` は 3 章のとおり。`Image` の `alt` も同じ
 
@@ -472,3 +474,48 @@ counter と custom-hook のボタン。名前は空ではない(「プラス」�
 - 2.1 の表のうち `input` / `change` は、ミラーが今 `<div>` なので実際には飛んでこない(本物の `<input>` にしたときのため)。チェックボックスの toggle は合成 `click` の方で届く。
 - **headless Chrome での実測**(gallery、`?a11y-debug`): ミラーの button を `click()` すると example が切り替わり、counter の `+` で数が増える。`keydown` の Enter / Space も効く。`elementFromPoint` はミラーではなく canvas を返す(`pointer-events: none` が効いている)。
 - `crates/accesskit-web/tests/mirror.rs` は `#![cfg(target_arch = "wasm32")]` で囲ってあるので `cargo test --workspace` は素通りする。`wasm-pack test --headless --chrome crates/accesskit-web` で 4 本通る。
+
+### 6.10 手順 10: フォーカス F1 と、値ウィジェットの本物の要素
+
+**DOM → egui は書くものが無かった。** 2.3 は「canvas の `keydown` で Tab を捕まえて次のノードを自分で決める」と書いていたが、実測すると **eframe と egui がすでに両方やっていた**。
+
+- eframe の `keydown` listener は canvas に張ってあり(`web/events.rs:83`)、Tab を `egui::Key::Tab` としてそのまま egui に渡したうえで `prevent_default()` する(同 269 行、コメントに「egui uses Tab to move focus within the egui app」とある)。ブラウザが次の HTML 要素にフォーカスを移すことは無い。
+- egui 側は `Memory::begin_pass` が Tab / Shift+Tab を `FocusDirection::Next` / `Previous` に変え(`memory/mod.rs:596`)、`end_pass` でウィジェットを選ぶ。
+
+つまり **F1 の DOM → egui 方向は「何もしない」が正解**で、自前の Tab 走査を書くと egui と二重に動く。手順 10b はミラー側では 1 行も書かず、`focus_moved` で `aria-activedescendant` を追随させるだけにした。エコー抑制も要らない(ミラーは `focus()` を呼ばないので、返ってくるフォーカスイベントが無い)。
+
+**`aria-activedescendant` を正当にするのに 2 つ足りなかった。** 調べた結果、参照先は「参照元の DOM の子孫」か「`aria-owns` で参照元が所有している要素」のどちらかである必要がある(WAI-ARIA 1.2 の `aria-activedescendant`、APG の "Developing a Keyboard Interface")。ミラーのホストは canvas の**兄弟**なので、canvas に `aria-owns="<host id>"` を付けた。さらにこの属性が許されるのは `application` / `combobox` / `composite`(とその派生)/ `group` / `textbox` の role だけで、素の `<canvas>` はどれでもない。そこで **canvas に `role="application"` を付けた** — 2.1 で「VoiceOver で確かめてから決める」と保留にしていた判断を、ここで採ったことになる。Chrome の a11y ツリーでミラー全体が canvas(application)の下にぶら下がることは確認した。
+
+- **代案として「ミラーを canvas の子にする」**(canvas fallback content)がある。子孫になるので `aria-owns` も `role` も要らない。採らなかったのは、1.5 のとおり fallback content の要素は**描画ボックスを持たない**ので、我々が手順 7 で入れた座標が意味を失うからである。上流に出すときの選択肢としては残る。
+- **支援技術の対応は薄い。** VoiceOver + Safari は **Safari 18(2024)で直るまで `aria-activedescendant` を無視していた**([WebKit#167680](https://bugs.webkit.org/show_bug.cgi?id=167680))。`aria-owns` は macOS 14.3 / iOS 17.3 より前の VoiceOver に出ない。iOS / Android のタッチ系支援技術は a11y ツリーを直接なぞるので、この属性を事実上見ない。**F1 は「今の Safari なら通るかもしれない」程度**で、1.3 の見立て(F2 が本命)は変わっていない。4 章の表を人が埋めるまで結論は出ない。
+
+**1.4 の 3 つの規則はそのまま守った。**(a) `focus_moved` は**記録するだけ**にし、属性を書くのは `update_and_process_changes` が返った後。consumer は `focus_moved` を `node_removed` より前に呼ぶので、記録しないと消える途中の DOM を指しうる。(b) `blur()` に当たるのは「アプリがフォーカス無しを報告したときに属性を消すこと」なので、**消さない**。(c) 同じノードへの再設定は握り潰す。例外は 1 つだけで、**参照先の要素が木から消えたときは属性を外す**(宙に浮いた参照は無いより悪い)。
+
+**`aria-selected` は付けなかった。** 10 の指示にはあったが、この属性は listbox の option や grid の row など一部の role でしか意味を持たず、button に付ければ支援技術に嘘をつくことになる。フォーカスの主張は canvas の `aria-activedescendant` 1 本に絞り、ミラー側は **`data-focused="true"`** という印だけにした。`?a11y-debug` では、フォーカス中のノードだけ枠をマゼンタにする(他は緑のまま)。
+
+**`tabindex` は `"0"` から `"-1"` に落とした**(ホストも `-1`)。手順 7 の宿題(6.7 の最終行)がこれで片付く。focusable なノードに属性を出すこと自体は残してあるので、「どれがアプリのフォーカス先か」は DOM を見れば分かる。
+
+**値ウィジェットは本物の要素にした**(手順 9 で残した穴、6.9 の 4 点目)。
+
+- `Role::Slider` / `Role::SpinButton` → `<input type="range">`。`min` / `max` / `step` はノードの数値から。`step` が無いと range は整数に丸めるので、無いときは `any` を入れる。
+- `Role::TextInput` → `<input type="text" readonly>`。**readonly はミラーが打鍵を取らないため**で、入力は 2.1 のとおり eframe の text agent に任せる。
+- **値は属性ではなくプロパティで書く。** 支援技術が range を動かした後は、`value` 属性は `defaultValue` にしかならず、表示が egui から離れる。DOM の値がアプリの値と違うときだけ上書きする形にした。
+- `role` 属性はそのまま残してあるので、6.9 で書いた `NUMERIC_ROLES` の判定(`input` / `change` → `SetValue`)がそのまま効く。`aria-valuenow` / `valuemin` / `valuemax` も全ノードに出したままで、`<div>` のままの role の取り分になる。
+- checkbox は Flutter と同じく `<div role="checkbox">` + `aria-checked` のまま。
+- role が変わって `<div>` と `<input>` を跨ぐときは要素を作り直し、子要素は移し替える(タグは後から変えられないため)。egui のノード id はウィジェットごとに安定なので実際にはまず起きない。
+
+**headless Chrome での実測**(`trunk build` した gallery を配って `?a11y-debug`)。
+
+- **counter**: canvas をクリックしてから Tab を送ると、canvas の `aria-activedescendant` が `window` → `showcase` → `counter` と動き、Shift+Tab で戻る。**`document.activeElement` は canvas のまま**で、`data-focused` の付いたノードと参照先は常に一致する。`+` まで Tab して Enter を押すとカウントが 1 → 2 に増えた。
+- **form**: ミラーの slider は `<input type="range" min="0" max="100" step="1">` で値は 50。`value = 80` にして `input` イベントを投げると、次のフレームで egui 側が 80 になった(要約行が「volume 80」)。TextEdit は `<input type="text" readonly value="anon">`。
+- **`elementFromPoint` は canvas を返す。** `pointer-events` は継承されるので、ホストの `none` が `<input>` にも効いている(4 章の 7 番目、Flutter が踏んだ穴)。
+- **canvas を blur しても `aria-activedescendant` は残り、戻しても同じ**。`data-focused` だけが消えて戻る(10d の確認)。
+- **TextEdit にフォーカスが移った瞬間だけ `document.activeElement` が `<input>` になる**が、これはミラーではなく **eframe の text agent** である。eframe の `has_focus` はこれも「フォーカスあり」と数えるので(1.3)、問題は起きない。
+- コンソールにエラーは出ない。
+
+**残っている穴。**
+
+- **VoiceOver の実機は未確認**(4 章)。F1 / F2 の判定はそこで初めて付く。
+- `Role::MultilineTextInput` は `<div role="textbox">` のまま。`<textarea>` にするかは、テキスト欄の読み上げを一度見てから決める。
+- form の slider の隣に出る `SpinButton`(egui の `DragValue`)は `step` がドラッグの刻み(1.12…)になる。矢印キーで動かす分には粗すぎるので、`numeric_value_step` を使うかどうかは role ごとに分ける余地がある。
+- `aria-owns` はミラーを canvas の下に付け替えるので、canvas 自身の子(将来 eframe が何か置いたら)との順序は保証しない。
