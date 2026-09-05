@@ -10,11 +10,15 @@
 //!   [`Window`](containers::Window), ..), which wrap an egui container and
 //!   re-enter the tree with the inner `Ui`.
 //!
+//! Plus [`Suspense`](suspense::Suspense), which draws a fallback until the
+//! `use_future`s below it are ready.
+//!
 //! Every element accepts the layout attributes of
 //! [`ItemStyle`](react_egui::ItemStyle) through a `style` prop, which `rsx!`
 //! fills in from `w=` / `grow=` / `p=` and friends.
 
 pub mod containers;
+pub mod suspense;
 pub mod view;
 pub mod widgets;
 
@@ -27,6 +31,7 @@ pub mod prelude {
         CentralPanel, Collapsing, Frame, Grid, Horizontal, Panel, Row, ScrollArea, Side, Vertical,
         Window,
     };
+    pub use crate::suspense::Suspense;
     pub use crate::view::{Text, View};
     pub use crate::widgets::{
         Button, ButtonEvent, Checkbox, CheckboxEvent, ComboBox, ComboBoxEvent, Image, Label,

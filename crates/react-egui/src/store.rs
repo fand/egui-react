@@ -150,6 +150,9 @@ pub struct Store {
     collisions: RefCell<Vec<Collision>>,
     /// The `provide_context` stack: the slot id each type is currently bound to.
     contexts: RefCell<Vec<(TypeId, egui::Id)>>,
+    /// The `<Suspense>` stack: how many `use_future`s are pending in each open
+    /// boundary, innermost last.
+    suspense: RefCell<Vec<usize>>,
     /// Work queued by `cx.defer` and `update_later`, applied in `end_pass`.
     deferred: RefCell<Vec<Deferred>>,
     /// `use_persisted` values as JSON, keyed by the user's string key.
@@ -185,6 +188,7 @@ impl Store {
             ctx: egui::Context::default(),
             collisions: RefCell::new(Vec::new()),
             contexts: RefCell::new(Vec::new()),
+            suspense: RefCell::new(Vec::new()),
             deferred: RefCell::new(Vec::new()),
             persisted: RefCell::new(HashMap::new()),
             persisted_keys: RefCell::new(BTreeSet::new()),
@@ -198,6 +202,7 @@ impl Store {
         self.pass.set(self.pass.get() + 1);
         self.collisions.borrow_mut().clear();
         self.contexts.borrow_mut().clear();
+        self.suspense.borrow_mut().clear();
     }
 
     /// Finish the pass: apply the deferred queue, then sweep, then warn.
@@ -315,6 +320,32 @@ impl Store {
     /// Whether the store holds no slots.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Enter a `<Suspense>` boundary: push a counter of its own.
+    ///
+    /// The stack is cleared by [`Store::begin_pass`], so an early return out of
+    /// a boundary cannot leak a counter into the next pass.
+    pub fn begin_suspense(&self) {
+        self.suspense.borrow_mut().push(0);
+    }
+
+    /// Leave the innermost `<Suspense>` boundary.
+    ///
+    /// Returns how many `use_future`s were pending inside it. Nested boundaries
+    /// keep their own count, so this only reports what nothing inner caught.
+    pub fn end_suspense(&self) -> usize {
+        self.suspense.borrow_mut().pop().unwrap_or(0)
+    }
+
+    /// Count one pending `use_future` against the innermost boundary.
+    ///
+    /// Does nothing outside a boundary: a `use_future` with no `<Suspense>`
+    /// above it just returns `Poll::Pending` to its component.
+    pub fn note_pending(&self) {
+        if let Some(count) = self.suspense.borrow_mut().last_mut() {
+            *count += 1;
+        }
     }
 
     /// Queue work to run at the end of the pass.

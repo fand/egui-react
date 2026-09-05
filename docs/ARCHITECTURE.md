@@ -198,7 +198,8 @@ Dialog(cx, DialogProps {
 | `use_effect(cx, deps, f)` | deps 変化時(と初回)に `f` を**その場で**実行。`f` は cleanup(`FnOnce + 'static`)を返してよい |
 | `use_reducer(cx, reducer, init) -> (State<S>, Dispatch<Msg>)` | `Dispatch` は `Clone + Send + 'static`。`send` はキューに積んで `request_repaint` し、**次に hook を訪問した時**に reducer を順に適用する(下記) |
 | `provide_context(cx, handle, children)` / `use_context::<T>(cx) -> Option<Handle<T>>` | 子孫レンダリング中だけ有効。guard ではなく `Handle` を返す(親の guard と二重借用しないため)。ストアは `(TypeId, スロット Id)` のスタックを持ち、`use_context` がスロット Id から `Handle` を組み直す。`Handle` 自体は `'s` を持つので `dyn Any` には入れられない |
-| `use_future(cx, deps, async_fn) -> &Poll<T>` | native は thread / tokio、wasm は wasm-bindgen-futures で実行。完了時に `request_repaint` |
+| `use_future(cx, deps, \|\| async { .. }) -> &Poll<T>` | deps のハッシュが変わるたびに future を作り直して起動する。native はスレッド 1 本 + `pollster::block_on`、wasm は `wasm_bindgen_futures::spawn_local`。完了時に結果をスロットへ書いて `request_repaint`。deps 変更後に届いた古い結果は捨てる。`Pending` は最も近い `<Suspense>` に数えられる(下記) |
+| `spawn(fut)` | hook ではないが同じ実行機構。起動して忘れる。結果は `Dispatch` で送る(`spawn(async move { dispatch.send(Msg::Saved(api.await)) })`) |
 | `cx.defer(f)` / `state.update_later(f)` / `handle.update_later(f)` | パス末(sweep の前)に実行される遅延キュー。閉包は `'static`。`update_later` は適用時に `request_repaint` するが、`defer` は状態に触れないのでしない |
 
 `use_callback`、`memo` は提供しない。差分が無いので参照同一性を保つ意味がない。フレームを跨ぐ callback の代替は `Dispatch` である。
@@ -231,6 +232,18 @@ Dialog(cx, DialogProps {
 - 訪問のたびにキューを空にするので、同一フレームの 2 パス目でメッセージが二重に適用されることはない。
 - ハンドラから `send` した場合の見え方(次フレームで反映)は `State` への書き込みと同じで変わらない(5.7)。
 - スロットは 2 つ使う。state 側は素の `S` を持ち(`State` と `update_later` がそのまま downcast できる)、メッセージキューは `Arc<Mutex<Vec<M>>>` を持つ別スロットに置く。
+
+### `use_future` の詳細
+
+- 実行機構の platform 差は `SpawnFuture<T>` trait と core の `task::spawn` に閉じる。bound は native が `Future<Output = T> + Send + 'static`、wasm が `Future<Output = T> + 'static` で、cfg で切り替えた 2 つの blanket impl で同じ名前にする。ユーザーが書く型にこの差は出ない。結果の型 `T` は両 platform で `Send + 'static` を要求する。bound を platform ごとに変えるのは future 側だけにして、ユーザーの型を 1 種類で済ませるためである(wasm で `JsValue` を返したい場合は future の中で `Send` な型に変換する)。
+- native の executor はスレッド 1 本 + `pollster::block_on`。future 1 つにつきスレッド 1 本で、プールは作らない。`ehttp` やファイル IO のような「待つだけ」の future に十分で、依存も最小。CPU を食う処理は future の中で自分でスレッドを分ける。スレッド生成に失敗した場合は future を捨てて `log::error!` するだけで、panic しない(hook は `Pending` のまま止まる)。tokio が要るアプリは future の中で `Handle::current().spawn(..).await` する。
+- `f` は呼び出し位置でその場で呼ぶ(`use_effect` と同じ)。ローカルや `State` の guard を読んで future を組み立ててよい。future 自身は `'static` なので、`move` で clone した値を持つ。
+- スロットは 2 つ使う(`use_reducer` と同じ分け方)。**状態スロット**は deps のハッシュと `use_memo` と同じ `FrozenVec` を持ち、起動時に `Poll::Pending` を、結果が届いた時に `Poll::Ready(T)` を push する。**受信スロット**は `Arc<Mutex<Option<(u64, T)>>>`(世代付きの結果)と `Cell<u64>`(最後に起動した世代)を持つ。返り値は `use_memo` と同じ `&'s Poll<T>` で、`State` の guard と同時に生きる。古い `Poll` は同じパスで先に配った参照が指している可能性があるので、パス末の sweep(既存の `prune_memo`)で最新の 1 つだけを残す。
+- 起動の直後は `Pending` を返すだけで受信を試みない。その場で完了していても次のフレームで拾う(完了時に `request_repaint` が飛ぶので取りこぼさない)。同一フレームの 2 パス目は deps が一致するので起動せず、受信を試みるだけである。
+- deps を変えて future を作り直すのは訪問時。走っている古い future は止められないので完走するが、結果は世代不一致で捨てられる。訪問の前に「新しい方 → 古い方」の順で両方が届くと古い方が新しい結果を上書きしてしまうので、future 側の書き込みを「セルが空か、入っている世代より新しい時だけ」に限る。
+- unmount では 2 つのスロットが sweep で落ちる。走っている future は `Arc` の自分の側を持っているので書き込みは成功し、`request_repaint` が 1 回余分に飛ぶ。次のフレームで誰も読まず、`Arc` の最後の参照が future の終了と共に消える。
+- `Pending` を返す直前に `Store::note_pending()` を呼び、最も近い `<Suspense>` 境界のカウンタを +1 する(5.8)。境界が無ければ何もしない。
+- 子コンポーネントの書き方は `let Poll::Ready(x) = use_future(..) else { return };`。React の throw の代わりで、境界が fallback を描く。
 
 ## 5. ランタイム
 
@@ -273,6 +286,18 @@ egui_taffy はレイアウト変化時に `request_discard` を呼び、同一�
 
 ハンドラや effect が state を書き換えると、同じコンポーネント内でそれより前に描かれたウィジェットには次フレームで反映される。これは egui アプリの通常の性質で、React の「setState は次レンダで反映」に対応する差異として明示する。
 
+### 5.8 Suspense
+
+`<Suspense fallback={..}>children</Suspense>`(6 章、`react-egui-elements`)は、中の `use_future` が 1 つでも `Pending` なら children の代わりに `fallback` を描く。React の throw に当たるものが Rust には無いので、子は `let Poll::Ready(x) = use_future(..) else { return };` で抜け、`Pending` の数を `Store` のカウンタで数える。
+
+- **カウンタのスタック** `Store` は `provide_context` と同じ形で `RefCell<Vec<usize>>` を持つ。`begin_suspense` が 0 を積み、`end_suspense` が積んだ数(= 中で `Pending` だった `use_future` の数)を返し、`note_pending` が最も近い(= 一番内側の)カウンタを +1 する。入れ子は内側が自分の分を消費するので、外側には数えられない。スタックは `begin_pass` で clear する。core に足すのはこの 3 メソッドだけで、境界そのものは elements にある(`Collapsing` と同じ「子を包む要素」)。
+- **初期状態は suspended** 初回はオフスクリーンに描いてから、`Pending` が無ければ可視に切り替える。`max_passes` を使い切って `request_discard` が却下された時に、描きかけの children ではなく `fallback` が見える側に倒すためである。
+- **suspended 中も children は描く** オフスクリーンの不可視 `Ui`(`egui::Ui::new(ctx, id, UiBuilder::new().max_rect(画面外の固定矩形).invisible().sizing_pass())`)に描く。hooks が走り、future が起動して完了する。矩形を固定値にしてあるのは、egui_taffy が毎パス同じ大きさを見て無駄な `request_discard` を出さないようにするため。`invisible()` は描画と操作の両方を無効にするので、children のハンドラはオフスクリーンでは発火しない。ただし egui はウィジェットの accessibility ノードを可視性に関係なく作るので、スクリーンリーダーと `egui_kittest` からは suspended 中の children も「画面外の座標にあるノード」として見える。
+- **children のスコープ** suspended / 可視のどちらでも `Suspense` 自身の `scope_id()` を使う(`Cx::new(store, &mut ui, scope)` の第 3 引数)。hook のスロットが両経路で同じ Id になることが、切り替えで state と future が保たれる根拠である。`fallback` は同じ `cx` に描くが、`rsx!` の要素 Id は行・列で分かれるので children と衝突しない。
+- **切り替えは同一フレーム** 切り替えの瞬間に `Handle::set` で状態を反転し、`request_discard` で同じフレームをやり直す。描きかけの children も、fallback から children への 1 フレームの隙間も見えない。`Handle::set` は `request_repaint` するが、呼ぶのは切り替えの時だけなので suspended のまま毎フレーム repaint することはない。`max_passes`(ランナー既定 3)を使い切って discard が却下された場合は、ランナーが `request_repaint` して次フレームで揃う。
+- **`shares_ui`** `Suspense` は自分の `Ui` / leaf を作らず、children と fallback を親の surface(Ui でも Taffy でも)にそのまま流す。`<View>` の中に置けば children の `<View>` は親の taffy ツリーの子になる。
+- **React との差** suspended 中の children の `use_effect` は走る(React は commit しないので走らない)。React の `SuspenseList` / `useTransition` に当たるものは持たない。
+
 ## 6. レイアウト
 
 Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、egui 0.36、taffy 0.9 対応)。React Native と同じく「`<View>` が taffy ノード、egui ウィジェットは leaf」とする。
@@ -299,10 +324,11 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 | レイアウト | `View`(`display` / `direction` / `wrap` / `justify` / `align` / `align_content` / `gap` / `cols`)、`Text`(`size` / `color` / `strong` / `wrap`) |
 | ウィジェット | `Button`(`enabled`, `on_click`)、`Label`、`TextEdit`(`bind` / `multiline` / `hint` / `desired_width`, `on_change` / `on_submit`)、`Checkbox`(`bind` / `label`, `on_change`)、`Slider<T: Numeric>`(`bind` / `range` / `label`, `on_change`)、`ComboBox`(`bind` / `options` / `label`, `on_change`)、`Image`(`source` / `fit`)、`Separator`(`vertical`) |
 | コンテナ | `ScrollArea`、`Collapsing`、`Frame`、`Window`、`Panel`(`side`)、`CentralPanel`、`Vertical`、`Horizontal`、`Grid` + `row()` |
+| 非同期 | `Suspense`(`fallback: impl View`、`shares_ui`。中の `use_future` が 1 つでも `Pending` なら children の代わりに `fallback` を描く。5.8) |
 
 `bind` を持つ要素はウィジェットが直接 state に書き込むので、`State::bind()` を通す。これは `&mut *state` と違って state を dirty にしない(5.6)。同じ state を触るハンドラを同じ要素に渡すと E0502 になるので、`bind` 要素の `on_change` はログや `Dispatch` のように別の場所へ通知する用途に限る。
 
-egui 標準のコンテナのうち、親から場所を切り取るもの(`Panel` / `CentralPanel`)と、親の `Ui` に依存するもの(`Grid` の行区切り)は、`rsx!` が要素ごとに `Ui::push_id` で子 `Ui` を作ることの影響を受ける。行区切りは要素ではなく `{row()}`(`{expr}` ノードはスコープされない)として提供する。ドッキングされたパネルは自分の子 `Ui` から場所を切り取るので、兄弟要素として並べても左右には並ばない。パネルはアプリのルート(フェーズ 5 のランナー)で使うことを想定する。
+egui 標準のコンテナのうち、親から場所を切り取るもの(`Panel` / `CentralPanel`)と、親の `Ui` に依存するもの(`Grid` の行区切り)は、`rsx!` が要素ごとに `Ui::push_id` で子 `Ui` を作ることの影響を受ける。行区切りは要素ではなく `{row()}`(`{expr}` ノードはスコープされない)として提供する。ドッキングされたパネルは自分の子 `Ui` から場所を切り取るので、兄弟要素として並べても左右には並ばない。パネルはアプリのルート(フェーズ 5 のランナー)で使うことを想定する。これらは `#[component(shares_ui)]` を付けて親の surface をそのまま引き継ぐ。`Suspense` も同じ理由で `shares_ui` である。自分では何も描かず children と `fallback` を親にそのまま流すので、`<View>` の中に置けば children が親の taffy ツリーの子になる。
 
 ### レイアウト属性
 
@@ -323,7 +349,7 @@ react-egui/            core: View, Cx, Store, State, Handle, Dispatch, hooks, sw
 react-egui-macros/     rsx! (rstml 0.13 ベース), #[component], #[hook]
 react-egui-elements/   egui ウィジェット / コンテナのラッパー。View / Text は taffy 上に
 react-egui-app/        run(Options, |_cx| rsx!{ <App/> })。eframe を包み native / wasm / Android を吸収。iOS ランナーもここ
-examples/              counter, todo (use_reducer + use_persisted), layout, 後に fetch (use_future), mobile
+examples/              counter, todo (use_reducer + use_persisted), layout, fetch (use_future + Suspense + ehttp), 後に mobile
 ```
 
 `react_egui_app::run(Options, root)` が 1 フレームでやることは以下。
@@ -337,13 +363,14 @@ examples/              counter, todo (use_reducer + use_persisted), layout, 後�
 
 `root` は毎パス呼ばれ、返す `View` は `root` の中で作ったものを借用できない(hook の guard を借りた `rsx!` はローカルを借用した値を返すことになる)。hooks はコンポーネントに置き、ルートは `|_cx| rsx!{ <App/> }` の形にする。
 
-egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut Ui` を受け取るので、ランナーはそれをそのまま `Cx` に包む。`react-egui`(core)は `egui_taffy` を通常依存に持つ。`Cx` の `Surface` が `Tui` を知る必要があるためで、wasm ターゲットでもそのままビルドできる。
+egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut Ui` を受け取るので、ランナーはそれをそのまま `Cx` に包む。`react-egui`(core)は `egui_taffy` を通常依存に持つ。`Cx` の `Surface` が `Tui` を知る必要があるためで、wasm ターゲットでもそのままビルドできる。加えて future の実行機構として、native では `pollster`(`cfg(not(target_arch = "wasm32"))`)、wasm では `wasm-bindgen-futures`(`cfg(target_arch = "wasm32")`)を持つ。
 
 ## 8. プラットフォーム
 
 - native / wasm / Android: eframe。wasm は trunk でビルドする。
 - iOS: eframe は未対応(emilk/egui#3117 が open)。`egui-winit` + `egui-wgpu` の薄いランナーを `react-egui-app` 内に書く。ビルドは cargo-mobile2。
 - ライブラリ本体は `&mut egui::Ui` しか触らないので、プラットフォーム対応はランナー層とタッチ / IME の調整に閉じる。
+- 非同期の実行機構は core の `task::spawn` に閉じる(4 章「`use_future` の詳細」)。iOS / Android は native と同じスレッド経路を使う。
 
 ## 9. テスト
 
@@ -380,3 +407,6 @@ egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut 
 | ストアの置き場 | ランナーの `App` | `Context::data()` | テストしやすさ |
 | `Handler` の実装 | マーカー型引数で 2 つの blanket impl を共存 | 引数個数で `call0` / `call1` を選ぶ | マーカーは常に推論され、マクロは 1 形式だけ emit すればよい |
 | 値 prop とハンドラの借用衝突 | ユーザーが clone か `update_later` | `rsx!` が暗黙に clone | 型情報なしに clone を挿入できず、ゼロコピーを既定にしたい |
+| future の executor | スレッド 1 本 + `pollster` | tokio を必須にする | 依存が小さく、待つだけの future に十分。tokio が要るアプリは future の中で `Handle::current()` を使えばよい |
+| 非同期の結果の表現 | `std::task::Poll<T>` | 独自の `Loading` / `Ready` / `Error` enum | std にあり、エラーは `T = Result<..>` で表せる。状態の種類を増やさない |
+| Suspense の実現 | オフスクリーン描画 + カウンタ + `request_discard` | panic / `catch_unwind` による巻き戻し | Rust に安価な巻き戻しが無い。子は let-else 1 行で抜けられる |
