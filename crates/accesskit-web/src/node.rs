@@ -238,15 +238,39 @@ impl NodeWrapper<'_> {
             None => style.push_str("left:0;top:0;"),
         }
         if self.debug {
-            // An outline, not a border: a border would move the layout.
-            style.push_str("outline:1px solid green;");
+            // An outline, not a border: a border would move the layout. The
+            // focused node gets its own colour, which is what makes
+            // `?a11y-debug` show where the focus is.
+            if self.node.is_focused() {
+                style.push_str("outline:2px solid magenta;");
+            } else {
+                style.push_str("outline:1px solid green;");
+            }
         }
         Some(style)
     }
 
-    /// Focusable nodes are Tab stops, in tree order, which is DOM order.
+    /// Never a tab stop.
+    ///
+    /// The upstream prototype's `"0"` would put the browser's focus into the
+    /// mirror, and eframe reads any active element but the canvas as "the app
+    /// lost focus" (plan.md 1.3). `"-1"` keeps the element out of the tab
+    /// order while still marking which nodes are the app's own stops — egui
+    /// moves between those itself, on the Tab key the canvas forwards to it.
     fn tabindex(&self) -> Option<String> {
-        self.node.is_focusable(&filter).then(|| "0".into())
+        self.node.is_focusable(&filter).then(|| "-1".into())
+    }
+
+    /// Which node the app has focused, for `?a11y-debug` and for anyone
+    /// reading the DOM to see where the focus went.
+    ///
+    /// Not `aria-selected`: that means something specific on a handful of
+    /// roles (an option in a listbox, a row in a grid) and nothing on a
+    /// button, so writing it everywhere would be telling a screen reader
+    /// something untrue. `aria-activedescendant` on the canvas is the whole
+    /// of the claim; this is a marker.
+    fn data_focused(&self) -> Option<String> {
+        self.node.is_focused().then(|| "true".into())
     }
 
     /// A `<div>` unless the node carries a value a screen reader can set or
@@ -425,6 +449,7 @@ attributes! {
     ("tabindex", tabindex),
     ("aria-label", aria_label),
     ("aria-checked", aria_checked),
+    ("data-focused", data_focused),
     // Both the ARIA values and the real `<input>` ones: the ARIA pair is what
     // a `<div role="slider">` is read from, and it stays right for the real
     // control too, since the two are written from the same numbers.

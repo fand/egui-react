@@ -200,7 +200,11 @@ mod web {
                 actions: Rc::clone(&self.actions),
                 ctx: ctx.clone(),
             };
-            let Some(mut adapter) = Adapter::new(&parent, NoActivation, queue) else {
+            // The canvas is both where the mirror is lined up and the one
+            // element that holds the browser's focus: eframe pulls focus back
+            // to it every frame, so the mirror says where the app's focus is
+            // with `aria-activedescendant` instead of taking it.
+            let Some(mut adapter) = Adapter::new(&parent, &canvas, NoActivation, queue) else {
                 log::error!("react-egui a11y: no document to build the mirror in");
                 return;
             };

@@ -77,12 +77,21 @@ fn initial_tree() -> TreeUpdate {
     }
 }
 
-/// A fresh element under `<body>` to hang one test's mirror on.
+/// A fresh element under `<body>` to hang one test's mirror on, with a
+/// stand-in for the canvas the app draws on: the mirror goes next to it, and
+/// it is the one element that ever holds the browser's focus.
 fn container() -> Element {
     let document = web_sys::window().unwrap().document().unwrap();
     let container = document.create_element("div").unwrap();
+    let canvas = document.create_element("canvas").unwrap();
+    canvas.set_attribute("tabindex", "0").unwrap();
+    container.append_child(&canvas).unwrap();
     document.body().unwrap().append_child(&container).unwrap();
     container
+}
+
+fn canvas(container: &Element) -> Element {
+    query(container, "canvas").expect("the container has a canvas")
 }
 
 fn mirror(container: &Element) -> Adapter {
@@ -96,7 +105,7 @@ fn mirror(container: &Element) -> Adapter {
     impl accesskit::ActionHandler for DropActions {
         fn do_action(&mut self, _request: accesskit::ActionRequest) {}
     }
-    Adapter::new(container, NoActivation, DropActions).unwrap()
+    Adapter::new(container, &canvas(container), NoActivation, DropActions).unwrap()
 }
 
 fn query(container: &Element, selector: &str) -> Option<Element> {
@@ -118,8 +127,9 @@ fn roles_labels_and_values_reach_the_dom() {
         button.get_attribute("aria-label").as_deref(),
         Some("increment")
     );
-    // Focusable nodes are Tab stops, in tree order.
-    assert_eq!(button.get_attribute("tabindex").as_deref(), Some("0"));
+    // A focusable node says so, but is never a tab stop: the browser's focus
+    // belongs to the canvas, and egui moves between widgets itself.
+    assert_eq!(button.get_attribute("tabindex").as_deref(), Some("-1"));
 
     let checkbox = query(&container, "[role=\"checkbox\"]").expect("the checkbox is mirrored");
     assert_eq!(
@@ -147,9 +157,7 @@ fn nodes_are_placed_at_their_bounding_boxes() {
 
     // The host takes the whole mirror back to CSS pixels in one go, and lets
     // the mouse through to the canvas underneath.
-    let host = container
-        .first_element_child()
-        .expect("the mirror has a host");
+    let host = query(&container, "[id$=\"-host\"]").expect("the mirror has a host");
     let host_style = style_of(&host);
     assert!(host_style.contains("transform:scale(0.5)"), "{host_style}");
     assert!(host_style.contains("pointer-events:none"), "{host_style}");
@@ -306,4 +314,112 @@ fn a_slider_follows_the_app() {
     });
 
     assert_eq!(input.value(), "70", "the app has the last word");
+}
+
+/// The tree focuses `node`, everything else as in [`initial_tree`].
+fn tree_focused_on(node: NodeId) -> TreeUpdate {
+    TreeUpdate {
+        focus: node,
+        ..initial_tree()
+    }
+}
+
+#[wasm_bindgen_test]
+fn focus_is_named_on_the_canvas_not_taken_from_it() {
+    let container = container();
+    let canvas = canvas(&container);
+    let mut adapter = mirror(&container);
+    adapter.update_if_active(initial_tree);
+    adapter.update_if_active(|| tree_focused_on(BUTTON));
+
+    // The reference is only legal because the canvas owns the host, which is
+    // its sibling rather than its child.
+    let host = query(&container, "[id$=\"-host\"]").expect("the mirror has a host");
+    assert_eq!(
+        canvas.get_attribute("aria-owns").as_deref(),
+        host.get_attribute("id").as_deref()
+    );
+    assert_eq!(canvas.get_attribute("role").as_deref(), Some("application"));
+
+    let button = query(&container, "[role=\"button\"]").expect("the button is mirrored");
+    assert_eq!(
+        canvas.get_attribute("aria-activedescendant").as_deref(),
+        button.get_attribute("id").as_deref()
+    );
+    // Nothing in the mirror ever takes the browser's focus.
+    let document = web_sys::window().unwrap().document().unwrap();
+    assert!(
+        document
+            .active_element()
+            .is_none_or(|active| active != button),
+        "the mirror never calls focus()"
+    );
+    assert_eq!(
+        button.get_attribute("data-focused").as_deref(),
+        Some("true")
+    );
+
+    // Moving on takes the marker with it.
+    adapter.update_if_active(|| tree_focused_on(CHECKBOX));
+    let checkbox = query(&container, "[role=\"checkbox\"]").expect("the checkbox is mirrored");
+    assert_eq!(
+        canvas.get_attribute("aria-activedescendant").as_deref(),
+        checkbox.get_attribute("id").as_deref()
+    );
+    assert!(button.get_attribute("data-focused").is_none());
+}
+
+#[wasm_bindgen_test]
+fn losing_the_browser_focus_does_not_forget_where_the_app_was() {
+    let container = container();
+    let canvas = canvas(&container);
+    let mut adapter = mirror(&container);
+    adapter.update_if_active(|| tree_focused_on(BUTTON));
+    let button = query(&container, "[role=\"button\"]").expect("the button is mirrored");
+    let focused = canvas.get_attribute("aria-activedescendant");
+    assert_eq!(focused.as_deref(), button.get_attribute("id").as_deref());
+
+    // Clearing the attribute here would be this design's `blur()`, which is
+    // the mistake Flutter's semantics layer warns about.
+    adapter.update_host_focus_state(false);
+    assert_eq!(canvas.get_attribute("aria-activedescendant"), focused);
+
+    adapter.update_host_focus_state(true);
+    assert_eq!(canvas.get_attribute("aria-activedescendant"), focused);
+}
+
+#[wasm_bindgen_test]
+fn a_focused_node_leaving_takes_the_reference_with_it() {
+    let container = container();
+    let canvas = canvas(&container);
+    let mut adapter = mirror(&container);
+    adapter.update_if_active(|| tree_focused_on(CHECKBOX));
+    assert!(canvas.has_attribute("aria-activedescendant"));
+
+    // The checkbox is gone and the focus is back on the window.
+    adapter.update_if_active(|| {
+        let mut root = AkNode::new(Role::Window);
+        root.set_bounds(Rect::new(0.0, 0.0, 200.0, 100.0));
+        root.set_children(vec![BUTTON]);
+
+        let mut button = AkNode::new(Role::Button);
+        button.set_label("increment");
+        button.set_bounds(Rect::new(10.0, 20.0, 60.0, 40.0));
+        button.add_action(Action::Click);
+        button.add_action(Action::Focus);
+
+        TreeUpdate {
+            nodes: vec![(ROOT, root), (BUTTON, button)],
+            tree: Some(Tree::new(ROOT)),
+            tree_id: TreeId::ROOT,
+            focus: ROOT,
+        }
+    });
+
+    let window = query(&container, "[role=\"window\"]").expect("the root is mirrored");
+    assert_eq!(
+        canvas.get_attribute("aria-activedescendant").as_deref(),
+        window.get_attribute("id").as_deref(),
+        "a dangling reference is worse than none"
+    );
 }
