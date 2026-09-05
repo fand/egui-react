@@ -5,7 +5,8 @@ mod components;
 
 use std::num::NonZeroUsize;
 
-use react_egui::{Cx, Store};
+use react_egui::prelude::*;
+use react_egui::rsx;
 
 /// Owns the hook store, exactly as `react-egui-app`'s runner will.
 #[derive(Default)]
@@ -24,7 +25,7 @@ impl eframe::App for SpikeApp {
             {
                 let store: &Store = &self.store;
                 let mut cx = Cx::new(store, ui, egui::Id::new("root"));
-                components::app(&mut cx);
+                rsx! { <components::App/> }.show(&mut cx);
             }
             // Every guard died with the component bodies above, so the sweep is safe.
             self.store.end_pass();

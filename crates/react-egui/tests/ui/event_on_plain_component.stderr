@@ -1,0 +1,16 @@
+error[E0599]: no method named `events` found for struct `PlainPropsBuilder<TypedBuilderFields>` in the current scope
+ --> tests/ui/event_on_plain_component.rs:9:5
+  |
+3 | #[component]
+  | ------------ method `events` not found for this struct
+...
+9 |     rsx! { <Plain on_click={|| {}}/> }.show(cx);
+  |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ method not found in `PlainPropsBuilder`
+  |
+  = note: this error originates in the macro `rsx` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0433]: cannot find type `PlainEvent` in this scope
+ --> tests/ui/event_on_plain_component.rs:9:13
+  |
+9 |     rsx! { <Plain on_click={|| {}}/> }.show(cx);
+  |             ^^^^^ use of undeclared type `PlainEvent`

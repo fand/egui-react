@@ -81,8 +81,10 @@ egui のコンテナ閉包(`ui.vertical(|ui| ..)` など)に入るときは、�
 
 `rsx!` の中では以下が書ける。
 
-- 要素: `<Button onclick={..}>"text"</Button>`。要素名はすべて Rust の関数コンポーネント。HTML 風の小文字タグは持たない。
-- 式埋め込み: `{expr}`。`expr: impl View`。
+- 要素: `<Button on_click={..}>"text"</Button>`。要素名はすべて Rust の関数コンポーネント(`<elements::Button/>` のようなパスも書ける)。HTML 風の小文字タグは持たない。
+- 式埋め込み: `{expr}`。`expr: impl View`。引用符の無いテキストはエラーで、文字列は必ずリテラルで書く。
+- 属性: `key={expr}`、`on_*={handler}`、`events={closure}`、レイアウト属性(`w` / `h` / `grow` / `p` / `m` など。まとめて `.style(ItemStyle::default()..)` になる)、それ以外は Props の setter。値の無い属性(`disabled`)は `true`。
+- 子ノードは常に `.children(..)` で渡る。子が無ければ `()`、単一の文字列リテラルか単一の `{expr}` ならその式そのもの、それ以外は `view(|cx| ..)`。これにより `<Button>"OK"</Button>` の `children: impl Into<WidgetText>` と `<View>..</View>` の `children: impl View` が同じ構文で書ける。
 - 制御構文: `if` / `else` / `for` / `match` を直接書く(Dioxus 方式)。直接展開なので実際の Rust の制御構文を emit するだけで済み、`items.iter().map(|i| rsx!{..})` で起きる「`FnMut` から借用を返せない」問題を回避できる。
 - `key={expr}`: 要素のスコープ Id に混ぜる。`for` の中で hooks を持つコンポーネントを描く場合は必須。式は `Hash + Debug` を満たす必要がある(egui 0.36 の `Ui::push_id` が `AsIdSalt = Hash + Debug` を要求するため)。
 - ハンドラは `Handler::call(closure, payload)` の形で生成・即時呼び出しされる。spike の手書き展開にあった `(|| ..)()` は使わないので、`rsx!` の展開結果に `#[allow(clippy::redundant_closure_call)]` は要らない。
@@ -98,17 +100,23 @@ fn Counter(cx: &mut Cx, initial: i32, label: Option<&str>, #[event] on_change: i
 
 `#[component]` は以下を生成する。
 
-- Props 構造体(`CounterProps`)。`Option<T>` のフィールドは省略可能。
-- 子を受け取る場合の `children: impl FnOnce(&mut Cx)`(rsx! の子ノード群がこの閉包になる)。
-- `#[event]` 引数からイベント enum `CounterEvent`(3.6 参照)。
+- Props 構造体 `CounterProps`。typed-builder の `#[derive(TypedBuilder)]` が付き、`Counter(cx, props)` の第 2 引数になる。関数の引数はそのまま Props のフィールドになり、`&T` の省略ライフタイムは Props の `'e` に書き換わる。`impl Trait` の引数は型パラメータに脱糖する。
+- 省略可能な prop は `Option<T>` 型の引数(自動)と `#[prop(default)]` / `#[prop(default = expr)]` を付けた引数。`#[prop(into)]` を付けると setter が `impl Into<T>` を取る。それ以外は必須で、省略すると typed-builder のコンパイルエラーになる。
+- `children` フィールドは必ず存在する。宣言しなければ `children: ()` が `#[builder(default)]` で生成される(`rsx!` が常に `.children(..)` を呼ぶため)。子を受け取るコンポーネントは `children: impl View` を宣言する。
+- `#[event]` 引数からイベント enum `CounterEvent` と `events` フィールド(3.6 参照)。
+- `Props` trait の実装。`rsx!` が `props_builder(&Counter)` から builder を引くために使う。
+
+本体の末尾式は `::react_egui::View::show(tail, cx)` に書き換わる。本体全体を `View::show({ body }, cx)` で包む形は、ブロック内のローカルを guard が借用したまま返すことになり通らないので、必ず末尾式だけを差し替える。`if` / `match` の腕ごとに別々の `rsx!` を返す本体は閉包の型が一致しないので、`rsx!{ if .. }` の形で書く。
 
 `<Counter initial={0} />` は次のように展開される。
 
 ```rust
-cx.scope(Id::new(call_site).with(key), |cx| Counter(cx, CounterProps { initial: 0, ..Default::default() }));
+cx.scope((file!(), line!(), column!(), 3usize, key), |cx| {
+    Counter(cx, ::react_egui::props_builder(&Counter).initial(0).children(()).build());
+});
 ```
 
-`scope` は `cx.scope` を一段深くし、同時に `ui.push_id` を呼ぶ。これにより hooks の Id と egui 側のウィジェット Id の両方がコンポーネントインスタンスごとに安定する。
+`scope` は `cx.scope` を一段深くし、同時に `ui.push_id`(Taffy モードでは `tui.with_auto_id_prefix`)を呼ぶ。これにより hooks の Id と egui 側のウィジェット Id の両方がコンポーネントインスタンスごとに安定する。Id の材料は `rsx!` 呼び出し位置と、その `rsx!` 内での要素の通し番号、そして `key` である。関数アイテムの型は名指しできないので、Props の型は `props_builder<P: Props, F: Fn(&mut Cx, P)>(_: &F) -> P::Builder` の `Fn` 境界から推論する。ユーザーが `use` するのは `Counter` だけでよい。
 
 インスタンスの同一性は以下の挙動になる(React と一致する)。
 
@@ -159,9 +167,11 @@ Dialog(cx, DialogProps {
 - `rsx!` は要素名 `Dialog` と属性名 `on_ok` から `DialogEvent::Ok` を文字列的に組み立てる(`on_` を外して PascalCase)。型情報は不要。存在しないイベント名は variant が無いのでコンパイルエラーになる。
 - `Handler<A, Marker>` は `FnOnce() -> R` と `FnOnce(A) -> R` の両方を受ける trait。2 つの blanket impl は coherence で衝突するので、マーカー型引数 `(Arity0, R)` / `(Arity1, R)` で区別する。マーカーは常に推論され、`on_ok={|| ..}`、`on_change={|v| ..}`(引数型の注釈なしでも可)、ペイロードを捨てる `|| ..`、非 `()` を返す本体のいずれも `::react_egui::Handler::call(closure, a)` の一形式で呼べる(spike で確認済み)。マクロは常にこの完全修飾パスを emit する。
 - 閉包リテラルは `match` の腕の中で生成・即時呼び出しされる。`open` を `&mut` で捕まえるのは外側の融合閉包 1 つだけ。
-- コンポーネント側では `#[event] on_ok: ()` が `Emitter` になり、`on_ok.emit(())` で発火する。`Emitter<'a, 'e, E>` は `&'a RefCell<&'e mut dyn FnMut(E)>` を持つだけなので、子の中で複数同時に生きられる(`RefCell` は不変なので lifetime は 2 つ必要)。再入的な emit は明確なメッセージで panic する。
-- `on_*` を 1 つも渡さず `events={|e| match e {..}}` と書く escape hatch も通す。
-- ペイロードは借用でよい(`on_change: &str` が可能)。
+- コンポーネント側では `#[event] on_ok: ()` が `Emitter` になり、`on_ok.emit(())` で発火する。`Emitter<'a, 'e, E, A>` は共有された `EventSink<'e, E> = RefCell<&'e mut dyn FnMut(E)>` への `&'a` 参照と、ペイロード `A` を variant に包む関数 `fn(A) -> E` を持つ。子の中で複数同時に生きられる(`RefCell` は不変なので lifetime は 2 つ必要)。再入的な emit は明確なメッセージで panic する。
+- Props の `events` フィールドは `Option<&'e mut dyn FnMut(E)>` で、`#[builder(default, setter(strip_option))]` が付く。`rsx!` は融合閉包を `&mut` で渡し、`on_*` が 1 つも無ければ渡さない。渡されなかった場合、コンポーネント本体は `match` の腕でローカルの no-op 閉包に落とすので `emit` は何もしない。
+- `on_*` を 1 つも渡さず `events={|e| match e {..}}` と書く escape hatch も通す。`rsx!` は式を `&mut (..)` で包んで `events` に渡す。
+- ペイロードは借用でよい(`on_change: &str` が可能)。イベント enum は、ペイロードが実際に使うジェネリクスだけを引き継ぐ(`&'e str` なら `CounterEvent<'e>`)。
+- 融合閉包は `CounterEvent::Ok(..)` を名指しするので、`<Counter on_ok=../>` と書く場所では `Counter` に加えて `CounterEvent` も import されている必要がある(モジュールを glob で `use` するか、`<components::Counter/>` のようにパスで書く)。
 
 却下した代替案: 子がイベントを戻り値で返し、マクロが子の呼び出し後に `match` する案。単純だが、1 フレームに複数イベントが起きる場合(TextEdit の change と submit)に `Vec` が要り、借用ペイロードを返せない。Cell 風 `Handle` のみで書かせる案は `*count += 1` の糖衣を失う。ユーザーが `callback={|e| match e {..}}` を毎回書く案は冗長で、融合閉包はそれをマクロが代行したものである。
 

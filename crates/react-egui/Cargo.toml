@@ -16,6 +16,9 @@ egui.workspace = true
 egui_taffy.workspace = true
 elsa.workspace = true
 log.workspace = true
+react-egui-macros.workspace = true
+typed-builder.workspace = true
 
 [dev-dependencies]
 egui_kittest.workspace = true
+trybuild.workspace = true

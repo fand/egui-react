@@ -483,3 +483,23 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 - **1.8** `Length::Percent` は taffy に合わせて 0.0〜1.0 の割合を持つ。`"50%"` は `Percent(0.5)` になる。
 - **1.9** プランの表に無い `tests/layout.rs`(`Length` とレイアウト enum のパース、`m` / `p` 短縮形の優先順位、`to_taffy` / `merge` の写り方)を足した。テスト 2-7 の「`cx.scope` が Taffy モードでも Id を分ける」は、hooks 側(`use_state`)と egui 側(`ui.collapsing`)の 2 本に分けて確認している。
 - **その他** `Store::end_pass` を `run_deferred` → `sweep` → `show_collision_overlay` の 3 つに分割した。`react-egui` は `egui_taffy::taffy` を `react_egui::taffy` として re-export する。
+
+### フェーズ 3(手順 2)
+
+- **0 依存表** `syn` は 2 ではなく **3.0**。rstml 0.13 が syn 3 に依存しており、`Node` / `KeyedAttribute` が syn 3 の型を埋め込んでいるので選択の余地がない。feature は `full` / `extra-traits`(`Node<C>` の `Debug` 導出に必要)/ `visit` / `visit-mut` / `parsing` / `printing` / `proc-macro`。`typed-builder` は 0.23、`trybuild` は 1.0。
+- **2.1** `#[builder(crate_module_path = ::react_egui::__private::typed_builder)]` は再エクスポート経由でそのまま動いた。6 章の「自前 builder を生成する」代替案は不要。
+- **2.3** `props_builder(&Name)` の推論も `'e` + generic `C` を持つ props で通った。6 章の「関数と同名の braced struct を生成する」代替案は不要。`Props` trait と `props_builder` は `react_egui::__private` に置き、`props_builder` だけクレート直下にも再エクスポートしている。
+- **2.1** `#[event]` の引数は Props のフィールドにはならない(`Emitter` になるだけ)。イベント enum は、ペイロード型が実際に使うジェネリクスだけを引き継ぐ(`#[event] on_rename: &str` なら `NameEvent<'e>`)。使わないパラメータを enum に宣言できないため。
+- **2.1** `events` フィールドは `#[builder(default, setter(strip_option))]`。`Option<&mut dyn FnMut(E)>` をそのまま setter に渡させるのは煩雑なので、`rsx!` は `.events(&mut |ev| ..)` と書ける。`events=` escape hatch も `&mut (expr)` で包んで渡す。
+- **2.1** 本体末尾式の書き換えは `Stmt::Expr(_, None)` だけでなく `Stmt::Macro`(セミコロン無し)も対象にする。`rsx! { .. }` を本体の末尾に書くと syn は文マクロとしてパースするため。
+- **2.1** `impl Trait` 引数は `TProp0`, `TProp1`, .. という型パラメータに脱糖する。props 構造体・関数・`Props` impl の 3 か所に同じジェネリクス(`'e` + 関数自身のパラメータ + `TProp*`)を付ける。`'e` は実際に使われる場合だけ宣言する(未使用パラメータはエラーになるため)。
+- **2.2** `#[hook]` は「最初の `&mut Cx` 引数」を探す(第 1 引数に限定していない)。`&mut Cx` の判定は型の最終セグメントが `Cx` かどうかで行う。
+- **2.3** `Option<T>` prop は `#[builder(default)]` のみで `strip_option` は付けない(プラン 2.1 の表どおり)。したがって `hint={Some("x")}` と書く。将来 elements で煩雑になれば見直す。
+- **2.3** 要素の Id の材料は `(file!(), line!(), column!(), 通し番号, key)`。`line!()` / `column!()` は `rsx!` の呼び出し位置を返すので、同じ `rsx!` 内の要素は通し番号で、別の `rsx!` は位置で区別される。`Span::line()` / `Span::column()` は不要だった。`file!()` を足したのは、同じ位置に展開される別ファイルの `rsx!` を確実に分けるため。
+- **2.3** 属性値と `{expr}` ノードは、単一式のブロックなら中身を取り出して emit する。`{ expr }` をそのまま渡すとユーザーコードに `unused_braces` 警告が出るため。
+- **2.3** 不正なノード(引用符無しテキスト、`<!DOCTYPE>`)があった場合、`rsx!` は `compile_error!` と空の `view` だけを emit する。要素展開を続けると型エラーが連鎖して本来のメッセージが埋もれるため。
+- **2.3 / 3.6** 融合閉包は `NameEvent::Variant` を名指しするので、`on_*` を使う場所では `NameEvent` も import されている必要がある。プランの「ユーザーは `Name` だけを `use` すればよい」は props についてのみ成立する。ARCHITECTURE.md 3.6 に明記した。
+- **2.4** trybuild は 9 本(`compile_fail` 8 + `pass` 1)。`.stderr` はコミット済み。`missing_prop` は typed-builder の `Error_Missing_required_field_label` 型のエラーになる。
+- **2.5** `tests/common/mod.rs` はマクロ版の `Counter` / `NamedCounter` / `Dialog` / `use_counter` を持ち、加えて `counter(cx, initial)` / `named_counter(..)` という薄いラッパ関数(`rsx!` を 1 行呼ぶだけ)を残した。これで `sibling_handlers` / `custom_hook` / `collision` は無修正のまま通る。`fused_events` だけは手書きの `DialogProps { .. }` を組み立てていたので、`rsx!` + `on_ok` / `on_cancel` / `on_rename` に書き換えた(assert は無修正)。
+- **2.6** テストファイル名はプランどおり `rsx_control_flow.rs` / `rsx_children.rs` / `component_props.rs` / `component_events.rs` / `rsx_scope.rs` / `compile_fail.rs`。
+- **その他** `examples/spike` はマクロ版に置き換えた(`App` / `Counter` / `Dialog`)。`main.rs` は `rsx! { <components::App/> }.show(&mut cx)` を呼ぶ。
