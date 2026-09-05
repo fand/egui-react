@@ -5,16 +5,25 @@
 //! are on screen or not. At ten thousand rows that is around forty thousand
 //! taffy nodes per frame, and the frame time says so.
 //!
-//! The plain egui version next to it uses `ScrollArea::show_rows`, which draws
-//! only the rows the viewport can see — around forty of them — and leaves a gap
-//! of the right height above and below. That is the standard immediate-mode
-//! answer to a long list, and react-egui has no equivalent today: `<ScrollArea>`
-//! takes its children as an opaque `impl View` and cannot slice a `for` loop it
-//! never sees. See tasks/examples/plan.md section 8.
+//! The `virtualise` switch turns on `<VirtualList>`, which draws only the rows
+//! the viewport can see — around forty of them — and reserves the height of the
+//! rest. That is the standard immediate-mode answer to a long list, and the
+//! frame time stops depending on the count entirely. The plain egui version
+//! next to it does the same thing with `ScrollArea::show_rows`, which is what
+//! `<VirtualList>` wraps.
 //!
-//! So this example is the one where plain egui wins, and the numbers are in the
-//! readout at the top. Turn the count down to a few hundred and the difference
-//! disappears; that is the honest shape of it.
+//! Three ways to draw the same list, measured at ten thousand rows (see
+//! tasks/examples/plan.md section 8 for the method):
+//!
+//! | | frame |
+//! |---|---|
+//! | `<ScrollArea>` + `for` | ~85 ms |
+//! | `<VirtualList>` | ~0.2 ms |
+//! | plain egui `show_rows` | ~0.2 ms |
+//!
+//! The switch starts off, so the first thing the example shows is the honest
+//! cost of drawing everything. Turn the count down to a few hundred and the
+//! difference disappears; that is the shape of it.
 
 use std::collections::BTreeSet;
 
@@ -28,7 +37,16 @@ pub const META: Meta = Meta {
     name: "list-10k",
     summary: "Ten thousand rows, and what drawing all of them costs.",
     hooks: &["use_state", "use_memo"],
-    elements: &["View", "Text", "Slider", "TextEdit", "Button", "ScrollArea"],
+    elements: &[
+        "View",
+        "Text",
+        "Slider",
+        "TextEdit",
+        "Checkbox",
+        "Button",
+        "ScrollArea",
+        "VirtualList",
+    ],
     source: include_str!("lib.rs"),
     plain: Some(include_str!("plain.rs")),
 };
@@ -67,13 +85,20 @@ pub fn rows(count: usize, filter: &str, removed: &BTreeSet<usize>) -> Vec<(usize
         .collect()
 }
 
-/// `initial_count` is the row count to open with. The default is the ten
-/// thousand in the name; the gallery and the tests pass something smaller.
+/// `initial_count` is the row count to open with — the default is the ten
+/// thousand in the name, and the gallery and the tests pass something smaller.
+/// `virtualise` is the switch's starting position, off by default so the first
+/// thing on screen is the cost of drawing every row.
 #[component]
-pub fn App(cx: &mut Cx, #[prop(default = DEFAULT_COUNT)] initial_count: usize) {
+pub fn App(
+    cx: &mut Cx,
+    #[prop(default = DEFAULT_COUNT)] initial_count: usize,
+    #[prop(default)] virtualise: bool,
+) {
     let mut count = use_state(cx, move || initial_count);
     let mut filter = use_state(cx, String::new);
     let mut removed = use_state(cx, BTreeSet::<usize>::new);
+    let mut virtualise = use_state(cx, move || virtualise);
 
     let frame_ms = cx.ui().input(|i| i.stable_dt) * 1000.0;
 
@@ -84,6 +109,7 @@ pub fn App(cx: &mut Cx, #[prop(default = DEFAULT_COUNT)] initial_count: usize) {
         rows(*count, filter.as_str(), &removed)
     });
     let shown = visible.len();
+    let virtual_rows = *virtualise;
 
     rsx! {
         <View direction="column" gap={8} p={12} grow={1.0}>
@@ -92,26 +118,52 @@ pub fn App(cx: &mut Cx, #[prop(default = DEFAULT_COUNT)] initial_count: usize) {
             <Slider bind={count.bind()} range={100..=10_000} label="rows"/>
             <TextEdit w={220.0} bind={filter.bind()} hint="filter"/>
             <View direction="row" gap={8} align="center">
+                <Checkbox bind={virtualise.bind()} label="virtualise"/>
                 <Text>{format!("showing {shown}")}</Text>
                 // Not a benchmark: one frame, as egui measured it, including
                 // whatever else the machine was doing.
                 <Text>{format!("last frame {frame_ms:.1} ms ({:.0} fps)", 1000.0 / frame_ms.max(0.001))}</Text>
             </View>
 
-            <ScrollArea grow={1.0}>
-                <View direction="column" gap={ROW_GAP} w="100%">
-                    // Every one of these is laid out, on screen or not.
-                    for (i, name) in visible.iter() {
-                        <View key={i} direction="row" gap={8} align="center" w="100%">
-                            <Text w={INDEX_W}>{format!("#{i}")}</Text>
-                            <Text grow={1.0}>{name.as_str()}</Text>
-                            <Button on_click={|| {
+            if virtual_rows {
+                // Render by index: only the rows in view are ever built.
+                <VirtualList
+                    grow={1.0}
+                    rows={shown}
+                    row_h={ROW_H + ROW_GAP}
+                    render={|cx: &mut Cx<'_, '_>, row: usize| {
+                        let (i, name) = &visible[row];
+                        rsx! { <Row index={*i} name={name.as_str()} on_remove={|| {
+                            removed.insert(*i);
+                        }}/> }
+                        .show(cx);
+                    }}
+                />
+            } else {
+                <ScrollArea grow={1.0}>
+                    <View direction="column" gap={ROW_GAP} w="100%">
+                        // Every one of these is laid out, on screen or not.
+                        for (i, name) in visible.iter() {
+                            <Row key={i} index={*i} name={name.as_str()} on_remove={|| {
                                 removed.insert(*i);
-                            }}>"x"</Button>
-                        </View>
-                    }
-                </View>
-            </ScrollArea>
+                            }}/>
+                        }
+                    </View>
+                </ScrollArea>
+            }
+        </View>
+    }
+}
+
+/// One row. The same component either way: what changes is who calls it, a
+/// `for` loop over every row or `<VirtualList>` over the ones in view.
+#[component]
+fn Row(cx: &mut Cx, index: usize, name: &str, #[event] on_remove: ()) {
+    rsx! {
+        <View direction="row" gap={8} align="center" w="100%" h={ROW_H}>
+            <Text w={INDEX_W}>{format!("#{index}")}</Text>
+            <Text grow={1.0}>{name}</Text>
+            <Button on_click={|| on_remove.emit(())}>"x"</Button>
         </View>
     }
 }

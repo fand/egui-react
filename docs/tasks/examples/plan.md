@@ -461,7 +461,7 @@ CI、Pages、README。
 
 react-egui は全行を描く。`rsx!` の `for` は本物のループで、1 行が `<View>` + 子 3 つ、10k 行で taffy ノードが 4 万個になる。生 egui 版は `ScrollArea::show_rows` で見えている 15 行前後しか描かず、残りは高さの予約だけなので、行数を 100 倍にしても frame time が動かない。**この example は生 egui が勝つ。** 数字は README には書かない(ここと example の module doc にある)。
 
-- **`<ScrollArea>` の仮想化 prop は足さなかった**。plan 5 章の候補だが、`<ScrollArea>` は children を `impl View` という不透明な閉包で受け取るので、`for` ループの中身を切り出すことができない。`rows={(count, row_height)}` を意味あるものにするには「index を受け取って View を返す閉包」を prop に取る別の要素(`<VirtualList rows={n} row_h={h} render={|i| ..}/>`)が要る。40 行では収まらないし、`for` の書き味も変わる。今回は見送り、example が正直にコストを見せ、生 egui 版が仮想化の効果を見せる形にした。
+- **`<ScrollArea>` の仮想化 prop は足さなかった**。plan 5 章の候補だが、`<ScrollArea>` は children を `impl View` という不透明な閉包で受け取るので、`for` ループの中身を切り出すことができない。`rows={(count, row_height)}` を意味あるものにするには「index を受け取って View を返す閉包」を prop に取る別の要素が要る。→ **手順 5-8 でその要素(`<VirtualList>`)を足した。** この節の「生 egui が勝つ」という結論はそこで更新される。
 - **既定の行数**。`DEFAULT_COUNT = 10_000`(名前どおり)。ただし gallery は `initial_count={1_000}` を渡す。10k だと 1 フレーム 85ms で gallery 全体が 12fps になり、「react-egui が遅い」と読まれてしまう。スライダーは 10k まで届くので、押したい人は押せる。生 egui 版も gallery では 1,000 に揃える(仮想化されているので 10k でも平気だが、トグルで行数が変わると比較にならない)。
 - **snapshot は別名**(`list_10k_react.png` / `list_10k_plain.png`)。同名で撮ると 9,373 px ずれる。中身は同じリストだが、片方は全行を描き、片方は見えている 12〜14 行を描いて残りを予約するので、行の中の 3px 程度のずれが行数ぶん繰り返される。詰めるには生 egui 版を taffy の計算に合わせて書くことになり、5 章の線を越える。form / counter / todo / layout と違ってここは構造が違う。
 - **kittest: `ScrollArea` の中のボタンは `click()` では押せない**。シミュレートしたポインタ押下がスクロール領域に吸われて widget に届かない。`click_accesskit()` なら効く。行の削除テストで踏んだ。
@@ -492,3 +492,40 @@ react-egui は全行を描く。`rsx!` の `for` は本物のループで、1 �
 - snapshot は gallery ではなく `examples/shell/tests/snapshots.rs` に、shell 自身の `snapshot` feature で置いた。gallery に載らない example の絵のために gallery が shell に依存するのは筋が悪く、wasm も太る。`cargo test -p shell --features snapshot`。
 - `<Window open={..}>` には `inspector.bind()` を渡す。`&mut *inspector` だと毎フレーム dirty になって repaint が止まらない(`Checkbox` の `bind` と同じ理由)。
 - **kittest の続報**。`ScrollArea` の中(5-6)だけでなく、**入れ子の taffy ツリーの中の widget 全般**にシミュレートしたポインタのクリックが届かない。ここではパネルの中の `<View>` に入れたツールバーのボタンがそうだった。一方、同じパネルの中でも `cx.leaf` で素の `Ui` に直接描いたツリー項目は `click()` で押せる。**規則: `<View>` の内側は `click_accesskit()`**。
+
+### 手順 5-8: `<VirtualList>` と list-10k の 3 つ目
+
+`ScrollArea` + `for` が全行を描くのは事実だが、「だから生 egui が勝つ」で終わらせるのは正しくない。**react-egui でも仮想化はできる。`<ScrollArea>` 経由ではできないだけである。** 要素を足して、list-10k をその比較に作り替えた。
+
+**`crates/react-egui-elements/src/virtual_list.rs`**
+
+```rust
+#[component]
+pub fn VirtualList(
+    cx: &mut Cx,
+    #[prop(default)] style: ItemStyle,
+    rows: usize,
+    row_h: f32,
+    render: impl for<'a, 's, 'u> FnMut(&'a mut Cx<'s, 'u>, usize),
+)
+```
+
+中身は escape-hatch 4 節そのもので、`cx.leaf_fill` の中で `egui::ScrollArea::show_rows` を呼び、返ってきた `Ui` に `Cx::new(store, ui, scope)` を組み直して、`cx.scope(i, |cx| render(cx, i))` を見えている行にだけ回す。行ごとに scope に入るので、`for` + `key={i}` と同じく行が hook を持てる。
+
+- **閉包 prop は書ける。ただし bound を明示すること**(3.3 の心配ごとへの答え)。`render: impl FnMut(&mut Cx, usize)` は通らない。`#[component]` の `ElideToPropLifetime` が prop の省略ライフタイムを props 構造体のものに書き換えるので、`impl Trait` の中に未宣言のライフタイムが現れて `use of undeclared lifetime name` になる。`impl for<'a, 's, 'u> FnMut(&'a mut Cx<'s, 'u>, usize)` と自分で書けば、書き換える対象が無いのでそのまま通る。`&mut dyn FnMut` に落とす必要は無かった。5-2 の `Handle` prop とは別の問題で、あちらは props の型が `'s` を名乗ってしまうのが原因だった。
+- 制約は「全行が同じ高さ」。`show_rows` が測らずに範囲を出せる条件で、要素側では検査できないので doc に明記した。
+- `leaf_fill` なので `grow` か `h` を与える(手順 5-5 の教訓)。
+- テスト(`crates/react-egui-elements/tests/virtual_list.rs`): 10,000 行を 300pt の harness に置くと木に載るのは 15 行前後だけ、`row 9999` は存在しない。スクロールすると先頭行が消えて後ろの行が入る。
+
+**list-10k の 3 つ目。** `Checkbox "virtualise"` で `<ScrollArea>` + `for` と `<VirtualList>` を切り替える。行は `<Row>` コンポーネント 1 つで、どちらの経路も同じものを描く。既定は off で、gallery が最初に見せるのは「全部描く値段」のまま。
+
+| 行数 | `<ScrollArea>` + `for` | `<VirtualList>` | 生 egui `show_rows` |
+|---|---|---|---|
+| 100 | 0.88 ms | 0.36 ms | 0.16 ms |
+| 1,000 | 5.06 ms | 0.28 ms | 0.13 ms |
+| 10,000 | 78.04 ms | 0.27 ms | 0.17 ms |
+
+`<VirtualList>` は行数に対して平らである。生 egui との差(0.27 対 0.17)は、画面に出ている 15 行ぶんの taffy ノードの値段で、これは react-egui を使うことの値段そのものだから、そのまま見せる。**結論は「生 egui が勝つ」ではなく「`for` で 1 万行書くのが高い。長いリストには専用の要素がある」に変わった。**
+
+- テスト: 切り替えても filter と削除の挙動が変わらないこと、両方の経路が先頭 10 行に同じものを出すこと。
+- ARCHITECTURE 6 章の要素表に `VirtualList` を足し、`ScrollArea` が全部描くことと使い分けを書いた。README の list-10k の 1 行も差し替え。

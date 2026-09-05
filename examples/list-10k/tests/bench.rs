@@ -10,6 +10,10 @@
 //! It times `Harness::step`, which runs layout and tessellation but no GPU, so
 //! the numbers are the CPU side of a frame and not what a monitor would show.
 //! That is the side this example is about.
+//!
+//! Three ways to draw the same list: every row through `<ScrollArea>` + `for`,
+//! only the visible ones through `<VirtualList>`, and only the visible ones
+//! through egui's own `ScrollArea::show_rows`.
 
 use egui_kittest::Harness;
 use list_10k::App;
@@ -32,14 +36,14 @@ fn milliseconds_per_frame<S>(harness: &mut Harness<'_, S>) -> f64 {
     start.elapsed().as_secs_f64() * 1000.0 / FRAMES as f64
 }
 
-fn react(count: usize) -> f64 {
+fn react(count: usize, virtualise: bool) -> f64 {
     let mut harness = Harness::builder().with_size(SIZE).build_ui_state(
         move |ui, store: &mut Store| {
             store.begin_pass(ui.ctx());
             {
                 let store: &Store = store;
                 let mut cx = Cx::new(store, ui, root_id());
-                let view = rsx! { <App initial_count={count}/> };
+                let view = rsx! { <App initial_count={count} virtualise={virtualise}/> };
                 cx.root_container(root_id(), root_style(), |cx| view.show(cx));
             }
             store.end_pass();
@@ -63,12 +67,16 @@ fn plain(count: usize) -> f64 {
 #[test]
 #[ignore = "a measurement, and only meaningful in release"]
 fn frame_time_by_row_count() {
-    println!("{:>8}  {:>12}  {:>12}", "rows", "react-egui", "plain egui");
+    println!(
+        "{:>8}  {:>14}  {:>14}  {:>14}",
+        "rows", "ScrollArea+for", "VirtualList", "plain show_rows"
+    );
     for count in [100usize, 1_000, 10_000] {
         println!(
-            "{count:>8}  {:>9.2} ms  {:>9.2} ms",
-            react(count),
-            plain(count)
+            "{count:>8}  {:>11.2} ms  {:>11.2} ms  {:>11.2} ms",
+            react(count, false),
+            react(count, true),
+            plain(count),
         );
     }
 }
