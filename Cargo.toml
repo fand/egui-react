@@ -21,6 +21,10 @@ eframe = "0.36.1"
 # `wgpu` and `snapshot` are intentionally left off: the tests run headless.
 egui_kittest = { version = "0.36.1", default-features = false }
 egui_taffy = "0.14.0"
+# Only the gallery uses it, for `syntax_highlighting::code_view_ui`. No
+# features: `syntect` would make the wasm much bigger and the built-in
+# highlighter is enough.
+egui_extras = { version = "0.36.1", default-features = false }
 rstml = "0.13.0"
 syn = { version = "3.0.5", features = ["full", "extra-traits", "visit", "visit-mut", "parsing", "printing", "proc-macro"] }
 quote = "1.0.47"

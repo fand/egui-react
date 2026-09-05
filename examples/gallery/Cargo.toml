@@ -1,0 +1,39 @@
+[package]
+name = "gallery"
+description = "react-egui example gallery: every example, its code and a tag filter"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "gallery"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gallery"
+path = "src/main.rs"
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+egui_extras.workspace = true
+react-egui.workspace = true
+react-egui-app.workspace = true
+react-egui-elements.workspace = true
+example-meta.workspace = true
+
+counter = { path = "../counter" }
+fetch = { path = "../fetch" }
+layout = { path = "../layout" }
+todo = { path = "../todo" }
+
+# `location.hash` is the deep link on the web; natively the first argument does
+# the same job and needs nothing.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+web-sys = { workspace = true, features = ["Location", "Window"] }
+
+[dev-dependencies]
+egui_kittest.workspace = true
