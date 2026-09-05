@@ -326,6 +326,44 @@ fn Response(cx: &mut Cx, url: &str, attempt: u32) {
 - **3.2 テスト** プラン 8 の懸念(オフスクリーン `Ui` と egui_taffy が毎パス `request_discard` する)は起きなかった。`sizing_pass()` を外す必要も、`ui.new_child` に切り替える必要も無かった。6-15 も `shares_ui` のまま通り、`<View direction="row" w={300}>` の中で `<Suspense>` の子 `<Text grow={1.0}>` が行を埋め、隣の `"end"` が右端(left = 285)に寄る。
 - **3.1 テストの手直し(手順 1 のフレーク修正)** `spawn_with_dispatch_lands` と `ready_reference_lives_next_to_a_state_guard` は `wait_for_repaint` に頼れないことが分かった。前者はポインタ入力の後に egui 自身が repaint を要求し、後者は本体が毎パス state を書くので、どちらも `has_requested_repaint` が結果と無関係に立つ。表示が変わるまで `run` / `step` を繰り返す形に変えた(タイムアウト 2 秒)。両テストのバイナリを 80 回ずつ回して緑。
 
+### 手順 3
+
+- **4** `Response` の `match` は「腕ごとに `.show(cx)` を呼ぶ」(プラン 8 の代替案)ではなく、`rsx! { match response { .. } }` の中に入れた。`rsx!` は `match` をカスタムノードとして受けるので(ARCHITECTURE.md 3.3)、こちらの方が短く、`#[component]` の末尾式の書き換えも 1 つで済む。マクロには手を入れていない。
+- **4** 本文のプレビュー(`response.text()` の先頭 2000 文字)は `rsx!` の中の式ではなく `body_preview(&ehttp::Response) -> String` に切り出した。`{expr}` の中でメソッドチェーンを繋ぐと `Text` の `children: impl Into<WidgetText>` の推論が読みにくくなるため。
+- **4** `ehttp` は 0.7.1 を `[workspace.dependencies]` に pin した。default features は空なので native 側だけ `features = ["native-async"]` で引き、wasm 側は素で引く。
+- **4** `use_future` の `T` は `Result<ehttp::Response, String>`。`ehttp::fetch_async` の返す future は native でそのまま `Send` を満たし、プラン 8 の「`Send` 判定でコンパイルできない」懸念は起きなかった。
+- **5** README の Usage に `use_future` / `<Suspense>` の 1 文と、examples の一覧に `fetch` を足した。CI は counter の後に fetch の `trunk build` を足した(wasm の `spawn_local` 経路が実際にリンクすることの唯一の確認である旨をコメントに書いた)。
+- **目視確認** `cargo run -p fetch` は起動してそのまま動き続け、ログに panic は出ない。`trunk build --release --config examples/fetch/Trunk.toml` は成功する。クリックを伴う目視(スピナーだけが見える / 完了後に勝手に更新される / 再取得)はコーディネータ側で行う。
+
+### 後続 PR への持ち越し
+
+- **suspended 中の children の accessibility ノード**(手順 2)。egui はウィジェットの accesskit ノードを可視性と無関係に作るので、suspended 中の children はスクリーンリーダーと `egui_kittest` から「画面外の座標にあるノード」として見える。画面には出ないが、読み上げには出る。egui 側に入口が無いので、上流に issue を出すか、`Suspense` が自前で accesskit ノードを差し引く方法を探すかのどちらか。
+- **`use_future` の中身を `AsyncSlot` として切り出す**(task.md のスコープ外)。`use_query` / `use_action` / `use_debounced` / `use_stream` を足す時に、世代付き inbox と 2 スロットの扱いを共有する。
+- **future のキャンセル**。deps 変更と unmount では結果を捨てるだけで、走っている処理は完走する。`ehttp` のような短い IO では問題にならないが、長い処理では `AbortHandle` 相当が要る。
+- **executor の差し替え口**(`Store::set_spawner` のようなもの)。tokio を使うアプリは今は future の中で `Handle::current()` を呼ぶ。要望が出てから。
+- **`<Suspense>` の中の `use_effect`**。suspended 中も走る(React は走らせない)。止めるなら「suspended 中は effect をキューに積んで、可視になった時に流す」形になるが、`use_effect` がその場実行であることの利点を失う。
+- **PR2 からの持ち越し**: `use_persisted_reducer`、`use_persisted` の wasm 自動テスト、`App::save` の dirty フラグ。
+
 ## 10. PR 本文の材料
 
-(実装中に書く)
+### 手順ごとの成果
+
+| 手順 | やったこと |
+|---|---|
+| 1(`use_future`) | `future.rs`(`SpawnFuture<T>` の cfg 切り替え、`task::spawn`、`spawn`、`use_future`)、`Store` の suspense カウンタ 3 メソッド、`lib.rs` / `prelude` の再エクスポート(`Poll` を含む)、`pollster`(native)/ `wasm-bindgen-futures`(wasm)の依存。テスト 6-1 〜 6-9。 |
+| 2(`Suspense`) | `react-egui-elements` の `suspense.rs`(`#[component(shares_ui)]`、初期 suspended、オフスクリーンの不可視 `Ui`、`begin_suspense` / `end_suspense`、`request_discard` による同一フレーム切り替え)と `prelude` への追加。テスト 6-10 〜 6-16。 |
+| 3(example) | `examples/fetch`(`ehttp::fetch_async` + `<Suspense>` + 再取得ボタン、native / wasm 共通)、CI の `trunk build (fetch)`、README の examples と Usage の 1 文。 |
+
+### ARCHITECTURE.md の変更点
+
+- **4 章の表** `use_future` の行を実際のシグネチャと挙動に更新し、`spawn(fut)` の行を足した。
+- **4 章「`use_future` の詳細」を追加** `SpawnFuture` に閉じた platform 差、native のスレッド + `pollster`、スロット 2 つと `FrozenVec` に積む `Poll`、世代番号と古い結果の捨て方、起動直後は受信しない理由、unmount 後の扱い、`note_pending`、子の `let`-`else` の書き方。
+- **5.8 Suspense を追加** カウンタのスタック、初期 suspended の理由、オフスクリーンの不可視 `Ui`(と accessibility ノードが残る制限)、両経路で同じスコープ Id を使う理由、`request_discard` による同一フレーム切り替えと却下時の挙動、`shares_ui`、`use_effect` が走る React との差。
+- **6 章** 要素一覧に `Suspense` の行を足し、`shares_ui` の段落に `Suspense` を足した。
+- **7 章** `react-egui` の依存に `pollster`(native)と `wasm-bindgen-futures`(wasm)。examples に `fetch`。
+- **8 章** 非同期の実行機構は core の `task::spawn` に閉じ、iOS / Android は native と同じスレッド経路を使う。
+- **11 章(決定ログ)** 3 行追加。executor(スレッド + `pollster` / tokio 必須を却下)、結果の表現(`Poll<T>` / 独自 enum を却下)、Suspense の実現(オフスクリーン + カウンタ + `request_discard` / panic による巻き戻しを却下)。
+
+### 落としたもの
+
+- なし。task.md のスコープはすべて入っている。スコープ外に置いたもの(tokio 連携、キャンセル、`use_query` / `use_action`、Error boundary、`SuspenseList`)は task.md の「含まない」のままで、9 章の「後続 PR への持ち越し」に理由付きで並べた。

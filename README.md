@@ -40,7 +40,9 @@ fn main() -> eframe::Result {
 }
 ```
 
-That is `examples/counter` verbatim. Run it natively with `cargo run -p counter`, or in a browser with [trunk](https://trunkrs.dev/): `trunk serve --config examples/counter/Trunk.toml`. The other examples are `todo` (`use_reducer`, `use_persisted`, `TextEdit` + `Checkbox`, `for` with `key`) and `layout` (a tour of the flex and grid attributes).
+That is `examples/counter` verbatim. Run it natively with `cargo run -p counter`, or in a browser with [trunk](https://trunkrs.dev/): `trunk serve --config examples/counter/Trunk.toml`. The other examples are `todo` (`use_reducer`, `use_persisted`, `TextEdit` + `Checkbox`, `for` with `key`), `layout` (a tour of the flex and grid attributes) and `fetch` (`use_future` + `<Suspense>` + [ehttp](https://github.com/emilk/ehttp), the same code on native and in the browser).
+
+Work that spans frames is one `use_future(cx, deps, || async { .. })` returning a `&Poll<T>`; a child waits with `let Poll::Ready(x) = .. else { return };` and the nearest `<Suspense fallback={..}>` draws its fallback until everything below it is ready.
 
 The hooks, the elements and the layout attributes are listed in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) sections 4 and 6.
 

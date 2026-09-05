@@ -349,7 +349,7 @@ react-egui/            core: View, Cx, Store, State, Handle, Dispatch, hooks, sw
 react-egui-macros/     rsx! (rstml 0.13 ベース), #[component], #[hook]
 react-egui-elements/   egui ウィジェット / コンテナのラッパー。View / Text は taffy 上に
 react-egui-app/        run(Options, |_cx| rsx!{ <App/> })。eframe を包み native / wasm / Android を吸収。iOS ランナーもここ
-examples/              counter, todo (use_reducer + use_persisted), layout, 後に fetch (use_future), mobile
+examples/              counter, todo (use_reducer + use_persisted), layout, fetch (use_future + Suspense + ehttp), 後に mobile
 ```
 
 `react_egui_app::run(Options, root)` が 1 フレームでやることは以下。

@@ -59,6 +59,11 @@ jobs:
       - name: trunk build (counter)
         run: trunk build --release --config examples/counter/Trunk.toml
 
+      # Also the only check that the wasm `spawn_local` path of `use_future`
+      # really links.
+      - name: trunk build (fetch)
+        run: trunk build --release --config examples/fetch/Trunk.toml
+
 # The pixel snapshot tests (`cargo test -p react-egui-elements --features
 # snapshot`) are deliberately not run here: the committed images are rendered on
 # macOS and would not match this runner's software renderer. See the README.

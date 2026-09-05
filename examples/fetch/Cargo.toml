@@ -1,0 +1,28 @@
+[package]
+name = "fetch"
+description = "react-egui example: fetch"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "fetch"
+path = "src/main.rs"
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+react-egui.workspace = true
+react-egui-app.workspace = true
+react-egui-elements.workspace = true
+
+# `fetch_async` needs `native-async` on native (it pulls in `async-channel`);
+# on wasm it is the browser's own fetch API and the feature would be dead weight.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+ehttp = { workspace = true, features = ["native-async"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+ehttp.workspace = true
