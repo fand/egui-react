@@ -312,3 +312,50 @@ gallery を目視して見つかった、core 以外の 2 つのバグ。計画�
 
 - gallery 側はコード列を `shrink={0.0}` にした。幅を確定させただけだと、layout のように中身が大きい example の時にコード列が `min_w` の 360 まで削られる。`shrink={0}` なら overflow は全部真ん中の列(`min_w={0}`)へ行き、列幅が example によって動かない。
 - gallery のテストはランナーと同じ枠を使うよう `react_egui_app::root_id()` / `root_style()` に切り替えた。自前で組んだ枠のままでは、まさにこのバグをテストが見逃す。
+
+### 手順 3(A-3)
+
+生 egui 版 3 つ、gallery のトグル、A-1〜A-3 のテスト。
+
+行数(`source.lines().count()`、META と doc コメントを含むファイル全体)。
+
+| example | react-egui | 生 egui |
+|---|---|---|
+| counter | 32 | 84 |
+| todo | 143 | 143 |
+| layout | 144 | 278 |
+
+todo が同数になるのは、`lib.rs` 側に `META`(12 行)と reducer の定義が入っているため。中身の差(`Msg` + `use_reducer` 対「index を持ち越して後で適用」、`use_persisted` 対 `save`/`load`)は 1.3 のとおり出ている。counter と layout は素直に 2.6 倍と 1.9 倍。
+
+**snapshot の結果。** 3 つとも同じ名前で一致した。
+
+| example | 実測の差 | 許容 |
+|---|---|---|
+| counter | 124 px | 200 |
+| todo | 26 px | 100 |
+| layout | 750 px | 1000 |
+
+`threshold` は egui_kittest の既定(0.6)のまま。許容は `max_failed_pixels`(ピクセル数)にした。ずれているのは文字の縁だけで、taffy は float で位置を決め egui は point 単位に丸めるので、共有する辺が 0.数 pt ずれるとラスタライズが 1px 動く。本物のレイアウト崩れは桁が違う(下記の背景バグは 11 万 px、`nested` の作り間違いは 5001 px)ので、この許容でも落ちる時は落ちる。
+
+ここに来るまでに直したもの。
+
+1. **背景の塗り面積**(4 万〜11 万 px)。生 egui 側の harness で `ui.set_min_size(ui.available_size())` を呼び、react-egui のルートと同じだけ場所を取らせる。
+2. **`<TextEdit grow={1.0}>` がノードを埋めない**(todo、773 px)。taffy はノードを 321pt に広げるのに、`egui::TextEdit` は自分の既定 `desired_width`(280pt)で描くので中に 40pt の空きが残っていた。`react-egui-elements` の `TextEdit` を直した: `desired_width` が明示されておらず、かつ `cx.in_taffy()` なら `ui.available_width()` を渡す。Ui モードでは埋める相手が無いので egui の既定のまま。テストは `a_growing_text_edit_fills_its_node`(`w={400}` のノードで 400pt になる)。todo の差は 773 → 26 px になった。
+   - `Slider` と `ComboBox` は同じ問題を持つ(400pt のノードで両方 100pt のまま。`spacing.slider_width` / `spacing.combo_width` が既定)。`Button` も伸びない(28pt)。今回は直さず記録だけ。`Slider` には幅の builder が無いので `ui.spacing_mut().slider_width` を触ることになり、`ComboBox` は `.width()` がある。
+3. **生 egui 版の `nested` が 1 行になっていた**。`ui.allocate_ui` は親の左右レイアウトを引き継ぐので、列ごとに `allocate_ui_with_layout(.., Layout::top_down(..))` を使い、`ui.set_min_width` で幅を主張する(そうしないと確保が中身の幅まで縮む)。
+4. **`grow` の計算を flexbox と同じにした**。最初は幅全体を 1:2 に割っていたが、`grow` が配るのは *余り* である。各列の中身の幅を測り、残りを 1:2 で足す。これで `right top` の x が 218.0 対 217.9 になった。
+5. **justify セクションの縦の間隔**。`gap={4}` + 各行の `mb={4}` は「行間 8、最後の行のあとに 4」。egui は `add_space` の周りにも item_spacing を足すので、`item_spacing.y = 0` にして 8 と 4 を明示した。これで全セクションの y が完全に一致した。
+
+`crates/react-egui-elements/tests/snapshots/` の 2 枚を撮り直した。`row.png` は手順 2.5 の wrap 修正のあと撮り直されておらず、`right` が 1 文字ずつ縦に並んだ**バグのままの絵**が commit されていた(snapshot は feature の裏なので、あの手順では回っていなかった)。`widgets.png` は上の `TextEdit` 修正でフィールドが広がったぶん。**feature 付きのテストは、その feature が触る変更のたびに手で回す必要がある。**
+
+snapshot の生成は react-egui 側を先に撮る(`UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot react_egui`)。同名の 2 テストを同時に update すると同じファイルを取り合う。
+
+todo の絵は空リストでは何も言えないので、撮る前に両方を同じ手順で動かす(`milk` / `eggs` を入れて 1 つ done にする)。`done (1)` は両方とも既定の閉じた状態。
+
+**その他の判断。**
+
+- gallery の生 egui 版は `use_state(cx, PlainState::default)` + `cx.leaf_fill(.., |ui| plain::ui(ui, state.bind()))`。`&mut *state` だと毎フレーム dirty になって repaint を要求し続け、kittest の `run()` が `max_steps` で落ちる。`bind()` は bind 付きウィジェットと同じ理由でここでも正しい。
+- トグルはコード列に置き、両方の行数をその下に並べる(`"32 lines"` と `"84 lines plain"`)。example を選び直すと react-egui 版に戻る。
+- `PlainState` は example ごとに違う型なので、`Running` と同じく `match` で分岐する(マクロ 1 つで 3 つ生成)。
+- todo の永続化は `serde_json` で JSON を作る `save()` / `load()` にし、eframe の `Storage` は `plain_main.rs` が触る。`plain.rs` を egui + serde だけに保つため。
+- layout の生 egui 版の最後のセクション(`Grid` / `Vertical`)は両方ほぼ同じ長さになる。egui 自身のコンテナを両側で使っているので当然で、これも正直に見せる。

@@ -16,6 +16,12 @@ path = "src/lib.rs"
 name = "gallery"
 path = "src/main.rs"
 
+[features]
+# Pixel snapshot tests: the react-egui and plain egui versions of an example
+# rendered at the same size and compared with the same image. Needs a GPU (or a
+# software Vulkan driver), so it is off by default.
+snapshot = ["egui_kittest/snapshot", "egui_kittest/wgpu"]
+
 [dependencies]
 eframe.workspace = true
 egui.workspace = true

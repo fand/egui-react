@@ -16,6 +16,10 @@ path = "src/lib.rs"
 name = "todo"
 path = "src/main.rs"
 
+[[bin]]
+name = "todo-plain"
+path = "src/plain_main.rs"
+
 [dependencies]
 eframe.workspace = true
 egui.workspace = true
@@ -24,3 +28,7 @@ react-egui-app.workspace = true
 react-egui-elements.workspace = true
 example-meta.workspace = true
 serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true

@@ -8,6 +8,8 @@ use react_egui::prelude::*;
 use react_egui_elements::prelude::*;
 use serde::{Deserialize, Serialize};
 
+pub mod plain;
+
 pub const META: Meta = Meta {
     name: "todo",
     summary: "A reducer drives the list; `use_persisted` keeps it across restarts.",
@@ -22,13 +24,15 @@ pub const META: Meta = Meta {
         "Collapsing",
     ],
     source: include_str!("lib.rs"),
-    plain: None,
+    plain: Some(include_str!("plain.rs")),
 };
 
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
-struct Todo {
-    text: String,
-    done: bool,
+/// One item. `pub` so [`plain`] can share it: the data model is the same, only
+/// the code around it differs.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Todo {
+    pub text: String,
+    pub done: bool,
 }
 
 /// Everything that can change the list.

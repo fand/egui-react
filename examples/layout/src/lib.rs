@@ -4,6 +4,8 @@ use example_meta::Meta;
 use react_egui::prelude::*;
 use react_egui_elements::prelude::*;
 
+pub mod plain;
+
 pub const META: Meta = Meta {
     name: "layout",
     summary: "Every flex and grid attribute `<View>` understands, one section each.",
@@ -18,7 +20,7 @@ pub const META: Meta = Meta {
         "Vertical",
     ],
     source: include_str!("lib.rs"),
-    plain: None,
+    plain: Some(include_str!("plain.rs")),
 };
 
 /// One labelled section of the demo.

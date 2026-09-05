@@ -719,6 +719,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui_kittest",
  "example-meta",
  "react-egui",
  "react-egui-app",
@@ -1944,6 +1945,7 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui_kittest",
  "example-meta",
  "react-egui",
  "react-egui-app",
@@ -3639,11 +3641,13 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui_kittest",
  "example-meta",
  "react-egui",
  "react-egui-app",
  "react-egui-elements",
  "serde",
+ "serde_json",
 ]
 
 [[package]]

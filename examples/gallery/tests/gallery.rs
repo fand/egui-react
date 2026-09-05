@@ -133,3 +133,38 @@ fn every_column_stays_inside_the_window() {
         "the code column is not where it should be: {lines:?}",
     );
 }
+
+/// The react-egui / plain egui toggle: only where there is a plain version,
+/// and back to react-egui when another example is picked.
+#[test]
+fn the_toggle_follows_the_example() {
+    let mut harness = harness();
+    harness.run();
+
+    // counter has a plain version, so both buttons are there and react-egui is
+    // the one that is on.
+    assert!(toggled(&harness, "react-egui"));
+    assert!(!toggled(&harness, "plain egui"));
+
+    harness.get_by_label("plain egui").click();
+    harness.run();
+    harness.run();
+    assert!(toggled(&harness, "plain egui"));
+    assert!(!toggled(&harness, "react-egui"));
+
+    // Picking another example starts it on its own react-egui version.
+    harness.get_by_label("todo").click();
+    harness.run();
+    harness.run();
+    assert!(toggled(&harness, "react-egui"));
+
+    // An example with no plain version shows no toggle at all. `fetch` is the
+    // one, but selecting it here would send a real request, so this checks the
+    // data the `if meta.plain.is_some()` branch reads.
+    assert!(fetch::META.plain.is_none());
+}
+
+fn toggled(harness: &Harness<'_, Store>, label: &str) -> bool {
+    use egui_kittest::kittest::NodeT as _;
+    harness.get_by_label(label).accesskit_node().toggled() == Some(egui::accesskit::Toggled::True)
+}

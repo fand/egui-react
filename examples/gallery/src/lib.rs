@@ -37,11 +37,15 @@ const REPO: &str = "https://github.com/fand/react-egui/blob/main/examples";
 pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str) {
     let mut selected = use_state(cx, move || start);
     let mut tags = use_state(cx, Vec::<&'static str>::new);
+    let mut plain = use_state(cx, || false);
 
-    // Read both states once, so the handlers below are free to take them
-    // `&mut` without tripping over a live borrow.
+    // Read the states once, so the handlers below are free to take them `&mut`
+    // without tripping over a live borrow.
     let active: Vec<&'static str> = tags.to_vec();
     let current: &'static Meta = find(*selected).unwrap_or(&EXAMPLES[0]);
+    // An example with no plain version is always shown as react-egui, whatever
+    // the toggle was left on.
+    let showing_plain = *plain && current.plain.is_some();
     let shown: Vec<&'static Meta> = EXAMPLES
         .iter()
         .filter(|meta| matches_tags(meta, &active))
@@ -56,7 +60,11 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
                 shown={&shown}
                 active={&active}
                 selected={current.name}
-                on_select={|name: &'static str| *selected = name}
+                on_select={|name: &'static str| {
+                    *selected = name;
+                    // A new example starts on its react-egui version.
+                    *plain = false;
+                }}
                 on_tag={|tag: &'static str| toggle(&mut tags, tag)}
                 on_clear={|| tags.clear()}
             />
@@ -73,11 +81,15 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
                 // The `key` is the whole point: change it and the previous
                 // example's hooks are swept, so state does not leak across.
                 <View key={current.name} direction="column" grow={1.0}>
-                    <Running name={current.name}/>
+                    <Running name={current.name} plain={showing_plain}/>
                 </View>
             </View>
             <Separator vertical/>
-            <Code meta={*current}/>
+            <Code
+                meta={*current}
+                plain={showing_plain}
+                on_pick={|pick: bool| *plain = pick}
+            />
         </View>
     }
 }
@@ -164,39 +176,96 @@ fn Chip(
     }
 }
 
-/// The selected example.
+/// The selected example, in the version the toggle asks for.
 ///
 /// A `match` rather than a table of function pointers: `#[component]` gives
 /// every component its own props type, so the four `App`s have four different
-/// signatures and no common `fn` type to store.
+/// signatures and no common `fn` type to store. The plain versions have the
+/// same problem for the opposite reason — each has its own `PlainState`.
 #[component]
-fn Running(cx: &mut Cx, name: &'static str) {
+fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
     rsx! {
-        match name {
-            "todo" => { <TodoApp/> }
-            "layout" => { <LayoutApp/> }
-            "fetch" => { <FetchApp/> }
-            _ => { <CounterApp/> }
+        if plain {
+            match name {
+                "todo" => { <TodoPlain/> }
+                "layout" => { <LayoutPlain/> }
+                _ => { <CounterPlain/> }
+            }
+        } else {
+            match name {
+                "todo" => { <TodoApp/> }
+                "layout" => { <LayoutApp/> }
+                "fetch" => { <FetchApp/> }
+                _ => { <CounterApp/> }
+            }
         }
     }
 }
 
-/// The code column.
+/// A plain egui example: one `use_state` for its whole state, drawn into a
+/// leaf that taffy sizes.
 ///
-/// One component so that the react-egui / plain egui toggle can be added here
-/// without touching the layout above.
+/// This is what running a non-react-egui UI inside a react-egui tree looks
+/// like: the state is a hook, the drawing is a closure over `&mut egui::Ui`.
+///
+/// `bind()` rather than `&mut *state`, for the same reason a bound `TextEdit`
+/// uses it: the plain `ui` writes into the state every frame whether anything
+/// changed or not, and `&mut *state` would read that as a change and ask for
+/// another repaint, forever.
+macro_rules! plain_example {
+    ($name:ident, $module:path) => {
+        #[component]
+        fn $name(cx: &mut Cx) {
+            use $module as plain;
+            let mut state = use_state(cx, plain::PlainState::default);
+            cx.leaf_fill(&ItemStyle::default().grow(1.0), |ui| {
+                plain::ui(ui, state.bind());
+            });
+        }
+    };
+}
+
+plain_example!(CounterPlain, counter::plain);
+plain_example!(TodoPlain, todo::plain);
+plain_example!(LayoutPlain, layout::plain);
+
+/// The code column, and the toggle between the two versions.
+///
+/// The toggle lives here because the line counts are the point of it: the two
+/// versions draw the same thing, and the numbers next to the buttons say what
+/// that costs in each.
 #[component]
-fn Code(cx: &mut Cx, meta: Meta) {
-    let source = meta.source;
-    let link = format!("{REPO}/{}/src/lib.rs", meta.name);
+fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
+    let source = if plain {
+        meta.plain.unwrap_or(meta.source)
+    } else {
+        meta.source
+    };
+    let file = if plain { "plain.rs" } else { "lib.rs" };
+    let link = format!("{REPO}/{}/src/{file}", meta.name);
+    let react_lines = format!("{} lines", meta.source.lines().count());
+    let plain_lines = meta.plain.map_or(String::new(), |p| {
+        format!("{} lines plain", p.lines().count())
+    });
 
     rsx! {
         // A fixed share of the window, never squeezed by what the running
         // example wants: `shrink={0}` sends the whole overflow to the centre
         // column, which is the one with `min_w={0}`.
         <View direction="column" w="40%" min_w={360.0} shrink={0.0} gap={6}>
+            if meta.plain.is_some() {
+                <View direction="row" gap={4} align="center" w="100%">
+                    <Chip
+                        label="react-egui"
+                        active={!plain}
+                        on_click={|| on_pick.emit(false)}
+                    />
+                    <Chip label="plain egui" active={plain} on_click={|| on_pick.emit(true)}/>
+                </View>
+            }
             <View direction="row" gap={8} align="center" w="100%">
-                <Text grow={1.0}>{format!("{} lines", source.lines().count())}</Text>
+                <Text>{react_lines.as_str()}</Text>
+                <Text grow={1.0}>{plain_lines.as_str()}</Text>
                 {view(move |cx| {
                     // Same measuring trap as [`Chip`]: left to wrap, the link
                     // is measured at one character wide and 200px tall, and

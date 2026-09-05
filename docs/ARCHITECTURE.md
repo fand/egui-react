@@ -327,6 +327,8 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 | コンテナ | `ScrollArea`、`Collapsing`、`Frame`、`Window`、`Panel`(`side`)、`CentralPanel`、`Vertical`、`Horizontal`、`Grid` + `row()` |
 | 非同期 | `Suspense`(`fallback: impl View`、`shares_ui`。中の `use_future` が 1 つでも `Pending` なら children の代わりに `fallback` を描く。5.8) |
 
+`TextEdit` は taffy の中(`Cx::in_taffy()`)では `desired_width` をノードの幅にする。`grow` や `w` で広げたノードの中に egui 既定の 280pt で描かれると、残りが空くため。`desired_width` を明示した場合はそちらが勝つ。`Slider` / `ComboBox` / `Button` は今のところ伸びない(それぞれ `spacing.slider_width` / `spacing.combo_width` / 内容の幅のまま)。
+
 `bind` を持つ要素はウィジェットが直接 state に書き込むので、`State::bind()` を通す。これは `&mut *state` と違って state を dirty にしない(5.6)。同じ state を触るハンドラを同じ要素に渡すと E0502 になるので、`bind` 要素の `on_change` はログや `Dispatch` のように別の場所へ通知する用途に限る。
 
 egui 標準のコンテナのうち、親から場所を切り取るもの(`Panel` / `CentralPanel`)と、親の `Ui` に依存するもの(`Grid` の行区切り)は、`rsx!` が要素ごとに `Ui::push_id` で子 `Ui` を作ることの影響を受ける。行区切りは要素ではなく `{row()}`(`{expr}` ノードはスコープされない)として提供する。ドッキングされたパネルは自分の子 `Ui` から場所を切り取るので、兄弟要素として並べても左右には並ばない。パネルはアプリのルート(フェーズ 5 のランナー)で使うことを想定する。これらは `#[component(shares_ui)]` を付けて親の surface をそのまま引き継ぐ。`Suspense` も同じ理由で `shares_ui` である。自分では何も描かず children と `fallback` を親にそのまま流すので、`<View>` の中に置けば children が親の taffy ツリーの子になる。
@@ -377,6 +379,9 @@ egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut 
 
 - `egui_kittest` でコンポーネントの操作テストとスナップショットテスト。
 - `trybuild` でマクロのコンパイルエラー(イベント名の誤り、`key` 忘れ等)の文面を固定する。
+- examples も lib なので kittest を持つ。生 egui 版がある example は、同じ操作を両方に対して流して同じ結果になることを確かめる。
+- 見た目の一致は `examples/gallery` の `snapshot` feature で撮る。react-egui 版と生 egui 版を同じ大きさで描き、**同じ画像 1 枚**と比べる。残る差は文字の縁だけなので `SnapshotOptions::max_failed_pixels` で吸収する(値は tasks/examples/plan.md 7 章)。
+- feature の裏にある snapshot テストは CI で回らないので、その feature が触る変更をしたら手で撮り直す。
 - スパイク段階から kittest を使い、多重パスでハンドラが 1 回だけ発火することをテストで固定する。
 
 ## 10. スパイクで検証した項目
