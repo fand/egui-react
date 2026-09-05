@@ -107,6 +107,12 @@ fn App(cx: &mut Cx) {
 
 ## 3. 実装で判明した差分
 
+### 手順 1: `Canvas`
+
+**閉包 prop の名前は `on_paint` ではなく `paint` にした。** `rsx!` は属性名が `on_` で始まればそれをイベントハンドラと見なし、`<要素名>Event` の variant(`on_paint` → `CanvasEvent::Paint`)を探しに行く(`crates/react-egui-macros/src/rsx/mod.rs` の属性の振り分け)。つまり `on_` で始まる普通の prop は rsx! からは書けない。逃げ道は「core を変える」か「名前を変える」かで、core 無変更が前提なので後者を採った。`VirtualList` の `render` と同じ命名になり、`on_*` = イベント、それ以外 = prop という読み方も保てる。3.4 の shader example のコードも `paint={..}` になる。
+
+`#[prop(default = egui::Sense::hover())]` は通った(task.md の「通らなければ `Option<egui::Sense>`」は不要)。イベントは `Response` から発火する: `dragged()` なら `on_drag(drag_delta())`、`hover_pos()` があれば `on_hover(pos)`。kittest は `crates/react-egui-elements/tests/canvas.rs` に 4 本(`w`/`h` どおりの rect、`grow` で残り全部、drag の delta、hover の位置)。イベントハンドラは `move` で書けない(融合された閉包が `FnMut` なので、テストの `Rc` は借用で捕まえる)。
+
 ### 手順 6: `Options.setup`(と `wgpu` feature を置かない判断)
 
 **3.1 の前提が間違っていた。「eframe は default(glow)のまま」は eframe 0.36 では成り立たない。** eframe 0.36.1 の `default` feature は `["accesskit", "default_fonts", "links", "wayland", "web_screen_reader", "wgpu", "winit/default", "x11"]` で、**`glow` は入っていない**。`Renderer::Glow` は `glow` feature が無いと存在すらせず、`Renderer::default()` は `Wgpu` を返す。つまり **このリポジトリは最初から wgpu で描いていた**。0.35 までとは逆で、今は glow の方が opt-in である。

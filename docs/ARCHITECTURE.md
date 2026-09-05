@@ -325,6 +325,7 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 | レイアウト | `View`(`display` / `direction` / `wrap` / `justify` / `align` / `align_content` / `gap` / `cols`)、`Text`(`size` / `color` / `strong` / `wrap`) |
 | ウィジェット | `Button`(`enabled`, `on_click`)、`Label`(`wrap`)、`TextEdit`(`bind` / `multiline` / `hint` / `desired_width` / `rows`, `on_change` / `on_submit`)、`Checkbox`(`bind` / `label`, `on_change`)、`Slider<T: Numeric>`(`bind` / `range` / `label`, `on_change`)、`ComboBox`(`bind` / `options` / `label`, `on_change`)、`Image`(`source` / `fit`)、`Separator`(`vertical`) |
 | コンテナ | `ScrollArea`、`VirtualList`(`rows` / `row_h` / `render`)、`Collapsing`、`Frame`、`Window`(`title` / `open` / `resizable` / `default_pos` / `default_size`)、`Panel`(`side`)、`CentralPanel`、`Vertical`、`Horizontal`、`Grid` + `row()` |
+| 描画 | `Canvas`(`sense` / `paint`, `on_drag` / `on_hover`。taffy がくれた矩形をそのまま渡す leaf) |
 | 非同期 | `Suspense`(`fallback: impl View`、`shares_ui`。中の `use_future` が 1 つでも `Pending` なら children の代わりに `fallback` を描く。5.8) |
 
 `TextEdit` は taffy の中(`Cx::in_taffy()`)ではノードを埋める。単行は `desired_width` をノードの幅にし、`multiline` は `ui.add_sized(ui.available_size(), ..)` で縦横とも埋める(`desired_rows` だと行単位にしか合わず、端数がノードからはみ出す)。`grow` や `w` で広げたノードの中に egui 既定の 280pt / 4 行で描かれると残りが空くためである。`desired_width` / `rows` を明示した場合はそちらが勝つ。`Slider` / `ComboBox` / `Button` は今のところ伸びない(それぞれ `spacing.slider_width` / `spacing.combo_width` / 内容の幅のまま)。
@@ -334,6 +335,8 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 egui 標準のコンテナのうち、親から場所を切り取るもの(`Panel` / `CentralPanel`)と、親の `Ui` に依存するもの(`Grid` の行区切り)は、`rsx!` が要素ごとに `Ui::push_id` で子 `Ui` を作ることの影響を受ける。行区切りは要素ではなく `{row()}`(`{expr}` ノードはスコープされない)として提供する。これらは `#[component(shares_ui)]` を付けて親の surface をそのまま引き継ぐ。
 
 **パネルが場所を切り取る先は「最も近い egui の `Ui`」、つまり今の taffy ツリーを開始した `Ui` である。** 間に `<View>` が何段あっても飛ばす。taffy モードのとき `Panel` / `CentralPanel` は `cx.leaf` を使わず `cx.ui()` に対して `show_inside` する。leaf を作ってしまうとパネルは自分専用の小さなノードの中を切り取ることになり、兄弟に並べた 4 つのパネルが全部同じ角に重なる。ランナーの下ではこの `Ui` は窓そのものなので、「パネルはアプリのルートで使う」は自動的に成り立つ。裏返しの帰結として、`<View>` の奥に書いた `<Panel>` はその行の一部ではなく窓の端まで飛ぶ。これは docking の意味であって不具合ではない(`examples/shell`)。`ScrollArea` は children をそのまま全部描く。長いリストは `VirtualList` を使う。`rows` と `row_h` を受け取り、`render(cx, i)` を「見えている行」にだけ呼ぶ(中身は `egui::ScrollArea::show_rows`)。行は `cx.scope(i, ..)` の中で描かれるので、`for` + `key={i}` と同じく行ごとに hook を持てる。全行が同じ高さであることが条件である。`render` の bound は `impl for<'a, 's, 'u> FnMut(&'a mut Cx<'s, 'u>, usize)` と明示して書く。`#[component]` は prop の省略ライフタイムを props 構造体のものに書き換えるので、省略形(`impl FnMut(&mut Cx, usize)`)はコンパイルできない。
+
+`Canvas` は自分では何も描かない leaf である。`leaf_fill` で taffy がくれた大きさを `ui.allocate_exact_size(ui.available_size(), sense)` で確保し、`paint(ui, rect)` を呼ぶだけで、中身は呼び出し側が `ui.painter()` に積む(線や図形でも、`egui_wgpu::Callback::new_paint_callback(rect, ..)` でも)。elements は egui-wgpu に依存しない。`sense` は既定が `Sense::hover()` で、`on_hover`(矩形内のポインタ位置)はそのまま、`on_drag`(`drag_delta`)には `Sense::drag()` が要る。閉包 prop の名前は `on_paint` ではなく `paint` である。`rsx!` は `on_` で始まる属性を全てイベント enum の variant として扱うので、`on_` 始まりの普通の prop は書けない(`VirtualList` の `render` と同じ命名)。bound は `impl for<'a> FnOnce(&'a mut egui::Ui, egui::Rect)` と明示する(`VirtualList` と同じ理由)。
 
 `Suspense` も同じ理由で `shares_ui` である。自分では何も描かず children と `fallback` を親にそのまま流すので、`<View>` の中に置けば children が親の taffy ツリーの子になる。
 
