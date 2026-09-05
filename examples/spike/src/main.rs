@@ -1,15 +1,28 @@
-//! Spike example. For now it only opens an empty eframe window; the hand-written
-//! Counter and Dialog are added in a later step of the spike.
+//! Visual check for the spike: a hand-written Counter and Dialog driven by the
+//! react-egui core, with no macros yet.
+
+mod components;
 
 use std::num::NonZeroUsize;
 
-use react_egui as _;
+use react_egui::{Cx, Store};
 
-struct SpikeApp;
+/// Owns the hook store, exactly as `react-egui-app`'s runner will.
+#[derive(Default)]
+struct SpikeApp {
+    store: Store,
+}
 
 impl eframe::App for SpikeApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        ui.label("react-egui spike");
+        self.store.begin_pass(ui.ctx());
+        {
+            let store: &Store = &self.store;
+            let mut cx = Cx::new(store, ui, egui::Id::new("root"));
+            components::app(&mut cx);
+        }
+        // Every guard died with the component bodies above, so the sweep is safe.
+        self.store.end_pass();
     }
 }
 
@@ -20,7 +33,7 @@ fn main() -> eframe::Result {
         Box::new(|cc| {
             cc.egui_ctx
                 .options_mut(|o| o.max_passes = NonZeroUsize::new(2).unwrap());
-            Ok(Box::new(SpikeApp))
+            Ok(Box::new(SpikeApp::default()))
         }),
     )
 }
