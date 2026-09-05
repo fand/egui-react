@@ -256,3 +256,14 @@ eframe の `App::ui` で `Store` を `begin_pass` / `end_pass` し、Counter と
 - **3** ハンドラの `(|| ..)()` 展開に clippy の `redundant_closure_call` が出る。テストでは file-level `allow`。`rsx!` は展開結果に `#[allow(clippy::redundant_closure_call)]` を付ける必要がある。
 - **4 テスト 9** 毎パス state を書き換えると毎パス repaint が要求され、`Harness::run` が `ExceededMaxSteps` で panic する。毎フレーム書き換えるテストは `harness.step()` を使う。
 - **新規の借用制約** 同一要素に、state を借用する値 prop と同じ state を変更するハンドラを渡すと E0502(`title={&*title} on_rename={|s| *title = s}`)。テストでは値を先に clone した。ARCHITECTURE.md 3.7 に追記済み。
+
+## 9. 実装で判明した差分(手順 4〜8)
+
+- **2.5** `Vec<(TypeId, Box<dyn Any>)>` に `Handle<'s, T>` は入らない(`dyn Any` は `'static` を要求し、`Handle` はストアを借用する)。代わりに `(TypeId, egui::Id)` でスロット Id を積み、`use_context` が `store.slot_by_id(id)` から `Handle` を組み直す。`Slot` に `id` を、`Handle` に `slot_id()` を追加した。`Box` も downcast も unsafe も不要で、`Store` に lifetime パラメータも付かない。
+- **2.3 / 4 テスト 4** 「guard が生きたまま同じスロットの `Handle` を使う」panic は公開 API では到達不能なので `#[should_panic]` テストは書かなかった。`Handle` の入手経路が `use_handle` と `into_handle` に限られるため。
+- **4 テスト 6** 衝突には 2 段階ある。1 回目の guard が生きていれば呼び出し位置付きの明確なメッセージで panic(`try_borrow_mut` で検出)。落ちていれば黙って同じスロットを再利用し、記録と `log::warn!` のみ。後者がオーバーレイ(フェーズ 2)の主対象。
+- **4 テスト 5** (b) egui_taffy 版も discard を発生させたので削除せず。定常フレームが 1 パスであることも assert し、追加パスの要求元が taffy であることを示している。
+- **7** パス数をルート閉包の呼び出し回数で数えるのは誤り。kittest の `Node::click()` は press と release の 2 イベントを積み、`Harness::step()` はイベントごとに 1 フレーム回すので 1 回の `step()` で 2 フレーム走る。`egui::Context::current_pass_index()`(フレーム内で 0 から始まる)を使う。
+- **5.3 の補足** effect がハンドラより前に置かれ、deps がそのハンドラの変更する state に依存する場合、2 パス目で deps が変わっているので effect が走る。deps 変化 1 回につき 1 回という不変条件は保たれる(テスト `effect_deps_changed_during_pass_one_rerun_in_pass_two`)。
+- **8** `eframe::App::ui` 内で `self.store.begin_pass(ui.ctx())` → `Cx::new(&self.store, ..)` → `self.store.end_pass()` は NLL でそのまま通る。`react-egui-app::run` はこの形でよい。
+- **フェーズ 4 向けメモ** egui_taffy の `tui.ui(..)` / `tui.label(..)` は `TuiBuilderLogic` trait のメソッドで、`use egui_taffy::TuiBuilderLogic as _;` が必要。

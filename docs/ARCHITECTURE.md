@@ -109,7 +109,7 @@ hook の Id は `scope.with(Location::caller())` で導出する。`use_state` �
 
 カスタム hook は `#[hook]` を付ける。`#[hook]` は関数に `#[track_caller]` を付け、本体を `cx.hook_scope(Location::caller(), |cx| { .. })` で包む。これによりネストした hook の Id は「スコープ → カスタム hook の呼び出し位置 → 内側の hook の呼び出し位置」という呼び出し位置のスタックになり、何段でも一意になる。合成可能性はこれで担保する。
 
-同一パス内で同じ Id が 2 回要求されたら衝突である(訪問済みマークで検出できる)。1 回目の guard がまだ生きている場合は同じ `RefCell` の二重借用になるので、原因と対処(`#[hook]` の付け忘れ、`for` 内の `key` 忘れ)を示すメッセージで panic する。素の `RefCell` の panic にはしない。1 回目の guard が既に落ちている場合は記録と `log::warn!` のみで続行し、debug ビルドでは egui の Id 衝突警告と同じ UX で画面上に警告を出す。
+同一パス内で同じ Id が 2 回要求されたら衝突である(訪問済みマークで検出できる)。1 回目の guard がまだ生きている場合は同じ `RefCell` の二重借用になるので、原因と対処(`#[hook]` の付け忘れ、`for` 内の `key` 忘れ)を示すメッセージで panic する。素の `RefCell` の panic にはしない。1 回目の guard が既に落ちている場合は 2 回目が同じスロットを黙って再利用する(`for i in 0..3 { use_state(cx, || i) }` は 3 回とも 0 を返す)。これがまさに避けたい「静かなバグ」なので、記録と `log::warn!` に加えて、debug ビルドでは egui の Id 衝突警告と同じ UX で画面上に警告を出す(フェーズ 2)。オーバーレイの主目的はこの後者のケースである。
 
 却下した代替案: Id に「同一位置の出現回数」を混ぜて衝突を無くす案。衝突は消えるが、構造が変わった時に状態が別インスタンスへ静かに移る(React の rules-of-hooks 違反と同じ現象)。ループで出現回数が変わることを正当な利用として許すため検出もできない。「うるさいエラー」を「静かなバグ」と交換する設計なので採らない。
 
@@ -121,7 +121,7 @@ hook の Id は `scope.with(Location::caller())` で導出する。`use_state` �
 
 guard はコンポーネント本体の間だけ生きる(`'s` はストアの lifetime だが、ローカル変数として本体を抜ける時に落ちる)。カスタム hook は guard を値で返せる。guard を move で抱えた閉包を返すこともできる。
 
-補助として `count.into_handle()` で guard を消費して `Handle<'s, T>` に変えられる。`State::handle(&self)` は提供しない。guard が生きたまま `Handle` を使うと同じ `RefCell` の二重借用で panic するためである。context に渡すなど最初から `Handle` が欲しい state は `use_handle(cx, init)` で取る。`Handle` は Copy で、`.get()`(`T: Clone`)、`.set(v)`、`.update(|&mut T|)`、`.with(|&T|)` を `&self` で提供する。フレーム内で state を構造体に入れて持ち回る場合や、`use_context`(4 章)で使う。フレームを跨いで運ぶ場合は `Dispatch`(4 章)を使う。
+補助として `count.into_handle()` で guard を消費して `Handle<'s, T>` に変えられる。`State::handle(&self)` は提供しない。guard が生きたまま `Handle` を使うと同じ `RefCell` の二重借用で panic するためである。context に渡すなど最初から `Handle` が欲しい state は `use_handle(cx, init)` で取る。`Handle` を得る経路は `use_handle`(guard を作らない)と `into_handle`(guard を解放する)の 2 つしかなく、`provide_context` は `Handle` しか受け取らないので、「guard と `Handle` が同じスロットに同時に存在する」状態は公開 API では作れない(spike で確認)。`Handle` は Copy で、`.get()`(`T: Clone`)、`.set(v)`、`.update(|&mut T|)`、`.with(|&T|)` を `&self` で提供する。フレーム内で state を構造体に入れて持ち回る場合や、`use_context`(4 章)で使う。フレームを跨いで運ぶ場合は `Dispatch`(4 章)を使う。
 
 ### 3.6 イベント(callback props)
 
@@ -170,7 +170,7 @@ Dialog(cx, DialogProps {
 | `use_memo(cx, deps, f) -> &T` | deps のハッシュが変化した時のみ `f` を再実行 |
 | `use_effect(cx, deps, f)` | deps 変化時(と初回)に `f` を**その場で**実行。`f` は cleanup(`FnOnce + 'static`)を返してよい |
 | `use_reducer(cx, reducer, init) -> (State<S>, Dispatch<Msg>)` | `Dispatch` は `Clone + Send + 'static`。`send` はキューに積み、パス末に reducer を適用して `request_repaint` |
-| `provide_context(cx, value)` / `use_context::<T>(cx) -> Handle<T>` | 子孫レンダリング中だけ有効。guard ではなく `Handle` を返す(親の guard と二重借用しないため) |
+| `provide_context(cx, handle, children)` / `use_context::<T>(cx) -> Option<Handle<T>>` | 子孫レンダリング中だけ有効。guard ではなく `Handle` を返す(親の guard と二重借用しないため)。ストアは `(TypeId, スロット Id)` のスタックを持ち、`use_context` がスロット Id から `Handle` を組み直す。`Handle` 自体は `'s` を持つので `dyn Any` には入れられない |
 | `use_future(cx, deps, async_fn) -> &Poll<T>` | native は thread / tokio、wasm は wasm-bindgen-futures で実行。完了時に `request_repaint` |
 | `cx.defer(f)` / `state.update_later(f)` | パス末に実行される遅延キュー |
 
@@ -193,11 +193,11 @@ Dialog(cx, DialogProps {
 
 ### 5.2 sweep
 
-パス末に `last_visited` が現在パスより古い slot を列挙し、cleanup を走らせて破棄する。これが unmount であり、同時に状態のメモリリークを防ぐ。sweep 時点で guard は全て落ちている(コンポーネント本体と共に死ぬ)。
+パス末に `last_visited` が現在パスより古い slot を列挙し、cleanup を走らせて破棄する。これが unmount であり、同時に状態のメモリリークを防ぐ。sweep 時点で guard は全て落ちている(コンポーネント本体と共に死ぬ)。`Handle` も同様で、`end_pass` は `&mut Store` を取るため、ストアを借用する `State` / `Handle` が生きたまま sweep が走ることは型で禁止されている。context スタックは `begin_pass` で防御的にクリアする。
 
 ### 5.3 多重パス
 
-egui_taffy はレイアウト変化時に `request_discard` を呼び、同一フレーム内に 2 パス目を走らせる。egui の `Context::run` は各パスで `new_input.take()` を渡し、`RawInput::take` は `events: core::mem::take(&mut self.events)` でイベントを移動する。**2 パス目は空イベントで走るのでハンドラは 1 回しか発火しない**(egui ソースで確認済み)。状態の巻き戻しやジャーナルは不要。hooks の deps も 2 パス目で一致するので effect は再実行されない。ランナーは `Options::max_passes = 2` を設定する。
+egui_taffy はレイアウト変化時に `request_discard` を呼び、同一フレーム内に 2 パス目を走らせる。egui の `Context::run` は各パスで `new_input.take()` を渡し、`RawInput::take` は `events: core::mem::take(&mut self.events)` でイベントを移動する。**2 パス目は空イベントで走るのでハンドラは 1 回しか発火しない**(egui ソースで確認済み)。状態の巻き戻しやジャーナルは不要。deps が変わっていない effect は 2 パス目で再実行されない。ただし 1 パス目のハンドラが変更した state から deps を導出している effect で、effect がハンドラより前に置かれている場合は、2 パス目で deps が本当に変わっているので実行される。これは「次フレームで走るはずだった 1 回」が同一フレームの 2 パス目に前倒しされただけで、deps の変化 1 回につき実行は 1 回である(spike のテストで確認)。ランナーは `Options::max_passes = 2` を設定する。パス数の確認には `egui::Context::current_pass_index()` を使う。
 
 ### 5.4 1 フレームの流れ
 
@@ -267,9 +267,9 @@ egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut 
 - `trybuild` でマクロのコンパイルエラー(イベント名の誤り、`key` 忘れ等)の文面を固定する。
 - スパイク段階から kittest を使い、多重パスでハンドラが 1 回だけ発火することをテストで固定する。
 
-## 10. スパイクで検証する項目
+## 10. スパイクで検証した項目
 
-実装前に、マクロ抜きの手書き展開で以下を確認する。ここで前提が崩れたら本書を更新する。
+マクロ抜きの手書き展開で以下を確認した(PR1、`crates/react-egui/tests/`)。全項目にテストがあり緑。前提が崩れた箇所は本書の該当節に反映済み。
 
 - `State` の guard がコンポーネント本体の間だけ生き、兄弟要素のハンドラが同じ state を順に `&mut` 借用できる。
 - `#[hook]` 越しに guard を返せる(lifetime `'s` が `&mut Cx` と独立である)。
