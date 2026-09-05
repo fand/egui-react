@@ -48,7 +48,7 @@ The hooks, the elements and the layout attributes are listed in [docs/ARCHITECTU
 
 ## Examples
 
-Every example runs in the browser in the [gallery](https://fand.github.io/react-egui/), next to its source. Some of them also have a version written with plain egui, so you can switch between the two and compare.
+Every example but one runs in the browser in the [gallery](https://fand.github.io/react-egui/), next to its source. `shell` is standalone: a docked panel carves up the nearest enclosing `Ui`, which is the window, so there is nothing sensible for a gallery column to do with it. Some of them also have a version written with plain egui, so you can switch between the two and compare.
 
 ![The gallery: example list, the running example, and its source next to it](docs/gallery.png)
 
@@ -62,6 +62,7 @@ Every example runs in the browser in the [gallery](https://fand.github.io/react-
 | `custom-hook` | Three hooks of your own, each called from two components that keep their own state. | [#custom-hook](https://fand.github.io/react-egui/#custom-hook) | [lib.rs](examples/custom-hook/src/lib.rs) | – |
 | `escape-hatch` | Four ways down to plain egui: a closure, a leaf, a painter, and a nested Cx. | [#escape-hatch](https://fand.github.io/react-egui/#escape-hatch) | [lib.rs](examples/escape-hatch/src/lib.rs) | – |
 | `list-10k` | Ten thousand rows, and what drawing all of them costs. | [#list-10k](https://fand.github.io/react-egui/#list-10k) | [lib.rs](examples/list-10k/src/lib.rs) | [plain.rs](examples/list-10k/src/plain.rs) |
+| `shell` | Docked panels, a floating window, and an editor in what is left. | – (standalone) | [lib.rs](examples/shell/src/lib.rs) | – |
 | `layout` | Every flex and grid attribute `<View>` understands, one section each. | [#layout](https://fand.github.io/react-egui/#layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
 | `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [#fetch](https://fand.github.io/react-egui/#fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |
 

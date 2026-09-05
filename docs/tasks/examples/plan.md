@@ -467,3 +467,28 @@ react-egui は全行を描く。`rsx!` の `for` は本物のループで、1 �
 - **kittest: `ScrollArea` の中のボタンは `click()` では押せない**。シミュレートしたポインタ押下がスクロール領域に吸われて widget に届かない。`click_accesskit()` なら効く。行の削除テストで踏んだ。
 - ベンチは `#[ignore]` のテストとして置いた(`tests/bench.rs`)。release でしか意味が無く、アサーションでもないため。
 - gallery 一覧では escape-hatch の次、layout の前。
+
+### 手順 5-7: shell(と list-10k の索引列の手直し)
+
+**list-10k の手直し。** 生 egui 版の索引列が中身の幅になっていて、名前の開始位置が react-egui 版と揃っていなかった。`INDEX_W`(64pt)を lib に出し、両方がそれを使う。生 egui 側は `allocate_ui_with_layout` + `set_min_width`(`add_sized` だと中央寄せになり、最小幅を言わないと中身まで縮む)。snapshot を撮り直した。別名のままである。
+
+**shell.** IDE 風の枠。上 / 左 / 下の `<Panel>`、`<CentralPanel>` のエディタ、浮いた `<Window>` のインスペクタ、左のツリーは `<Collapsing>` + `selectable_label`。
+
+**バグ: `<Panel>` がランナーの下で docking しなかった。elements で直した。**
+
+- 原因。`Panel` は `shares_ui` だが中身は `cx.leaf(&style, ..)` で、taffy モードではノードが 1 つ作られてその中を切り取る。ランナーは必ず `root_container` を開くので、4 つのパネルが 4 つの小さなノードを切り取り、全部が同じ左上に重なって描かれていた(実測: `save` / `files` / `log` が全部 (16,10) 付近)。ARCHITECTURE 6 章の「パネルはアプリのルートで使うことを想定する」が、ランナーの下では成立していなかった。
+- 修正(`react-egui-elements`)。**パネルが場所を切り取る先は「最も近い egui の `Ui`」= 今の taffy ツリーを開始した `Ui`** と決めた。taffy モードなら `cx.leaf` ではなく `cx.ui()` に対して `show_inside` する。ツリーの外(Ui モード)では今までどおり。`CentralPanel` も同じ。ランナーの下ではこの `Ui` は窓なので、「ルートで使う」が自動的に成り立つ。
+- 帰結として、`<View>` の奥に書いた `<Panel>` はその行の一部ではなく窓の端まで飛ぶ。docking の意味そのものなので、doc コメントに「不具合ではない」と明記した。テストは `a_panel_inside_a_view_docks_in_the_window`(`<View grow>` の中の左パネルが窓の左端に着き、残りと重ならない)。既存の `panels_written_as_siblings_dock` はそのまま通る。
+- **gallery には載せられない**(この規則の下でも変わらない)。gallery の中央列に置いても、パネルが切り取るのは gallery のツリーを開始した `Ui` = 窓全体だからである。実際に 1280x800 で試したとき、gallery 自身のラベルは `CentralPanel` に塗り潰されて消えた。plan 5 章の「試して成立すれば gallery に載せる」は **不成立**。standalone のままにする。
+
+**ついでに塞いだ elements の穴 2 つ**(shell がどちらも要る)。
+
+- `<Window>` に `default_pos` と `default_size`(`egui::Window` の同名メソッド、最初のフレームだけ)。無いと egui の既定位置(左上)でツールバーとツリーを覆う。インスペクタは開いた状態で始め、右下寄りに置いた。
+- `<TextEdit>` に `rows`(→ `desired_rows`)。加えて taffy の中の `multiline` は `ui.add_sized(ui.available_size(), ..)` でノードを縦横とも埋める。最初は `desired_rows = available_height / row_height` にしたが、行単位でしか合わず端数がノードからはみ出したので `add_sized` にした。テストは `a_growing_multiline_text_edit_fills_its_node` と `an_explicit_row_count_wins`。
+
+**もう一度踏んだ「auto なノードは中身で測られる」**。エディタを入れた `<View grow={1.0}>` は `grow` だけでは中身のサイズになり、中の `TextEdit` は自分の中身で測られるので、両者が「2 文字ぶんの幅」で合意して固定された。`<View w="100%" h="100%">` と確定値を与えて解決。ランナーのルート(手順 2.6)と同じ話が 3 度目である。**`grow` は余りの分配であって、確定サイズの代わりにはならない。**
+
+- なお `h="100%"` はツリーのルート矩形に対する 100% で、`CentralPanel` の中身の高さよりわずかに大きい。エディタは数 pt はみ出すが egui が切るので見た目に問題は無い。テストはそれを踏まえて「log がエディタの上端より下」を見る。
+- snapshot は gallery ではなく `examples/shell/tests/snapshots.rs` に、shell 自身の `snapshot` feature で置いた。gallery に載らない example の絵のために gallery が shell に依存するのは筋が悪く、wasm も太る。`cargo test -p shell --features snapshot`。
+- `<Window open={..}>` には `inspector.bind()` を渡す。`&mut *inspector` だと毎フレーム dirty になって repaint が止まらない(`Checkbox` の `bind` と同じ理由)。
+- **kittest の続報**。`ScrollArea` の中(5-6)だけでなく、**入れ子の taffy ツリーの中の widget 全般**にシミュレートしたポインタのクリックが届かない。ここではパネルの中の `<View>` に入れたツールバーのボタンがそうだった。一方、同じパネルの中でも `cx.leaf` で素の `Ui` に直接描いたツリー項目は `click()` で押せる。**規則: `<View>` の内側は `click_accesskit()`**。
