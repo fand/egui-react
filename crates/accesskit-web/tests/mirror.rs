@@ -20,8 +20,9 @@ use accesskit::{
     Action, Node as AkNode, NodeId, Rect, Role, Toggled, Tree, TreeId, TreeUpdate, Uuid,
 };
 use accesskit_web::Adapter;
+use wasm_bindgen::JsCast as _;
 use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
-use web_sys::Element;
+use web_sys::{Element, HtmlInputElement};
 
 wasm_bindgen_test_configure!(run_in_browser);
 
@@ -29,12 +30,14 @@ const ROOT: NodeId = NodeId(0);
 const BUTTON: NodeId = NodeId(1);
 const CHECKBOX: NodeId = NodeId(2);
 const LABEL: NodeId = NodeId(3);
+const SLIDER: NodeId = NodeId(4);
 
-/// A window with a button, a checkbox and a piece of text, all with boxes.
+/// A window with a button, a checkbox, a piece of text and a slider, all with
+/// boxes.
 fn initial_tree() -> TreeUpdate {
     let mut root = AkNode::new(Role::Window);
     root.set_bounds(Rect::new(0.0, 0.0, 200.0, 100.0));
-    root.set_children(vec![BUTTON, CHECKBOX, LABEL]);
+    root.set_children(vec![BUTTON, CHECKBOX, LABEL, SLIDER]);
 
     let mut button = AkNode::new(Role::Button);
     button.set_label("increment");
@@ -51,12 +54,22 @@ fn initial_tree() -> TreeUpdate {
     label.set_label("hello");
     label.set_bounds(Rect::new(70.0, 20.0, 120.0, 40.0));
 
+    let mut slider = AkNode::new(Role::Slider);
+    slider.set_label("volume");
+    slider.set_numeric_value(50.0);
+    slider.set_min_numeric_value(0.0);
+    slider.set_max_numeric_value(100.0);
+    slider.set_numeric_value_step(1.0);
+    slider.set_bounds(Rect::new(10.0, 75.0, 110.0, 95.0));
+    slider.add_action(Action::SetValue);
+
     TreeUpdate {
         nodes: vec![
             (ROOT, root),
             (BUTTON, button),
             (CHECKBOX, checkbox),
             (LABEL, label),
+            (SLIDER, slider),
         ],
         tree: Some(Tree::new(ROOT)),
         tree_id: TreeId::ROOT,
@@ -235,4 +248,62 @@ fn elements_say_which_node_they_stand_for() {
         button.get_attribute("data-accesskit-tree").as_deref(),
         Some(Uuid::nil().as_u128().to_string().as_str())
     );
+}
+
+#[wasm_bindgen_test]
+fn a_slider_is_a_real_range_input() {
+    let container = container();
+    let mut adapter = mirror(&container);
+    adapter.update_if_active(initial_tree);
+
+    // A `<div role="slider">` has no value to change, so `input`/`change`
+    // would never fire and `Action::SetValue` could never leave the DOM.
+    let slider = query(&container, "[role=\"slider\"]").expect("the slider is mirrored");
+    assert_eq!(slider.tag_name(), "INPUT");
+    assert_eq!(slider.get_attribute("type").as_deref(), Some("range"));
+    assert_eq!(slider.get_attribute("min").as_deref(), Some("0"));
+    assert_eq!(slider.get_attribute("max").as_deref(), Some("100"));
+    assert_eq!(slider.get_attribute("step").as_deref(), Some("1"));
+
+    // The value is a property, not an attribute: once assistive technology
+    // has moved the range, the attribute is only its default.
+    let input = slider.unchecked_ref::<HtmlInputElement>();
+    assert_eq!(input.value(), "50");
+
+    // The ARIA pair is written too, for the roles that stay `<div>`s and for
+    // anything that reads the node rather than the control.
+    assert_eq!(slider.get_attribute("aria-valuenow").as_deref(), Some("50"));
+    assert_eq!(slider.get_attribute("aria-valuemin").as_deref(), Some("0"));
+    assert_eq!(
+        slider.get_attribute("aria-valuemax").as_deref(),
+        Some("100")
+    );
+    assert_eq!(
+        slider.get_attribute("aria-label").as_deref(),
+        Some("volume")
+    );
+}
+
+#[wasm_bindgen_test]
+fn a_slider_follows_the_app() {
+    let container = container();
+    let mut adapter = mirror(&container);
+    adapter.update_if_active(initial_tree);
+
+    let slider = query(&container, "[role=\"slider\"]").expect("the slider is mirrored");
+    let input = slider.unchecked_ref::<HtmlInputElement>();
+    // Assistive technology moved it; the app has not agreed yet.
+    input.set_value("80");
+
+    adapter.update_if_active(|| {
+        let mut update = initial_tree();
+        for (id, node) in &mut update.nodes {
+            if *id == SLIDER {
+                node.set_numeric_value(70.0);
+            }
+        }
+        update
+    });
+
+    assert_eq!(input.value(), "70", "the app has the last word");
 }

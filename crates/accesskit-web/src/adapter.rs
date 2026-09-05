@@ -14,6 +14,7 @@ use wasm_bindgen::prelude::Closure;
 use web_sys::{Document, Element, Event, HtmlElement};
 
 use crate::action::{self, SharedActionHandler};
+use crate::node::ElementKind;
 use crate::{filters::filter, node::NodeWrapper};
 
 /// Where the mirror sits over the canvas, and at what scale.
@@ -256,7 +257,7 @@ fn add_initial_tree(
     viewport: Viewport,
     debug: bool,
 ) -> (HtmlElement, HashMap<NodeId, HtmlElement>) {
-    let host = create_element(document);
+    let host = create_element(document, ElementKind::Div);
     set_host_style(&host, viewport, debug);
     let _ = parent.append_child(&host);
     let mut elements = HashMap::new();
@@ -265,11 +266,13 @@ fn add_initial_tree(
     (host, elements)
 }
 
-fn create_element(document: &Document) -> HtmlElement {
-    document
-        .create_element("div")
-        .expect("a document can always make a <div>")
-        .unchecked_into::<HtmlElement>()
+fn create_element(document: &Document, kind: ElementKind) -> HtmlElement {
+    let element = document
+        .create_element(kind.tag_name())
+        .expect("a document can always make a <div> or an <input>")
+        .unchecked_into::<HtmlElement>();
+    kind.init(&element);
+    element
 }
 
 fn add_element(
@@ -279,8 +282,9 @@ fn add_element(
     elements: &mut HashMap<NodeId, HtmlElement>,
     debug: bool,
 ) -> HtmlElement {
-    let element = create_element(document);
-    NodeWrapper { node: *node, debug }.set_all_attributes(&element);
+    let wrapper = NodeWrapper { node: *node, debug };
+    let element = create_element(document, wrapper.element_kind());
+    wrapper.set_all_attributes(&element);
     action::tag_element(&element, node);
     let _ = parent.append_child(&element);
     elements.insert(node.id(), element.clone());
@@ -345,6 +349,20 @@ impl TreeChangeHandler for AdapterChangeHandler<'_> {
             node: *new_node,
             debug,
         };
+        // A `<div>` cannot become an `<input>`, so a node whose role crossed
+        // that line needs a new element. Its children move over rather than
+        // being rebuilt, so every other entry in the map stays valid.
+        if old_wrapper.element_kind() != new_wrapper.element_kind() {
+            let replacement = create_element(self.document, new_wrapper.element_kind());
+            while let Some(child) = element.first_child() {
+                let _ = replacement.append_child(&child);
+            }
+            new_wrapper.set_all_attributes(&replacement);
+            action::tag_element(&replacement, new_node);
+            let _ = element.replace_with_with_node_1(&replacement);
+            self.elements.insert(new_node.id(), replacement);
+            return;
+        }
         new_wrapper.update_attributes(element, &old_wrapper);
     }
 

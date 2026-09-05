@@ -6,9 +6,53 @@
 use accesskit::{Role, Toggled};
 use accesskit_consumer::Node;
 use core::fmt::Write as _;
-use web_sys::HtmlElement;
+use wasm_bindgen::JsCast as _;
+use web_sys::{HtmlElement, HtmlInputElement};
 
 use crate::filters::filter;
+
+/// Which DOM element stands for a node.
+///
+/// Most of the mirror is `<div>`s with an ARIA role, the way Flutter's
+/// semantics layer builds it. Two roles need a real control instead: a
+/// `<div role="slider">` has no value for a screen reader to *set*, so it
+/// never fires `input` or `change` and `Action::SetValue` could never leave
+/// the DOM. Flutter draws the same line in the same place — real elements for
+/// sliders and text fields, `role` + `aria-checked` for checkboxes.
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(crate) enum ElementKind {
+    Div,
+    /// `<input type="range">` — a slider assistive technology can move.
+    Range,
+    /// `<input type="text" readonly>` — reads its value out, but never takes
+    /// the typing: that goes to eframe's own hidden `<input>` (the text
+    /// agent), which is what egui listens to.
+    Text,
+}
+
+impl ElementKind {
+    pub(crate) fn tag_name(self) -> &'static str {
+        match self {
+            Self::Div => "div",
+            Self::Range | Self::Text => "input",
+        }
+    }
+
+    /// The attributes that make the element what it is, set once when it is
+    /// created. Everything else is written by [`NodeWrapper`] every update.
+    pub(crate) fn init(self, element: &HtmlElement) {
+        match self {
+            Self::Div => {}
+            Self::Range => {
+                let _ = element.set_attribute("type", "range");
+            }
+            Self::Text => {
+                let _ = element.set_attribute("type", "text");
+                let _ = element.set_attribute("readonly", "");
+            }
+        }
+    }
+}
 
 pub(crate) struct NodeWrapper<'a> {
     pub(crate) node: Node<'a>,
@@ -205,6 +249,65 @@ impl NodeWrapper<'_> {
         self.node.is_focusable(&filter).then(|| "0".into())
     }
 
+    /// A `<div>` unless the node carries a value a screen reader can set or
+    /// read as text. See [`ElementKind`].
+    pub(crate) fn element_kind(&self) -> ElementKind {
+        match self.node.role() {
+            Role::Slider | Role::SpinButton => ElementKind::Range,
+            Role::TextInput => ElementKind::Text,
+            _ => ElementKind::Div,
+        }
+    }
+
+    fn input_min(&self) -> Option<String> {
+        (self.element_kind() == ElementKind::Range)
+            .then(|| self.node.min_numeric_value())
+            .flatten()
+            .map(|value| value.to_string())
+    }
+
+    fn input_max(&self) -> Option<String> {
+        (self.element_kind() == ElementKind::Range)
+            .then(|| self.node.max_numeric_value())
+            .flatten()
+            .map(|value| value.to_string())
+    }
+
+    /// A range without a step snaps to whole numbers, which would round every
+    /// float slider egui has. `any` is the way out.
+    fn input_step(&self) -> Option<String> {
+        (self.element_kind() == ElementKind::Range).then(|| {
+            self.node
+                .numeric_value_step()
+                .map_or_else(|| "any".into(), |step| step.to_string())
+        })
+    }
+
+    /// What the control shows. Written as a property rather than an
+    /// attribute: once assistive technology has moved a range, the attribute
+    /// only sets `defaultValue` and the shown value would stop following the
+    /// app.
+    fn input_value(&self) -> Option<String> {
+        match self.element_kind() {
+            ElementKind::Div => None,
+            ElementKind::Range => self.node.numeric_value().map(|value| value.to_string()),
+            ElementKind::Text => self.node.value(),
+        }
+    }
+
+    /// Push the value onto a real control, if it is not already showing it.
+    fn set_input_value(&self, element: &HtmlElement) {
+        let Some(input) = element.dyn_ref::<HtmlInputElement>() else {
+            return;
+        };
+        let Some(value) = self.input_value() else {
+            return;
+        };
+        if input.value() != value {
+            input.set_value(&value);
+        }
+    }
+
     fn label(&self) -> Option<String> {
         self.node.label()
     }
@@ -277,6 +380,7 @@ macro_rules! attributes {
                 if let Some(text_content) = self.text_content().as_ref() {
                     element.set_text_content(Some(text_content));
                 }
+                self.set_input_value(element);
             }
 
             pub(crate) fn update_attributes(&self, element: &HtmlElement, old: &NodeWrapper<'_>) {
@@ -296,6 +400,7 @@ macro_rules! attributes {
                 if old_text_content != new_text_content {
                     element.set_text_content(new_text_content.as_deref());
                 }
+                self.set_input_value(element);
             }
         }
     };
@@ -320,8 +425,14 @@ attributes! {
     ("tabindex", tabindex),
     ("aria-label", aria_label),
     ("aria-checked", aria_checked),
+    // Both the ARIA values and the real `<input>` ones: the ARIA pair is what
+    // a `<div role="slider">` is read from, and it stays right for the real
+    // control too, since the two are written from the same numbers.
     ("aria-valuemax", aria_valuemax),
     ("aria-valuemin", aria_valuemin),
     ("aria-valuenow", aria_valuenow),
-    ("aria-valuetext", aria_valuetext)
+    ("aria-valuetext", aria_valuetext),
+    ("min", input_min),
+    ("max", input_max),
+    ("step", input_step)
 }
