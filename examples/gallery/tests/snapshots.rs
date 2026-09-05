@@ -65,6 +65,28 @@ fn shared(max_failed_pixels: usize) -> SnapshotOptions {
 /// Nothing to do before the picture is taken.
 fn as_it_opens<S>(_harness: &mut Harness<'_, S>) {}
 
+/// A name typed in and a box ticked, so the summary line and the log are both
+/// in the picture. The defaults alone would prove little.
+fn edited<S>(harness: &mut Harness<'_, S>) {
+    harness
+        .get_by_role(egui::accesskit::Role::TextInput)
+        .focus();
+    harness.run();
+    harness
+        .get_by_role(egui::accesskit::Role::TextInput)
+        .type_text("ada");
+    harness.run();
+
+    harness
+        .get_all_by_role(egui::accesskit::Role::CheckBox)
+        .next()
+        .expect("the notify checkbox")
+        .click();
+    // One pass to apply the write, one to draw the summary and the log.
+    harness.run();
+    harness.run();
+}
+
 /// Two items, the first ticked off, so the list, the counter and the collapsed
 /// "done" section are all in the picture. An empty list would prove little.
 fn two_items<S>(harness: &mut Harness<'_, S>) {
@@ -129,6 +151,114 @@ macro_rules! same {
     };
 }
 
+/// Two notes, so the list, the editor and the word count are all in the
+/// picture. An empty notebook would prove little.
+fn two_notes<S>(harness: &mut Harness<'_, S>) {
+    for _ in 0..2 {
+        harness.get_by_label("new").click_accesskit();
+        // One pass to apply the write, one to draw with it.
+        harness.run();
+        harness.run();
+    }
+}
+
+/// Two clicks of "add sample", so the sparkline has a line to draw.
+fn two_samples<S>(harness: &mut Harness<'_, S>) {
+    for _ in 0..2 {
+        harness.get_by_label("add sample").click();
+        // One pass to apply the write, one to draw with it.
+        harness.run();
+        harness.run();
+    }
+}
+
+/// One example with no plain version: just a picture of it, so a change to how
+/// it draws is noticed.
+macro_rules! single {
+    ($name:ident, $size:expr) => {
+        single!($name, $size, as_it_opens);
+    };
+    ($name:ident, $size:expr, $drive:path) => {
+        mod $name {
+            use super::*;
+            use ::$name::App as ExampleApp;
+
+            #[test]
+            fn react_egui() {
+                let mut harness = react($size, |cx| rsx! { <ExampleApp/> }.show(cx));
+                harness.run();
+                $drive(&mut harness);
+                harness.snapshot(stringify!($name));
+            }
+        }
+    };
+}
+
+single!(showcase, egui::vec2(700.0, 460.0), two_notes);
 same!(counter, egui::vec2(400.0, 300.0), 200, as_it_opens);
 same!(todo, egui::vec2(400.0, 400.0), 100, two_items);
+same!(form, egui::vec2(420.0, 420.0), 0, edited);
+single!(theme, egui::vec2(420.0, 420.0));
+// The module is the crate's lib name, so the image is `custom_hook.png`.
+single!(custom_hook, egui::vec2(420.0, 620.0));
+single!(escape_hatch, egui::vec2(420.0, 620.0), two_samples);
+
+/// The clock, written out rather than through [`single!`], because its picture
+/// has to be pinned to a time.
+///
+/// `App` takes the wall clock as a prop for exactly this. The stopwatch needs
+/// nothing: it reads `i.time` and starts stopped, so it shows `00:00.00`
+/// however many frames the harness runs.
+mod clock {
+    use super::*;
+    use ::clock::App as ExampleApp;
+
+    #[test]
+    fn react_egui() {
+        let mut harness = react(egui::vec2(420.0, 520.0), |cx| {
+            rsx! { <ExampleApp now={12 * 3600 + 34 * 60 + 56}/> }.show(cx)
+        });
+        harness.run();
+        harness.snapshot("clock");
+    }
+}
+/// The two long lists, written out rather than through [`same!`], because both
+/// sides need telling how many rows to show. A hundred: ten thousand would look
+/// the same and take a second to draw.
+///
+/// Separate images, unlike the other pairs. The two are the same list, but one
+/// draws every row and the other draws the dozen the viewport covers and
+/// reserves the rest, and the small differences that follow — where a row sits
+/// inside the scrolled area, a point of padding here and there — repeat once
+/// per visible row. Closing them would mean writing the plain version to match
+/// taffy's arithmetic rather than to be read, which is the line plan.md
+/// section 5 draws.
+mod list_10k {
+    use super::*;
+    use ::list_10k::App as ExampleApp;
+    use ::list_10k::plain::{self, PlainState};
+
+    const SIZE: egui::Vec2 = egui::vec2(520.0, 420.0);
+    const COUNT: usize = 100;
+
+    #[test]
+    fn react_egui() {
+        let mut harness = react(SIZE, |cx| {
+            rsx! { <ExampleApp initial_count={COUNT}/> }.show(cx)
+        });
+        harness.run();
+        harness.snapshot("list_10k_react");
+    }
+
+    #[test]
+    fn plain_egui() {
+        let mut harness = harness(SIZE, PlainState::with_count(COUNT), |ui, state| {
+            ui.set_min_size(ui.available_size());
+            plain::ui(ui, state);
+        });
+        harness.run();
+        harness.snapshot("list_10k_plain");
+    }
+}
+
 same!(layout, egui::vec2(520.0, 900.0), 1000, as_it_opens);
