@@ -267,3 +267,4 @@ eframe の `App::ui` で `Store` を `begin_pass` / `end_pass` し、Counter と
 - **5.3 の補足** effect がハンドラより前に置かれ、deps がそのハンドラの変更する state に依存する場合、2 パス目で deps が変わっているので effect が走る。deps 変化 1 回につき 1 回という不変条件は保たれる(テスト `effect_deps_changed_during_pass_one_rerun_in_pass_two`)。
 - **8** `eframe::App::ui` 内で `self.store.begin_pass(ui.ctx())` → `Cx::new(&self.store, ..)` → `self.store.end_pass()` は NLL でそのまま通る。`react-egui-app::run` はこの形でよい。
 - **フェーズ 4 向けメモ** egui_taffy の `tui.ui(..)` / `tui.label(..)` は `TuiBuilderLogic` trait のメソッドで、`use egui_taffy::TuiBuilderLogic as _;` が必要。
+- **8 / フェーズ 5 向けメモ** eframe の `App::ui` が渡す root `Ui` は margin も背景も持たない。ライトモードではライトテーマの濃いグレー文字が eframe 既定の黒いクリアカラー上に描かれて見えない。examples/spike は `egui::CentralPanel::default().show(ui, ..)` で包んだ。`react-egui-app::run` も同じく CentralPanel(または `Frame::central_panel`)で包む必要がある。

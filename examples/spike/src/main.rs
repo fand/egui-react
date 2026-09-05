@@ -15,14 +15,20 @@ struct SpikeApp {
 
 impl eframe::App for SpikeApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        self.store.begin_pass(ui.ctx());
-        {
-            let store: &Store = &self.store;
-            let mut cx = Cx::new(store, ui, egui::Id::new("root"));
-            components::app(&mut cx);
-        }
-        // Every guard died with the component bodies above, so the sweep is safe.
-        self.store.end_pass();
+        // The root `Ui` eframe hands out has no margin and no background, so in
+        // light mode the text would be drawn dark-on-dark and be invisible.
+        // `CentralPanel` paints the panel fill first; `react-egui-app::run`
+        // must do the same.
+        egui::CentralPanel::default().show(ui, |ui| {
+            self.store.begin_pass(ui.ctx());
+            {
+                let store: &Store = &self.store;
+                let mut cx = Cx::new(store, ui, egui::Id::new("root"));
+                components::app(&mut cx);
+            }
+            // Every guard died with the component bodies above, so the sweep is safe.
+            self.store.end_pass();
+        });
     }
 }
 
