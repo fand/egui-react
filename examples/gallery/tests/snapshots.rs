@@ -65,6 +65,28 @@ fn shared(max_failed_pixels: usize) -> SnapshotOptions {
 /// Nothing to do before the picture is taken.
 fn as_it_opens<S>(_harness: &mut Harness<'_, S>) {}
 
+/// A name typed in and a box ticked, so the summary line and the log are both
+/// in the picture. The defaults alone would prove little.
+fn edited<S>(harness: &mut Harness<'_, S>) {
+    harness
+        .get_by_role(egui::accesskit::Role::TextInput)
+        .focus();
+    harness.run();
+    harness
+        .get_by_role(egui::accesskit::Role::TextInput)
+        .type_text("ada");
+    harness.run();
+
+    harness
+        .get_all_by_role(egui::accesskit::Role::CheckBox)
+        .next()
+        .expect("the notify checkbox")
+        .click();
+    // One pass to apply the write, one to draw the summary and the log.
+    harness.run();
+    harness.run();
+}
+
 /// Two items, the first ticked off, so the list, the counter and the collapsed
 /// "done" section are all in the picture. An empty list would prove little.
 fn two_items<S>(harness: &mut Harness<'_, S>) {
@@ -131,4 +153,5 @@ macro_rules! same {
 
 same!(counter, egui::vec2(400.0, 300.0), 200, as_it_opens);
 same!(todo, egui::vec2(400.0, 400.0), 100, two_items);
+same!(form, egui::vec2(420.0, 420.0), 0, edited);
 same!(layout, egui::vec2(520.0, 900.0), 1000, as_it_opens);

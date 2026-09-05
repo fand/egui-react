@@ -48,7 +48,7 @@ The hooks, the elements and the layout attributes are listed in [docs/ARCHITECTU
 
 ## Examples
 
-Every example runs in the browser in the [gallery](https://fand.github.io/react-egui/), next to its source. Three of them also have a version written with plain egui, so you can switch between the two and compare.
+Every example runs in the browser in the [gallery](https://fand.github.io/react-egui/), next to its source. Some of them also have a version written with plain egui, so you can switch between the two and compare.
 
 ![The gallery: example list, the running example, and its source next to it](docs/gallery.png)
 
@@ -56,6 +56,7 @@ Every example runs in the browser in the [gallery](https://fand.github.io/react-
 |---|---|---|---|---|
 | `counter` | One piece of state, three handlers that borrow it in turn. | [#counter](https://fand.github.io/react-egui/#counter) | [lib.rs](examples/counter/src/lib.rs) | [plain.rs](examples/counter/src/plain.rs) |
 | `todo` | A reducer drives the list; `use_persisted` keeps it across restarts. | [#todo](https://fand.github.io/react-egui/#todo) | [lib.rs](examples/todo/src/lib.rs) | [plain.rs](examples/todo/src/plain.rs) |
+| `form` | Every bound widget, a change log, and settings that survive a restart. | [#form](https://fand.github.io/react-egui/#form) | [lib.rs](examples/form/src/lib.rs) | [plain.rs](examples/form/src/plain.rs) |
 | `layout` | Every flex and grid attribute `<View>` understands, one section each. | [#layout](https://fand.github.io/react-egui/#layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
 | `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [#fetch](https://fand.github.io/react-egui/#fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |
 

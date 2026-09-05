@@ -13,6 +13,7 @@ use react_egui_elements::prelude::*;
 
 use counter::App as CounterApp;
 use fetch::App as FetchApp;
+use form::App as FormApp;
 use layout::App as LayoutApp;
 use todo::App as TodoApp;
 
@@ -22,7 +23,13 @@ use todo::App as TodoApp;
 /// [`Running`] needs to know the concrete `App` behind a name, because each
 /// `#[component]` has a props type of its own and they cannot share a `fn`
 /// pointer.
-pub const EXAMPLES: &[Meta] = &[counter::META, todo::META, layout::META, fetch::META];
+pub const EXAMPLES: &[Meta] = &[
+    counter::META,
+    todo::META,
+    form::META,
+    layout::META,
+    fetch::META,
+];
 
 /// Where the source links point.
 const REPO: &str = "https://github.com/fand/react-egui/blob/main/examples";
@@ -188,12 +195,14 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
         if plain {
             match name {
                 "todo" => { <TodoPlain/> }
+                "form" => { <FormPlain/> }
                 "layout" => { <LayoutPlain/> }
                 _ => { <CounterPlain/> }
             }
         } else {
             match name {
                 "todo" => { <TodoApp/> }
+                "form" => { <FormApp/> }
                 "layout" => { <LayoutApp/> }
                 "fetch" => { <FetchApp/> }
                 _ => { <CounterApp/> }
@@ -227,6 +236,7 @@ macro_rules! plain_example {
 
 plain_example!(CounterPlain, counter::plain);
 plain_example!(TodoPlain, todo::plain);
+plain_example!(FormPlain, form::plain);
 plain_example!(LayoutPlain, layout::plain);
 
 /// The code column, and the toggle between the two versions.

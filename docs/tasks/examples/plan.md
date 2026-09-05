@@ -372,3 +372,16 @@ CI、Pages、README。
   - **手作業が 1 回だけ残る**: リポジトリの Settings → Pages → Source を "GitHub Actions" にする。pages.yml の先頭コメントにも書いた。
 - `README.md`: 「`examples/counter` verbatim」を直した(手順 1 で挙げた宿題)。スニペットは lib.rs のコンポーネントと main.rs の `run(..)` を合わせたものだと明記し、中身は現在のファイルから写した。Examples 節を表(name / what / live / source / plain egui)にして gallery へリンクし、`cargo run -p <name>`、`--bin <name>-plain`、`trunk serve`、`cargo run -p gallery <name>` の走らせ方を並べた。Testing 節に `cargo test -p gallery --features snapshot` と、同名比較を先に react-egui 側で撮る手順を足した。行数は README には書いていない(手順 3 のとおり todo が同数で、説明抜きでは誤解を招くため)。
 - スクリーンショットは未挿入。`<!-- TODO: gallery screenshot -->` を置いてある。
+
+## 8. PR B の記録
+
+### 手順 5-1: form
+
+設定フォーム。`Settings`(name / notify / autosave / volume / theme)を `use_persisted(cx, "form/settings", ..)` に置き、`TextEdit` `Checkbox` ×2 `Slider` `ComboBox` を全部 `bind` で繋ぐ。`on_change` は `use_state` の `Vec<String>` にログを積み、`Collapsing` で出す(直近 8 行、新しい順)。reset ボタンで既定値に戻す。要約行(`"anon, dark, volume 50"`)を出しているのでテストが読める。
+
+- **`on_change` が新しい値を読めない件**。`bind` の要素は widget が state の `&mut` を握っているので、同じ要素のハンドラから同じ state は触れない(6 章の約束)。だから log に積むのは widget が payload で渡せるものだけになる: `Checkbox` は新しい `bool`、`ComboBox` は新しい index、`TextEdit` と `Slider` は `()` なので「name edited」「volume changed」としか書けない。これは制約であって不便でもあるが、`bind` の意味がそのまま出ている場所なので、そのまま見せてコメントに書いた。
+- **`Slider` / `ComboBox` の幅は直さなかった**。手順 3 で見つけた「grow のノードでも 100pt のまま」は残っている。ただし設定フォームでは、ラベルの隣にウィジェットが自然な幅で並ぶのが普通で、横いっぱいに伸びた ComboBox はむしろ変である。だから form は `grow` を使わず、ラベル列に幅(90pt)を与えて揃える形にした。伸ばしたい example(list-10k あたり)が出てきたら、その時に `TextEdit` と同じやり方で直す。
+- **snapshot は完全一致**(diff 0 px、許容も 0)。counter / todo / layout と違って 1px も違わない。react-egui 側は `<Field>` がラベルに `w={90}` を与える行、生 egui 側は `egui::Grid::new(..).min_col_width(90)`。どちらも「ラベル列を作る」ことを 1 行で言っている。
+  - 最初は 503 px ずれた。生 egui 側で `ui.add_sized([200, interact_size.y], TextEdit)` と高さを固定していたためで、`TextEdit::singleline(..).desired_width(200.0)` にして egui に高さを決めさせたら 0 になった。
+- 行数は **react-egui 158 / 生 egui 123 で、react-egui の方が長い**。理由は 2 つあり、どちらも正直に見せる価値がある。(a) `Settings` と `THEMES` と `META` は `lib.rs` にあり、`plain.rs` は `use crate::Settings` で貰っている。共有する型のぶんだけ `lib.rs` が重い。(b) egui の `Grid` はラベル列の整列をやってくれるので、`<Field>` コンポーネントを書く react-egui 側の方が手数が多い。**フォームは egui が元々得意な領域で、ここで react-egui が勝つ話にはならない。** 差が出るのは state の持ち方(1 つの struct を `&mut` で回す)、ログを「行を描く前に集めておく」必要があること、永続化を手で書くことの 3 点で、それは 1.3 の todo と同じ種類の差である。
+- gallery 一覧では counter / todo の次(form / layout / fetch の前)に置いた。

@@ -1314,6 +1314,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa9a19cbb55df58761df49b23516a86d432839add4af60fc256da840f66ed35b"
 
 [[package]]
+name = "form"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_kittest",
+ "example-meta",
+ "react-egui",
+ "react-egui-app",
+ "react-egui-elements",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "form_urlencoded"
 version = "1.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1388,6 +1403,7 @@ dependencies = [
  "egui_kittest",
  "example-meta",
  "fetch",
+ "form",
  "layout",
  "react-egui",
  "react-egui-app",

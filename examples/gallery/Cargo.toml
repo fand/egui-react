@@ -33,6 +33,7 @@ example-meta.workspace = true
 
 counter = { path = "../counter" }
 fetch = { path = "../fetch" }
+form = { path = "../form" }
 layout = { path = "../layout" }
 todo = { path = "../todo" }
 
