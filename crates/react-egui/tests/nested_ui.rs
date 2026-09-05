@@ -11,20 +11,20 @@ use react_egui::prelude::*;
 
 fn app(cx: &mut Cx<'_, '_>) {
     let mut outer = use_state(cx, || 0i32);
-    cx.ui.label(format!("outer: {}", *outer));
-    if cx.ui.button("outer +").clicked() {
+    cx.ui().label(format!("outer: {}", *outer));
+    if cx.ui().button("outer +").clicked() {
         *outer += 1;
     }
 
     // The shape a container element will expand to: copy `store` and the scope
     // id out of `cx`, then rebuild a `Cx` around the inner `Ui`.
     let (store, scope) = (cx.store, cx.scope_id());
-    cx.ui.vertical(|ui| {
+    cx.ui().vertical(|ui| {
         let mut cx = Cx::new(store, ui, scope);
         cx.scope("inner", |cx| {
             let mut inner = use_state(cx, || 0i32);
-            cx.ui.label(format!("inner: {}", *inner));
-            if cx.ui.button("inner +").clicked() {
+            cx.ui().label(format!("inner: {}", *inner));
+            if cx.ui().button("inner +").clicked() {
                 *inner += 1;
             }
         });

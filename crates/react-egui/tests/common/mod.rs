@@ -1,10 +1,7 @@
-//! Hand-written versions of what `rsx!` / `#[component]` will generate, plus a
-//! tiny runner that plays the role of `react-egui-app`.
+//! The components the spike tests drive, now written with `#[component]`,
+//! `#[hook]` and `rsx!`, plus a tiny runner that plays the role of
+//! `react-egui-app`.
 #![allow(dead_code)]
-// `rsx!` will emit event handlers as closures that are created and called on
-// the spot; that is the whole point of test 1, so the lint is off here. The
-// macro will have to emit this `allow` in generated code as well.
-#![allow(clippy::redundant_closure_call)]
 
 use react_egui::prelude::*;
 
@@ -20,88 +17,81 @@ pub fn run_app(ui: &mut egui::Ui, store: &mut Store, app: impl FnOnce(&mut Cx<'_
     store.end_pass();
 }
 
-/// The hand-written expansion of `<Counter initial={..} />`.
+/// A counter with a decrement and an increment button.
 ///
-/// The two `(|| ..)()` calls are the shape `rsx!` will emit for `onclick`
-/// handlers: closures created and consumed in place, each borrowing `count`
-/// mutably in turn.
+/// The two `on_click` handlers are the point: `rsx!` fuses them into one
+/// closure, and each borrows `count` mutably in turn.
+#[component]
+pub fn Counter(cx: &mut Cx, initial: i32) {
+    let mut count = use_state(cx, || initial);
+    let (store, scope) = (cx.store, cx.scope_id());
+    cx.ui().horizontal(|ui| {
+        let mut cx = Cx::new(store, ui, scope);
+        if cx.ui().button("-").clicked() {
+            *count -= 1;
+        }
+        cx.ui().label(format!("count: {}", *count));
+        if cx.ui().button("+").clicked() {
+            *count += 1;
+        }
+    });
+}
+
+/// Same as [`Counter`], but with unique widget labels so several can coexist.
+#[component]
+pub fn NamedCounter(cx: &mut Cx, name: &str, initial: i32) {
+    let mut count = use_state(cx, || initial);
+    let (store, scope) = (cx.store, cx.scope_id());
+    cx.ui().horizontal(|ui| {
+        let mut cx = Cx::new(store, ui, scope);
+        if cx.ui().button(format!("{name} -")).clicked() {
+            *count -= 1;
+        }
+        cx.ui().label(format!("{name}: {}", *count));
+        if cx.ui().button(format!("{name} +")).clicked() {
+            *count += 1;
+        }
+    });
+}
+
+/// A dialog with three callback props: two nullary and one carrying a payload.
+///
+/// `#[component]` turns the `#[event]` arguments into `DialogEvent` and gives
+/// the body three `Emitter`s over one shared sink.
+#[component]
+pub fn Dialog(
+    cx: &mut Cx,
+    title: &str,
+    #[event] on_ok: (),
+    #[event] on_cancel: (),
+    #[event] on_rename: String,
+) {
+    cx.ui().label(title);
+    if cx.ui().button("OK").clicked() {
+        on_ok.emit(());
+    }
+    if cx.ui().button("Cancel").clicked() {
+        on_cancel.emit(());
+    }
+    if cx.ui().button("Rename").clicked() {
+        on_rename.emit(String::from("Renamed?"));
+    }
+}
+
+/// `<Counter/>` as a plain function, for tests that predate `rsx!`.
 pub fn counter(cx: &mut Cx<'_, '_>, initial: i32) {
-    let mut count = use_state(cx, || initial);
-    let (store, scope) = (cx.store, cx.scope_id());
-    cx.ui.horizontal(|ui| {
-        let cx = Cx::new(store, ui, scope);
-        if cx.ui.button("-").clicked() {
-            (|| *count -= 1)();
-        }
-        cx.ui.label(format!("count: {}", *count));
-        if cx.ui.button("+").clicked() {
-            (|| *count += 1)();
-        }
-    });
+    rsx! { <Counter initial={initial}/> }.show(cx);
 }
 
-/// Same as [`counter`], but with unique widget labels so several can coexist.
+/// `<NamedCounter/>` as a plain function.
 pub fn named_counter(cx: &mut Cx<'_, '_>, name: &str, initial: i32) {
-    let mut count = use_state(cx, || initial);
-    let (store, scope) = (cx.store, cx.scope_id());
-    cx.ui.horizontal(|ui| {
-        let cx = Cx::new(store, ui, scope);
-        if cx.ui.button(format!("{name} -")).clicked() {
-            (|| *count -= 1)();
-        }
-        cx.ui.label(format!("{name}: {}", *count));
-        if cx.ui.button(format!("{name} +")).clicked() {
-            (|| *count += 1)();
-        }
-    });
+    rsx! { <NamedCounter name={name} initial={initial}/> }.show(cx);
 }
 
-/// The event enum `#[component]` will generate from the `#[event]` arguments of
-/// `Dialog`. `Ok` / `Cancel` carry no payload; `Rename` carries one.
-pub enum DialogEvent {
-    Ok(()),
-    Cancel(()),
-    Rename(String),
-}
-
-/// The props struct `#[component]` will generate for `Dialog`.
-pub struct DialogProps<'e> {
-    pub title: &'e str,
-    pub events: &'e mut dyn FnMut(DialogEvent),
-}
-
-/// The hand-written expansion of `<Dialog title={..} on_ok={..} on_cancel={..}
-/// on_rename={..} />`.
-///
-/// Three emitters over one sink are alive at the same time, which is the point:
-/// each `#[event]` prop becomes an `Emitter` borrowing the same fused closure.
-pub fn dialog(cx: &mut Cx<'_, '_>, props: DialogProps<'_>) {
-    let sink: EventSink<'_, DialogEvent> = EventSink::new(props.events);
-    let on_ok = Emitter::new(&sink);
-    let on_cancel = Emitter::new(&sink);
-    let on_rename = Emitter::new(&sink);
-
-    cx.ui.label(props.title);
-    if cx.ui.button("OK").clicked() {
-        on_ok.emit(DialogEvent::Ok(()));
-    }
-    if cx.ui.button("Cancel").clicked() {
-        on_cancel.emit(DialogEvent::Cancel(()));
-    }
-    if cx.ui.button("Rename").clicked() {
-        on_rename.emit(DialogEvent::Rename(String::from("Renamed?")));
-    }
-}
-
-/// The hand-written expansion of a `#[hook]`-annotated custom hook.
-///
-/// `#[hook]` adds `#[track_caller]` and wraps the body in `hook_scope`, so the
-/// hook ids inside are keyed by *where the custom hook was called*, not by the
-/// single line inside it.
-#[track_caller]
+/// A custom hook: `#[hook]` keys the state by *where this is called*.
+#[hook]
 pub fn use_counter<'s>(cx: &mut Cx<'s, '_>) -> State<'s, i32> {
-    let location = std::panic::Location::caller();
-    cx.hook_scope(location, |cx| use_state(cx, || 0))
+    use_state(cx, || 0)
 }
 
 /// The same custom hook *without* `#[hook]`: every call site shares one id.

@@ -1,11 +1,10 @@
 //! ARCHITECTURE.md 10, item 3: the fused event closure compiles when several
 //! arms capture the same `State` mutably, and `Handler` calls nullary and
 //! unary handlers through one uniform expression.
-#![allow(clippy::redundant_closure_call)]
 
 mod common;
 
-use common::{DialogEvent, DialogProps, dialog, run_app};
+use common::{Dialog, DialogEvent, run_app};
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
 use react_egui::prelude::*;
@@ -14,27 +13,25 @@ fn app(cx: &mut Cx<'_, '_>) {
     let mut open = use_state(cx, || true);
     let mut title = use_state(cx, || String::from("Quit?"));
 
-    cx.ui.label(format!("state: {}", *title));
-    if !*open && cx.ui.button("Reopen").clicked() {
+    cx.ui().label(format!("state: {}", *title));
+    if !*open && cx.ui().button("Reopen").clicked() {
         *open = true;
     }
 
     if *open {
-        // `props.title` shares `title` immutably while the fused closure needs
-        // it mutably, so the value is copied out first. See the notes on
+        // The `title` prop shares `title` immutably while the fused closure
+        // needs it mutably, so the value is copied out first. See the notes on
         // ARCHITECTURE.md 3.7.
         let title_text = (*title).clone();
-        dialog(
-            cx,
-            DialogProps {
-                title: &title_text,
-                events: &mut |ev| match ev {
-                    DialogEvent::Ok(a) => Handler::call(|| *open = false, a),
-                    DialogEvent::Cancel(a) => Handler::call(|| *open = false, a),
-                    DialogEvent::Rename(a) => Handler::call(|name: String| *title = name, a),
-                },
-            },
-        );
+        rsx! {
+            <Dialog
+                title={&title_text}
+                on_ok={|| *open = false}
+                on_cancel={|| *open = false}
+                on_rename={|name: String| *title = name}
+            />
+        }
+        .show(cx);
     }
 }
 

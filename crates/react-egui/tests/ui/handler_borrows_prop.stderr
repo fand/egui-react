@@ -1,0 +1,15 @@
+error[E0502]: cannot borrow value as mutable because it is also borrowed as immutable
+  --> tests/ui/handler_borrows_prop.rs:15:5
+   |
+15 | /     rsx! {
+16 | |         <Dialog title={&*title} on_rename={|name: String| *title = name}/>
+   | |                          -----                             ----- second borrow occurs due to use of value in closure
+   | |                          |
+   | |                          immutable borrow occurs here
+17 | |     }
+   | |     ^
+   | |     |
+   | |_____mutable borrow occurs here
+   |       immutable borrow later used by call
+   |
+   = note: this error originates in the macro `rsx` (in Nightly builds, run with -Z macro-backtrace for more info)

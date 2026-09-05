@@ -5,7 +5,22 @@ use std::marker::PhantomData;
 use std::ops::{Deref, DerefMut};
 use std::panic::Location;
 
-use crate::store::Slot;
+use crate::store::{Slot, Store};
+
+/// Queue a write to the slot `id` for the end of the pass.
+///
+/// The closure is `'static`: it outlives the component body, so it cannot hold
+/// the slot reference and has to look the slot up again when it runs.
+fn queue_update<T: 'static>(store: &Store, id: egui::Id, f: impl FnOnce(&mut T) + 'static) {
+    store.defer_raw(Box::new(move |store| {
+        // The slot is gone if the component unmounted; drop the write.
+        let Some(slot) = store.slot_by_id(id) else {
+            return;
+        };
+        f(&mut slot.borrow_mut::<T>());
+        store.ctx().request_repaint();
+    }));
+}
 
 /// A guard over one `use_state` slot.
 ///
@@ -17,14 +32,14 @@ pub struct State<'s, T: 'static> {
     // moving out of a type that implements `Drop` (which would need `unsafe`).
     inner: Option<RefMut<'s, T>>,
     slot: &'s Slot,
-    ctx: &'s egui::Context,
+    store: &'s Store,
     dirty: bool,
 }
 
 impl<'s, T: 'static> State<'s, T> {
     pub(crate) fn new(
+        store: &'s Store,
         slot: &'s Slot,
-        ctx: &'s egui::Context,
         location: &'static Location<'static>,
     ) -> Self {
         // A slot that is already borrowed means two hooks share one id and the
@@ -40,7 +55,7 @@ impl<'s, T: 'static> State<'s, T> {
         Self {
             inner: Some(inner),
             slot,
-            ctx,
+            store,
             dirty: false,
         }
     }
@@ -54,10 +69,33 @@ impl<'s, T: 'static> State<'s, T> {
         self.inner = None;
         Handle {
             slot: self.slot,
-            ctx: self.ctx,
+            store: self.store,
             _t: PhantomData,
         }
         // `self` is dropped here, requesting a repaint if it was mutated.
+    }
+
+    /// Hand `&mut T` to a widget that writes into it directly.
+    ///
+    /// Unlike `&mut *state` this does *not* mark the state dirty, so a bound
+    /// widget does not ask for a repaint on every single frame. That is safe
+    /// because the widget only changes the value in response to input, and
+    /// input makes egui repaint anyway. This is what the `bind` prop of
+    /// `TextEdit`, `Checkbox`, `Slider` and `ComboBox` expects.
+    pub fn bind(&mut self) -> &mut T {
+        self.inner.as_mut().expect("state guard already released")
+    }
+
+    /// Queue a write for the end of the pass and request a repaint.
+    ///
+    /// This is the way out of "the loop borrows the state, so the handler
+    /// inside it cannot": `todos.update_later(move |t| t.remove(i))`. The
+    /// closure is `'static`, so captures need `move`.
+    ///
+    /// Calling this while the guard is alive is fine: the write happens long
+    /// after the guard is gone.
+    pub fn update_later(&self, f: impl FnOnce(&mut T) + 'static) {
+        queue_update(self.store, self.slot.id(), f);
     }
 }
 
@@ -79,7 +117,7 @@ impl<T: 'static> DerefMut for State<'_, T> {
 impl<T: 'static> Drop for State<'_, T> {
     fn drop(&mut self) {
         if self.dirty {
-            self.ctx.request_repaint();
+            self.store.ctx().request_repaint();
         }
     }
 }
@@ -90,7 +128,7 @@ impl<T: 'static> Drop for State<'_, T> {
 /// it can be stored in a struct or handed to a child component.
 pub struct Handle<'s, T: 'static> {
     slot: &'s Slot,
-    ctx: &'s egui::Context,
+    store: &'s Store,
     _t: PhantomData<fn() -> T>,
 }
 
@@ -119,7 +157,7 @@ impl<T: 'static> Handle<'_, T> {
     /// Replace the value and request a repaint.
     pub fn set(&self, value: T) {
         *self.slot.borrow_mut::<T>() = value;
-        self.ctx.request_repaint();
+        self.store.ctx().request_repaint();
     }
 
     /// The store id of the slot this handle points at.
@@ -130,16 +168,23 @@ impl<T: 'static> Handle<'_, T> {
     /// Mutate the value in place and request a repaint.
     pub fn update<R>(&self, f: impl FnOnce(&mut T) -> R) -> R {
         let r = f(&mut self.slot.borrow_mut::<T>());
-        self.ctx.request_repaint();
+        self.store.ctx().request_repaint();
         r
+    }
+
+    /// Queue a write for the end of the pass and request a repaint.
+    ///
+    /// See [`State::update_later`].
+    pub fn update_later(&self, f: impl FnOnce(&mut T) + 'static) {
+        queue_update(self.store, self.slot.id(), f);
     }
 }
 
 impl<'s, T: 'static> Handle<'s, T> {
-    pub(crate) fn new(slot: &'s Slot, ctx: &'s egui::Context) -> Self {
+    pub(crate) fn new(store: &'s Store, slot: &'s Slot) -> Self {
         Self {
             slot,
-            ctx,
+            store,
             _t: PhantomData,
         }
     }

@@ -1,6 +1,6 @@
 [package]
-name = "spike"
-description = "Spike example for react-egui"
+name = "todo"
+description = "react-egui example: todo"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,10 +9,13 @@ rust-version.workspace = true
 publish = false
 
 [[bin]]
-name = "spike"
+name = "todo"
 path = "src/main.rs"
 
 [dependencies]
 eframe.workspace = true
 egui.workspace = true
 react-egui.workspace = true
+react-egui-app.workspace = true
+react-egui-elements.workspace = true
+serde.workspace = true

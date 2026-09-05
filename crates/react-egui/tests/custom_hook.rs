@@ -13,12 +13,12 @@ fn app(cx: &mut Cx<'_, '_>) {
     let mut left = use_counter(cx);
     let mut right = use_counter(cx);
 
-    cx.ui.label(format!("left: {}", *left));
-    if cx.ui.button("left +").clicked() {
+    cx.ui().label(format!("left: {}", *left));
+    if cx.ui().button("left +").clicked() {
         *left += 1;
     }
-    cx.ui.label(format!("right: {}", *right));
-    if cx.ui.button("right +").clicked() {
+    cx.ui().label(format!("right: {}", *right));
+    if cx.ui().button("right +").clicked() {
         *right += 1;
     }
 }

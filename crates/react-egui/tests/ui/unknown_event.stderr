@@ -1,0 +1,8 @@
+error[E0599]: no variant or associated item named `Foo` found for enum `DialogEvent` in the current scope
+  --> tests/ui/unknown_event.rs:11:20
+   |
+ 3 | #[component]
+   | ------------ variant or associated item `Foo` not found for this enum
+...
+11 |     rsx! { <Dialog on_foo={|| {}}/> }.show(cx);
+   |                    ^^^^^^ variant or associated item not found in `DialogEvent`

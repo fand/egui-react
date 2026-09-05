@@ -43,23 +43,29 @@ pub type EventSink<'e, E> = RefCell<&'e mut (dyn FnMut(E) + 'e)>;
 /// A child-side handle that fires one event kind.
 ///
 /// Several emitters over the same sink can be alive at once, which is what
-/// makes `#[event] on_ok` / `#[event] on_cancel` usable side by side.
-pub struct Emitter<'a, 'e, E> {
+/// makes `#[event] on_ok` / `#[event] on_cancel` usable side by side. `A` is
+/// the payload type and `make` is the enum variant constructor, so the child
+/// writes `on_ok.emit(())` instead of naming the generated event enum.
+pub struct Emitter<'a, 'e, E, A> {
     sink: &'a EventSink<'e, E>,
+    make: fn(A) -> E,
 }
 
-impl<E> Clone for Emitter<'_, '_, E> {
+impl<E, A> Clone for Emitter<'_, '_, E, A> {
     fn clone(&self) -> Self {
         *self
     }
 }
 
-impl<E> Copy for Emitter<'_, '_, E> {}
+impl<E, A> Copy for Emitter<'_, '_, E, A> {}
 
-impl<'a, 'e, E> Emitter<'a, 'e, E> {
+impl<'a, 'e, E, A> Emitter<'a, 'e, E, A> {
     /// Build an emitter over a shared event sink.
-    pub fn new(sink: &'a EventSink<'e, E>) -> Self {
-        Self { sink }
+    ///
+    /// `make` is the variant constructor `#[component]` generated for this
+    /// event, e.g. `DialogEvent::Ok`.
+    pub fn new(sink: &'a EventSink<'e, E>, make: fn(A) -> E) -> Self {
+        Self { sink, make }
     }
 
     /// Fire one event into the parent's fused closure.
@@ -67,11 +73,11 @@ impl<'a, 'e, E> Emitter<'a, 'e, E> {
     /// # Panics
     /// Panics if called re-entrantly (an event fired from inside a handler for
     /// the same child). Direct expansion never does this.
-    pub fn emit(&self, event: E) {
+    pub fn emit(&self, payload: A) {
         let mut sink = self.sink.try_borrow_mut().expect(
             "react-egui: event emitted re-entrantly; a handler fired another \
              event on the same component while it was still running",
         );
-        (*sink)(event);
+        (*sink)((self.make)(payload));
     }
 }

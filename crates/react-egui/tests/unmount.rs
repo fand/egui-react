@@ -25,8 +25,8 @@ fn child(cx: &mut Cx<'_, '_>, log: &Log) {
         move || cleanup_log.lock().unwrap().push("cleanup")
     });
 
-    cx.ui.label(format!("child: {}", *count));
-    if cx.ui.button("child +").clicked() {
+    cx.ui().label(format!("child: {}", *count));
+    if cx.ui().button("child +").clicked() {
         *count += 1;
     }
 }
@@ -43,7 +43,7 @@ fn sweep_unmounts_and_remounts() {
             let log = Arc::clone(&log_in_app);
             let show = Rc::clone(&show_in_app);
             run_app(ui, store, move |cx| {
-                cx.ui.label("parent");
+                cx.ui().label("parent");
                 if show.get() {
                     child(cx, &log);
                 }

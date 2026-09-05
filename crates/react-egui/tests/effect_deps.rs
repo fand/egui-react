@@ -38,7 +38,7 @@ fn effect_reruns_only_when_deps_change() {
                 });
                 // An effect with no cleanup must compile too (`IntoCleanup` for `()`).
                 use_effect(cx, (), || {});
-                cx.ui.label("effect");
+                cx.ui().label("effect");
             });
         },
         Store::new(),

@@ -36,11 +36,11 @@ fn body(cx: &mut Cx<'_, '_>, counters: &Rc<Counters>) {
     });
 
     let mut count = use_state(cx, || 0i32);
-    if cx.ui.button("bump").clicked() {
+    if cx.ui().button("bump").clicked() {
         *count += 1;
         counters.clicks.set(counters.clicks.get() + 1);
     }
-    cx.ui.label(format!("count: {}", *count));
+    cx.ui().label(format!("count: {}", *count));
 }
 
 #[test]
@@ -100,7 +100,7 @@ fn taffy_body(cx: &mut Cx<'_, '_>, counters: &Rc<Counters>) {
 
     let mut count = use_state(cx, || 0i32);
     let (store, scope) = (cx.store, cx.scope_id());
-    egui_taffy::tui(cx.ui, egui::Id::new("flex"))
+    egui_taffy::tui(cx.ui(), egui::Id::new("flex"))
         .reserve_available_space()
         .style(egui_taffy::taffy::Style {
             display: egui_taffy::taffy::Display::Flex,
@@ -109,16 +109,16 @@ fn taffy_body(cx: &mut Cx<'_, '_>, counters: &Rc<Counters>) {
         })
         .show(|tui| {
             tui.ui(|ui| {
-                let cx = Cx::new(store, ui, scope);
-                if cx.ui.button("bump").clicked() {
+                let mut cx = Cx::new(store, ui, scope);
+                if cx.ui().button("bump").clicked() {
                     *count += 1;
                     counters.clicks.set(counters.clicks.get() + 1);
                 }
             });
             tui.ui(|ui| {
-                let cx = Cx::new(store, ui, scope);
+                let mut cx = Cx::new(store, ui, scope);
                 // The width of this leaf depends on the state.
-                cx.ui.label("wide ".repeat(*count as usize + 1));
+                cx.ui().label("wide ".repeat(*count as usize + 1));
             });
         });
 }
@@ -187,10 +187,10 @@ fn effect_deps_changed_during_pass_one_rerun_in_pass_two() {
                 let deps = *count;
                 let runs = Rc::clone(&runs);
                 use_effect(cx, deps, move || runs.borrow_mut().push(deps));
-                if cx.ui.button("bump").clicked() {
+                if cx.ui().button("bump").clicked() {
                     *count += 1;
                 }
-                cx.ui.label(format!("count: {}", *count));
+                cx.ui().label(format!("count: {}", *count));
             });
         },
         Store::new(),

@@ -1,0 +1,20 @@
+[package]
+name = "layout"
+description = "react-egui example: layout"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[[bin]]
+name = "layout"
+path = "src/main.rs"
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+react-egui.workspace = true
+react-egui-app.workspace = true
+react-egui-elements.workspace = true
