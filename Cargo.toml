@@ -14,6 +14,7 @@ react-egui = { path = "crates/react-egui", version = "0.1.0" }
 react-egui-macros = { path = "crates/react-egui-macros", version = "0.1.0" }
 react-egui-elements = { path = "crates/react-egui-elements", version = "0.1.0" }
 react-egui-app = { path = "crates/react-egui-app", version = "0.1.0" }
+example-meta = { path = "examples/meta", version = "0.1.0" }
 
 egui = "0.36.1"
 eframe = "0.36.1"

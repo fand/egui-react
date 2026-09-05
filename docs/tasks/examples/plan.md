@@ -17,7 +17,7 @@ examples の拡充と、ブラウザで全 example を試せる gallery ペー�
 | B: examples | form / theme / clock / custom-hook / escape-hatch / list-10k / shell / showcase | `examples/*`、gallery への登録 |
 | C: canvas | `react-egui-app` の `wgpu` feature と `Options.setup`、`<Canvas>` 要素、shader example | `react-egui-app`、`react-egui-elements`、`examples/shader`、gallery |
 
-core(`react-egui`、macros)には手を入れない。入れる必要が出たら 8 章に書く。
+core(`react-egui`、macros)には手を入れない。入れる必要が出たら 7 章に書く。
 
 追加する依存(`[workspace.dependencies]` に pin する)。
 
@@ -144,7 +144,7 @@ examples 節を表にする。
 | `custom-hook` | `#[hook]` で `use_debounce(cx, value, ms)`、`use_previous(cx, value)`、`use_window_size(cx)` を切り出し、2 つのコンポーネントから使う | `#[hook]` `use_state` `use_effect` | なし | ○ |
 | `escape-hatch` | rsx の中で生 egui を使う 3 通り。`view(\|cx\| ..)` 閉包、`cx.leaf` で未ラップの widget(`ProgressBar` / `Hyperlink` / `color_edit_button`)、`cx.ui().painter()` で線を引く。`Cx::new` で入れ子の `Ui` に hook を置く(`nested_ui` テストの形) | `view` `Cx::leaf` `Cx::ui` | なし | ○ |
 | `list-10k` | `for` + `key` で 10k 行を `ScrollArea` に出す。件数 Slider、絞り込み TextEdit、FPS(`stable_dt`)表示。immediate mode + taffy のコストを正直に見せる。生 egui 版は `ScrollArea::show_rows` で仮想化した版で、差を数字で出す | `use_state` `use_memo`、`ScrollArea` | あり | ○ |
-| `shell` | IDE 風の枠。左 `Panel` にツリー(`Collapsing`)、中央エディタ(`TextEdit multiline`)、下 `Panel` にログ、浮いた `Window` にインスペクタ | `Panel` `Window` `Collapsing` `Frame` | なし | ×(単体 bin。`Panel` を使うため。8 章) |
+| `shell` | IDE 風の枠。左 `Panel` にツリー(`Collapsing`)、中央エディタ(`TextEdit multiline`)、下 `Panel` にログ、浮いた `Window` にインスペクタ | `Panel` `Window` `Collapsing` `Frame` | なし | ×(単体 bin。`Panel` を使うため。5 章) |
 | `showcase` | 小さい実アプリ: ノート。左に一覧 + 検索、右に `TextEdit multiline`。`use_reducer` で追加 / 削除 / 更新、`use_persisted` で保存、`use_memo` で検索結果、`Window` で設定、`use_context` でテーマ。全部を組み合わせた「使える」例 | ほぼ全部 | なし | ○ |
 
 各 example に kittest を 1 ファイル置く(主要操作 1〜3 本)。生 egui 版がある form / list-10k は A-3 の snapshot 一致に加える(list-10k は件数を 100 に固定して撮る)。
@@ -247,7 +247,7 @@ fn App(cx: &mut Cx) {
 |---|---|
 | C-1 | `Canvas` の `rect` と `on_drag`(3.3、headless) |
 | C-2 | shader: Slider を動かすと `speed` が変わり、pause で `request_repaint` が止まる(`harness` の repaint 要求を見る) |
-| C-3 | snapshot(feature `snapshot`、ローカルのみ): time を 0 に固定して 1 枚。kittest の `WgpuTestRenderer` の render state に `setup` 相当を流し込めるかは 8 章 |
+| C-3 | snapshot(feature `snapshot`、ローカルのみ): time を 0 に固定して 1 枚。kittest の `WgpuTestRenderer` の render state に `setup` 相当を流し込めるかは 5 章 |
 
 ## 4. 手順
 
@@ -279,3 +279,14 @@ fn App(cx: &mut Cx) {
 - 8 章 プラットフォーム: wgpu backend、web は WebGL fallback。Pages の URL。
 - 9 章 テスト: examples に kittest。react-egui 版と生 egui 版の snapshot 一致(gallery の `snapshot` feature)。
 - 11 章 決定ログ: gallery を 1 wasm にした理由、生 egui 版を並べる理由、`Options.setup` を `use_context` より優先した理由、`Canvas` が egui-wgpu を持たない理由。
+
+## 7. 実装で判明した差分
+
+### 手順 1(A-1)
+
+- `Meta` は `examples/meta`(package `example-meta`)に置き、全 example と gallery が共有する。`[workspace.dependencies]` に登録。`Copy` を derive(全 field が `&'static`)。
+- layout のルートは `<ScrollArea grow>` だったので `<View direction="column" grow={1.0}>` で包んだ(1.1 の約束に合わせる)。
+- `META` は各 `lib.rs` の `use` の直後に置いた。`source` はファイル全体なので gallery のコード欄の先頭に出る。邪魔なら末尾に移す。
+- todo の永続化キーは `"todo/todos"`。旧キー `"todos"` の移行は書かない。
+- README の「`examples/counter` verbatim」の一文が lib / bin 分割で古くなった。手順 4(README)で直す。
+- 目視(`cargo run` / `trunk serve`)は subagent が headless のため未実施。手順 4 のデプロイ確認と合わせて行う。
