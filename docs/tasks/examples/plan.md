@@ -529,3 +529,21 @@ pub fn VirtualList(
 
 - テスト: 切り替えても filter と削除の挙動が変わらないこと、両方の経路が先頭 10 行に同じものを出すこと。
 - ARCHITECTURE 6 章の要素表に `VirtualList` を足し、`ScrollArea` が全部描くことと使い分けを書いた。README の list-10k の 1 行も差し替え。
+
+### 手順 5-9: showcase(PR B 最後)
+
+ノートアプリ。他の example が 1 つずつ見せたものを、アプリらしい形で組み合わせる。model と reducer は `src/notes.rs`(egui を知らない平らな関数なので、`Ui` 抜きで読める)、UI は `src/lib.rs`。
+
+- 永続化は todo と同じ「reducer が持ち、`use_persisted` が写す」形。reducer は他人のスロットに reduce できないので、2 行のミラーがその値段である。理由をコメントに書いた。
+- `use_memo` の deps は `(search, (len, next_id), updated の XOR)`。`next_id` が「追加された」、`len` が「消された」、`updated` の XOR が「本文が編集された(= 並び順が動いた)」を表す。
+- `provide_context` は theme と同じ `Themed` ラッパー。間の 2 つの列は何も持ち回らない。
+- 設定ウィンドウの「clear all」は 2 段確認。rsx の途中の `if` 1 つで書ける。
+- `Msg::Add` のあと `*selected = None` にして、新しいノートが自分で開くようにした(「選択が無ければ先頭を開く」規則が拾う)。
+
+**踏んだこと。**
+
+- **`Option<T>` の prop は「省略可能な prop」であって「Option を渡す prop」ではない**。`#[component]` が `strip_option` を付けるので setter は `T` を取り、`selected={current}`(`Option<u64>`)は型が合わない。`&Option<u64>` にすれば参照型なので strip されず、そのまま渡せる。
+- **埋めるウィジェットの後ろに置いたものは画面外に出る**。`<TextEdit multiline grow>` は「あるだけの高さ」を自分の content として報告するので、同じ列でその後ろに置いた語数の行が窓の下に押し出された。`min_h={0}` でも直らない(押し出しているのは列の側)。語数の行をエディタの **前** に移して解決した。「埋める leaf は列の最後に置く」が実用上の規則である。
+- 途中でディスクが一杯になり(`ld: write() failed, errno=28`)、`target/debug/incremental`(6.9GB)を消して続けた。このセッションで target が 27GB まで育っている。
+
+**gallery の並び替え。** `showcase` を先頭にした(訪問者が最初に見るべきもの)。以下 counter / todo / form / theme / clock / custom-hook / escape-hatch / list-10k / layout / fetch。`Running` の `match` の既定は `<ShowcaseApp/>` に変え、`"counter"` の腕を明示した。gallery のテストが「最初は counter」を前提にしていたので直した(トグルのテストは、showcase に生 egui 版が無いので counter を選んでから確かめる)。README の表も同じ順にし、導入の一文に「まず showcase を見て、他は 1 つずつの話」と書いた。

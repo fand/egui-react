@@ -48,12 +48,13 @@ The hooks, the elements and the layout attributes are listed in [docs/ARCHITECTU
 
 ## Examples
 
-Every example but one runs in the browser in the [gallery](https://fand.github.io/react-egui/), next to its source. `shell` is standalone: a docked panel carves up the nearest enclosing `Ui`, which is the window, so there is nothing sensible for a gallery column to do with it. Some of them also have a version written with plain egui, so you can switch between the two and compare.
+Every example but one runs in the browser in the [gallery](https://fand.github.io/react-egui/), next to its source. Start with `showcase`, a small notes app that uses most of the library at once; the rest take one idea each. `shell` is standalone: a docked panel carves up the nearest enclosing `Ui`, which is the window, so there is nothing sensible for a gallery column to do with it. Some of them also have a version written with plain egui, so you can switch between the two and compare.
 
 ![The gallery: example list, the running example, and its source next to it](docs/gallery.png)
 
 | name | what | live | source | plain egui |
 |---|---|---|---|---|
+| `showcase` | A notes app: reducer, persistence, context, memo and a settings window, together. | [#showcase](https://fand.github.io/react-egui/#showcase) | [lib.rs](examples/showcase/src/lib.rs) | – |
 | `counter` | One piece of state, three handlers that borrow it in turn. | [#counter](https://fand.github.io/react-egui/#counter) | [lib.rs](examples/counter/src/lib.rs) | [plain.rs](examples/counter/src/plain.rs) |
 | `todo` | A reducer drives the list; `use_persisted` keeps it across restarts. | [#todo](https://fand.github.io/react-egui/#todo) | [lib.rs](examples/todo/src/lib.rs) | [plain.rs](examples/todo/src/plain.rs) |
 | `form` | Every bound widget, a change log, and settings that survive a restart. | [#form](https://fand.github.io/react-egui/#form) | [lib.rs](examples/form/src/lib.rs) | [plain.rs](examples/form/src/plain.rs) |

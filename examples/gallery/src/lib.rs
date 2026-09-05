@@ -19,6 +19,7 @@ use fetch::App as FetchApp;
 use form::App as FormApp;
 use layout::App as LayoutApp;
 use list_10k::App as ListApp;
+use showcase::App as ShowcaseApp;
 use theme::App as ThemeApp;
 use todo::App as TodoApp;
 
@@ -29,6 +30,7 @@ use todo::App as TodoApp;
 /// `#[component]` has a props type of its own and they cannot share a `fn`
 /// pointer.
 pub const EXAMPLES: &[Meta] = &[
+    showcase::META,
     counter::META,
     todo::META,
     form::META,
@@ -212,6 +214,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
             }
         } else {
             match name {
+                "counter" => { <CounterApp/> }
                 "todo" => { <TodoApp/> }
                 "form" => { <FormApp/> }
                 "theme" => { <ThemeApp/> }
@@ -224,7 +227,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "list-10k" => { <ListApp initial_count={1_000}/> }
                 "layout" => { <LayoutApp/> }
                 "fetch" => { <FetchApp/> }
-                _ => { <CounterApp/> }
+                _ => { <ShowcaseApp/> }
             }
         }
     }

@@ -151,6 +151,17 @@ macro_rules! same {
     };
 }
 
+/// Two notes, so the list, the editor and the word count are all in the
+/// picture. An empty notebook would prove little.
+fn two_notes<S>(harness: &mut Harness<'_, S>) {
+    for _ in 0..2 {
+        harness.get_by_label("new").click_accesskit();
+        // One pass to apply the write, one to draw with it.
+        harness.run();
+        harness.run();
+    }
+}
+
 /// Two clicks of "add sample", so the sparkline has a line to draw.
 fn two_samples<S>(harness: &mut Harness<'_, S>) {
     for _ in 0..2 {
@@ -183,6 +194,7 @@ macro_rules! single {
     };
 }
 
+single!(showcase, egui::vec2(700.0, 460.0), two_notes);
 same!(counter, egui::vec2(400.0, 300.0), 200, as_it_opens);
 same!(todo, egui::vec2(400.0, 400.0), 100, two_items);
 same!(form, egui::vec2(420.0, 420.0), 0, edited);
