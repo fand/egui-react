@@ -8,6 +8,7 @@ use std::rc::Rc;
 
 use common::run_app;
 use egui_kittest::Harness;
+use egui_kittest::kittest::NodeT as _;
 use egui_kittest::kittest::Queryable as _;
 use react_egui::prelude::*;
 use react_egui_elements::prelude::*;
@@ -259,6 +260,75 @@ fn image_draws_without_a_loader_installed() {
     // this checks is that the element compiles and draws egui's placeholder
     // instead of panicking.
     harness.run();
+}
+
+/// Plan a11y A-1: `alt` is the image's name in the accessibility tree, and an
+/// image without it has no name at all.
+#[test]
+fn image_alt_text_names_the_node() {
+    let mut harness = Harness::new_ui_state(
+        |ui, store: &mut Store| {
+            run_app(ui, store, |cx| {
+                rsx! {
+                    <Image
+                        source={egui::ImageSource::Uri("file://cat.png".into())}
+                        fit={egui::vec2(32.0, 32.0)}
+                        alt="a cat"
+                    />
+                    <Image
+                        source={egui::ImageSource::Uri("file://dog.png".into())}
+                        fit={egui::vec2(32.0, 32.0)}
+                    />
+                }
+                .show(cx);
+            });
+        },
+        Store::new(),
+    );
+
+    harness.run();
+    assert!(harness.query_by_label("a cat").is_some());
+    // Two images are drawn; only the one with `alt` carries a name.
+    let images: Vec<_> = harness
+        .query_all_by_role(egui::accesskit::Role::Image)
+        .collect();
+    assert_eq!(images.len(), 2);
+    let named: Vec<_> = images
+        .iter()
+        .filter_map(|node| node.accesskit_node().label())
+        .collect();
+    assert_eq!(named, ["a cat"]);
+}
+
+/// Plan a11y A-2: `label` renames an icon-only button for assistive technology
+/// without changing what is drawn.
+#[test]
+fn button_label_renames_the_node_only() {
+    let mut harness = Harness::new_ui_state(
+        |ui, store: &mut Store| {
+            run_app(ui, store, |cx| {
+                rsx! {
+                    <View direction="row" gap={8}>
+                        <Button label="delete" on_click={|| {}}>"x"</Button>
+                        <Button on_click={|| {}}>"x"</Button>
+                    </View>
+                }
+                .show(cx);
+            });
+        },
+        Store::new(),
+    );
+
+    harness.run();
+    let named = harness.get_by_role_and_label(egui::accesskit::Role::Button, "delete");
+    let named_rect = named.rect();
+
+    // The children still draw: the button is the same size as the unlabelled
+    // one next to it, which reads as "x".
+    let plain_rect = harness
+        .get_by_role_and_label(egui::accesskit::Role::Button, "x")
+        .rect();
+    assert_eq!(named_rect.size(), plain_rect.size());
 }
 
 /// A taffy leaf is measured from the size it reported the last time it was

@@ -323,10 +323,12 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 | 種類 | 要素 |
 |---|---|
 | レイアウト | `View`(`display` / `direction` / `wrap` / `justify` / `align` / `align_content` / `gap` / `cols`)、`Text`(`size` / `color` / `strong` / `wrap`) |
-| ウィジェット | `Button`(`enabled`, `on_click`)、`Label`(`wrap`)、`TextEdit`(`bind` / `multiline` / `hint` / `desired_width` / `rows`, `on_change` / `on_submit`)、`Checkbox`(`bind` / `label`, `on_change`)、`Slider<T: Numeric>`(`bind` / `range` / `label`, `on_change`)、`ComboBox`(`bind` / `options` / `label`, `on_change`)、`Image`(`source` / `fit`)、`Separator`(`vertical`) |
+| ウィジェット | `Button`(`enabled` / `label`, `on_click`)、`Label`(`wrap`)、`TextEdit`(`bind` / `multiline` / `hint` / `desired_width` / `rows`, `on_change` / `on_submit`)、`Checkbox`(`bind` / `label`, `on_change`)、`Slider<T: Numeric>`(`bind` / `range` / `label`, `on_change`)、`ComboBox`(`bind` / `options` / `label`, `on_change`)、`Image`(`source` / `fit` / `alt`)、`Separator`(`vertical`) |
 | コンテナ | `ScrollArea`、`VirtualList`(`rows` / `row_h` / `render`)、`Collapsing`、`Frame`、`Window`(`title` / `open` / `resizable` / `default_pos` / `default_size`)、`Panel`(`side`)、`CentralPanel`、`Vertical`、`Horizontal`、`Grid` + `row()` |
 | 描画 | `Canvas`(`sense` / `paint`, `on_drag` / `on_hover`。taffy がくれた矩形をそのまま渡す leaf) |
 | 非同期 | `Suspense`(`fallback: impl View`、`shares_ui`。中の `use_future` が 1 つでも `Pending` なら children の代わりに `fallback` を描く。5.8) |
+
+`Button` の `label` と `Image` の `alt` は支援技術が読む名前である。`Button` の `label` は描くもの(children)を変えず、accesskit ノードの名前だけを差し替える(`Context::accesskit_node_builder`)。アイコンや `"x"` だけのボタンはそのままでは字面しか読まれないので渡す。`Image` の `alt` は `egui::Image::alt_text` に落ち、読み込みに失敗したときの ⚠ の隣にも描かれる。web での読み上げ自体は 1 章の非ゴールのとおり上流待ちだが、これらは native では今日から効く。
 
 `TextEdit` は taffy の中(`Cx::in_taffy()`)ではノードを埋める。単行は `desired_width` をノードの幅にし、`multiline` は `ui.add_sized(ui.available_size(), ..)` で縦横とも埋める(`desired_rows` だと行単位にしか合わず、端数がノードからはみ出す)。`grow` や `w` で広げたノードの中に egui 既定の 280pt / 4 行で描かれると残りが空くためである。`desired_width` / `rows` を明示した場合はそちらが勝つ。`Slider` / `ComboBox` / `Button` は今のところ伸びない(それぞれ `spacing.slider_width` / `spacing.combo_width` / 内容の幅のまま)。
 
