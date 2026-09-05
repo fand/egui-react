@@ -118,6 +118,8 @@ cx.scope((file!(), line!(), column!(), 3usize, key), |cx| {
 
 `scope` は `cx.scope` を一段深くし、同時に `ui.push_id`(Taffy モードでは `tui.with_auto_id_prefix`)を呼ぶ。これにより hooks の Id と egui 側のウィジェット Id の両方がコンポーネントインスタンスごとに安定する。Id の材料は `rsx!` 呼び出し位置と、その `rsx!` 内での要素の通し番号、そして `key` である。関数アイテムの型は名指しできないので、Props の型は `props_builder<P: Props, F: Fn(&mut Cx, P)>(_: &F) -> P::Builder` の `Fn` 境界から推論する。ユーザーが `use` するのは `Counter` だけでよい。
 
+要素ごとに子 `Ui` を作ると、親の `Ui` から場所を切り取る egui のコンテナ(ドッキングされたパネル)や、親の `Ui` を書き換えるもの(`Grid` の `Ui::end_row`)が動かない。そこで `#[component(shares_ui)]` を用意する。これを付けたコンポーネントは hook のスコープは通常どおり深くなるが、`Ui::push_id` を通らず親の `Ui` にそのまま描く。実装は `Props` の `const SHARES_UI: bool`(既定 `false`、`#[component(shares_ui)]` が `true` にする)で、`rsx!` は要素の呼び出しを `::react_egui::__private::enter_scope(cx, source, props, Name)` に通す。`enter_scope` は `P::SHARES_UI` を見て `cx.scope` か `cx.scope_sharing_ui` を選ぶ。`Panel` / `CentralPanel` / `Row` がこれを使う。
+
 インスタンスの同一性は以下の挙動になる(React と一致する)。
 
 - 別の場所に書いた 2 つの `<Counter/>` は独立した状態を持つ。
@@ -190,7 +192,7 @@ Dialog(cx, DialogProps {
 | hook | 意味論 |
 |---|---|
 | `use_state(cx, init) -> State<T>` | ストアに `T` を保持。初回のみ `init` を呼ぶ |
-| `use_persisted(cx, "key", init) -> State<T>` | `T: Serialize + Deserialize`。eframe の storage に保存し再起動を跨ぐ。キーは明示文字列 |
+| `use_persisted(cx, "key", init) -> State<T>` | `T: Serialize + DeserializeOwned`。eframe の storage に保存し再起動を跨ぐ。キーは明示文字列(下記) |
 | `use_memo(cx, deps, f) -> &T` | deps のハッシュが変化した時のみ `f` を再実行 |
 | `use_effect(cx, deps, f)` | deps 変化時(と初回)に `f` を**その場で**実行。`f` は cleanup(`FnOnce + 'static`)を返してよい |
 | `use_reducer(cx, reducer, init) -> (State<S>, Dispatch<Msg>)` | `Dispatch` は `Clone + Send + 'static`。`send` はキューに積んで `request_repaint` し、**次に hook を訪問した時**に reducer を順に適用する(下記) |
@@ -214,6 +216,13 @@ Dialog(cx, DialogProps {
 - 返り値は `&'s T`(`'s` はストアの lifetime)で、`&mut Cx` の借用とは独立なので `State` の guard や後続の hooks と同時に生きられる。
 - 値は `RefCell` の外、スロット上の `elsa::FrozenVec<Box<dyn Any>>` に積む。deps のハッシュが変われば新しい値を push して新しい参照を返す。古い値は、同じパス内で先に配った `&'s T` が指している可能性があるので消さず、パス末の sweep で最新の 1 つを残して落とす。
 - deps の比較は `use_effect` と同じ Hash である。
+
+### `use_persisted` の詳細
+
+- スロットの Id はスコープではなく `Id::new(("react_egui_persisted", key))` で、呼び出し位置に依存しない。行を足しても保存データが読めなくなることが無い代わりに、同じキーを 2 か所で使えば同じ 1 つの値を共有し、同じパスで 2 回訪問すれば通常どおり衝突として記録される。
+- `Store` は「キー → JSON 文字列」の `HashMap` を持つ。`load_persisted(&mut self, json)` が丸ごと読み込み、`save_persisted(&self) -> String` が生きているスロットを直列化して map に上書きしてから全体を JSON にする。読めない JSON は `log::warn!` して無視し、値は `init` に落ちる。
+- `Slot` は `persist: Option<(key, fn(&dyn Any) -> Option<String>)>` を持つ。sweep で persist 付きスロットを落とす時は、先に直列化して map に書く。unmount した後でも次回起動には残る。
+- 保存形式は JSON、eframe の `Storage` には `"react_egui"` の 1 キーにまとめて書く。ランナーの `App::save` が呼ぶ(eframe が `auto_save_interval` と終了時に呼ぶ)。
 
 ### `use_reducer` の詳細
 
@@ -308,12 +317,23 @@ egui 標準のコンテナのうち、親から場所を切り取るもの(`Pane
 ## 7. クレート構成
 
 ```
-react-egui/            core: View, Cx, Store, State, Handle, Dispatch, hooks, sweep, 遅延キュー
+react-egui/            core: View, Cx, Store, State, Handle, Dispatch, hooks, sweep, 遅延キュー, 永続化
 react-egui-macros/     rsx! (rstml 0.13 ベース), #[component], #[hook]
 react-egui-elements/   egui ウィジェット / コンテナのラッパー。View / Text は taffy 上に
-react-egui-app/        run(|cx| rsx!{..})。eframe を包み native / wasm / Android を吸収。iOS ランナーもここ
-examples/              counter, todo (use_reducer), fetch (use_future), layout, mobile
+react-egui-app/        run(Options, |_cx| rsx!{ <App/> })。eframe を包み native / wasm / Android を吸収。iOS ランナーもここ
+examples/              counter, todo (use_reducer + use_persisted), layout, 後に fetch (use_future), mobile
 ```
+
+`react_egui_app::run(Options, root)` が 1 フレームでやることは以下。
+
+1. `CentralPanel` で包む(eframe が渡すルート `Ui` には余白も背景も無く、ライトモードで文字が読めないため)。
+2. `store.begin_pass(ctx)`。
+3. ルートの `Cx` を作り、`root(cx)` が返した `View` を `cx.root_container(..)`(`direction: column`、`reserve_available_space`)の中で `show` する。ネストしたコンテナは幅だけを確保するので、ルートだけが高さも取る。
+4. `store.end_pass()`。
+
+`Options` は `title` / `max_passes`(既定 2、`ctx.options_mut` で明示設定)/ `persist` / `canvas_id`(wasm)/ `native`(native のみ)を持つ。`App::save` が `store.save_persisted()` を `Storage` の `"react_egui"` キーに書き、`CreationContext::storage` から `load_persisted` する。wasm では `cfg(target_arch = "wasm32")` で `WebRunner` を `wasm_bindgen_futures::spawn_local` に載せ、canvas は `canvas_id` で引く。
+
+`root` は毎パス呼ばれ、返す `View` は `root` の中で作ったものを借用できない(hook の guard を借りた `rsx!` はローカルを借用した値を返すことになる)。hooks はコンポーネントに置き、ルートは `|_cx| rsx!{ <App/> }` の形にする。
 
 egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut Ui` を受け取るので、ランナーはそれをそのまま `Cx` に包む。`react-egui`(core)は `egui_taffy` を通常依存に持つ。`Cx` の `Surface` が `Tui` を知る必要があるためで、wasm ターゲットでもそのままビルドできる。
 

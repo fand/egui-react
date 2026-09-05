@@ -19,7 +19,9 @@ pub use context::{provide_context, use_context};
 pub use cx::Cx;
 pub use dispatch::{Dispatch, use_reducer};
 pub use events::{Arity0, Arity1, Emitter, EventSink, Handler};
-pub use hooks::{FnCleanup, IntoCleanup, NoCleanup, use_effect, use_handle, use_memo, use_state};
+pub use hooks::{
+    FnCleanup, IntoCleanup, NoCleanup, use_effect, use_handle, use_memo, use_persisted, use_state,
+};
 pub use layout::{
     Align, AlignSelf, ContainerStyle, Direction, Display, Gap, ItemStyle, Justify, Length,
 };
@@ -41,8 +43,31 @@ pub mod __private {
     pub trait Props {
         /// The typed-builder builder type for this props struct.
         type Builder;
+        /// Whether the component draws into its parent's `Ui`.
+        ///
+        /// Set by `#[component(shares_ui)]`. Such a component still gets a hook
+        /// scope of its own, but no `Ui::push_id`, so it can reach the parent's
+        /// layout: that is what docked panels and grid rows need.
+        const SHARES_UI: bool = false;
         /// Start building.
         fn builder() -> Self::Builder;
+    }
+
+    /// Enter one element's scope and call it. This is what `rsx!` emits.
+    ///
+    /// `P` is fixed by the `props` value, so the component's generic arguments
+    /// are already settled by the time this is called.
+    pub fn enter_scope<P, F, S>(cx: &mut super::Cx<'_, '_>, source: S, props: P, component: F)
+    where
+        P: Props,
+        S: ::core::hash::Hash + ::core::fmt::Debug,
+        F: for<'a, 'b, 'c> Fn(&'a mut super::Cx<'b, 'c>, P),
+    {
+        if P::SHARES_UI {
+            cx.scope_sharing_ui(source, move |cx| component(cx, props));
+        } else {
+            cx.scope(source, move |cx| component(cx, props));
+        }
     }
 }
 
@@ -68,7 +93,7 @@ pub mod prelude {
     pub use crate::cx::Cx;
     pub use crate::dispatch::{Dispatch, use_reducer};
     pub use crate::events::{Emitter, EventSink, Handler};
-    pub use crate::hooks::{use_effect, use_handle, use_memo, use_state};
+    pub use crate::hooks::{use_effect, use_handle, use_memo, use_persisted, use_state};
     pub use crate::layout::{
         Align, AlignSelf, ContainerStyle, Direction, Display, Gap, ItemStyle, Justify, Length,
     };

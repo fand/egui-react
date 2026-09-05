@@ -191,17 +191,17 @@ impl Expander {
         };
 
         quote_spanned! { span =>
-            cx.scope(#source, |cx| {
-                #path(
-                    cx,
-                    ::react_egui::props_builder(&#path)
-                        #(#setters)*
-                        #style
-                        #events
-                        .children(#children)
-                        .build(),
-                );
-            });
+            ::react_egui::__private::enter_scope(
+                cx,
+                #source,
+                ::react_egui::props_builder(&#path)
+                    #(#setters)*
+                    #style
+                    #events
+                    .children(#children)
+                    .build(),
+                #path,
+            );
         }
     }
 

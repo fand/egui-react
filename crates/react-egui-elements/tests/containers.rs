@@ -1,6 +1,6 @@
 //! Plan 3.3 / test 4-2: the children of every container get a working `Cx`,
 //! their state survives across frames, closing a `Window` unmounts them, and
-//! `row()` starts a new grid row.
+//! `<Row>` starts a new grid row.
 
 mod common;
 
@@ -151,33 +151,23 @@ fn panels_host_children_and_keep_their_state() {
     assert!(harness.query_by_label("central: 0").is_some());
 }
 
-/// A docked panel carves space out of *its own* `Ui`, and `rsx!` gives every
-/// element a `Ui` of its own (`cx.scope` -> `Ui::push_id`). Two panels written
-/// as sibling elements therefore stack instead of docking; called without a
-/// scope in between they dock the way plain egui does.
+/// `#[component(shares_ui)]` is what makes docking work: a panel carves space
+/// out of the `Ui` its siblings are drawn into, so it must not get a child `Ui`
+/// of its own from `cx.scope`.
 #[test]
-fn panels_dock_when_they_share_one_ui() {
+fn panels_written_as_siblings_dock() {
     let mut harness = Harness::new_ui_state(
         |ui, store: &mut Store| {
             run_app(ui, store, |cx| {
-                Panel(
-                    cx,
-                    react_egui::props_builder(&Panel)
-                        .side("left")
-                        .default_size(80.0)
-                        .children(view(|cx: &mut Cx<'_, '_>| {
-                            cx.ui().label("docked side");
-                        }))
-                        .build(),
-                );
-                CentralPanel(
-                    cx,
-                    react_egui::props_builder(&CentralPanel)
-                        .children(view(|cx: &mut Cx<'_, '_>| {
-                            cx.ui().label("docked central");
-                        }))
-                        .build(),
-                );
+                rsx! {
+                    <Panel side="left" default_size={80.0}>
+                        <Label>"docked side"</Label>
+                    </Panel>
+                    <CentralPanel>
+                        <Label>"docked central"</Label>
+                    </CentralPanel>
+                }
+                .show(cx);
             });
         },
         Store::new(),
@@ -199,11 +189,14 @@ fn grid_rows_are_separated_by_row() {
             run_app(ui, store, |cx| {
                 rsx! {
                     <Grid cols={2} striped>
-                        <Label>"a1"</Label>
-                        <Label>"b1"</Label>
-                        {row()}
-                        <Label>"a2"</Label>
-                        <Label>"b2"</Label>
+                        <Row>
+                            <Label>"a1"</Label>
+                            <Label>"b1"</Label>
+                        </Row>
+                        <Row>
+                            <Label>"a2"</Label>
+                            <Label>"b2"</Label>
+                        </Row>
                     </Grid>
                 }
                 .show(cx);
@@ -225,7 +218,7 @@ fn grid_rows_are_separated_by_row() {
         (a1.top() - b1.top()).abs() < 1.0,
         "a1 and b1 share a row: {a1:?} {b1:?}"
     );
-    assert!(a1.top() < a2.top(), "row() starts a new row: {a1:?} {a2:?}");
+    assert!(a1.top() < a2.top(), "<Row> starts a new row: {a1:?} {a2:?}");
 }
 
 #[test]

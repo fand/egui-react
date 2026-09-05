@@ -38,7 +38,7 @@ spike の手書き展開形はすべてマクロ版に置き換え、spike の�
 - taffy Grid の詳細なトラック指定(`minmax`、`auto-fill`、名前付き領域)。`display="grid"` と等幅カラム、`col_span` / `row_span` までにとどめる。
 - `Image` のローダー登録(`egui_extras`)。`Image` は `egui::ImageSource` を受け取るだけで、ローダーはアプリ側の責務とする。
 - `use_persisted` の wasm 側(localStorage)の自動テスト。native の `Storage` 相当のモックでテストし、wasm は目視まで。
-- スナップショットテストを CI の必須ステップにすること。wgpu のソフトウェアレンダリングが CI で安定しなければ、feature の裏に置いてローカル実行にとどめる(下記「決めごと」)。
+- スナップショットテストを CI で回すこと。画像は生成した OS のレンダラに依存するので、feature の裏に置いてローカル実行にとどめる(下記「決めごと」)。
 - `rsx!` の IDE 補完やフォーマッタ対応。
 
 ## 成果物
@@ -57,7 +57,7 @@ spike の手書き展開形はすべてマクロ版に置き換え、spike の�
 
 - [plan.md](plan.md) の各フェーズのテスト表がすべて緑。spike のテスト(`sibling_handlers` / `custom_hook` / `fused_events` / `context_handle` / `multi_pass` / `collision` / `unmount` / `nested_ui` / `repaint` / `effect_deps`)がマクロ版のコンポーネントで通る。
 - trybuild テストが緑で、`.stderr` がコミットされている。
-- `cargo fmt --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo test --workspace`、`cargo check --workspace --target wasm32-unknown-unknown`、`trunk build` が CI で通る。
+- `cargo fmt --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo test --workspace`、`cargo check --workspace --target wasm32-unknown-unknown`、`trunk build` が CI で通る。スナップショットは CI に含めない(上記)。
 - `cargo run -p counter` / `cargo run -p todo` / `cargo run -p layout` が native で動き、`trunk serve` で counter がブラウザで動く。
 - `todo` を終了して再起動すると `use_persisted` の内容が残っている(native、目視)。
 - ARCHITECTURE.md が実装と一致している。変更点は PR 本文に列挙する。
@@ -68,7 +68,7 @@ spike の手書き展開形はすべてマクロ版に置き換え、spike の�
 - `react-egui`(core)は `egui_taffy` に依存する。`Cx` がレイアウトコンテキストを持つ以上、core が `Tui` を知る必要があるため。wasm の `cargo check` は引き続き通すこと。
 - Props の builder は `typed-builder` crate を使い、`react-egui` から `__private` で再エクスポートする(`#[builder(crate_module_path = ..)]`)。自前生成に切り替えるのは、再エクスポート経由で動かない場合だけ。
 - `#[component]` の Props 構造体は `<Name>Props`。`rsx!` は `::react_egui::props_builder(&Name)` で関数の型から builder を引く(ユーザーは `Name` だけを `use` すればよい)。lifetime 付き props で推論が通らなければ [plan.md](plan.md) 6 章の代替案に切り替える。
-- スナップショットテストは egui_kittest の `snapshot` + `wgpu` feature が要る。`react-egui-elements` の cargo feature `snapshot` の裏に置き、CI では `mesa-vulkan-drivers` を入れて別ステップで回す。2 回試して安定しなければそのステップを外し、PR 本文に書く。
+- スナップショットテストは egui_kittest の `snapshot` + `wgpu` feature が要る。`react-egui-elements` の cargo feature `snapshot` の裏に置く。コミット済みの画像は macOS のレンダラで生成したもので Linux のソフトウェアレンダラとは一致しないので、CI では回さずローカル実行にとどめる。回し方は README の Testing 節に書く。
 - egui 0.36 の `Options::max_passes` の既定値は既に 2 である。ランナーは明示的に設定するが、これは将来の egui の変更に対する固定であって挙動の変更ではない。
 - `update_later` / `defer` に渡す閉包は `'static`(`move` が必要)。パス末まで生きるキューに入るため。借用したい場合は `Dispatch` か値の clone を使う。
 - `use_reducer` のメッセージは「パス末」ではなく「次に hook を訪問した時」に適用する(理由は plan.md 1.3)。

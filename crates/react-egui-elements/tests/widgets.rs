@@ -85,7 +85,7 @@ fn text_edit_binds_and_reports_change_and_submit() {
                         bind={text.bind()}
                         hint="type here"
                         on_change={|| entries.push(String::from("change"))}
-                        on_submit={|| entries.push(String::from("submit"))}
+                        on_submit={|text: String| entries.push(format!("submit {text}"))}
                     />
                 }
                 .show(cx);
@@ -112,7 +112,7 @@ fn text_edit_binds_and_reports_change_and_submit() {
 
     harness.key_press(egui::Key::Enter);
     harness.run();
-    assert!(log.borrow().iter().any(|e| e == "submit"));
+    assert!(log.borrow().iter().any(|e| e == "submit hi"));
 }
 
 #[test]

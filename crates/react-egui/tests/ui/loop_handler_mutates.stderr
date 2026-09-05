@@ -1,10 +1,16 @@
 error[E0502]: cannot borrow value as mutable because it is also borrowed as immutable
-  --> tests/ui/loop_handler_mutates.rs:16:14
+  --> tests/ui/loop_handler_mutates.rs:14:5
    |
-15 |         for (i, todo) in todos.iter().enumerate() {
-   |                          ------------------------
-   |                          |
-   |                          immutable borrow occurs here
-   |                          immutable borrow later used here
-16 |             <Row key={i} label={todo} on_remove={|| { todos.remove(i); }}/>
-   |              ^^^ mutable borrow occurs here           ----- second borrow occurs due to use of value in closure
+14 | /     rsx! {
+15 | |         for (i, todo) in todos.iter().enumerate() {
+   | |                          ------------------------
+   | |                          |
+   | |                          immutable borrow occurs here
+   | |                          immutable borrow later used here
+16 | |             <Row key={i} label={todo} on_remove={|| { todos.remove(i); }}/>
+   | |                                                       ----- second borrow occurs due to use of value in closure
+17 | |         }
+18 | |     }
+   | |_____^ mutable borrow occurs here
+   |
+   = note: this error originates in the macro `rsx` (in Nightly builds, run with -Z macro-backtrace for more info)

@@ -2,7 +2,7 @@
 
 use std::any::{Any, TypeId};
 use std::cell::{Cell, Ref, RefCell, RefMut};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::panic::Location;
 
 use elsa::{FrozenMap, FrozenVec};
@@ -22,9 +22,14 @@ pub(crate) struct Slot {
     /// Old entries are kept until the end of the pass because a `&'s T` handed
     /// out earlier in the same pass may still point at one.
     memo: FrozenVec<Box<dyn Any>>,
+    /// `use_persisted` bookkeeping: the storage key and how to serialise `T`.
+    persist: Option<(String, ToJson)>,
     #[allow(dead_code)]
     location: &'static Location<'static>,
 }
+
+/// Serialise a slot value, given its concrete type at the `use_persisted` call.
+pub(crate) type ToJson = fn(&dyn Any) -> Option<String>;
 
 impl Slot {
     /// The id this slot is stored under.
@@ -85,6 +90,18 @@ impl Slot {
         self.memo.push_get(value)
     }
 
+    /// The storage key and serialiser, if this slot came from `use_persisted`.
+    fn persist(&self) -> Option<&(String, ToJson)> {
+        self.persist.as_ref()
+    }
+
+    /// Serialise the current value for persistence, if this slot is persisted.
+    fn to_json(&self) -> Option<(String, String)> {
+        let (key, to_json) = self.persist()?;
+        let value = self.value.try_borrow().ok()?;
+        Some((key.clone(), to_json(&**value)?))
+    }
+
     /// Drop every memo value but the newest.
     ///
     /// Safe only between passes: within a pass, references handed out earlier
@@ -135,7 +152,19 @@ pub struct Store {
     contexts: RefCell<Vec<(TypeId, egui::Id)>>,
     /// Work queued by `cx.defer` and `update_later`, applied in `end_pass`.
     deferred: RefCell<Vec<Deferred>>,
+    /// `use_persisted` values as JSON, keyed by the user's string key.
+    persisted: RefCell<HashMap<String, String>>,
+    /// Every key `use_persisted` has been called with in this process.
+    persisted_keys: RefCell<BTreeSet<String>>,
     warn_on_collision: bool,
+}
+
+/// The slot id of a `use_persisted` key.
+///
+/// Derived from the key alone, never from the call site: a persisted value has
+/// to survive edits to the source (3.4).
+pub(crate) fn persisted_id(key: &str) -> egui::Id {
+    egui::Id::new(("react_egui_persisted", key))
 }
 
 impl Default for Store {
@@ -157,6 +186,8 @@ impl Store {
             collisions: RefCell::new(Vec::new()),
             contexts: RefCell::new(Vec::new()),
             deferred: RefCell::new(Vec::new()),
+            persisted: RefCell::new(HashMap::new()),
+            persisted_keys: RefCell::new(BTreeSet::new()),
             warn_on_collision: cfg!(debug_assertions),
         }
     }
@@ -198,16 +229,24 @@ impl Store {
     fn sweep(&mut self) {
         let pass = self.pass.get();
         let mut cleanups = Vec::new();
-        let map: &mut std::collections::HashMap<egui::Id, Box<Slot>> = self.slots.as_mut();
+        let mut saved: Vec<(String, String)> = Vec::new();
+        let map: &mut HashMap<egui::Id, Box<Slot>> = self.slots.as_mut();
         map.retain(|_, slot| {
             let alive = slot.last_visited.get() >= pass;
             if alive {
                 slot.prune_memo();
             } else {
+                // Unmounted, but a persisted value must still survive to the
+                // next launch, so it is serialised before the slot is dropped.
+                saved.extend(slot.to_json());
                 cleanups.extend(slot.take_cleanup());
             }
             alive
         });
+        if !saved.is_empty() {
+            let mut persisted = self.persisted.borrow_mut();
+            persisted.extend(saved);
+        }
         // Cleanups are `'static` and cannot reach back into the store, but they
         // are still run after the map borrow ends, to keep that obvious.
         for cleanup in cleanups {
@@ -343,8 +382,84 @@ impl Store {
                 cleanup: RefCell::new(None),
                 deps_hash: Cell::new(None),
                 memo: FrozenVec::new(),
+                persist: None,
                 location,
             }),
         )
+    }
+
+    /// The JSON `load_persisted` restored for `key`, if any.
+    pub(crate) fn persisted_json(&self, key: &str) -> Option<String> {
+        self.persisted.borrow().get(key).cloned()
+    }
+
+    /// Get the slot behind a `use_persisted` key, creating it with `init`.
+    pub(crate) fn persisted_slot(
+        &self,
+        key: &str,
+        location: &'static Location<'static>,
+        to_json: ToJson,
+        init: impl FnOnce() -> Box<dyn Any>,
+    ) -> &Slot {
+        let id = persisted_id(key);
+        self.persisted_keys.borrow_mut().insert(key.to_owned());
+        let pass = self.pass.get();
+        if let Some(slot) = self.slots.get(&id) {
+            if slot.last_visited.get() == pass {
+                self.collisions
+                    .borrow_mut()
+                    .push(Collision { id, location });
+                log::warn!("react-egui: use_persisted key collision at {location} (key {key:?})");
+            }
+            slot.last_visited.set(pass);
+            return slot;
+        }
+        self.slots.insert(
+            id,
+            Box::new(Slot {
+                id,
+                value: RefCell::new(init()),
+                last_visited: Cell::new(pass),
+                cleanup: RefCell::new(None),
+                deps_hash: Cell::new(None),
+                memo: FrozenVec::new(),
+                persist: Some((key.to_owned(), to_json)),
+                location,
+            }),
+        )
+    }
+
+    /// Restore what [`Store::save_persisted`] produced.
+    ///
+    /// Call this before the first pass; keys that no `use_persisted` asks for
+    /// are kept as they are, so an unused value survives a run that never
+    /// mounted its component.
+    pub fn load_persisted(&mut self, json: &str) {
+        match serde_json::from_str::<HashMap<String, String>>(json) {
+            Ok(map) => *self.persisted.borrow_mut() = map,
+            Err(err) => log::warn!("react-egui: could not read persisted state: {err}"),
+        }
+    }
+
+    /// Serialise every `use_persisted` value into one JSON string.
+    ///
+    /// Values whose component is currently mounted are read from their slot;
+    /// unmounted ones come from what the sweep saved.
+    pub fn save_persisted(&self) -> String {
+        {
+            let keys: Vec<String> = self.persisted_keys.borrow().iter().cloned().collect();
+            let mut persisted = self.persisted.borrow_mut();
+            for key in keys {
+                if let Some(slot) = self.slots.get(&persisted_id(&key))
+                    && let Some((key, json)) = slot.to_json()
+                {
+                    persisted.insert(key, json);
+                }
+            }
+        }
+        serde_json::to_string(&*self.persisted.borrow()).unwrap_or_else(|err| {
+            log::warn!("react-egui: could not write persisted state: {err}");
+            String::from("{}")
+        })
     }
 }

@@ -15,8 +15,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # eframe (pulled in by examples/spike, which `cargo test --workspace` builds)
-      # needs the X11 / Wayland / GTK development headers on Linux.
+      # eframe (pulled in by the examples, which `cargo test --workspace`
+      # builds) needs the X11 / Wayland / GTK development headers on Linux.
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -48,4 +48,17 @@ jobs:
         run: cargo test --workspace
 
       - name: cargo check (wasm)
-        run: cargo check -p react-egui --target wasm32-unknown-unknown
+        run: cargo check --workspace --target wasm32-unknown-unknown
+
+      - uses: jetli/trunk-action@v0.5
+        with:
+          version: latest
+
+      # `trunk build <path>` resolves the cargo root package from the current
+      # directory, so the example's Trunk.toml is passed instead.
+      - name: trunk build (counter)
+        run: trunk build --release --config examples/counter/Trunk.toml
+
+# The pixel snapshot tests (`cargo test -p react-egui-elements --features
+# snapshot`) are deliberately not run here: the committed images are rendered on
+# macOS and would not match this runner's software renderer. See the README.

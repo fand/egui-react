@@ -39,10 +39,12 @@ pub fn Label(
 /// A single- or multi-line text field bound to a `String`.
 ///
 /// `bind` is a `&mut String`, so the widget reads and writes the same state
-/// through one borrow. A handler on the same element that also touches that
-/// state would be a second borrow and will not compile; use `on_change` for
-/// logging or a [`Dispatch`], not for writing back.
+/// through one borrow. A handler on the same element cannot touch that state as
+/// well — that would be a second borrow and will not compile. `on_submit`
+/// therefore *carries* the text, and `clear_on_submit` empties the field for
+/// you, which together cover the usual "type, press Enter, add an item" flow.
 #[component]
+#[allow(clippy::too_many_arguments)]
 pub fn TextEdit(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
@@ -50,8 +52,9 @@ pub fn TextEdit(
     #[prop(default)] multiline: bool,
     hint: Option<&str>,
     desired_width: Option<f32>,
+    #[prop(default)] clear_on_submit: bool,
     #[event] on_change: (),
-    #[event] on_submit: (),
+    #[event] on_submit: String,
 ) {
     let response = cx.leaf(&style, |ui| {
         let mut edit = if multiline {
@@ -72,7 +75,11 @@ pub fn TextEdit(
         on_change.emit(());
     }
     if response.lost_focus() && cx.ui().input(|i| i.key_pressed(egui::Key::Enter)) {
-        on_submit.emit(());
+        let text = std::mem::take(bind);
+        if !clear_on_submit {
+            *bind = text.clone();
+        }
+        on_submit.emit(text);
     }
 }
 

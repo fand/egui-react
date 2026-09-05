@@ -127,8 +127,22 @@ impl<'s, 'u> Cx<'s, 'u> {
         location: &'static Location<'static>,
         f: impl FnOnce(&mut Cx<'s, '_>) -> R,
     ) -> R {
+        self.scope_sharing_ui(location_key(location), f)
+    }
+
+    /// Enter a component scope that draws into *this* `Ui`.
+    ///
+    /// Same hook scoping as [`Cx::scope`], but without `Ui::push_id`, so the
+    /// component shares the surface with its parent. `#[component(shares_ui)]`
+    /// elements go through here: a docked panel has to carve space out of the
+    /// parent's `Ui`, and `Ui::end_row` only reaches the grid it was called on.
+    pub fn scope_sharing_ui<R>(
+        &mut self,
+        source: impl Hash + Debug,
+        f: impl FnOnce(&mut Cx<'s, '_>) -> R,
+    ) -> R {
         let store = self.store;
-        let scope = self.scope.with(location_key(location));
+        let scope = self.scope.with(&source);
         let mut cx = Cx {
             store,
             surface: self.reborrow(),
@@ -159,16 +173,45 @@ impl<'s, 'u> Cx<'s, 'u> {
         style: taffy::Style,
         f: impl FnOnce(&mut Cx<'s, '_>) -> R,
     ) -> R {
+        self.container_reserving(id, style, false, f)
+    }
+
+    /// [`Cx::container`] for the root of an app: reserve *all* available space.
+    ///
+    /// The runner uses this so that the outermost `<View>` fills the window;
+    /// nested containers only reserve the available width, so that a column of
+    /// them stacks instead of each one claiming the whole height.
+    pub fn root_container<R>(
+        &mut self,
+        id: egui::Id,
+        style: taffy::Style,
+        f: impl FnOnce(&mut Cx<'s, '_>) -> R,
+    ) -> R {
+        self.container_reserving(id, style, true, f)
+    }
+
+    fn container_reserving<R>(
+        &mut self,
+        id: egui::Id,
+        style: taffy::Style,
+        all_space: bool,
+        f: impl FnOnce(&mut Cx<'s, '_>) -> R,
+    ) -> R {
         let store = self.store;
         let scope = self.scope;
         match &mut self.surface {
-            Surface::Ui(ui) => egui_taffy::tui(ui, id)
-                .reserve_available_width()
-                .style(style)
-                .show(|tui| {
+            Surface::Ui(ui) => {
+                let tui = egui_taffy::tui(ui, id);
+                let tui = if all_space {
+                    tui.reserve_available_space()
+                } else {
+                    tui.reserve_available_width()
+                };
+                tui.style(style).show(|tui| {
                     let mut cx = Cx::new_taffy(store, tui, scope);
                     f(&mut cx)
-                }),
+                })
+            }
             Surface::Taffy(tui) => (&mut **tui).id(id).style(style).add(|tui| {
                 let mut cx = Cx::new_taffy(store, tui, scope);
                 f(&mut cx)

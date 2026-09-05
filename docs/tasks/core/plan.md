@@ -431,7 +431,7 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 
 1. `cargo check --workspace --target wasm32-unknown-unknown`(`-p react-egui` から `--workspace` に広げる。examples も wasm でコンパイルできること)
 2. trunk: `jetli/trunk-action@v0.5` で `trunk` を入れ、`trunk build --release examples/counter/index.html`
-3. スナップショット: `sudo apt-get install -y mesa-vulkan-drivers` の上で `WGPU_BACKEND=vulkan cargo test -p react-egui-elements --features snapshot`。2 回試して安定しなければステップを外し、PR 本文に理由を書く
+3. スナップショットは CI で回さない。コミット済みの画像は macOS のレンダラで生成したもので、Linux のソフトウェアレンダラとは一致しないため。ローカルでの回し方を README の Testing 節に書く
 
 `Swatinem/rust-cache` のキーは既存のまま。
 
@@ -523,3 +523,25 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 - **3.4 テスト 4-5** core の `multi_pass.rs` はそのまま残し、`react-egui-elements/tests/multi_pass.rs` に `<View>` + `<Button>` + `<Text>` 版を足した(core が elements に依存しないため)。taffy の再計算は「同じパスの中でノードの内容が変わった」時に起きるので、幅の変わる `<Text>` はハンドラより**後**に書く必要がある。
 - **3.4 テスト 4-4** スナップショットは feature `snapshot`(`egui_kittest/snapshot` + `egui_kittest/wgpu`)の裏。このマシンでは wgpu が動いたので 5 枚の PNG を生成してコミットした(`row` / `column_justify` / `grid` / `text_wrap` / `widgets`)。
 - **その他** `View` 要素(関数、値の名前空間)と `View` trait(型の名前空間)は共存できるので、`react_egui::prelude` と `react_egui_elements::prelude` を両方 glob import しても衝突しない。
+
+### フェーズ 5(手順 4)
+
+#### コーディネータの指示で入れた変更
+
+- **`#[component(shares_ui)]`** を追加した。`Props` に `const SHARES_UI: bool`(既定 `false`)を足し、`rsx!` は要素の呼び出しを `::react_egui::__private::enter_scope(cx, source, props, Name)` に通す。`enter_scope` は `P::SHARES_UI` で `cx.scope` と新しい `cx.scope_sharing_ui`(hook スコープだけ深くする)を選ぶ。`Panel` / `CentralPanel` / `Row` がこれを使い、`<Panel side="left"/>` + `<CentralPanel/>` を兄弟要素として並べるとドッキングする(テスト `containers::panels_written_as_siblings_dock`)。
+- `enter_scope` の型引数 `P` は、`props_builder` のような `Fn` 境界からの推論ではなく **props の値そのもの**から決まる。同じ式の中で `&Name` を 2 回書くと 2 つの独立した推論変数になり generic なコンポーネントで曖昧になるため。props は `enter_scope` の引数として組み立てるので、融合閉包の `&mut |ev| ..` の一時値は文の終わりまで生きる。
+- `row()` は削除し、`#[component(shares_ui)] Row { children }` に置き換えた。`<Grid cols={2}><Row><A/><B/></Row></Grid>` と書ける。
+- この変更で trybuild の `.stderr` が 3 本変わった(エラーのスパンが `rsx!` 全体を指すようになった)。再生成してコミット済み。
+
+#### 実装
+
+- **4.2** `Store` に `persisted: RefCell<HashMap<String, String>>` と `persisted_keys: RefCell<BTreeSet<String>>` を持つ。後者は `save_persisted(&self)` が「このプロセスで `use_persisted` が使ったキー」を走査するために要る(`elsa::FrozenMap` は `&self` で列挙できないので、キーから `Id` を再計算してスロットを引く)。
+- **4.2** 壊れた JSON は panic せず `log::warn!` して `init` に落ちる。トップレベルが壊れていれば `load_persisted` 全体を無視する。
+- **4.1** `Cx::root_container` を足した(`container` との違いは `reserve_available_space()` か `reserve_available_width()` かだけ)。
+- **4.1** `Options::native` は `#[cfg(not(target_arch = "wasm32"))]`。`eframe::NativeOptions` は wasm に存在しない。
+- **4.1** ルート閉包の `cx` は実質使わないので、examples と README は `|_cx| rsx!{ <App/> }` と書く。シグネチャは計画どおり `FnMut(&mut Cx) -> V` のまま残した。
+- **3.2 の変更** `TextEdit` の `on_submit` のペイロードを `()` から `String` に変え、`clear_on_submit: bool` を足した。`bind` が `&mut String` を握っている間は、同じ要素のハンドラから同じ state を触れない(E0499)。todo の「Enter で追加して入力欄を空にする」が書けなくなるので、テキストはイベントのペイロードで渡し、クリアは要素の仕事にした。
+- **4.3** todo は `use_persisted("todos", ..)` を真の保存先とし、`use_reducer` の state はそのコピーとして扱う。パスの先頭で差があれば書き戻す(毎パス無条件に書くと dirty が立ち続けてアイドルにならない)。チェックボックスは `todos` がループに借用されているのでスクラッチのコピーに bind し、実際の変更は `Dispatch` を通す。
+- **4.3** `style={..}` とレイアウト短縮属性(`p={6}` など)を同じ要素に書くと typed-builder の "Repeated field style" でコンパイルエラーになる。examples/layout の `Chip` は `style.p(6)` と Rust 側で足している。
+- **4.5** スナップショットの CI ステップは入れない(上記 4.5)。wasm の check は `--workspace` に広げ、`jetli/trunk-action` で `trunk build --release examples/counter/index.html` を足した。
+- **その他** `examples/spike` を削除し、`counter` / `todo` / `layout` を追加した。それぞれ `index.html` と `Trunk.toml` を持つ。

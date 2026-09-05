@@ -23,13 +23,13 @@ help: provide the argument
 9 |     rsx! { <Field(/* FieldPropsBuilder_Error_Missing_required_field_label */)/> }.show(cx);
   |                  ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-warning: unreachable call
+warning: unreachable expression
  --> tests/ui/missing_prop.rs:9:13
   |
 9 |     rsx! { <Field/> }.show(cx);
   |             ^^^^^
   |             |
-  |             unreachable call
+  |             unreachable expression
   |             any code following this expression is unreachable
   |
   = note: `#[warn(unreachable_code)]` (part of `#[warn(unused)]`) on by default

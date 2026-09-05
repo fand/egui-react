@@ -24,8 +24,8 @@ pub mod widgets;
 /// written, because that is the name the fused closure matches on.
 pub mod prelude {
     pub use crate::containers::{
-        CentralPanel, Collapsing, Frame, Grid, Horizontal, Panel, ScrollArea, Side, Vertical,
-        Window, row,
+        CentralPanel, Collapsing, Frame, Grid, Horizontal, Panel, Row, ScrollArea, Side, Vertical,
+        Window,
     };
     pub use crate::view::{Text, View};
     pub use crate::widgets::{

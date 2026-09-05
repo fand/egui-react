@@ -17,8 +17,11 @@ egui_taffy.workspace = true
 elsa.workspace = true
 log.workspace = true
 react-egui-macros.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 typed-builder.workspace = true
 
 [dev-dependencies]
 egui_kittest.workspace = true
+serde.workspace = true
 trybuild.workspace = true

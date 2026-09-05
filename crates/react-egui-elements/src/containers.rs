@@ -147,7 +147,11 @@ pub fn Window(
 }
 
 /// A panel docked to one edge of the surrounding `Ui`.
-#[component]
+///
+/// `shares_ui`, because a docked panel carves its space out of the `Ui` its
+/// siblings are drawn into. Without that, `<Panel/>` followed by
+/// `<CentralPanel/>` would stack instead of docking.
+#[component(shares_ui)]
 pub fn Panel(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
@@ -176,7 +180,7 @@ pub fn Panel(
 }
 
 /// The panel that takes whatever space the docked panels left over.
-#[component]
+#[component(shares_ui)]
 pub fn CentralPanel(cx: &mut Cx, #[prop(default)] style: ItemStyle, children: impl View) {
     let (store, scope) = (cx.store, cx.scope_id());
     cx.leaf(&style, move |ui| {
@@ -233,12 +237,12 @@ pub fn Grid(
     });
 }
 
-/// End the current [`Grid`] row.
+/// One row of a [`Grid`]: draws its children, then ends the row.
 ///
-/// This is a `View`-returning function rather than an element, because it has
-/// to run in the grid's own `Ui`: `rsx!` gives every *element* a child `Ui` of
-/// its own (`cx.scope` -> `Ui::push_id`), and `end_row` on a child `Ui` does
-/// not reach the grid. A `{expr}` node is not scoped, so `{row()}` does.
-pub fn row() -> impl View {
-    view(|cx: &mut Cx<'_, '_>| cx.ui().end_row())
+/// `shares_ui`, because `Ui::end_row` only reaches the grid it was called on;
+/// an ordinary element would call it on a child `Ui` of its own.
+#[component(shares_ui)]
+pub fn Row(cx: &mut Cx, children: impl View) {
+    children.show(cx);
+    cx.ui().end_row();
 }
