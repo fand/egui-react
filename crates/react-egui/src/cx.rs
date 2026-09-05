@@ -162,6 +162,32 @@ impl<'s, 'u> Cx<'s, 'u> {
         }
     }
 
+    /// Like [`Cx::leaf`], but the leaf takes whatever space taffy gives it.
+    ///
+    /// A plain leaf is measured by its content: taffy sizes it to what it drew
+    /// and never larger. That is wrong for egui widgets that themselves fill
+    /// the space they are given (`ScrollArea`): the widget fills its node, then
+    /// reports that as its content size, and the node is pinned at whatever
+    /// size the first frame happened to have. This variant reports no content
+    /// size at all, so the node is sized purely by taffy: `w` / `h`, `grow`,
+    /// or the remaining space in the container.
+    pub fn leaf_fill<R>(&mut self, style: &ItemStyle, f: impl FnOnce(&mut egui::Ui) -> R) -> R {
+        match &mut self.surface {
+            Surface::Ui(ui) => f(ui),
+            Surface::Taffy(tui) => {
+                (&mut **tui)
+                    .style(style.to_taffy())
+                    .ui_manual(|ui, _container| egui_taffy::TuiContainerResponse {
+                        inner: f(ui),
+                        min_size: egui::Vec2::ZERO,
+                        intrinsic_size: None,
+                        max_size: egui::Vec2::INFINITY,
+                        infinite: egui::Vec2b::TRUE,
+                    })
+            }
+        }
+    }
+
     /// Open a taffy container and draw `f` inside it.
     ///
     /// Outside taffy this starts a new `egui_taffy` tree in the current `Ui`;

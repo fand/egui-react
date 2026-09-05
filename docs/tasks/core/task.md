@@ -26,7 +26,7 @@ spike の手書き展開形はすべてマクロ版に置き換え、spike の�
   - コンテナ: `ScrollArea` / `Collapsing` / `Frame` / `Window` / `SidePanel` / `TopBottomPanel` / `CentralPanel`。egui-native の `Vertical` / `Horizontal` / `Grid`。
   - kittest の操作テストと、レイアウトのスナップショットテスト。
 - フェーズ 5(ランナーと examples)
-  - `react-egui-app::run(Options, |cx| rsx!{..})`。native と wasm を同じ関数で吸収する。`Options::max_passes = 2` の明示設定。
+  - `react-egui-app::run(Options, |cx| rsx!{..})`。native と wasm を同じ関数で吸収する。`Options::max_passes` の明示設定(既定 3。理由は plan.md 8 章)。
   - `use_persisted`(eframe の `Storage` に保存)。
   - examples: `counter`、`todo`(`use_reducer`)、`layout`。`examples/spike` は削除する。
   - CI に wasm の `cargo check --workspace` と trunk ビルドを足す。
@@ -69,7 +69,7 @@ spike の手書き展開形はすべてマクロ版に置き換え、spike の�
 - Props の builder は `typed-builder` crate を使い、`react-egui` から `__private` で再エクスポートする(`#[builder(crate_module_path = ..)]`)。自前生成に切り替えるのは、再エクスポート経由で動かない場合だけ。
 - `#[component]` の Props 構造体は `<Name>Props`。`rsx!` は `::react_egui::props_builder(&Name)` で関数の型から builder を引く(ユーザーは `Name` だけを `use` すればよい)。lifetime 付き props で推論が通らなければ [plan.md](plan.md) 6 章の代替案に切り替える。
 - スナップショットテストは egui_kittest の `snapshot` + `wgpu` feature が要る。`react-egui-elements` の cargo feature `snapshot` の裏に置く。コミット済みの画像は macOS のレンダラで生成したもので Linux のソフトウェアレンダラとは一致しないので、CI では回さずローカル実行にとどめる。回し方は README の Testing 節に書く。
-- egui 0.36 の `Options::max_passes` の既定値は既に 2 である。ランナーは明示的に設定するが、これは将来の egui の変更に対する固定であって挙動の変更ではない。
+- egui 0.36 の `Options::max_passes` の既定値は 2 である。ランナーは 3 を明示設定する(入れ子の egui_taffy ツリーがもう 1 パス必要なため。plan.md 8 章)。
 - `update_later` / `defer` に渡す閉包は `'static`(`move` が必要)。パス末まで生きるキューに入るため。借用したい場合は `Dispatch` か値の clone を使う。
 - `use_reducer` のメッセージは「パス末」ではなく「次に hook を訪問した時」に適用する(理由は plan.md 1.3)。
 - `use_persisted` の Id はスコープではなく文字列キーだけから導出する。同じキーを 2 か所で使えば同じ状態を共有する。保存形式は JSON、eframe の `Storage` には `"react_egui"` の 1 キーにまとめて書く。

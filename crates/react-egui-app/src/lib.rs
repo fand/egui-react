@@ -20,9 +20,12 @@ pub struct Options {
     pub title: String,
     /// How many passes egui may run for one frame.
     ///
-    /// `egui_taffy` asks for a second pass when the layout changes, so this has
-    /// to be at least 2. The default is 2, which is also egui 0.36's own
-    /// default; setting it explicitly pins the behaviour (5.3).
+    /// `egui_taffy` asks for another pass whenever a layout changes, and a
+    /// `<View>` inside an egui container inside a `<View>` is a second taffy
+    /// tree that only learns its new size in the pass after the outer one, so
+    /// each level of nesting needs one more pass. The default is 3, one more
+    /// than egui's own; deeper nesting settles on the next frame instead (the
+    /// runner requests a repaint when a discard was refused).
     pub max_passes: usize,
     /// Whether `use_persisted` is saved to and loaded from eframe's storage.
     pub persist: bool,
@@ -37,7 +40,7 @@ impl Default for Options {
     fn default() -> Self {
         Self {
             title: String::from("react-egui"),
-            max_passes: 2,
+            max_passes: 3,
             persist: true,
             canvas_id: String::from("react_egui_canvas"),
             #[cfg(not(target_arch = "wasm32"))]
@@ -135,6 +138,13 @@ where
             // Every guard died with the component bodies above, so the sweep is
             // safe.
             store.end_pass();
+            // A discard that egui refused (max_passes exhausted) would leave a
+            // nested taffy tree drawn with its previous layout until the next
+            // input; settle it on the next frame instead.
+            let ctx = ui.ctx();
+            if ctx.output(|o| o.requested_discard()) && !ctx.will_discard() {
+                ctx.request_repaint();
+            }
         });
     }
 

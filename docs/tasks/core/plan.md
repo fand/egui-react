@@ -383,7 +383,7 @@ pub fn Text(cx: &mut Cx, #[prop(default)] style: ItemStyle, size: Option<f32>, c
 ```rust
 pub struct Options {
     pub title: String,
-    pub max_passes: usize,               // 既定 2
+    pub max_passes: usize,               // 既定 3(8 章参照)
     pub persist: bool,                   // 既定 true。eframe の Storage を使う
     pub canvas_id: String,               // wasm。既定 "react_egui_canvas"
     pub native: eframe::NativeOptions,
@@ -545,6 +545,11 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 - **2.3(仕上げ)** `style={expr}` とレイアウト短縮属性は同じ `style` prop を埋めるので、`rsx!` が 1 つの `.style(..)` にまとめるようにした。両方あれば `style=` の式を起点に短縮属性を繋ぐ(`<Chip style={style} p={6}/>` → `.style((style).p(6))`)。`style: ItemStyle` を受け取るラッパーが呼び出し元のレイアウトを受けて自分の分を足せる。examples/layout の `Chip` とテスト `layout::style_and_shorthand_attributes_are_merged` がこの形。ARCHITECTURE.md 6 に追記した。
 - **4.5** スナップショットの CI ステップは入れない(上記 4.5)。wasm の check は `--workspace` に広げ、`jetli/trunk-action` で `trunk build --release examples/counter/index.html` を足した。
 - **その他** `examples/spike` を削除し、`counter` / `todo` / `layout` を追加した。それぞれ `index.html` と `Trunk.toml` を持つ。
+
+### 目視確認で見つかった不具合(手順 5)
+
+- **3.3 `ScrollArea`** `examples/layout` で最初のセクションしか見えなかった。原因は `cx.leaf`。egui_taffy の有限 leaf は「描いた内容の大きさ」を最小かつ最大サイズとして報告するが、`ScrollArea` は与えられた矩形を埋めてその大きさを返すので、最初のフレームの矩形に固定されて `grow` も効かない。`Cx::leaf_fill` を足した。内容サイズを報告せず(`min_size = 0`、`infinite = true`)、サイズ決定を taffy に任せる leaf で、`ScrollArea` はこれを使う。`<View>` の中の `ScrollArea` は `grow` / `h` / 残り空間で大きさが決まる。ARCHITECTURE.md 3.1 の表と 6 章に追記。
+- **4.1 `max_passes`** ウィンドウをリサイズすると `ScrollArea` の中の `<View>` が古い幅のまま残った。内側の `<View>` は別の egui_taffy ツリーで、外側が 2 パス目で決めた幅を知って `request_discard` するのが 2 パス目の末尾、つまり 3 パス目が要る。egui は上限を超えた discard を黙って捨て repaint もしないので、次の入力まで崩れたまま止まる。ランナーの `max_passes` 既定を 3 にし、さらに `end_pass` の後で「discard が要求されたが却下された」なら `request_repaint` して次フレームで収束させる。テストは `react-egui-elements/tests/scroll_fill.rs`。ARCHITECTURE.md 5.3 と 7 を更新。
 
 ### 後続 PR への持ち越し
 

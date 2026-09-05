@@ -58,6 +58,7 @@ egui の「毎フレーム」は 60fps 固定ではなく、入力があった�
 | `scope(source, f)` | コンポーネントスコープを一段深くする。Ui モードは `ui.push_id`、Taffy モードは `tui.with_auto_id_prefix`。どちらでも hooks の Id と egui 側のウィジェット Id が同時に分かれる |
 | `hook_scope(location, f)` | カスタム hook のスコープ。egui の Id には触らない |
 | `leaf(&ItemStyle, f)` | egui ウィジェットを 1 つ描く。Taffy モードなら `tui.style(style.to_taffy()).ui(f)` で taffy の leaf にし、Ui モードなら `f(ui)`(`style` は無視) |
+| `leaf_fill(&ItemStyle, f)` | `leaf` と同じだが内容サイズを報告しない(`min_size = 0`、`infinite`)。`ScrollArea` のように「与えられた空間を埋めてその大きさを返す」ウィジェット用で、これを `leaf` で置くと最初のフレームの大きさに固定される。大きさは `w` / `h` / `grow` / 残り空間で taffy が決める |
 | `container(id, taffy::Style, f)` | taffy ノードを作り、その中を Taffy モードの `Cx` で描く。Ui モードなら `egui_taffy::tui(ui, id).reserve_available_width()`、Taffy モードなら子ノードの追加 |
 | `defer(f)` | パス末に走る遅延キューに積む(5.5 参照)。`f` は `'static` |
 
@@ -243,7 +244,7 @@ Dialog(cx, DialogProps {
 
 ### 5.3 多重パス
 
-egui_taffy はレイアウト変化時に `request_discard` を呼び、同一フレーム内に 2 パス目を走らせる。egui の `Context::run` は各パスで `new_input.take()` を渡し、`RawInput::take` は `events: core::mem::take(&mut self.events)` でイベントを移動する。**2 パス目は空イベントで走るのでハンドラは 1 回しか発火しない**(egui ソースで確認済み)。状態の巻き戻しやジャーナルは不要。deps が変わっていない effect は 2 パス目で再実行されない。ただし 1 パス目のハンドラが変更した state から deps を導出している effect で、effect がハンドラより前に置かれている場合は、2 パス目で deps が本当に変わっているので実行される。これは「次フレームで走るはずだった 1 回」が同一フレームの 2 パス目に前倒しされただけで、deps の変化 1 回につき実行は 1 回である(spike のテストで確認)。ランナーは `Options::max_passes = 2` を設定する。パス数の確認には `egui::Context::current_pass_index()` を使う。
+egui_taffy はレイアウト変化時に `request_discard` を呼び、同一フレーム内に 2 パス目を走らせる。egui の `Context::run` は各パスで `new_input.take()` を渡し、`RawInput::take` は `events: core::mem::take(&mut self.events)` でイベントを移動する。**2 パス目は空イベントで走るのでハンドラは 1 回しか発火しない**(egui ソースで確認済み)。状態の巻き戻しやジャーナルは不要。deps が変わっていない effect は 2 パス目で再実行されない。ただし 1 パス目のハンドラが変更した state から deps を導出している effect で、effect がハンドラより前に置かれている場合は、2 パス目で deps が本当に変わっているので実行される。これは「次フレームで走るはずだった 1 回」が同一フレームの 2 パス目に前倒しされただけで、deps の変化 1 回につき実行は 1 回である(spike のテストで確認)。ランナーは `Options::max_passes = 3` を設定する。2 ではなく 3 なのは、`<View>` の中の egui コンテナ(`ScrollArea` など)の中の `<View>` が別の egui_taffy ツリーになり、外側のツリーが 2 パス目で決めたサイズを内側が知るのは 3 パス目だからである。パス数を使い切って discard が却下された場合、ランナーは `request_repaint` して次フレームで収束させる(そうしないと次の入力まで古いレイアウトのまま止まる)。パス数の確認には `egui::Context::current_pass_index()` を使う。
 
 ### 5.4 1 フレームの流れ
 
@@ -285,7 +286,7 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 
 - `Cx` が「今 taffy コンテナの中か」を `Surface` として持つ(3.1)。`cx.leaf(&style, f)` は中なら `tui.style(style.to_taffy()).ui(f)`、外なら素の `ui` に流す。`cx.container(id, style, f)` は中なら子ノードの追加、外なら新しい `egui_taffy::tui(..)` ツリーの開始で、いずれも `f` には Taffy モードの `Cx` を渡す。
 - Ui モード直下の `container` は `reserve_available_width()` を既定とし、ランナーのルートだけ `reserve_available_space()` を使う。`grow` や `justify="space-between"` は余白の分配なので、`<View>` 自身に幅(`w`)が無いと効かない。
-- egui 標準の `<Vertical>` / `<Horizontal>` / `<Grid>` などのコンテナも leaf として残し、パフォーマンスが要る箇所の逃げ道にする。Taffy モードから呼ばれた場合、これらの egui-native なコンテナは 1 つの leaf として振る舞い、その中の子は Ui モードで描かれる。
+- egui 標準の `<Vertical>` / `<Horizontal>` / `<Grid>` などのコンテナも leaf として残し、パフォーマンスが要る箇所の逃げ道にする。Taffy モードから呼ばれた場合、これらの egui-native なコンテナは 1 つの leaf として振る舞い、その中の子は Ui モードで描かれる。 `ScrollArea` だけは `leaf_fill`(3.1)で置く。与えられた空間を埋めるウィジェットなので、内容で測る leaf では最初のフレームの大きさに固定されてしまう。`<View>` の中の `ScrollArea` には `grow` か `h` を与える。
 - `<Text>` はデフォルトの wrap を `Extend` にし、egui_taffy が警告する「テキストが縦一列になる」問題を避ける。`<Label>` は egui 既定の wrap で、両者の違いはそこだけである。
 - ルートパネルは既定で `direction="column"` の `<View>` で包む。
 
@@ -332,7 +333,7 @@ examples/              counter, todo (use_reducer + use_persisted), layout, 後�
 3. ルートの `Cx` を作り、`root(cx)` が返した `View` を `cx.root_container(..)`(`direction: column`、`reserve_available_space`)の中で `show` する。ネストしたコンテナは幅だけを確保するので、ルートだけが高さも取る。
 4. `store.end_pass()`。
 
-`Options` は `title` / `max_passes`(既定 2、`ctx.options_mut` で明示設定)/ `persist` / `canvas_id`(wasm)/ `native`(native のみ)を持つ。`App::save` が `store.save_persisted()` を `Storage` の `"react_egui"` キーに書き、`CreationContext::storage` から `load_persisted` する。wasm では `cfg(target_arch = "wasm32")` で `WebRunner` を `wasm_bindgen_futures::spawn_local` に載せ、canvas は `canvas_id` で引く。
+`Options` は `title` / `max_passes`(既定 3、`ctx.options_mut` で明示設定。5.3 参照)/ `persist` / `canvas_id`(wasm)/ `native`(native のみ)を持つ。`App::save` が `store.save_persisted()` を `Storage` の `"react_egui"` キーに書き、`CreationContext::storage` から `load_persisted` する。wasm では `cfg(target_arch = "wasm32")` で `WebRunner` を `wasm_bindgen_futures::spawn_local` に載せ、canvas は `canvas_id` で引く。
 
 `root` は毎パス呼ばれ、返す `View` は `root` の中で作ったものを借用できない(hook の guard を借りた `rsx!` はローカルを借用した値を返すことになる)。hooks はコンポーネントに置き、ルートは `|_cx| rsx!{ <App/> }` の形にする。
 

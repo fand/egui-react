@@ -55,7 +55,11 @@ pub fn ScrollArea(
     children: impl View,
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
-    cx.leaf(&style, move |ui| {
+    // `leaf_fill`, not `leaf`: a scroll area fills whatever it is given and
+    // reports that back as its content size, so a content-measured leaf would
+    // pin it at its first-frame size forever. Inside a `<View>` it is sized by
+    // taffy alone: `w` / `h`, `grow`, or the remaining space.
+    cx.leaf_fill(&style, move |ui| {
         let mut area = egui::ScrollArea::new([horizontal, vertical]).id_salt(scope);
         if let Some(max_h) = max_h {
             area = area.max_height(max_h);
