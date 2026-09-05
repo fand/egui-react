@@ -25,6 +25,8 @@
 //! why. Copyright of the original code stays with the AccessKit authors and it
 //! keeps their Apache-2.0 OR MIT terms, which are also this repository's.
 
+mod action;
+
 mod adapter;
 pub use adapter::Adapter;
 

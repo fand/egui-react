@@ -5,11 +5,15 @@
 
 use accesskit::{ActionHandler, ActivationHandler, TreeUpdate};
 use accesskit_consumer::{FilterResult, Node, NodeId, Tree, TreeChangeHandler};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Write as _;
+use std::rc::Rc;
 use wasm_bindgen::JsCast as _;
-use web_sys::{Document, Element, HtmlElement};
+use wasm_bindgen::prelude::Closure;
+use web_sys::{Document, Element, Event, HtmlElement};
 
+use crate::action::{self, SharedActionHandler};
 use crate::{filters::filter, node::NodeWrapper};
 
 /// Where the mirror sits over the canvas, and at what scale.
@@ -61,8 +65,10 @@ pub struct Adapter {
     state: State,
     viewport: Viewport,
     debug: bool,
-    #[expect(dead_code, reason = "wired up in the DOM -> ActionRequest step")]
-    action_handler: Box<dyn ActionHandler>,
+    action_handler: SharedActionHandler,
+    /// The Rust side of the host's event listeners. Dropping these unhooks
+    /// them, so they live exactly as long as the adapter.
+    _listeners: Vec<Closure<dyn FnMut(Event)>>,
 }
 
 impl Adapter {
@@ -75,11 +81,16 @@ impl Adapter {
     ) -> Option<Self> {
         let document = web_sys::window()?.document()?;
         let viewport = Viewport::default();
+        let action_handler: SharedActionHandler = Rc::new(RefCell::new(
+            Box::new(action_handler) as Box<dyn ActionHandler>
+        ));
 
+        let mut listeners = Vec::new();
         let state = match activation_handler.request_initial_tree() {
             Some(initial_state) => {
                 let tree = Box::new(Tree::new(initial_state, true));
                 let (host, elements) = add_initial_tree(&document, parent, &tree, viewport, false);
+                listeners = action::listen(&host, &action_handler);
                 State::Active {
                     tree,
                     document,
@@ -97,7 +108,8 @@ impl Adapter {
             state,
             viewport,
             debug: false,
-            action_handler: Box::new(action_handler),
+            action_handler,
+            _listeners: listeners,
         })
     }
 
@@ -114,12 +126,14 @@ impl Adapter {
                 let tree = Box::new(Tree::new(update_factory(), *is_host_focused));
                 let (host, elements) =
                     add_initial_tree(document, parent, &tree, self.viewport, debug);
+                let listeners = action::listen(&host, &self.action_handler);
                 self.state = State::Active {
                     tree,
                     document: document.clone(),
                     host,
                     elements,
                 };
+                self._listeners = listeners;
             }
             State::Active {
                 tree,
@@ -267,6 +281,7 @@ fn add_element(
 ) -> HtmlElement {
     let element = create_element(document);
     NodeWrapper { node: *node, debug }.set_all_attributes(&element);
+    action::tag_element(&element, node);
     let _ = parent.append_child(&element);
     elements.insert(node.id(), element.clone());
     element

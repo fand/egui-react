@@ -20,7 +20,16 @@ wasm-bindgen.workspace = true
 web-sys = { workspace = true, features = [
     "Document",
     "Element",
+    "Event",
+    "EventTarget",
     "HtmlElement",
+    "HtmlInputElement",
+    "KeyboardEvent",
     "Node",
     "Window",
 ] }
+
+# The DOM tests need a browser. `cargo test --workspace` builds this file to
+# nothing, because it is `#![cfg(target_arch = "wasm32")]`.
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true

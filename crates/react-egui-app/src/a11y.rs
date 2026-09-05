@@ -68,7 +68,7 @@ impl egui::Plugin for WebA11y {
         // egui builds no AccessKit tree until someone asks for one, on every
         // platform including this one.
         ctx.enable_accesskit();
-        web::with_mirror(self.key, web::Mirror::attach);
+        web::with_mirror(self.key, |mirror| mirror.attach(ctx));
     }
 
     #[cfg(target_arch = "wasm32")]
@@ -101,6 +101,19 @@ impl egui::Plugin for WebA11y {
             mirror.frame(update, is_focused, pixels_per_point);
         });
     }
+
+    #[cfg(target_arch = "wasm32")]
+    fn input_hook(&mut self, _ctx: &egui::Context, input: &mut egui::RawInput) {
+        // Everything a screen reader asked for since the last frame. egui
+        // handles these where the widgets are: a `Click` on a button is the
+        // same as a real one, `SetValue` moves a slider, `Focus` moves the
+        // keyboard focus.
+        web::take_actions(self.key, |request| {
+            input
+                .events
+                .push(egui::Event::AccessKitActionRequest(request));
+        });
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -108,6 +121,7 @@ mod web {
     use accesskit_web::Adapter;
     use egui::accesskit::{ActionHandler, ActionRequest, ActivationHandler, TreeUpdate};
     use std::cell::RefCell;
+    use std::rc::Rc;
 
     // Everything that is `!Send`: one entry per registered plugin.
     thread_local! {
@@ -121,6 +135,7 @@ mod web {
                 canvas: None,
                 adapter: None,
                 host_focused: None,
+                actions: Rc::default(),
             });
             mirrors.len() - 1
         })
@@ -134,17 +149,36 @@ mod web {
         });
     }
 
+    /// Requests arrive from DOM listeners, which fire between frames and
+    /// cannot reach into the registry the adapter itself is stored in. The
+    /// queue is shared with them instead, so draining it never re-enters
+    /// `MIRRORS`.
+    type Actions = Rc<RefCell<Vec<ActionRequest>>>;
+
     pub(super) struct Mirror {
         canvas_id: String,
         canvas: Option<web_sys::Element>,
         adapter: Option<Adapter>,
         host_focused: Option<bool>,
+        actions: Actions,
+    }
+
+    /// Hand egui everything assistive technology asked for since last frame.
+    pub(super) fn take_actions(key: usize, mut push: impl FnMut(ActionRequest)) {
+        let actions =
+            MIRRORS.with_borrow(|mirrors| mirrors.get(key).map(|m| Rc::clone(&m.actions)));
+        let Some(actions) = actions else {
+            return;
+        };
+        for request in actions.borrow_mut().drain(..) {
+            push(request);
+        }
     }
 
     impl Mirror {
         /// Put the mirror next to the canvas, so that the two share a
         /// containing block and one offset lines them up.
-        pub(super) fn attach(&mut self) {
+        pub(super) fn attach(&mut self, ctx: &egui::Context) {
             if self.adapter.is_some() {
                 return;
             }
@@ -162,7 +196,11 @@ mod web {
                 log::error!("react-egui a11y: the canvas has no parent element");
                 return;
             };
-            let Some(mut adapter) = Adapter::new(&parent, NoActivation, DropActions) else {
+            let queue = QueueActions {
+                actions: Rc::clone(&self.actions),
+                ctx: ctx.clone(),
+            };
+            let Some(mut adapter) = Adapter::new(&parent, NoActivation, queue) else {
                 log::error!("react-egui a11y: no document to build the mirror in");
                 return;
             };
@@ -211,11 +249,22 @@ mod web {
         }
     }
 
-    /// Assistive technology cannot drive the app yet; the way back is the next
-    /// step.
-    struct DropActions;
+    /// The adapter's way out: park the request until egui next reads input.
+    ///
+    /// Holding a `Context` is what the `Plugin` docs warn against, but this is
+    /// not the plugin — it is a DOM listener living in a thread-local, which
+    /// the `Context` does not own, so there is no cycle. Without the repaint
+    /// nothing would happen: egui draws on demand, and a screen reader
+    /// activating an element is not an event it knows about.
+    struct QueueActions {
+        actions: Actions,
+        ctx: egui::Context,
+    }
 
-    impl ActionHandler for DropActions {
-        fn do_action(&mut self, _request: ActionRequest) {}
+    impl ActionHandler for QueueActions {
+        fn do_action(&mut self, request: ActionRequest) {
+            self.actions.borrow_mut().push(request);
+            self.ctx.request_repaint();
+        }
     }
 }
