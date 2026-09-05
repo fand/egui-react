@@ -625,6 +625,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "clock"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_kittest",
+ "example-meta",
+ "react-egui",
+ "react-egui-app",
+ "react-egui-elements",
+ "web-time",
+]
+
+[[package]]
 name = "codespan-reporting"
 version = "0.13.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1396,6 +1410,7 @@ dependencies = [
 name = "gallery"
 version = "0.1.0"
 dependencies = [
+ "clock",
  "counter",
  "eframe",
  "egui",

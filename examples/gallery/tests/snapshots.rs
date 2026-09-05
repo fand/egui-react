@@ -173,4 +173,24 @@ same!(counter, egui::vec2(400.0, 300.0), 200, as_it_opens);
 same!(todo, egui::vec2(400.0, 400.0), 100, two_items);
 same!(form, egui::vec2(420.0, 420.0), 0, edited);
 single!(theme, egui::vec2(420.0, 420.0));
+
+/// The clock, written out rather than through [`single!`], because its picture
+/// has to be pinned to a time.
+///
+/// `App` takes the wall clock as a prop for exactly this. The stopwatch needs
+/// nothing: it reads `i.time` and starts stopped, so it shows `00:00.00`
+/// however many frames the harness runs.
+mod clock {
+    use super::*;
+    use ::clock::App as ExampleApp;
+
+    #[test]
+    fn react_egui() {
+        let mut harness = react(egui::vec2(420.0, 520.0), |cx| {
+            rsx! { <ExampleApp now={12 * 3600 + 34 * 60 + 56}/> }.show(cx)
+        });
+        harness.run();
+        harness.snapshot("clock");
+    }
+}
 same!(layout, egui::vec2(520.0, 900.0), 1000, as_it_opens);

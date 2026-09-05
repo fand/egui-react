@@ -396,3 +396,17 @@ CI、Pages、README。
 - **`ctx.set_visuals` は gallery 全体を塗り替える**。`set_visuals` は `egui::Context` 単位で、Context は 1 つしか無いため。plan 1.1 の埋め込みルールには反しないが(`Panel` でも `Instant` でもない)、gallery で theme を開いて light にすると gallery も light になる。egui の API がそうなっているだけなので、隠さずコメントに書いて受け入れた。
 - snapshot は生 egui 版が無いので 1 枚だけ。`single!` マクロを `same!` の隣に足した(既定の dark 状態で撮る)。
 - gallery 一覧では form の次、layout の前。
+
+### 手順 5-3: clock
+
+時計 + ストップウォッチ + `use_effect` の cleanup。
+
+- 時間は全部 `ui.input(|i| i.time)`(アプリ起動からの秒、f64)。`std::time::Instant` は使わない。
+- **壁時計は `web_time::SystemTime`**。`std::time::SystemTime::now()` は wasm32-unknown-unknown で panic する。`web-time = "1.1.0"` を `[workspace.dependencies]` に足した。タイムゾーンは持てない(タイムゾーンデータベースが要る)ので UTC と明記して出す。`HH:MM:SS` の整形は手書き、日付ライブラリは 1 行のために大きすぎる。
+- **repaint は明示**。走っている間は `ctx.request_repaint()`、止まっている間は `ctx.request_repaint_after(1s)`。kittest の `run()` は「遅延なしの repaint 要求」が無くなるまで回るので、`request_repaint_after` は `run()` を止める(遅延が 0 でないため)が、`request_repaint()` は止めない。走行中のテストは `step()` を使う。
+- **cleanup と `Dispatch`**。`show ticker` チェックボックスが `Ticker` を出し入れし、`Ticker` の `use_effect(cx, (), || { .. ; move || .. })` が返す閉包が cleanup になる。cleanup は保存されるので `'static` で、ログの state を借りられない。だから log は `use_reducer` に置き、`Dispatch<String>` を prop で渡す(`Dispatch` は `Clone + Send + 'static` なので prop にできる。`Handle` は 5-2 のとおりできない)。unmount のメッセージは sweep の中で送られ、次に reducer を訪れた時に適用されるので、「ticker unmounted」は 1 フレーム遅れて出る。
+- `use_memo` は lap の整形文字列に使った(deps は `laps.len()`)。60fps で毎フレーム整形するのは無駄で、増減した時だけ作り直せばよいので、わざとらしくない。
+- **snapshot を安定させた方法**。kittest には `harness.input_mut()` があり、`RawInput::time = Some(x)` を置けば egui の `i.time` は固定できる(`let time = new.time.unwrap_or(self.time + predicted_dt)`)。ただし固定できるのは egui の時計だけで、**壁時計の `SystemTime` には効かない**。そこで `App` に `now: Option<u64>`(UTC 深夜からの秒、`None` は実時計)を prop で持たせ、snapshot とテストが固定値を渡す。ストップウォッチは止まった状態で `00:00.00` なので何もしなくても安定していて、`i.time` の固定は結局不要だった。
+  - `single!` はプロパティを渡せないので、clock の snapshot だけマクロを使わず手で書いた。
+- テストは kittest の `Role::Label` のラベルが `Node::label()` ではなく `Node::value()` に入る(accesskit の仕様)ことに注意。ストップウォッチの表示を読むヘルパーで踏んだ。
+- gallery 一覧では theme の次、layout の前。

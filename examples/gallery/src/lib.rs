@@ -11,6 +11,7 @@ use example_meta::Meta;
 use react_egui::prelude::*;
 use react_egui_elements::prelude::*;
 
+use clock::App as ClockApp;
 use counter::App as CounterApp;
 use fetch::App as FetchApp;
 use form::App as FormApp;
@@ -29,6 +30,7 @@ pub const EXAMPLES: &[Meta] = &[
     todo::META,
     form::META,
     theme::META,
+    clock::META,
     layout::META,
     fetch::META,
 ];
@@ -206,6 +208,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "todo" => { <TodoApp/> }
                 "form" => { <FormApp/> }
                 "theme" => { <ThemeApp/> }
+                "clock" => { <ClockApp/> }
                 "layout" => { <LayoutApp/> }
                 "fetch" => { <FetchApp/> }
                 _ => { <CounterApp/> }
