@@ -16,6 +16,7 @@ React 風の書き方(JSX、関数コンポーネント、hooks)で egui アプ�
 - JS / TS の React を動かすこと。JS ランタイムは同梱しない。
 - React の意味論への忠実な再現。VDOM、reconciler、`memo()`、`useCallback` は作らない。
 - Signal 風の細粒度反応性。購読機構は持たない。
+- web でのスクリーンリーダー対応。egui / AccessKit の web 対応に依存する。egui はウィジェットツリーを AccessKit に出しており、native では OS のアクセシビリティ API に届くが、web ではそれを DOM に映す adapter が上流に無い(`docs/tasks/a11y/`)。要素のラベル(`Button` の `label`、`Image` の `alt`)は adapter が入った日にそのまま効くので、先に埋めてある。
 
 ## 2. 基本原理
 
@@ -383,6 +384,7 @@ egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut 
 
 - native / wasm / Android: eframe。wasm は trunk でビルドする。描画バックエンドは wgpu。**eframe 0.36 の既定 feature には `wgpu` が入っていて `glow` は入っていない**(0.35 までとは逆)ので、何もしなくても wgpu で描かれる。glow の方が opt-in になったため、選択のための feature は置かない。web は WebGPU 非対応のブラウザのために WebGL へ落ちる。`eframe/wgpu` → `egui-wgpu/default` → `wgpu/webgl` と伝播するので、こちらで `wgpu` を直接依存に取る必要は無い。
 - iOS: eframe は未対応(emilk/egui#3117 が open)。`egui-winit` + `egui-wgpu` の薄いランナーを `react-egui-app` 内に書く。ビルドは cargo-mobile2。
+- アクセシビリティ: native は eframe(egui-winit)が `Context::enable_accesskit` を呼び、ウィジェットツリーが OS のアクセシビリティ API に届く。**web では届かない。** eframe の web ランナーは毎フレームの `TreeUpdate` を `accesskit_update: _, // not currently implemented`(`eframe/src/web/app_runner.rs`)と捨てており、canvas の中身を DOM に映す adapter も上流に無い。方針と試作は `docs/tasks/a11y/`。
 - ライブラリ本体は `&mut egui::Ui` しか触らないので、プラットフォーム対応はランナー層とタッチ / IME の調整に閉じる。
 - 非同期の実行機構は core の `task::spawn` に閉じる(4 章「`use_future` の詳細」)。iOS / Android は native と同じスレッド経路を使う。
 
