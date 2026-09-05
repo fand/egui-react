@@ -1,0 +1,83 @@
+name: Pages
+
+# Publishes the example gallery to https://fand.github.io/react-egui/.
+#
+# One manual step, once per repository: set Settings -> Pages -> Build and
+# deployment -> Source to "GitHub Actions". Without it `deploy-pages` fails
+# with "Pages site not found".
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: read
+
+# One deployment at a time. A newer push waits rather than cancelling, so the
+# published site is always a commit that finished building.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: trunk build (gallery)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The same headers ci.yml installs. A wasm-only build should not need
+      # them, but a deploy is a bad place to find out otherwise.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libgtk-3-dev \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxkbcommon-x11-dev \
+            libssl-dev
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95"
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: jetli/trunk-action@v0.5.1
+        with:
+          version: latest
+
+      # `--public-url` because the site is served from a subdirectory, so the
+      # generated `<script>` and `.wasm` paths need the prefix. The `#counter`
+      # deep links are read from `location.hash` inside the wasm and are not
+      # affected by it.
+      - name: trunk build
+        run: trunk build --release --public-url /react-egui/ --config examples/gallery/Trunk.toml
+
+      # `dist = "dist"` in Trunk.toml is relative to the config file.
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: examples/gallery/dist
+
+  deploy:
+    name: deploy
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

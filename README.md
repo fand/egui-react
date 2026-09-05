@@ -12,7 +12,7 @@ use react_egui_app::{Options, run};
 use react_egui_elements::prelude::*;
 
 #[component]
-fn App(cx: &mut Cx) {
+pub fn App(cx: &mut Cx) {
     let mut count = use_state(cx, || 0i32);
 
     rsx! {
@@ -40,11 +40,39 @@ fn main() -> eframe::Result {
 }
 ```
 
-That is `examples/counter` verbatim. Run it natively with `cargo run -p counter`, or in a browser with [trunk](https://trunkrs.dev/): `trunk serve --config examples/counter/Trunk.toml`. The other examples are `todo` (`use_reducer`, `use_persisted`, `TextEdit` + `Checkbox`, `for` with `key`), `layout` (a tour of the flex and grid attributes) and `fetch` (`use_future` + `<Suspense>` + [ehttp](https://github.com/emilk/ehttp), the same code on native and in the browser).
+That is the `counter` example: the component is [`examples/counter/src/lib.rs`](examples/counter/src/lib.rs) and the `run(..)` call is its [`src/main.rs`](examples/counter/src/main.rs). Each example is a library so that the gallery can embed it and tests can drive it, with a thin binary on top.
 
 Work that spans frames is one `use_future(cx, deps, || async { .. })` returning a `&Poll<T>`; a child waits with `let Poll::Ready(x) = .. else { return };` and the nearest `<Suspense fallback={..}>` draws its fallback until everything below it is ready.
 
 The hooks, the elements and the layout attributes are listed in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) sections 4 and 6.
+
+## Examples
+
+Every example runs in the browser in the [gallery](https://fand.github.io/react-egui/), next to its source. Three of them also have a version written with plain egui, so you can switch between the two and compare.
+
+<!-- TODO: gallery screenshot -->
+
+| name | what | live | source | plain egui |
+|---|---|---|---|---|
+| `counter` | One piece of state, three handlers that borrow it in turn. | [#counter](https://fand.github.io/react-egui/#counter) | [lib.rs](examples/counter/src/lib.rs) | [plain.rs](examples/counter/src/plain.rs) |
+| `todo` | A reducer drives the list; `use_persisted` keeps it across restarts. | [#todo](https://fand.github.io/react-egui/#todo) | [lib.rs](examples/todo/src/lib.rs) | [plain.rs](examples/todo/src/plain.rs) |
+| `layout` | Every flex and grid attribute `<View>` understands, one section each. | [#layout](https://fand.github.io/react-egui/#layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
+| `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [#fetch](https://fand.github.io/react-egui/#fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |
+
+Run one natively, or in a browser with [trunk](https://trunkrs.dev/):
+
+```sh
+cargo run -p counter
+cargo run -p counter --bin counter-plain    # the plain egui version
+trunk serve --config examples/counter/Trunk.toml
+```
+
+The gallery runs the same way, and takes the name of the example to open first:
+
+```sh
+cargo run -p gallery todo
+trunk serve --config examples/gallery/Trunk.toml
+```
 
 ## Testing
 
@@ -55,12 +83,23 @@ cargo test --workspace
 cargo check --workspace --target wasm32-unknown-unknown
 ```
 
-Pixel snapshot tests live behind a cargo feature because they need a GPU, and the committed images were rendered on macOS, so they will not match another platform's renderer. Run them locally with:
+Pixel snapshot tests live behind a cargo feature because they need a GPU, and the committed images were rendered on macOS, so they will not match another platform's renderer. They do not run in CI, so regenerate them by hand after any change that alters what they draw.
 
 ```sh
 cargo test -p react-egui-elements --features snapshot
-# after an intentional visual change, on the platform the images came from:
+# Each example drawn twice, react-egui and plain egui, compared with one image:
+# if both render the same picture, the only difference is the code.
+cargo test -p gallery --features snapshot
+```
+
+After an intentional visual change, regenerate on the platform the images came from:
+
+```sh
 UPDATE_SNAPSHOTS=1 cargo test -p react-egui-elements --features snapshot
+# The gallery's pairs share one file, so write it from the react-egui side
+# first and then let the plain egui side check itself against it.
+UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot react_egui
+cargo test -p gallery --features snapshot
 ```
 
 ## License

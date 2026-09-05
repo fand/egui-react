@@ -359,3 +359,16 @@ todo の絵は空リストでは何も言えないので、撮る前に両方を
 - `PlainState` は example ごとに違う型なので、`Running` と同じく `match` で分岐する(マクロ 1 つで 3 つ生成)。
 - todo の永続化は `serde_json` で JSON を作る `save()` / `load()` にし、eframe の `Storage` は `plain_main.rs` が触る。`plain.rs` を egui + serde だけに保つため。
 - layout の生 egui 版の最後のセクション(`Grid` / `Vertical`)は両方ほぼ同じ長さになる。egui 自身のコンテナを両側で使っているので当然で、これも正直に見せる。
+
+### 手順 4(A-4)
+
+CI、Pages、README。
+
+- `ci.yml`: counter / fetch の 2 ステップを `for config in examples/*/Trunk.toml` のループ 1 つにした。glob は 5 つ(counter / fetch / gallery / layout / todo)に当たる。`examples/meta` は Trunk.toml を持たないので入らない。Actions の `run:` は既定で `bash -e` なので、ループ中の失敗はその場で止まる(ローカルで確認済み)。`--config` を渡す理由のコメントと fetch のコメントはループの上にまとめた。末尾の snapshot に関するコメントに gallery の分を足した。
+- `pages.yml`(新規): `main` への push と `workflow_dispatch`。build ジョブが `trunk build --release --public-url /react-egui/ --config examples/gallery/Trunk.toml` して `upload-pages-artifact@v3` に `examples/gallery/dist` を渡し、deploy ジョブが `deploy-pages@v4`。`pages: write` / `id-token: write` は deploy ジョブだけに付け、トップレベルは `contents: read`。`concurrency: pages` は `cancel-in-progress: false`(公開されるのはビルドが完走したコミットであってほしいため)。
+  - `dist = "dist"` は Trunk.toml からの相対なので、出力は `examples/gallery/dist` で正しい。ローカルで確認。
+  - `--public-url` は生成される `index.html` の `<link href>` を `/react-egui/gallery-….js` に書き換えるだけである。`#todo` の直リンクは wasm の中で `location.hash` を読むので、`--public-url` とは無関係。両方ローカルで確認した。
+  - 依存の apt install は ci.yml と同じものを入れた。wasm だけのビルドには要らないはずだが、deploy で確かめる話ではない。
+  - **手作業が 1 回だけ残る**: リポジトリの Settings → Pages → Source を "GitHub Actions" にする。pages.yml の先頭コメントにも書いた。
+- `README.md`: 「`examples/counter` verbatim」を直した(手順 1 で挙げた宿題)。スニペットは lib.rs のコンポーネントと main.rs の `run(..)` を合わせたものだと明記し、中身は現在のファイルから写した。Examples 節を表(name / what / live / source / plain egui)にして gallery へリンクし、`cargo run -p <name>`、`--bin <name>-plain`、`trunk serve`、`cargo run -p gallery <name>` の走らせ方を並べた。Testing 節に `cargo test -p gallery --features snapshot` と、同名比較を先に react-egui 側で撮る手順を足した。行数は README には書いていない(手順 3 のとおり todo が同数で、説明抜きでは誤解を招くため)。
+- スクリーンショットは未挿入。`<!-- TODO: gallery screenshot -->` を置いてある。

@@ -56,14 +56,17 @@ jobs:
 
       # `trunk build <path>` resolves the cargo root package from the current
       # directory, so the example's Trunk.toml is passed instead.
-      - name: trunk build (counter)
-        run: trunk build --release --config examples/counter/Trunk.toml
-
-      # Also the only check that the wasm `spawn_local` path of `use_future`
-      # really links.
-      - name: trunk build (fetch)
-        run: trunk build --release --config examples/fetch/Trunk.toml
+      #
+      # Every example, the gallery included. `fetch` is also the only check
+      # that the wasm `spawn_local` path of `use_future` really links.
+      - name: trunk build (every example)
+        run: |
+          for config in examples/*/Trunk.toml; do
+            echo "==> $config"
+            trunk build --release --config "$config"
+          done
 
 # The pixel snapshot tests (`cargo test -p react-egui-elements --features
-# snapshot`) are deliberately not run here: the committed images are rendered on
-# macOS and would not match this runner's software renderer. See the README.
+# snapshot` and `cargo test -p gallery --features snapshot`) are deliberately
+# not run here: the committed images are rendered on macOS and would not match
+# this runner's software renderer. See the README.
