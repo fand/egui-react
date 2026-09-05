@@ -25,7 +25,7 @@
 | PR5, PR6 | 6.5 | `docs/tasks/examples/` |
 | PR7 | 6.5(canvas) | `docs/tasks/canvas/` |
 
-フェーズ 8(公開準備)は PR4 の後に別途計画する。
+フェーズ 8(公開準備)は PR4 の後に別途計画する。web のアクセシビリティ(`docs/tasks/a11y/`)はその後の候補で、時期未定。
 
 ## フェーズ
 
