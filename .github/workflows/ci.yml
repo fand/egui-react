@@ -50,7 +50,7 @@ jobs:
       - name: cargo check (wasm)
         run: cargo check --workspace --target wasm32-unknown-unknown
 
-      - uses: jetli/trunk-action@v0.5
+      - uses: jetli/trunk-action@v0.5.0
         with:
           version: latest
 
