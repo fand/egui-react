@@ -1452,6 +1452,7 @@ dependencies = [
  "react-egui",
  "react-egui-app",
  "react-egui-elements",
+ "shader",
  "showcase",
  "theme",
  "todo",
@@ -3342,6 +3343,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6662b5879511e06e8999a8a235d848113e942c9124f211511b16466ee2995f26"
 dependencies = [
  "serde_core",
+]
+
+[[package]]
+name = "shader"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "eframe",
+ "egui",
+ "egui-wgpu",
+ "egui_kittest",
+ "example-meta",
+ "log",
+ "react-egui",
+ "react-egui-app",
+ "react-egui-elements",
+ "wgpu",
 ]
 
 [[package]]

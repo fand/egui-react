@@ -11,6 +11,10 @@ fn main() -> eframe::Result {
     run(
         Options {
             title: String::from("react-egui: gallery"),
+            // The shader example's pipeline, built once for the whole gallery.
+            // It lands in `callback_resources` under its own type, so it costs
+            // the other examples nothing and cannot clash with them.
+            setup: Some(Box::new(shader::gpu::setup)),
             // Three columns need more than eframe's default 640: the list and
             // the code take 200 and 40%, and the example gets what is left.
             #[cfg(not(target_arch = "wasm32"))]

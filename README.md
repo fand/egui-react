@@ -62,6 +62,7 @@ Every example but one runs in the browser in the [gallery](https://fand.github.i
 | `clock` | A stopwatch that asks for its own repaints, and an effect that cleans up after itself. | [#clock](https://fand.github.io/react-egui/#clock) | [lib.rs](examples/clock/src/lib.rs) | – |
 | `custom-hook` | Three hooks of your own, each called from two components that keep their own state. | [#custom-hook](https://fand.github.io/react-egui/#custom-hook) | [lib.rs](examples/custom-hook/src/lib.rs) | – |
 | `escape-hatch` | Four ways down to plain egui: a closure, a leaf, a painter, and a nested Cx. | [#escape-hatch](https://fand.github.io/react-egui/#escape-hatch) | [lib.rs](examples/escape-hatch/src/lib.rs) | – |
+| `shader` | A wgpu fragment shader in a `<Canvas>`, with a slider wired to its uniform. | [#shader](https://fand.github.io/react-egui/#shader) | [lib.rs](examples/shader/src/lib.rs) | – |
 | `list-10k` | Ten thousand rows: what drawing all of them costs, and what `<VirtualList>` saves. | [#list-10k](https://fand.github.io/react-egui/#list-10k) | [lib.rs](examples/list-10k/src/lib.rs) | [plain.rs](examples/list-10k/src/plain.rs) |
 | `shell` | Docked panels, a floating window, and an editor in what is left. | – (standalone) | [lib.rs](examples/shell/src/lib.rs) | – |
 | `layout` | Every flex and grid attribute `<View>` understands, one section each. | [#layout](https://fand.github.io/react-egui/#layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |

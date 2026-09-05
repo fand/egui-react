@@ -113,6 +113,22 @@ fn App(cx: &mut Cx) {
 
 `#[prop(default = egui::Sense::hover())]` は通った(task.md の「通らなければ `Option<egui::Sense>`」は不要)。イベントは `Response` から発火する: `dragged()` なら `on_drag(drag_delta())`、`hover_pos()` があれば `on_hover(pos)`。kittest は `crates/react-egui-elements/tests/canvas.rs` に 4 本(`w`/`h` どおりの rect、`grow` で残り全部、drag の delta、hover の位置)。イベントハンドラは `move` で書けない(融合された閉包が `FnMut` なので、テストの `Rc` は借用で捕まえる)。
 
+### 手順 2: `examples/shader`
+
+**`<Canvas grow={1.0}>` だけでは足りない。`h={0.0}` と併記する。** `leaf_fill` は egui_taffy に `infinite: Vec2b::TRUE` を渡すので、max-content の測定値がルートの高さそのものになる(`egui_taffy` の `compute_layout_with_measure` の閉包)。ランナーのルートは `min_h: 100%` で高さは `auto` なので、列の高さが「canvas 全部 + 他の子」になり、Slider と Checkbox が窓の下にはみ出す(520px の窓で y=588)。`basis={0.0}` / `min_h={0.0}` / 親の `h="100%"` はどれも効かない(auto の親に対する % は auto に落ちる)。効いたのは flexbox の定石どおり `h={0.0}` + `grow={1.0}`。example にコメントを書き、テスト(`the_controls_stay_below_the_canvas`)で押さえた。3.3 の kittest が気づけなかったのは、どちらのケースも親に `h` を明示していたため。
+
+**wgpu 30 の API は 3.4 のスケッチと少し違う。** `PipelineLayoutDescriptor` は `push_constant_ranges` ではなく `immediate_size: u32`、`bind_group_layouts` は `&[Option<&BindGroupLayout>]`、`RenderPipelineDescriptor` は `multiview` ではなく `multiview_mask`。
+
+**uniform に `speed` も入れた**(3.4 は `{ time, mouse }` だけ)。pause 中も Slider が効いていることが目で分かるよう、色を `speed` で振る。レイアウトは `{ time, speed, resolution, mouse }` + 8 バイトの尾部 padding = 32 バイト(`vec2<f32>` は uniform block で 8 バイト境界)。`bytemuck` の `Pod`/`Zeroable` derive を使うので `[workspace.dependencies]` に `bytemuck` を足した。`egui-wgpu = "0.36.1"` も同様(eframe と同じ版・同じ feature)。
+
+**fragment の `@builtin(position)` はフレームバッファ全体の座標で、rect の左上が原点ではない。** viewport をずらしても fragcoord は動かないので、clip 座標を varying で渡して -1..1 を作る。rect の位置を uniform に足す必要はない。
+
+**テスト(C-2)は `harness.ctx.has_requested_repaint()` を見る。** アニメーション中は毎フレーム repaint を要求するので `run()` は max steps で panic する。clock と同じく `step()` を使い、pause 後だけ `run_ok()` で落ち着かせる。paint callback は painter に積まれるだけで、kittest の既定レンダラは callback を実行しないため headless で安全(`gpu::setup` も呼ばれない)。
+
+**snapshot(C-3)は shader では撮らない。** `WgpuTestRenderer` の `RenderState` に `setup` 相当を差し込む口がなく、`ShaderResources` が見つからないので何も描かれない。加えて毎フレーム repaint を要求するので絵が安定しない。理由は `examples/gallery/tests/snapshots.rs` にも書いた。目視のみ。
+
+**ComboBox(shader 選択)は入れない。** 3.4 のファイル構成コメントにはあったが、shader を 1 本に絞った方が「state → uniform」の線が見やすい。
+
 ### 手順 6: `Options.setup`(と `wgpu` feature を置かない判断)
 
 **3.1 の前提が間違っていた。「eframe は default(glow)のまま」は eframe 0.36 では成り立たない。** eframe 0.36.1 の `default` feature は `["accesskit", "default_fonts", "links", "wayland", "web_screen_reader", "wgpu", "winit/default", "x11"]` で、**`glow` は入っていない**。`Renderer::Glow` は `glow` feature が無いと存在すらせず、`Renderer::default()` は `Wgpu` を返す。つまり **このリポジトリは最初から wgpu で描いていた**。0.35 までとは逆で、今は glow の方が opt-in である。
