@@ -14,6 +14,7 @@ use react_egui_elements::prelude::*;
 use clock::App as ClockApp;
 use counter::App as CounterApp;
 use custom_hook::App as CustomHookApp;
+use escape_hatch::App as EscapeHatchApp;
 use fetch::App as FetchApp;
 use form::App as FormApp;
 use layout::App as LayoutApp;
@@ -33,6 +34,7 @@ pub const EXAMPLES: &[Meta] = &[
     theme::META,
     clock::META,
     custom_hook::META,
+    escape_hatch::META,
     layout::META,
     fetch::META,
 ];
@@ -212,6 +214,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "theme" => { <ThemeApp/> }
                 "clock" => { <ClockApp/> }
                 "custom-hook" => { <CustomHookApp/> }
+                "escape-hatch" => { <EscapeHatchApp/> }
                 "layout" => { <LayoutApp/> }
                 "fetch" => { <FetchApp/> }
                 _ => { <CounterApp/> }

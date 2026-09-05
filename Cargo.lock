@@ -1208,6 +1208,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b5343afd4a8365a643ac588dab4cf234a190c7f6c88c9f6dd6ffe00837661b7"
 
 [[package]]
+name = "escape-hatch"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_kittest",
+ "example-meta",
+ "react-egui",
+ "react-egui-app",
+ "react-egui-elements",
+]
+
+[[package]]
 name = "euclid"
 version = "0.22.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1430,6 +1443,7 @@ dependencies = [
  "egui",
  "egui_extras",
  "egui_kittest",
+ "escape-hatch",
  "example-meta",
  "fetch",
  "form",

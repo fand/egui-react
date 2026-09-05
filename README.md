@@ -60,6 +60,7 @@ Every example runs in the browser in the [gallery](https://fand.github.io/react-
 | `theme` | Two values provided at the top and read three levels down, with nothing in between. | [#theme](https://fand.github.io/react-egui/#theme) | [lib.rs](examples/theme/src/lib.rs) | – |
 | `clock` | A stopwatch that asks for its own repaints, and an effect that cleans up after itself. | [#clock](https://fand.github.io/react-egui/#clock) | [lib.rs](examples/clock/src/lib.rs) | – |
 | `custom-hook` | Three hooks of your own, each called from two components that keep their own state. | [#custom-hook](https://fand.github.io/react-egui/#custom-hook) | [lib.rs](examples/custom-hook/src/lib.rs) | – |
+| `escape-hatch` | Four ways down to plain egui: a closure, a leaf, a painter, and a nested Cx. | [#escape-hatch](https://fand.github.io/react-egui/#escape-hatch) | [lib.rs](examples/escape-hatch/src/lib.rs) | – |
 | `layout` | Every flex and grid attribute `<View>` understands, one section each. | [#layout](https://fand.github.io/react-egui/#layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
 | `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [#fetch](https://fand.github.io/react-egui/#fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |
 

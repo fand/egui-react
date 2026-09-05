@@ -151,10 +151,23 @@ macro_rules! same {
     };
 }
 
+/// Two clicks of "add sample", so the sparkline has a line to draw.
+fn two_samples<S>(harness: &mut Harness<'_, S>) {
+    for _ in 0..2 {
+        harness.get_by_label("add sample").click();
+        // One pass to apply the write, one to draw with it.
+        harness.run();
+        harness.run();
+    }
+}
+
 /// One example with no plain version: just a picture of it, so a change to how
 /// it draws is noticed.
 macro_rules! single {
     ($name:ident, $size:expr) => {
+        single!($name, $size, as_it_opens);
+    };
+    ($name:ident, $size:expr, $drive:path) => {
         mod $name {
             use super::*;
             use ::$name::App as ExampleApp;
@@ -163,6 +176,7 @@ macro_rules! single {
             fn react_egui() {
                 let mut harness = react($size, |cx| rsx! { <ExampleApp/> }.show(cx));
                 harness.run();
+                $drive(&mut harness);
                 harness.snapshot(stringify!($name));
             }
         }
@@ -175,6 +189,7 @@ same!(form, egui::vec2(420.0, 420.0), 0, edited);
 single!(theme, egui::vec2(420.0, 420.0));
 // The module is the crate's lib name, so the image is `custom_hook.png`.
 single!(custom_hook, egui::vec2(420.0, 620.0));
+single!(escape_hatch, egui::vec2(420.0, 620.0), two_samples);
 
 /// The clock, written out rather than through [`single!`], because its picture
 /// has to be pinned to a time.

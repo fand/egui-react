@@ -428,3 +428,21 @@ CI、Pages、README。
 - snapshot の名前は lib 名に合わせて `custom_hook.png`(`single!` が `stringify!` するため)。example 名は `custom-hook`。
 - **テストで `use_debounce` の時間を止められる**。`harness.input_mut().time = Some(t)` は `RawInput::take()` が `time` を保つので次のフレームにも残る。0.1 秒では `settled` が動かず、5.0 秒にすると追いつくところまで固定した。
 - gallery 一覧では clock の次、layout の前。
+
+### 手順 5-5: escape-hatch
+
+生 egui への出口を 4 通り、節ごとに並べる。パッケージ `escape-hatch` / lib `escape_hatch`。
+
+1. `{view(|cx| ..)}` — rsx の途中に置く普通のコード。hook も動く(スロットは行で keying される)。
+2. `cx.leaf(&style, |ui| ..)` — 要素が無いウィジェット(`egui::ProgressBar`、`ui.color_edit_button_srgba`)を taffy の item として置く。`ItemStyle::default().w(..)` がそのまま効く。
+3. painter — `allocate_exact_size` + `ui.painter()` でスパークラインを描く。値は `use_state(Vec<f32>)`、`sin(i * 0.7)` で決定的。
+4. 入れ子の `Cx` — `ui.group(..)` の中で `Cx::new(store, ui, scope)` を作り、`cx.scope("inner", ..)` の中で hook を使う。`Cx::new` / `cx.store` / `cx.scope_id()` / `cx.scope` はすべて公開 API で、prelude から届く。**4 節は書ける**。
+
+実装で 3 つ踏んだ。どれも example そのものより価値がある。
+
+- **`cx.ui()` は `<View>` の中では「今いる場所」ではない**。taffy モードの `cx.ui()` は taffy ツリーを開始した `Ui` なので、そこに描くとレイアウトの外、ツリーの左上に出る(最初に書いた 1 節がまさにそうなり、見出しに重なった)。`Cx::ui` の doc に既に書いてあるとおり。読む(`visuals()`、`input()`)ぶんにはどこでも安全で、描くときは `cx.leaf` を使う。**これが `leaf` の存在理由そのもの**なので、1 節をその形に書き直し、module doc に罠として明記した。
+- **`leaf_fill` はサイズを与えなかった軸で窓全体を取る**。egui_taffy は `infinite` な leaf の max-content をルート矩形の大きさとして返すため。`w` だけ与えた ProgressBar の leaf が高さ方向に窓いっぱいになり、下の節が窓の高さぶん押し下げられて、テストのクリックがビューポート外に落ちていた(egui は範囲外のポインタを無視する)。`w` と `h` の両方を与えて解決。ARCHITECTURE 6 章の「`<View>` の中の `ScrollArea` には `grow` か `h` を与える」と同じ話が、`leaf_fill` 全般に当たる。
+- **`ui.spinner()` はテストと相性が悪い**。アニメーションするので毎フレーム repaint を要求し、`Harness::run()` が `max_steps` で落ちる。1 節から外してコメントに理由を書いた(`Suspense` の fallback で使うのは別で、あちらは待っている間だけである)。
+- `egui::ProgressBar` は accesskit に何も出さない(`ProgressIndicator` の label も value も `None`)。読めるように隣に `<Text>{format!("progress {:.2}", ..)}</Text>` を並べ、テストはそれを見る。
+- snapshot は `single!` に drive 関数を渡せる形(2 引数版が 3 引数版に展開される)を足し、「add sample」を 2 回押した状態で撮る。1 点だけではスパークラインが線にならない。
+- gallery 一覧では custom-hook の次、layout の前。
