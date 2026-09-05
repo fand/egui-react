@@ -1,0 +1,25 @@
+[workspace]
+resolver = "3"
+members = ["crates/*", "examples/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/fand/react-egui"
+rust-version = "1.95"
+
+[workspace.dependencies]
+react-egui = { path = "crates/react-egui", version = "0.1.0" }
+react-egui-macros = { path = "crates/react-egui-macros", version = "0.1.0" }
+react-egui-elements = { path = "crates/react-egui-elements", version = "0.1.0" }
+react-egui-app = { path = "crates/react-egui-app", version = "0.1.0" }
+
+egui = "0.36.1"
+eframe = "0.36.1"
+# `wgpu` and `snapshot` are intentionally left off: the tests run headless.
+egui_kittest = { version = "0.36.1", default-features = false }
+egui_taffy = "0.14.0"
+rstml = "0.13.0"
+elsa = "1.11.2"
+log = "0.4.34"

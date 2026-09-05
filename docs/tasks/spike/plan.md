@@ -242,3 +242,29 @@ eframe の `App::ui` で `Store` を `begin_pass` / `end_pass` し、Counter と
 - `elsa::FrozenMap` の `as_mut()` が使いにくい場合、`Store` を `slots: UnsafeCell<HashMap<Id, Box<Slot>>>` で自前実装してもよい。その場合は安全性の根拠(insert は `Box` の中身を動かさない、削除は `&mut self` でのみ行う)をコメントに書く。
 - kittest で `num_completed_passes` を直接読めない場合は、ルート閉包の呼び出し回数を `Store` 外のカウンタで数える。
 - テスト 5(b) で egui_taffy が discard を要求しない場合は、(a) の手動版が通っていれば項目 5 は満たしたとみなし、(b) は削除して理由を PR 本文に書く。
+
+## 8. 実装で判明した差分(手順 2〜3)
+
+本書のスケッチと実際の実装の差分。設計上の意味があるものは ARCHITECTURE.md にも反映済み。
+
+- **2.1** `elsa::FrozenMap` を採用。unsafe なし。sweep は `AsMut::as_mut` trait 経由で `&mut HashMap` を取り `retain` する(本書の書き方と異なり inherent method ではない)。
+- **2.2** `Cx::scope` の `source` は `impl Hash` ではなく `impl Hash + Debug`。egui 0.36 の `Ui::push_id` が `AsIdSalt = Hash + Debug` を要求する。`rsx!` の `key={..}` にも `Debug` が必要になる。
+- **2.3** `State` は `inner: Option<RefMut<'s, T>>` を持つ。`Drop` を実装した型からフィールドを move out できないため、`into_handle` は `inner = None` で借用を解放してから `Handle` を作る。`ctx` は所有ではなく `&'s egui::Context`(`Store` が clone を 1 つ持ち、`State` と `Handle` の両方が借りる)。`Store::new()` の時点では `Context::default()` を仮に持ち、初回 `begin_pass` で置き換える。
+- **2.4** `IntoCleanup` の `()` と `FnOnce()` の blanket impl は E0119 で衝突する。`IntoCleanup<Marker>` としてマーカー型(`NoCleanup` / `FnCleanup`)で区別する。呼び出し側は変わらない。
+- **2.6** `Handler` も同じ手法で解決し、`call0` / `call1` の分割は不要になった。最終形は `Handler<A, Marker>` で、impl は `F: FnOnce() -> R` に `(Arity0, R)`、`F: FnOnce(A) -> R` に `(Arity1, R)`。マーカーに `R` を含めないと非 `()` を返す本体でエラーになる。推論は全ての形(引数型注釈なし、ペイロード破棄、借用ペイロード、`fn` item)で曖昧にならないことをテスト `fused_events::handler_call_shapes` で固定した。マクロは `::react_egui::Handler::call(closure, a)` を完全修飾で emit する。
+- **2.6** `Emitter` の lifetime は 1 つでは構築できない(`RefCell<T>` が不変で、ローカル `RefCell` の借用が props の lifetime より短いため)。最終形は `EventSink<'e, E> = RefCell<&'e mut (dyn FnMut(E) + 'e)>` と `Emitter<'a, 'e, E> { sink: &'a EventSink<'e, E> }`。
+- **3** ハンドラの `(|| ..)()` 展開に clippy の `redundant_closure_call` が出る。テストでは file-level `allow`。`rsx!` は展開結果に `#[allow(clippy::redundant_closure_call)]` を付ける必要がある。
+- **4 テスト 9** 毎パス state を書き換えると毎パス repaint が要求され、`Harness::run` が `ExceededMaxSteps` で panic する。毎フレーム書き換えるテストは `harness.step()` を使う。
+- **新規の借用制約** 同一要素に、state を借用する値 prop と同じ state を変更するハンドラを渡すと E0502(`title={&*title} on_rename={|s| *title = s}`)。テストでは値を先に clone した。ARCHITECTURE.md 3.7 に追記済み。
+
+## 9. 実装で判明した差分(手順 4〜8)
+
+- **2.5** `Vec<(TypeId, Box<dyn Any>)>` に `Handle<'s, T>` は入らない(`dyn Any` は `'static` を要求し、`Handle` はストアを借用する)。代わりに `(TypeId, egui::Id)` でスロット Id を積み、`use_context` が `store.slot_by_id(id)` から `Handle` を組み直す。`Slot` に `id` を、`Handle` に `slot_id()` を追加した。`Box` も downcast も unsafe も不要で、`Store` に lifetime パラメータも付かない。
+- **2.3 / 4 テスト 4** 「guard が生きたまま同じスロットの `Handle` を使う」panic は公開 API では到達不能なので `#[should_panic]` テストは書かなかった。`Handle` の入手経路が `use_handle` と `into_handle` に限られるため。
+- **4 テスト 6** 衝突には 2 段階ある。1 回目の guard が生きていれば呼び出し位置付きの明確なメッセージで panic(`try_borrow_mut` で検出)。落ちていれば黙って同じスロットを再利用し、記録と `log::warn!` のみ。後者がオーバーレイ(フェーズ 2)の主対象。
+- **4 テスト 5** (b) egui_taffy 版も discard を発生させたので削除せず。定常フレームが 1 パスであることも assert し、追加パスの要求元が taffy であることを示している。
+- **7** パス数をルート閉包の呼び出し回数で数えるのは誤り。kittest の `Node::click()` は press と release の 2 イベントを積み、`Harness::step()` はイベントごとに 1 フレーム回すので 1 回の `step()` で 2 フレーム走る。`egui::Context::current_pass_index()`(フレーム内で 0 から始まる)を使う。
+- **5.3 の補足** effect がハンドラより前に置かれ、deps がそのハンドラの変更する state に依存する場合、2 パス目で deps が変わっているので effect が走る。deps 変化 1 回につき 1 回という不変条件は保たれる(テスト `effect_deps_changed_during_pass_one_rerun_in_pass_two`)。
+- **8** `eframe::App::ui` 内で `self.store.begin_pass(ui.ctx())` → `Cx::new(&self.store, ..)` → `self.store.end_pass()` は NLL でそのまま通る。`react-egui-app::run` はこの形でよい。
+- **フェーズ 4 向けメモ** egui_taffy の `tui.ui(..)` / `tui.label(..)` は `TuiBuilderLogic` trait のメソッドで、`use egui_taffy::TuiBuilderLogic as _;` が必要。
+- **8 / フェーズ 5 向けメモ** eframe の `App::ui` が渡す root `Ui` は margin も背景も持たない。ライトモードではライトテーマの濃いグレー文字が eframe 既定の黒いクリアカラー上に描かれて見えない。examples/spike は `egui::CentralPanel::default().show(ui, ..)` で包んだ。`react-egui-app::run` も同じく CentralPanel(または `Frame::central_panel`)で包む必要がある。

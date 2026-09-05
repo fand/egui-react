@@ -1,0 +1,16 @@
+[package]
+name = "react-egui-macros"
+description = "Procedural macros for react-egui (rsx!, #[component], #[hook])"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "react_egui_macros"
+path = "src/lib.rs"
+proc-macro = true
+
+[dependencies]
+rstml.workspace = true
