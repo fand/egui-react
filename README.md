@@ -50,7 +50,7 @@ The hooks, the elements and the layout attributes are listed in [docs/ARCHITECTU
 
 Every example runs in the browser in the [gallery](https://fand.github.io/react-egui/), next to its source. Three of them also have a version written with plain egui, so you can switch between the two and compare.
 
-<!-- TODO: gallery screenshot -->
+![The gallery: example list, the running example, and its source next to it](docs/gallery.png)
 
 | name | what | live | source | plain egui |
 |---|---|---|---|---|
