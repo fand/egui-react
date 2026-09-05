@@ -1,4 +1,4 @@
-# タスク: board(PR8 = フェーズ 6.6 の前半)
+# タスク: board(PR8 = フェーズ 6.6 の前半。[patch](../patch/task.md) と 1 つの PR)
 
 ## 目的
 
@@ -11,7 +11,7 @@
 
 題材は Trello 風のカンバンボード。同じ UI の生 egui 版を隣に置き、per-item のローカル state を呼び出し側が `HashMap<CardId, _>` で持って自分で掃除する必要が消えることを、コードと行数で見せる。
 
-次の PR([patch](../patch/task.md))はこの example が作る DnD / テーマまわりの custom hook をそのまま使う。ここは「利点を 1 つずつ証明する場」、patch は「それが規模の大きい画面でも崩れないことを見せる場」という分担にする。
+同じ PR の後半([patch](../patch/task.md))は、この example が作る DnD まわりの custom hook をそのまま使う。**board を仕上げてから patch に入る**。ここは「利点を 1 つずつ証明する場」、patch は「それが規模の大きい画面でも崩れないことを見せる場」という分担にする。
 
 core(`react-egui`、`react-egui-macros`)には手を入れない。`react-egui-elements` への追加は必要最小限に留める(判断は [plan.md](plan.md) 4 章)。
 

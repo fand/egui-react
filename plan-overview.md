@@ -24,8 +24,7 @@
 | PR4 | 7 | `docs/tasks/mobile/` |
 | PR5, PR6 | 6.5 | `docs/tasks/examples/` |
 | PR7 | 6.5(canvas) | `docs/tasks/canvas/` |
-| PR8 | 6.6 | `docs/tasks/board/` |
-| PR9 | 6.6 | `docs/tasks/patch/` |
+| PR8 | 6.6 | `docs/tasks/board/`, `docs/tasks/patch/` |
 
 フェーズ 8(公開準備)は PR4 の後に別途計画する。
 
@@ -85,8 +84,10 @@
 
 既存 example が示していない React の利点 — 動的に増減・並べ替えされる要素が各々ローカル state を持つこと、その state が key に付いて回ること、自作コンポーネントと custom hook で組み上げられること — を 2 つの example で示す。
 
-- board(PR8): Trello 風のカンバン。DnD、undo、debounce を custom hook として書き、生 egui 版と並べて差を出す。
-- patch(PR9): TouchDesigner 風のノードエディタ。シェーダノードを繋ぐと 1 本の WGSL が生成され、プレビューが変わる。board の custom hook を再利用する。生 egui 版は書かない。
+1 PR にまとめる。board を先に仕上げ、その custom hook が固まってから patch に入る。
+
+- board: Trello 風のカンバン。DnD、undo、debounce を custom hook として書き、生 egui 版と並べて差を出す。
+- patch: TouchDesigner 風のノードエディタ。シェーダノードを繋ぐと 1 本の WGSL が生成され、プレビューが変わる。board の custom hook を再利用する。生 egui 版は書かない。
 
 ### フェーズ 7: モバイル
 

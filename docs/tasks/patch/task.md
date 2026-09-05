@@ -1,4 +1,4 @@
-# タスク: patch(PR9 = フェーズ 6.6 の後半)
+# タスク: patch(PR8 = フェーズ 6.6 の後半。[board](../board/task.md) と 1 つの PR)
 
 ## 目的
 
@@ -12,7 +12,7 @@ TouchDesigner 風のノードエディタで、**複雑な UI がそのまま re
 - スライダを動かしただけならシェーダは再生成されず、値が uniform に流れるだけ。
 - 「state が変わると絵が変わる」経路が 2 段階あり、どちらも派生(memo)としてコードに現れる。
 
-board が作る `use_dnd` をポートの結線に再利用する。これが 2 → 1 の順にする理由でもある。
+board が作る `use_dnd` をノードの移動とポートの結線に再利用する。これが board を先にする理由でもある。
 
 core(`react-egui`、`react-egui-macros`)には手を入れない。
 
@@ -74,4 +74,4 @@ core(`react-egui`、`react-egui-macros`)には手を入れない。
 
 ## 手順
 
-plan.md は board(PR8)がマージされてから書く。`use_dnd` と自作コンポーネントの形、および board で判明したライブラリ側の宿題が確定してからでないと、結線とノード配置の設計を正確に書けないため。
+board と 1 つの PR にまとめる。board を終了条件まで仕上げてから patch に入る。`use_dnd` と自作コンポーネントの形は board で確定するので、[plan.md](plan.md) の 5 章はその時点の実物に合わせて更新する。
