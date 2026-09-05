@@ -5,15 +5,20 @@
 
 use accesskit::{Role, Toggled};
 use accesskit_consumer::Node;
+use core::fmt::Write as _;
 use web_sys::HtmlElement;
 
 use crate::filters::filter;
 
-pub(crate) struct NodeWrapper<'a>(pub(crate) Node<'a>);
+pub(crate) struct NodeWrapper<'a> {
+    pub(crate) node: Node<'a>,
+    /// Draw a green outline around every mirrored node.
+    pub(crate) debug: bool,
+}
 
 impl NodeWrapper<'_> {
     fn role(&self) -> Option<String> {
-        let role = self.0.role();
+        let role = self.node.role();
         match role {
             Role::Cell => Some("cell".into()),
             Role::Image => Some("img".into()),
@@ -153,34 +158,73 @@ impl NodeWrapper<'_> {
             Role::DocSubtitle => Some("doc-subtitle".into()),
             Role::DocTip => Some("doc-tip".into()),
             Role::DocToc => Some("doc-toc".into()),
+            // Plain text with no role is merged into its neighbours by Safari
+            // (flutter#166787), so say what it is.
+            Role::Label => Some("paragraph".into()),
             _ => None,
         }
     }
 
+    /// Where the mirror element goes, in the physical pixels the tree uses.
+    ///
+    /// The host scales the whole mirror back to CSS pixels in one go, so no
+    /// division happens here.
+    ///
+    /// A node's element is nested inside its parent's, and an absolutely
+    /// positioned parent is the containing block of its absolutely positioned
+    /// children, so the offsets have to be relative to the nearest mirrored
+    /// ancestor that has a box. Flutter's semantics layer does the same.
+    fn style(&self) -> Option<String> {
+        let mut style = String::from("position:absolute;overflow:visible;");
+        match self.node.bounding_box() {
+            Some(bounds) => {
+                let (origin_x, origin_y) = ancestor_origin(&self.node);
+                write!(
+                    style,
+                    "left:{}px;top:{}px;width:{}px;height:{}px;",
+                    bounds.x0 - origin_x,
+                    bounds.y0 - origin_y,
+                    bounds.width(),
+                    bounds.height()
+                )
+                .ok()?;
+            }
+            // No box of its own: sit on the ancestor's origin so that the
+            // children below it keep their coordinates.
+            None => style.push_str("left:0;top:0;"),
+        }
+        if self.debug {
+            // An outline, not a border: a border would move the layout.
+            style.push_str("outline:1px solid green;");
+        }
+        Some(style)
+    }
+
+    /// Focusable nodes are Tab stops, in tree order, which is DOM order.
     fn tabindex(&self) -> Option<String> {
-        self.0.is_focusable(&filter).then(|| "-1".into())
+        self.node.is_focusable(&filter).then(|| "0".into())
     }
 
     fn label(&self) -> Option<String> {
-        self.0.label()
+        self.node.label()
     }
 
     fn aria_label(&self) -> Option<String> {
-        if self.0.role() == Role::Label {
+        if self.node.role() == Role::Label {
             return None;
         }
         self.label()
     }
 
     fn text_content(&self) -> Option<String> {
-        if self.0.role() != Role::Label {
+        if self.node.role() != Role::Label {
             return None;
         }
         self.label()
     }
 
     fn aria_checked(&self) -> Option<String> {
-        self.0.toggled().map(|value| match value {
+        self.node.toggled().map(|value| match value {
             Toggled::False => "false".into(),
             Toggled::True => "true".into(),
             Toggled::Mixed => "mixed".into(),
@@ -188,25 +232,33 @@ impl NodeWrapper<'_> {
     }
 
     fn aria_valuemax(&self) -> Option<String> {
-        self.0.max_numeric_value().map(|value| value.to_string())
+        self.node.max_numeric_value().map(|value| value.to_string())
     }
 
     fn aria_valuemin(&self) -> Option<String> {
-        self.0.min_numeric_value().map(|value| value.to_string())
+        self.node.min_numeric_value().map(|value| value.to_string())
     }
 
     fn aria_valuenow(&self) -> Option<String> {
-        self.0.numeric_value().map(|value| value.to_string())
+        self.node.numeric_value().map(|value| value.to_string())
     }
 
     fn aria_valuetext(&self) -> Option<String> {
-        self.0.value()
+        self.node.value()
     }
 }
 
 macro_rules! attributes {
     ($(($name:literal, $m:ident)),+) => {
         impl NodeWrapper<'_> {
+            /// Rewrite only the position, for when the mirror's own settings
+            /// changed rather than the tree.
+            pub(crate) fn set_style(&self, element: &HtmlElement) {
+                if let Some(style) = self.style().as_ref() {
+                    let _ = element.set_attribute("style", style);
+                }
+            }
+
             pub(crate) fn set_all_attributes(&self, element: &HtmlElement) {
                 $(let value = self.$m();
                 if let Some(value) = value.as_ref() {
@@ -239,7 +291,21 @@ macro_rules! attributes {
     };
 }
 
+/// The origin the node's own coordinates are written against: the nearest
+/// mirrored ancestor that has a bounding box, or the mirror host.
+fn ancestor_origin(node: &Node<'_>) -> (f64, f64) {
+    let mut ancestor = node.filtered_parent(&filter);
+    while let Some(current) = ancestor {
+        if let Some(bounds) = current.bounding_box() {
+            return (bounds.x0, bounds.y0);
+        }
+        ancestor = current.filtered_parent(&filter);
+    }
+    (0.0, 0.0)
+}
+
 attributes! {
+    ("style", style),
     ("role", role),
     ("tabindex", tabindex),
     ("aria-label", aria_label),
