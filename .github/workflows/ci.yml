@@ -7,6 +7,8 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  # Incremental artifacts double the size of `target/`; CI never reuses them.
+  CARGO_INCREMENTAL: 0
 
 jobs:
   ci:
@@ -14,6 +16,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
+      # `cargo test --workspace` links one debug binary per test file, several
+      # hundred MB each with egui inside. The runner's ~14 GB was not enough
+      # and `ld` died with a bus error, so drop the toolchains we never use.
+      - name: Free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /usr/local/.ghcup
+          df -h /
 
       # eframe (pulled in by the examples, which `cargo test --workspace`
       # builds) needs the X11 / Wayland / GTK development headers on Linux.
