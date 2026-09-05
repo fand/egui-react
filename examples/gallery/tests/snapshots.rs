@@ -151,7 +151,26 @@ macro_rules! same {
     };
 }
 
+/// One example with no plain version: just a picture of it, so a change to how
+/// it draws is noticed.
+macro_rules! single {
+    ($name:ident, $size:expr) => {
+        mod $name {
+            use super::*;
+            use ::$name::App as ExampleApp;
+
+            #[test]
+            fn react_egui() {
+                let mut harness = react($size, |cx| rsx! { <ExampleApp/> }.show(cx));
+                harness.run();
+                harness.snapshot(stringify!($name));
+            }
+        }
+    };
+}
+
 same!(counter, egui::vec2(400.0, 300.0), 200, as_it_opens);
 same!(todo, egui::vec2(400.0, 400.0), 100, two_items);
 same!(form, egui::vec2(420.0, 420.0), 0, edited);
+single!(theme, egui::vec2(420.0, 420.0));
 same!(layout, egui::vec2(520.0, 900.0), 1000, as_it_opens);

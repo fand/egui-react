@@ -35,6 +35,7 @@ counter = { path = "../counter" }
 fetch = { path = "../fetch" }
 form = { path = "../form" }
 layout = { path = "../layout" }
+theme = { path = "../theme" }
 todo = { path = "../todo" }
 
 # `location.hash` is the deep link on the web; natively the first argument does

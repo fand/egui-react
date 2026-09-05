@@ -15,6 +15,7 @@ use counter::App as CounterApp;
 use fetch::App as FetchApp;
 use form::App as FormApp;
 use layout::App as LayoutApp;
+use theme::App as ThemeApp;
 use todo::App as TodoApp;
 
 /// Every example the gallery can run, in list order.
@@ -27,6 +28,7 @@ pub const EXAMPLES: &[Meta] = &[
     counter::META,
     todo::META,
     form::META,
+    theme::META,
     layout::META,
     fetch::META,
 ];
@@ -203,6 +205,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
             match name {
                 "todo" => { <TodoApp/> }
                 "form" => { <FormApp/> }
+                "theme" => { <ThemeApp/> }
                 "layout" => { <LayoutApp/> }
                 "fetch" => { <FetchApp/> }
                 _ => { <CounterApp/> }

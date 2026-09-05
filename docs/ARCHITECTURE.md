@@ -333,6 +333,8 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 
 egui 標準のコンテナのうち、親から場所を切り取るもの(`Panel` / `CentralPanel`)と、親の `Ui` に依存するもの(`Grid` の行区切り)は、`rsx!` が要素ごとに `Ui::push_id` で子 `Ui` を作ることの影響を受ける。行区切りは要素ではなく `{row()}`(`{expr}` ノードはスコープされない)として提供する。ドッキングされたパネルは自分の子 `Ui` から場所を切り取るので、兄弟要素として並べても左右には並ばない。パネルはアプリのルート(フェーズ 5 のランナー)で使うことを想定する。これらは `#[component(shares_ui)]` を付けて親の surface をそのまま引き継ぐ。`Suspense` も同じ理由で `shares_ui` である。自分では何も描かず children と `fallback` を親にそのまま流すので、`<View>` の中に置けば children が親の taffy ツリーの子になる。
 
+context の provider には `<Provide value={handle}>` のような汎用要素を用意できない。`provide_context` が受け取る `Handle<'s, T>` はストアを借りているのに対し、`props_builder` はコンポーネントに `for<'a, 's, 'u> Fn(&'a mut Cx<'s, 'u>, P)` を要求するので、props の型 `P` は `'s` を名乗れないためである(試すと `implementation of Fn is not general enough` になる)。同じ理由で `View` の閉包の中でも provide できない(`View::show` も `'s` について higher-ranked)。書ける形は「値を自分で作って自分で配る provider コンポーネント」で、`#[component(shares_ui)] fn Themed(cx, children: impl View)` の中で `use_handle` してから `provide_context(cx, handle, |cx| children.show(cx))` する(`examples/theme`)。React で provider が state を持つのと同じ形なので、実用上は困らない。
+
 ### レイアウト属性
 
 `react_egui::layout` に置く。taffy の型は `egui_taffy::taffy` を `react_egui::taffy` として re-export したものを使う。

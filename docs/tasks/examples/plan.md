@@ -385,3 +385,14 @@ CI、Pages、README。
   - 最初は 503 px ずれた。生 egui 側で `ui.add_sized([200, interact_size.y], TextEdit)` と高さを固定していたためで、`TextEdit::singleline(..).desired_width(200.0)` にして egui に高さを決めさせたら 0 になった。
 - 行数は **react-egui 158 / 生 egui 123 で、react-egui の方が長い**。理由は 2 つあり、どちらも正直に見せる価値がある。(a) `Settings` と `THEMES` と `META` は `lib.rs` にあり、`plain.rs` は `use crate::Settings` で貰っている。共有する型のぶんだけ `lib.rs` が重い。(b) egui の `Grid` はラベル列の整列をやってくれるので、`<Field>` コンポーネントを書く react-egui 側の方が手数が多い。**フォームは egui が元々得意な領域で、ここで react-egui が勝つ話にはならない。** 差が出るのは state の持ち方(1 つの struct を `&mut` で回す)、ログを「行を描く前に集めておく」必要があること、永続化を手で書くことの 3 点で、それは 1.3 の todo と同じ種類の差である。
 - gallery 一覧では counter / todo の次(form / layout / fetch の前)に置いた。
+
+### 手順 5-2: theme
+
+`provide_context` / `use_context`。`Themed` が `Theme { dark }` と `Locale` を `use_handle` で持って children に配り、`Page` → `Card` → `Greeting` / `ThemedButton` / `Swatch` の 3 段下で `use_context` が読む。間の `Page` と `Card` は props をひとつも取らない。provider の直下の `Toggles` は `use_context` で読んだ `Handle` に `set` して書き戻す(React の `useTheme()` が値と setter を返すのと同じ形)。`Themed` の外に置いた `Orphan` は `use_context` が `None` になり「outside: no theme provided」と出す。
+
+- **`<Provide value={handle}>` は書けない**。これが今回いちばんの発見。`provide_context` が取る `Handle<'s, T>` はストアを借りているが、`props_builder` はコンポーネントに `for<'a, 's, 'u> Fn(&'a mut Cx<'s, 'u>, P)` を要求するので props の型は `'s` を名乗れない。実際に書くと `implementation of Fn is not general enough` で落ちる(elements に置いて確認し、消した)。同じ理由で `view(|cx| provide_context(cx, handle, ..))` も通らない(`View::show` も `'s` について higher-ranked で、外側の `Handle` と繋がらない)。
+  - 書ける形は「値を自分で作って自分で配る provider コンポーネント」。handle を内側の `cx` から作れば `'s` が一致するので、`#[component(shares_ui)] fn Themed(cx, children: impl View)` はそのまま通る。React でも provider が state を持つのが普通なので、実用上の不自由は無い。ARCHITECTURE 6 章に書いた。core を触れば直せる話ではあるが、今回は触らない。
+- **言語は ja / en ではなく en / fr にした**。egui の同梱フォントは Hack / Ubuntu-Light / NotoEmoji / emoji-icon-font で、CJK のグリフが無い(`epaint_default_fonts` の中身を確認した)。日本語を出すと豆腐になる。フォントを読み込む話は別の example の仕事なので、ラテン文字 2 つに替えた。plan 2 章からの意図的な逸脱。
+- **`ctx.set_visuals` は gallery 全体を塗り替える**。`set_visuals` は `egui::Context` 単位で、Context は 1 つしか無いため。plan 1.1 の埋め込みルールには反しないが(`Panel` でも `Instant` でもない)、gallery で theme を開いて light にすると gallery も light になる。egui の API がそうなっているだけなので、隠さずコメントに書いて受け入れた。
+- snapshot は生 egui 版が無いので 1 枚だけ。`single!` マクロを `same!` の隣に足した(既定の dark 状態で撮る)。
+- gallery 一覧では form の次、layout の前。
