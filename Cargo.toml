@@ -39,4 +39,7 @@ trybuild = "1.0.120"
 ehttp = "0.7.1"
 elsa = "1.11.2"
 log = "0.4.34"
+# `std::time::SystemTime::now()` panics on wasm32-unknown-unknown; this is the
+# drop-in replacement that uses `performance.now()` there.
+web-time = "1.1.0"
 pollster = "1.0.1"

@@ -56,6 +56,9 @@ pub fn Label(
 
 /// A single- or multi-line text field bound to a `String`.
 ///
+/// Inside a `<View>` the field fills the node taffy gave it, in both
+/// directions for a `multiline` one. `desired_width` and `rows` override that.
+///
 /// `bind` is a `&mut String`, so the widget reads and writes the same state
 /// through one borrow. A handler on the same element cannot touch that state as
 /// well — that would be a second borrow and will not compile. `on_submit`
@@ -70,16 +73,19 @@ pub fn TextEdit(
     #[prop(default)] multiline: bool,
     hint: Option<&str>,
     desired_width: Option<f32>,
+    rows: Option<usize>,
     #[prop(default)] clear_on_submit: bool,
     #[event] on_change: (),
     #[event] on_submit: String,
 ) {
-    // Inside a `<View>` the node's width is taffy's decision (`w`, `grow`, or
-    // the space left over), and the widget should fill it. `egui::TextEdit`
-    // otherwise draws at its own 280pt default and leaves the rest of the node
-    // empty. An explicit `desired_width` still wins: that is what the prop is
-    // for. Outside taffy there is nothing to fill, so egui's default stands.
-    let fill = desired_width.is_none() && cx.in_taffy();
+    // Inside a `<View>` the node's size is taffy's decision (`w` / `h`, `grow`,
+    // or the space left over), and the widget should fill it. `egui::TextEdit`
+    // otherwise draws at its own 280pt and four rows and leaves the rest of the
+    // node empty. The explicit props still win: that is what they are for.
+    // Outside taffy there is nothing to fill, so egui's defaults stand.
+    let taffy = cx.in_taffy();
+    let fill_width = desired_width.is_none() && taffy;
+    let fill_rows = rows.is_none() && multiline && taffy;
     let response = cx.leaf(&style, |ui| {
         let mut edit = if multiline {
             egui::TextEdit::multiline(bind)
@@ -91,10 +97,20 @@ pub fn TextEdit(
         }
         if let Some(width) = desired_width {
             edit = edit.desired_width(width);
-        } else if fill {
+        } else if fill_width {
             edit = edit.desired_width(ui.available_width());
         }
-        ui.add(edit)
+        if let Some(rows) = rows {
+            edit = edit.desired_rows(rows);
+        }
+        if fill_rows {
+            // `add_sized`, not `desired_rows`: a row count can only fill the
+            // node to the nearest whole row, and the remainder would be a
+            // sliver of a row hanging out of it.
+            ui.add_sized(ui.available_size(), edit)
+        } else {
+            ui.add(edit)
+        }
     });
 
     if response.changed() {

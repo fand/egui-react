@@ -320,3 +320,56 @@ fn a_growing_text_edit_fills_its_node() {
         "the field did not fill its node: {rect:?}",
     );
 }
+
+/// A `multiline` field fills the node taffy gave it, in both directions.
+#[test]
+fn a_growing_multiline_text_edit_fills_its_node() {
+    let mut harness = Harness::new_ui_state(
+        |ui, store: &mut Store| {
+            run_app(ui, store, |cx| {
+                rsx! {
+                    <View direction="column" w={400.0} h={200.0}>
+                        <TextEdit multiline grow={1.0} bind={&mut String::new()}/>
+                    </View>
+                }
+                .show(cx);
+            });
+        },
+        Store::new(),
+    );
+
+    harness.run();
+    harness.run();
+    let rect = harness
+        .get_by_role(egui::accesskit::Role::MultilineTextInput)
+        .rect();
+    assert!(
+        rect.width() > 380.0 && rect.height() > 150.0,
+        "the field did not fill its node: {rect:?}",
+    );
+}
+
+/// `rows` still wins over filling.
+#[test]
+fn an_explicit_row_count_wins() {
+    let mut harness = Harness::new_ui_state(
+        |ui, store: &mut Store| {
+            run_app(ui, store, |cx| {
+                rsx! {
+                    <View direction="column" w={400.0} h={200.0}>
+                        <TextEdit multiline rows={2} grow={1.0} bind={&mut String::new()}/>
+                    </View>
+                }
+                .show(cx);
+            });
+        },
+        Store::new(),
+    );
+
+    harness.run();
+    harness.run();
+    let rect = harness
+        .get_by_role(egui::accesskit::Role::MultilineTextInput)
+        .rect();
+    assert!(rect.height() < 80.0, "two rows should be short: {rect:?}",);
+}

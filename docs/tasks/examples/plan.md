@@ -372,3 +372,178 @@ CI、Pages、README。
   - **手作業が 1 回だけ残る**: リポジトリの Settings → Pages → Source を "GitHub Actions" にする。pages.yml の先頭コメントにも書いた。
 - `README.md`: 「`examples/counter` verbatim」を直した(手順 1 で挙げた宿題)。スニペットは lib.rs のコンポーネントと main.rs の `run(..)` を合わせたものだと明記し、中身は現在のファイルから写した。Examples 節を表(name / what / live / source / plain egui)にして gallery へリンクし、`cargo run -p <name>`、`--bin <name>-plain`、`trunk serve`、`cargo run -p gallery <name>` の走らせ方を並べた。Testing 節に `cargo test -p gallery --features snapshot` と、同名比較を先に react-egui 側で撮る手順を足した。行数は README には書いていない(手順 3 のとおり todo が同数で、説明抜きでは誤解を招くため)。
 - スクリーンショットは未挿入。`<!-- TODO: gallery screenshot -->` を置いてある。
+
+## 8. PR B の記録
+
+### 手順 5-1: form
+
+設定フォーム。`Settings`(name / notify / autosave / volume / theme)を `use_persisted(cx, "form/settings", ..)` に置き、`TextEdit` `Checkbox` ×2 `Slider` `ComboBox` を全部 `bind` で繋ぐ。`on_change` は `use_state` の `Vec<String>` にログを積み、`Collapsing` で出す(直近 8 行、新しい順)。reset ボタンで既定値に戻す。要約行(`"anon, dark, volume 50"`)を出しているのでテストが読める。
+
+- **`on_change` が新しい値を読めない件**。`bind` の要素は widget が state の `&mut` を握っているので、同じ要素のハンドラから同じ state は触れない(6 章の約束)。だから log に積むのは widget が payload で渡せるものだけになる: `Checkbox` は新しい `bool`、`ComboBox` は新しい index、`TextEdit` と `Slider` は `()` なので「name edited」「volume changed」としか書けない。これは制約であって不便でもあるが、`bind` の意味がそのまま出ている場所なので、そのまま見せてコメントに書いた。
+- **`Slider` / `ComboBox` の幅は直さなかった**。手順 3 で見つけた「grow のノードでも 100pt のまま」は残っている。ただし設定フォームでは、ラベルの隣にウィジェットが自然な幅で並ぶのが普通で、横いっぱいに伸びた ComboBox はむしろ変である。だから form は `grow` を使わず、ラベル列に幅(90pt)を与えて揃える形にした。伸ばしたい example(list-10k あたり)が出てきたら、その時に `TextEdit` と同じやり方で直す。
+- **snapshot は完全一致**(diff 0 px、許容も 0)。counter / todo / layout と違って 1px も違わない。react-egui 側は `<Field>` がラベルに `w={90}` を与える行、生 egui 側は `egui::Grid::new(..).min_col_width(90)`。どちらも「ラベル列を作る」ことを 1 行で言っている。
+  - 最初は 503 px ずれた。生 egui 側で `ui.add_sized([200, interact_size.y], TextEdit)` と高さを固定していたためで、`TextEdit::singleline(..).desired_width(200.0)` にして egui に高さを決めさせたら 0 になった。
+- 行数は **react-egui 158 / 生 egui 123 で、react-egui の方が長い**。理由は 2 つあり、どちらも正直に見せる価値がある。(a) `Settings` と `THEMES` と `META` は `lib.rs` にあり、`plain.rs` は `use crate::Settings` で貰っている。共有する型のぶんだけ `lib.rs` が重い。(b) egui の `Grid` はラベル列の整列をやってくれるので、`<Field>` コンポーネントを書く react-egui 側の方が手数が多い。**フォームは egui が元々得意な領域で、ここで react-egui が勝つ話にはならない。** 差が出るのは state の持ち方(1 つの struct を `&mut` で回す)、ログを「行を描く前に集めておく」必要があること、永続化を手で書くことの 3 点で、それは 1.3 の todo と同じ種類の差である。
+- gallery 一覧では counter / todo の次(form / layout / fetch の前)に置いた。
+
+### 手順 5-2: theme
+
+`provide_context` / `use_context`。`Themed` が `Theme { dark }` と `Locale` を `use_handle` で持って children に配り、`Page` → `Card` → `Greeting` / `ThemedButton` / `Swatch` の 3 段下で `use_context` が読む。間の `Page` と `Card` は props をひとつも取らない。provider の直下の `Toggles` は `use_context` で読んだ `Handle` に `set` して書き戻す(React の `useTheme()` が値と setter を返すのと同じ形)。`Themed` の外に置いた `Orphan` は `use_context` が `None` になり「outside: no theme provided」と出す。
+
+- **`<Provide value={handle}>` は書けない**。これが今回いちばんの発見。`provide_context` が取る `Handle<'s, T>` はストアを借りているが、`props_builder` はコンポーネントに `for<'a, 's, 'u> Fn(&'a mut Cx<'s, 'u>, P)` を要求するので props の型は `'s` を名乗れない。実際に書くと `implementation of Fn is not general enough` で落ちる(elements に置いて確認し、消した)。同じ理由で `view(|cx| provide_context(cx, handle, ..))` も通らない(`View::show` も `'s` について higher-ranked で、外側の `Handle` と繋がらない)。
+  - 書ける形は「値を自分で作って自分で配る provider コンポーネント」。handle を内側の `cx` から作れば `'s` が一致するので、`#[component(shares_ui)] fn Themed(cx, children: impl View)` はそのまま通る。React でも provider が state を持つのが普通なので、実用上の不自由は無い。ARCHITECTURE 6 章に書いた。core を触れば直せる話ではあるが、今回は触らない。
+- **言語は ja / en ではなく en / fr にした**。egui の同梱フォントは Hack / Ubuntu-Light / NotoEmoji / emoji-icon-font で、CJK のグリフが無い(`epaint_default_fonts` の中身を確認した)。日本語を出すと豆腐になる。フォントを読み込む話は別の example の仕事なので、ラテン文字 2 つに替えた。plan 2 章からの意図的な逸脱。
+- **`ctx.set_visuals` は gallery 全体を塗り替える**。`set_visuals` は `egui::Context` 単位で、Context は 1 つしか無いため。plan 1.1 の埋め込みルールには反しないが(`Panel` でも `Instant` でもない)、gallery で theme を開いて light にすると gallery も light になる。egui の API がそうなっているだけなので、隠さずコメントに書いて受け入れた。
+- snapshot は生 egui 版が無いので 1 枚だけ。`single!` マクロを `same!` の隣に足した(既定の dark 状態で撮る)。
+- gallery 一覧では form の次、layout の前。
+
+### 手順 5-3: clock
+
+時計 + ストップウォッチ + `use_effect` の cleanup。
+
+- 時間は全部 `ui.input(|i| i.time)`(アプリ起動からの秒、f64)。`std::time::Instant` は使わない。
+- **壁時計は `web_time::SystemTime`**。`std::time::SystemTime::now()` は wasm32-unknown-unknown で panic する。`web-time = "1.1.0"` を `[workspace.dependencies]` に足した。タイムゾーンは持てない(タイムゾーンデータベースが要る)ので UTC と明記して出す。`HH:MM:SS` の整形は手書き、日付ライブラリは 1 行のために大きすぎる。
+- **repaint は明示**。走っている間は `ctx.request_repaint()`、止まっている間は `ctx.request_repaint_after(1s)`。kittest の `run()` は「遅延なしの repaint 要求」が無くなるまで回るので、`request_repaint_after` は `run()` を止める(遅延が 0 でないため)が、`request_repaint()` は止めない。走行中のテストは `step()` を使う。
+- **cleanup と `Dispatch`**。`show ticker` チェックボックスが `Ticker` を出し入れし、`Ticker` の `use_effect(cx, (), || { .. ; move || .. })` が返す閉包が cleanup になる。cleanup は保存されるので `'static` で、ログの state を借りられない。だから log は `use_reducer` に置き、`Dispatch<String>` を prop で渡す(`Dispatch` は `Clone + Send + 'static` なので prop にできる。`Handle` は 5-2 のとおりできない)。unmount のメッセージは sweep の中で送られ、次に reducer を訪れた時に適用されるので、「ticker unmounted」は 1 フレーム遅れて出る。
+- `use_memo` は lap の整形文字列に使った(deps は `laps.len()`)。60fps で毎フレーム整形するのは無駄で、増減した時だけ作り直せばよいので、わざとらしくない。
+- **snapshot を安定させた方法**。kittest には `harness.input_mut()` があり、`RawInput::time = Some(x)` を置けば egui の `i.time` は固定できる(`let time = new.time.unwrap_or(self.time + predicted_dt)`)。ただし固定できるのは egui の時計だけで、**壁時計の `SystemTime` には効かない**。そこで `App` に `now: Option<u64>`(UTC 深夜からの秒、`None` は実時計)を prop で持たせ、snapshot とテストが固定値を渡す。ストップウォッチは止まった状態で `00:00.00` なので何もしなくても安定していて、`i.time` の固定は結局不要だった。
+  - `single!` はプロパティを渡せないので、clock の snapshot だけマクロを使わず手で書いた。
+- テストは kittest の `Role::Label` のラベルが `Node::label()` ではなく `Node::value()` に入る(accesskit の仕様)ことに注意。ストップウォッチの表示を読むヘルパーで踏んだ。
+- gallery 一覧では theme の次、layout の前。
+
+### 手順 5-4: custom-hook
+
+`#[hook]` で書いた 3 つの hook を、それぞれ 2 つのコンポーネントから呼ぶ。パッケージ名 `custom-hook` / lib 名 `custom_hook`。
+
+| hook | 中身 | 呼ぶ側 |
+|---|---|---|
+| `use_debounce(cx, &str, f64) -> String` | `use_state` 3 つ(最新値 / 変わった時刻 / 落ち着いた値)。時刻は `i.time`。待っている間は誰も次のフレームを要求しないので、hook 自身が `request_repaint_after(残り)` する | `SearchBox` / `Mirror` |
+| `use_previous<T>(cx, T) -> Option<T>` | `use_state((現在, 直前))` の 3 行 | `SearchBox`(落ち着いたクエリの 1 つ前)/ `Counter` |
+| `use_window_size(cx) -> Vec2` | `cx.ctx().viewport_rect().size()`。state を持たない hook | `Responsive`(幅で row / column を切り替える)/ `SizeReadout` |
+
+- **`#[hook]` の効き目がそのまま example になる**。`SearchBox` と `Mirror` は同じ `use_debounce` を呼ぶが、片方に打ち込んでももう片方の表示は動かない。`#[hook]` が `Location::caller()` で呼び出し位置ごとにスコープを切るためで、テストがそれを固定している。
+- `egui::Context` に `screen_rect()` は無い。`viewport_rect()` を使う。
+- **gallery に埋めると `use_window_size` は gallery の窓の大きさを返す**(中央の列ではなく)。hook の意味としては正しい(窓の大きさを聞いているので)が、埋め込みでは `layout: row` 側に倒れる。単体で動かすと窓を狭めて切り替わるのが見える。
+- state を持たない `use_window_size` に `#[hook]` を付けるかは迷ったが、付けた。hook は「`Cx` から読む再利用可能な関数」であって、state の有無は本質ではない。あとで state を足しても呼び出し側が変わらない。
+- snapshot の名前は lib 名に合わせて `custom_hook.png`(`single!` が `stringify!` するため)。example 名は `custom-hook`。
+- **テストで `use_debounce` の時間を止められる**。`harness.input_mut().time = Some(t)` は `RawInput::take()` が `time` を保つので次のフレームにも残る。0.1 秒では `settled` が動かず、5.0 秒にすると追いつくところまで固定した。
+- gallery 一覧では clock の次、layout の前。
+
+### 手順 5-5: escape-hatch
+
+生 egui への出口を 4 通り、節ごとに並べる。パッケージ `escape-hatch` / lib `escape_hatch`。
+
+1. `{view(|cx| ..)}` — rsx の途中に置く普通のコード。hook も動く(スロットは行で keying される)。
+2. `cx.leaf(&style, |ui| ..)` — 要素が無いウィジェット(`egui::ProgressBar`、`ui.color_edit_button_srgba`)を taffy の item として置く。`ItemStyle::default().w(..)` がそのまま効く。
+3. painter — `allocate_exact_size` + `ui.painter()` でスパークラインを描く。値は `use_state(Vec<f32>)`、`sin(i * 0.7)` で決定的。
+4. 入れ子の `Cx` — `ui.group(..)` の中で `Cx::new(store, ui, scope)` を作り、`cx.scope("inner", ..)` の中で hook を使う。`Cx::new` / `cx.store` / `cx.scope_id()` / `cx.scope` はすべて公開 API で、prelude から届く。**4 節は書ける**。
+
+実装で 3 つ踏んだ。どれも example そのものより価値がある。
+
+- **`cx.ui()` は `<View>` の中では「今いる場所」ではない**。taffy モードの `cx.ui()` は taffy ツリーを開始した `Ui` なので、そこに描くとレイアウトの外、ツリーの左上に出る(最初に書いた 1 節がまさにそうなり、見出しに重なった)。`Cx::ui` の doc に既に書いてあるとおり。読む(`visuals()`、`input()`)ぶんにはどこでも安全で、描くときは `cx.leaf` を使う。**これが `leaf` の存在理由そのもの**なので、1 節をその形に書き直し、module doc に罠として明記した。
+- **`leaf_fill` はサイズを与えなかった軸で窓全体を取る**。egui_taffy は `infinite` な leaf の max-content をルート矩形の大きさとして返すため。`w` だけ与えた ProgressBar の leaf が高さ方向に窓いっぱいになり、下の節が窓の高さぶん押し下げられて、テストのクリックがビューポート外に落ちていた(egui は範囲外のポインタを無視する)。`w` と `h` の両方を与えて解決。ARCHITECTURE 6 章の「`<View>` の中の `ScrollArea` には `grow` か `h` を与える」と同じ話が、`leaf_fill` 全般に当たる。
+- **`ui.spinner()` はテストと相性が悪い**。アニメーションするので毎フレーム repaint を要求し、`Harness::run()` が `max_steps` で落ちる。1 節から外してコメントに理由を書いた(`Suspense` の fallback で使うのは別で、あちらは待っている間だけである)。
+- `egui::ProgressBar` は accesskit に何も出さない(`ProgressIndicator` の label も value も `None`)。読めるように隣に `<Text>{format!("progress {:.2}", ..)}</Text>` を並べ、テストはそれを見る。
+- snapshot は `single!` に drive 関数を渡せる形(2 引数版が 3 引数版に展開される)を足し、「add sample」を 2 回押した状態で撮る。1 点だけではスパークラインが線にならない。
+- gallery 一覧では custom-hook の次、layout の前。
+
+### 手順 5-6: list-10k
+
+長いリストの値段を正直に見せる。パッケージ `list-10k` / lib `list_10k`、生 egui 版あり。
+
+**測った数字**(`cargo test --release -p list-10k --test bench -- --ignored --nocapture`。`Harness::step` を 20 フレーム、600x800、GPU 無しなので「1 フレームの CPU 側」。M4 Max)。
+
+| 行数 | react-egui | 生 egui(`show_rows`) |
+|---|---|---|
+| 100 | 0.84 ms | 0.18 ms |
+| 1,000 | 5.03 ms | 0.14 ms |
+| 10,000 | 86.82 ms | 0.17 ms |
+
+react-egui は全行を描く。`rsx!` の `for` は本物のループで、1 行が `<View>` + 子 3 つ、10k 行で taffy ノードが 4 万個になる。生 egui 版は `ScrollArea::show_rows` で見えている 15 行前後しか描かず、残りは高さの予約だけなので、行数を 100 倍にしても frame time が動かない。**この example は生 egui が勝つ。** 数字は README には書かない(ここと example の module doc にある)。
+
+- **`<ScrollArea>` の仮想化 prop は足さなかった**。plan 5 章の候補だが、`<ScrollArea>` は children を `impl View` という不透明な閉包で受け取るので、`for` ループの中身を切り出すことができない。`rows={(count, row_height)}` を意味あるものにするには「index を受け取って View を返す閉包」を prop に取る別の要素が要る。→ **手順 5-8 でその要素(`<VirtualList>`)を足した。** この節の「生 egui が勝つ」という結論はそこで更新される。
+- **既定の行数**。`DEFAULT_COUNT = 10_000`(名前どおり)。ただし gallery は `initial_count={1_000}` を渡す。10k だと 1 フレーム 85ms で gallery 全体が 12fps になり、「react-egui が遅い」と読まれてしまう。スライダーは 10k まで届くので、押したい人は押せる。生 egui 版も gallery では 1,000 に揃える(仮想化されているので 10k でも平気だが、トグルで行数が変わると比較にならない)。
+- **snapshot は別名**(`list_10k_react.png` / `list_10k_plain.png`)。同名で撮ると 9,373 px ずれる。中身は同じリストだが、片方は全行を描き、片方は見えている 12〜14 行を描いて残りを予約するので、行の中の 3px 程度のずれが行数ぶん繰り返される。詰めるには生 egui 版を taffy の計算に合わせて書くことになり、5 章の線を越える。form / counter / todo / layout と違ってここは構造が違う。
+- **kittest: `ScrollArea` の中のボタンは `click()` では押せない**。シミュレートしたポインタ押下がスクロール領域に吸われて widget に届かない。`click_accesskit()` なら効く。行の削除テストで踏んだ。
+- ベンチは `#[ignore]` のテストとして置いた(`tests/bench.rs`)。release でしか意味が無く、アサーションでもないため。
+- gallery 一覧では escape-hatch の次、layout の前。
+
+### 手順 5-7: shell(と list-10k の索引列の手直し)
+
+**list-10k の手直し。** 生 egui 版の索引列が中身の幅になっていて、名前の開始位置が react-egui 版と揃っていなかった。`INDEX_W`(64pt)を lib に出し、両方がそれを使う。生 egui 側は `allocate_ui_with_layout` + `set_min_width`(`add_sized` だと中央寄せになり、最小幅を言わないと中身まで縮む)。snapshot を撮り直した。別名のままである。
+
+**shell.** IDE 風の枠。上 / 左 / 下の `<Panel>`、`<CentralPanel>` のエディタ、浮いた `<Window>` のインスペクタ、左のツリーは `<Collapsing>` + `selectable_label`。
+
+**バグ: `<Panel>` がランナーの下で docking しなかった。elements で直した。**
+
+- 原因。`Panel` は `shares_ui` だが中身は `cx.leaf(&style, ..)` で、taffy モードではノードが 1 つ作られてその中を切り取る。ランナーは必ず `root_container` を開くので、4 つのパネルが 4 つの小さなノードを切り取り、全部が同じ左上に重なって描かれていた(実測: `save` / `files` / `log` が全部 (16,10) 付近)。ARCHITECTURE 6 章の「パネルはアプリのルートで使うことを想定する」が、ランナーの下では成立していなかった。
+- 修正(`react-egui-elements`)。**パネルが場所を切り取る先は「最も近い egui の `Ui`」= 今の taffy ツリーを開始した `Ui`** と決めた。taffy モードなら `cx.leaf` ではなく `cx.ui()` に対して `show_inside` する。ツリーの外(Ui モード)では今までどおり。`CentralPanel` も同じ。ランナーの下ではこの `Ui` は窓なので、「ルートで使う」が自動的に成り立つ。
+- 帰結として、`<View>` の奥に書いた `<Panel>` はその行の一部ではなく窓の端まで飛ぶ。docking の意味そのものなので、doc コメントに「不具合ではない」と明記した。テストは `a_panel_inside_a_view_docks_in_the_window`(`<View grow>` の中の左パネルが窓の左端に着き、残りと重ならない)。既存の `panels_written_as_siblings_dock` はそのまま通る。
+- **gallery には載せられない**(この規則の下でも変わらない)。gallery の中央列に置いても、パネルが切り取るのは gallery のツリーを開始した `Ui` = 窓全体だからである。実際に 1280x800 で試したとき、gallery 自身のラベルは `CentralPanel` に塗り潰されて消えた。plan 5 章の「試して成立すれば gallery に載せる」は **不成立**。standalone のままにする。
+
+**ついでに塞いだ elements の穴 2 つ**(shell がどちらも要る)。
+
+- `<Window>` に `default_pos` と `default_size`(`egui::Window` の同名メソッド、最初のフレームだけ)。無いと egui の既定位置(左上)でツールバーとツリーを覆う。インスペクタは開いた状態で始め、右下寄りに置いた。
+- `<TextEdit>` に `rows`(→ `desired_rows`)。加えて taffy の中の `multiline` は `ui.add_sized(ui.available_size(), ..)` でノードを縦横とも埋める。最初は `desired_rows = available_height / row_height` にしたが、行単位でしか合わず端数がノードからはみ出したので `add_sized` にした。テストは `a_growing_multiline_text_edit_fills_its_node` と `an_explicit_row_count_wins`。
+
+**もう一度踏んだ「auto なノードは中身で測られる」**。エディタを入れた `<View grow={1.0}>` は `grow` だけでは中身のサイズになり、中の `TextEdit` は自分の中身で測られるので、両者が「2 文字ぶんの幅」で合意して固定された。`<View w="100%" h="100%">` と確定値を与えて解決。ランナーのルート(手順 2.6)と同じ話が 3 度目である。**`grow` は余りの分配であって、確定サイズの代わりにはならない。**
+
+- なお `h="100%"` はツリーのルート矩形に対する 100% で、`CentralPanel` の中身の高さよりわずかに大きい。エディタは数 pt はみ出すが egui が切るので見た目に問題は無い。テストはそれを踏まえて「log がエディタの上端より下」を見る。
+- snapshot は gallery ではなく `examples/shell/tests/snapshots.rs` に、shell 自身の `snapshot` feature で置いた。gallery に載らない example の絵のために gallery が shell に依存するのは筋が悪く、wasm も太る。`cargo test -p shell --features snapshot`。
+- `<Window open={..}>` には `inspector.bind()` を渡す。`&mut *inspector` だと毎フレーム dirty になって repaint が止まらない(`Checkbox` の `bind` と同じ理由)。
+- **kittest の続報**。`ScrollArea` の中(5-6)だけでなく、**入れ子の taffy ツリーの中の widget 全般**にシミュレートしたポインタのクリックが届かない。ここではパネルの中の `<View>` に入れたツールバーのボタンがそうだった。一方、同じパネルの中でも `cx.leaf` で素の `Ui` に直接描いたツリー項目は `click()` で押せる。**規則: `<View>` の内側は `click_accesskit()`**。
+
+### 手順 5-8: `<VirtualList>` と list-10k の 3 つ目
+
+`ScrollArea` + `for` が全行を描くのは事実だが、「だから生 egui が勝つ」で終わらせるのは正しくない。**react-egui でも仮想化はできる。`<ScrollArea>` 経由ではできないだけである。** 要素を足して、list-10k をその比較に作り替えた。
+
+**`crates/react-egui-elements/src/virtual_list.rs`**
+
+```rust
+#[component]
+pub fn VirtualList(
+    cx: &mut Cx,
+    #[prop(default)] style: ItemStyle,
+    rows: usize,
+    row_h: f32,
+    render: impl for<'a, 's, 'u> FnMut(&'a mut Cx<'s, 'u>, usize),
+)
+```
+
+中身は escape-hatch 4 節そのもので、`cx.leaf_fill` の中で `egui::ScrollArea::show_rows` を呼び、返ってきた `Ui` に `Cx::new(store, ui, scope)` を組み直して、`cx.scope(i, |cx| render(cx, i))` を見えている行にだけ回す。行ごとに scope に入るので、`for` + `key={i}` と同じく行が hook を持てる。
+
+- **閉包 prop は書ける。ただし bound を明示すること**(3.3 の心配ごとへの答え)。`render: impl FnMut(&mut Cx, usize)` は通らない。`#[component]` の `ElideToPropLifetime` が prop の省略ライフタイムを props 構造体のものに書き換えるので、`impl Trait` の中に未宣言のライフタイムが現れて `use of undeclared lifetime name` になる。`impl for<'a, 's, 'u> FnMut(&'a mut Cx<'s, 'u>, usize)` と自分で書けば、書き換える対象が無いのでそのまま通る。`&mut dyn FnMut` に落とす必要は無かった。5-2 の `Handle` prop とは別の問題で、あちらは props の型が `'s` を名乗ってしまうのが原因だった。
+- 制約は「全行が同じ高さ」。`show_rows` が測らずに範囲を出せる条件で、要素側では検査できないので doc に明記した。
+- `leaf_fill` なので `grow` か `h` を与える(手順 5-5 の教訓)。
+- テスト(`crates/react-egui-elements/tests/virtual_list.rs`): 10,000 行を 300pt の harness に置くと木に載るのは 15 行前後だけ、`row 9999` は存在しない。スクロールすると先頭行が消えて後ろの行が入る。
+
+**list-10k の 3 つ目。** `Checkbox "virtualise"` で `<ScrollArea>` + `for` と `<VirtualList>` を切り替える。行は `<Row>` コンポーネント 1 つで、どちらの経路も同じものを描く。既定は off で、gallery が最初に見せるのは「全部描く値段」のまま。
+
+| 行数 | `<ScrollArea>` + `for` | `<VirtualList>` | 生 egui `show_rows` |
+|---|---|---|---|
+| 100 | 0.88 ms | 0.36 ms | 0.16 ms |
+| 1,000 | 5.06 ms | 0.28 ms | 0.13 ms |
+| 10,000 | 78.04 ms | 0.27 ms | 0.17 ms |
+
+`<VirtualList>` は行数に対して平らである。生 egui との差(0.27 対 0.17)は、画面に出ている 15 行ぶんの taffy ノードの値段で、これは react-egui を使うことの値段そのものだから、そのまま見せる。**結論は「生 egui が勝つ」ではなく「`for` で 1 万行書くのが高い。長いリストには専用の要素がある」に変わった。**
+
+- テスト: 切り替えても filter と削除の挙動が変わらないこと、両方の経路が先頭 10 行に同じものを出すこと。
+- ARCHITECTURE 6 章の要素表に `VirtualList` を足し、`ScrollArea` が全部描くことと使い分けを書いた。README の list-10k の 1 行も差し替え。
+
+### 手順 5-9: showcase(PR B 最後)
+
+ノートアプリ。他の example が 1 つずつ見せたものを、アプリらしい形で組み合わせる。model と reducer は `src/notes.rs`(egui を知らない平らな関数なので、`Ui` 抜きで読める)、UI は `src/lib.rs`。
+
+- 永続化は todo と同じ「reducer が持ち、`use_persisted` が写す」形。reducer は他人のスロットに reduce できないので、2 行のミラーがその値段である。理由をコメントに書いた。
+- `use_memo` の deps は `(search, (len, next_id), updated の XOR)`。`next_id` が「追加された」、`len` が「消された」、`updated` の XOR が「本文が編集された(= 並び順が動いた)」を表す。
+- `provide_context` は theme と同じ `Themed` ラッパー。間の 2 つの列は何も持ち回らない。
+- 設定ウィンドウの「clear all」は 2 段確認。rsx の途中の `if` 1 つで書ける。
+- `Msg::Add` のあと `*selected = None` にして、新しいノートが自分で開くようにした(「選択が無ければ先頭を開く」規則が拾う)。
+
+**踏んだこと。**
+
+- **`Option<T>` の prop は「省略可能な prop」であって「Option を渡す prop」ではない**。`#[component]` が `strip_option` を付けるので setter は `T` を取り、`selected={current}`(`Option<u64>`)は型が合わない。`&Option<u64>` にすれば参照型なので strip されず、そのまま渡せる。
+- **埋めるウィジェットの後ろに置いたものは画面外に出る**。`<TextEdit multiline grow>` は「あるだけの高さ」を自分の content として報告するので、同じ列でその後ろに置いた語数の行が窓の下に押し出された。`min_h={0}` でも直らない(押し出しているのは列の側)。語数の行をエディタの **前** に移して解決した。「埋める leaf は列の最後に置く」が実用上の規則である。
+- 途中でディスクが一杯になり(`ld: write() failed, errno=28`)、`target/debug/incremental`(6.9GB)を消して続けた。このセッションで target が 27GB まで育っている。
+
+**gallery の並び替え。** `showcase` を先頭にした(訪問者が最初に見るべきもの)。以下 counter / todo / form / theme / clock / custom-hook / escape-hatch / list-10k / layout / fetch。`Running` の `match` の既定は `<ShowcaseApp/>` に変え、`"counter"` の腕を明示した。gallery のテストが「最初は counter」を前提にしていたので直した(トグルのテストは、showcase に生 egui 版が無いので counter を選んでから確かめる)。README の表も同じ順にし、導入の一文に「まず showcase を見て、他は 1 つずつの話」と書いた。

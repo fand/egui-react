@@ -1,0 +1,29 @@
+[package]
+name = "showcase"
+description = "react-egui example: showcase"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "showcase"
+path = "src/lib.rs"
+
+[[bin]]
+name = "showcase"
+path = "src/main.rs"
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+react-egui.workspace = true
+react-egui-app.workspace = true
+react-egui-elements.workspace = true
+example-meta.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true

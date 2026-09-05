@@ -261,3 +261,53 @@ fn a_container_inside_a_view_behaves_as_one_leaf() {
         "the container took one taffy slot between them: {before:?} {after:?}"
     );
 }
+
+/// A panel docks in the `Ui` the taffy tree was started in, not in a node of
+/// the tree, so `<Panel>` inside a `<View>` reaches the window's edge instead
+/// of taking a slice of the row it was written in.
+///
+/// Without that, four sibling panels each carve a little node of their own and
+/// all draw at the same corner.
+#[test]
+fn a_panel_inside_a_view_docks_in_the_window() {
+    let size = egui::vec2(400.0, 300.0);
+    let mut harness = Harness::builder().with_size(size).build_ui_state(
+        |ui, store: &mut Store| {
+            let root = egui::Id::new("root");
+            store.begin_pass(ui.ctx());
+            {
+                let store: &Store = store;
+                let mut cx = Cx::new(store, ui, root);
+                let style = ContainerStyle::default()
+                    .direction("column")
+                    .merge(&ItemStyle::default().w("100%").min_h("100%"));
+                let view = rsx! {
+                    <View direction="column" grow={1.0}>
+                        <Panel side="left" default_size={80.0}>
+                            <Label>"in the panel"</Label>
+                        </Panel>
+                        <CentralPanel>
+                            <Label>"the rest"</Label>
+                        </CentralPanel>
+                    </View>
+                };
+                cx.root_container(root, style, |cx| view.show(cx));
+            }
+            store.end_pass();
+        },
+        Store::new(),
+    );
+
+    harness.run();
+    let panel = harness.get_by_label("in the panel").rect();
+    let rest = harness.get_by_label("the rest").rect();
+
+    assert!(
+        panel.left() < 24.0,
+        "the panel should reach the window's left edge: {panel:?}",
+    );
+    assert!(
+        panel.right() <= rest.left(),
+        "the panel and the rest must not overlap: {panel:?} {rest:?}",
+    );
+}

@@ -1,0 +1,29 @@
+[package]
+name = "clock"
+description = "react-egui example: clock"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "clock"
+path = "src/lib.rs"
+
+[[bin]]
+name = "clock"
+path = "src/main.rs"
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+react-egui.workspace = true
+react-egui-app.workspace = true
+react-egui-elements.workspace = true
+example-meta.workspace = true
+web-time.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true
