@@ -216,11 +216,17 @@ impl NodeWrapper<'_> {
         self.label()
     }
 
+    /// A piece of static text reads as its text content, not as a name on an
+    /// empty box.
+    ///
+    /// A `Role::Label` node carries its text in `value`, not in `label` — that
+    /// is what `Node::label_comes_from_value` is about, and it is how egui
+    /// writes its labels — so ask for both.
     fn text_content(&self) -> Option<String> {
         if self.node.role() != Role::Label {
             return None;
         }
-        self.label()
+        self.label().or_else(|| self.node.value())
     }
 
     fn aria_checked(&self) -> Option<String> {
@@ -244,6 +250,10 @@ impl NodeWrapper<'_> {
     }
 
     fn aria_valuetext(&self) -> Option<String> {
+        // Text that is already the element's text content is not also a value.
+        if self.node.label_comes_from_value() {
+            return None;
+        }
         self.node.value()
     }
 }
