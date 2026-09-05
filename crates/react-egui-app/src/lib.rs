@@ -44,6 +44,9 @@ pub fn root_style() -> react_egui::taffy::Style {
         .merge(&ItemStyle::default().w("100%").min_h("100%"))
 }
 
+/// What [`Options::setup`] holds: run once, when eframe is ready.
+pub type Setup = Box<dyn FnOnce(&eframe::CreationContext<'_>)>;
+
 /// How to run the app.
 pub struct Options {
     /// The native window title. Ignored on wasm.
@@ -64,6 +67,17 @@ pub struct Options {
     /// Everything else eframe accepts. Native only: wasm has no window.
     #[cfg(not(target_arch = "wasm32"))]
     pub native: eframe::NativeOptions,
+    /// Called once, as soon as eframe has a window and a render backend.
+    ///
+    /// This is where a wgpu pipeline is built and put into
+    /// `cc.wgpu_render_state`'s `renderer.write().callback_resources`, so that
+    /// a paint callback can find it again by type. egui's own `custom3d_wgpu`
+    /// demo does the same thing in the same place.
+    ///
+    /// It is a hole in the runner rather than a hook or a context value on
+    /// purpose: no wgpu type appears anywhere in the hook API, and an app that
+    /// does not draw with wgpu never sees one. Available on native and on wasm.
+    pub setup: Option<Setup>,
 }
 
 impl Default for Options {
@@ -75,6 +89,7 @@ impl Default for Options {
             canvas_id: String::from("react_egui_canvas"),
             #[cfg(not(target_arch = "wasm32"))]
             native: eframe::NativeOptions::default(),
+            setup: None,
         }
     }
 }
@@ -123,7 +138,12 @@ where
     V: View,
     F: FnMut(&mut Cx<'_, '_>) -> V,
 {
-    fn new(cc: &eframe::CreationContext<'_>, options: &Options, root: F) -> Self {
+    fn new(cc: &eframe::CreationContext<'_>, options: &mut Options, root: F) -> Self {
+        // First, before anything is drawn: a paint callback added on frame one
+        // has to find its pipeline already there.
+        if let Some(setup) = options.setup.take() {
+            setup(cc);
+        }
         let mut store = Store::new();
         if options.persist
             && let Some(storage) = cc.storage
@@ -194,13 +214,14 @@ mod platform {
     {
         let title = options.title.clone();
         let native = options.native.clone();
+        let mut options = options;
         let mut root = Some(root);
         eframe::run_native(
             &title,
             native,
             Box::new(move |cc| {
                 let root = root.take().expect("the app is created once");
-                Ok(Box::new(ReactApp::new(cc, &options, root)))
+                Ok(Box::new(ReactApp::new(cc, &mut options, root)))
             }),
         )
     }
@@ -229,6 +250,7 @@ mod platform {
             return Ok(());
         };
 
+        let mut options = options;
         let mut root = Some(root);
         wasm_bindgen_futures::spawn_local(async move {
             let result = eframe::WebRunner::new()
@@ -237,7 +259,7 @@ mod platform {
                     eframe::WebOptions::default(),
                     Box::new(move |cc| {
                         let root = root.take().expect("the app is created once");
-                        Ok(Box::new(ReactApp::new(cc, &options, root)))
+                        Ok(Box::new(ReactApp::new(cc, &mut options, root)))
                     }),
                 )
                 .await;
@@ -247,5 +269,15 @@ mod platform {
         });
         // The app keeps running in the browser's event loop.
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Options;
+
+    #[test]
+    fn setup_is_off_by_default() {
+        assert!(Options::default().setup.is_none());
     }
 }

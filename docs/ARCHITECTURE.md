@@ -368,7 +368,7 @@ examples/              counter, todo (use_reducer + use_persisted), layout, fetc
 3. ルートの `Cx` を作り、`root(cx)` が返した `View` を `cx.root_container(..)`(`direction: column`、`w` は `100%`、`min_h` は `100%`、`reserve_available_space`)の中で `show` する。ネストしたコンテナは幅だけを確保するので、ルートだけが高さも取る。この id とスタイルは `react_egui_app::root_id()` / `root_style()` として公開し、テストや自作ランナーが同じ枠を再現できるようにする。
 4. `store.end_pass()`。
 
-`Options` は `title` / `max_passes`(既定 3、`ctx.options_mut` で明示設定。5.3 参照)/ `persist` / `canvas_id`(wasm)/ `native`(native のみ)を持つ。`App::save` が `store.save_persisted()` を `Storage` の `"react_egui"` キーに書き、`CreationContext::storage` から `load_persisted` する。wasm では `cfg(target_arch = "wasm32")` で `WebRunner` を `wasm_bindgen_futures::spawn_local` に載せ、canvas は `canvas_id` で引く。
+`Options` は `title` / `max_passes`(既定 3、`ctx.options_mut` で明示設定。5.3 参照)/ `persist` / `canvas_id`(wasm)/ `native`(native のみ)/ `setup` を持つ。`setup: Option<Box<dyn FnOnce(&eframe::CreationContext)>>` は eframe が窓と描画バックエンドを用意した直後に 1 回だけ呼ぶ穴で、`ReactApp::new` の先頭で実行する。wgpu の pipeline を作って `cc.wgpu_render_state` の `renderer.write().callback_resources` に置く場所である(egui 公式 demo の `custom3d_wgpu` と同じ形)。hook や context 経由で `RenderState` を配る案は採らない。wgpu の型は hook API のどこにも出さず、wgpu を使わないアプリは一生見ない、という線を引くためである。native と wasm の両方にある。`App::save` が `store.save_persisted()` を `Storage` の `"react_egui"` キーに書き、`CreationContext::storage` から `load_persisted` する。wasm では `cfg(target_arch = "wasm32")` で `WebRunner` を `wasm_bindgen_futures::spawn_local` に載せ、canvas は `canvas_id` で引く。
 
 `root` は毎パス呼ばれ、返す `View` は `root` の中で作ったものを借用できない(hook の guard を借りた `rsx!` はローカルを借用した値を返すことになる)。hooks はコンポーネントに置き、ルートは `|_cx| rsx!{ <App/> }` の形にする。
 
@@ -376,7 +376,7 @@ egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut 
 
 ## 8. プラットフォーム
 
-- native / wasm / Android: eframe。wasm は trunk でビルドする。
+- native / wasm / Android: eframe。wasm は trunk でビルドする。描画バックエンドは wgpu。**eframe 0.36 の既定 feature には `wgpu` が入っていて `glow` は入っていない**(0.35 までとは逆)ので、何もしなくても wgpu で描かれる。glow の方が opt-in になったため、選択のための feature は置かない。web は WebGPU 非対応のブラウザのために WebGL へ落ちる。`eframe/wgpu` → `egui-wgpu/default` → `wgpu/webgl` と伝播するので、こちらで `wgpu` を直接依存に取る必要は無い。
 - iOS: eframe は未対応(emilk/egui#3117 が open)。`egui-winit` + `egui-wgpu` の薄いランナーを `react-egui-app` 内に書く。ビルドは cargo-mobile2。
 - ライブラリ本体は `&mut egui::Ui` しか触らないので、プラットフォーム対応はランナー層とタッチ / IME の調整に閉じる。
 - 非同期の実行機構は core の `task::spawn` に閉じる(4 章「`use_future` の詳細」)。iOS / Android は native と同じスレッド経路を使う。

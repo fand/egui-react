@@ -11,6 +11,13 @@ rust-version.workspace = true
 name = "react_egui_app"
 path = "src/lib.rs"
 
+# eframe 0.36's own default features include `wgpu` and not `glow`, so this
+# renders with wgpu already; glow is the opt-in one now. There is no feature
+# here to choose between them, because there is nothing to choose.
+#
+# The WebGL fallback comes for free with it: `eframe/wgpu` pulls
+# `egui-wgpu/default`, whose defaults include `wgpu/webgl`, so a browser
+# without WebGPU still gets a canvas. No direct `wgpu` dependency is needed.
 [dependencies]
 eframe = { workspace = true, features = ["persistence"] }
 egui.workspace = true
