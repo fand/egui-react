@@ -1,0 +1,26 @@
+[package]
+name = "accesskit-web"
+description = "AccessKit UI accessibility infrastructure: web adapter (prototype)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+# A prototype meant for upstream, not for crates.io.
+publish = false
+
+[lib]
+name = "accesskit_web"
+path = "src/lib.rs"
+
+[dependencies]
+accesskit.workspace = true
+accesskit_consumer.workspace = true
+wasm-bindgen.workspace = true
+web-sys = { workspace = true, features = [
+    "Document",
+    "Element",
+    "HtmlElement",
+    "Node",
+    "Window",
+] }
