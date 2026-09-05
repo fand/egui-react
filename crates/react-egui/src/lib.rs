@@ -9,6 +9,7 @@ mod context;
 mod cx;
 mod dispatch;
 mod events;
+mod future;
 mod hooks;
 pub mod layout;
 mod state;
@@ -19,6 +20,7 @@ pub use context::{provide_context, use_context};
 pub use cx::Cx;
 pub use dispatch::{Dispatch, use_reducer};
 pub use events::{Arity0, Arity1, Emitter, EventSink, Handler};
+pub use future::{SpawnFuture, spawn, use_future};
 pub use hooks::{
     FnCleanup, IntoCleanup, NoCleanup, use_effect, use_handle, use_memo, use_persisted, use_state,
 };
@@ -93,6 +95,7 @@ pub mod prelude {
     pub use crate::cx::Cx;
     pub use crate::dispatch::{Dispatch, use_reducer};
     pub use crate::events::{Emitter, EventSink, Handler};
+    pub use crate::future::{spawn, use_future};
     pub use crate::hooks::{use_effect, use_handle, use_memo, use_persisted, use_state};
     pub use crate::layout::{
         Align, AlignSelf, ContainerStyle, Direction, Display, Gap, ItemStyle, Justify, Length,
@@ -101,4 +104,8 @@ pub mod prelude {
     pub use crate::store::{Collision, Store};
     pub use crate::view::{View, view};
     pub use react_egui_macros::{component, hook, rsx};
+
+    /// What `use_future` returns. Re-exported so a component file needs no
+    /// `use std::task::Poll` of its own.
+    pub use std::task::Poll;
 }

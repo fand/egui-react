@@ -198,7 +198,8 @@ Dialog(cx, DialogProps {
 | `use_effect(cx, deps, f)` | deps 変化時(と初回)に `f` を**その場で**実行。`f` は cleanup(`FnOnce + 'static`)を返してよい |
 | `use_reducer(cx, reducer, init) -> (State<S>, Dispatch<Msg>)` | `Dispatch` は `Clone + Send + 'static`。`send` はキューに積んで `request_repaint` し、**次に hook を訪問した時**に reducer を順に適用する(下記) |
 | `provide_context(cx, handle, children)` / `use_context::<T>(cx) -> Option<Handle<T>>` | 子孫レンダリング中だけ有効。guard ではなく `Handle` を返す(親の guard と二重借用しないため)。ストアは `(TypeId, スロット Id)` のスタックを持ち、`use_context` がスロット Id から `Handle` を組み直す。`Handle` 自体は `'s` を持つので `dyn Any` には入れられない |
-| `use_future(cx, deps, async_fn) -> &Poll<T>` | native は thread / tokio、wasm は wasm-bindgen-futures で実行。完了時に `request_repaint` |
+| `use_future(cx, deps, \|\| async { .. }) -> &Poll<T>` | deps のハッシュが変わるたびに future を作り直して起動する。native はスレッド 1 本 + `pollster::block_on`、wasm は `wasm_bindgen_futures::spawn_local`。完了時に結果をスロットへ書いて `request_repaint`。deps 変更後に届いた古い結果は捨てる。`Pending` は最も近い `<Suspense>` に数えられる(下記) |
+| `spawn(fut)` | hook ではないが同じ実行機構。起動して忘れる。結果は `Dispatch` で送る(`spawn(async move { dispatch.send(Msg::Saved(api.await)) })`) |
 | `cx.defer(f)` / `state.update_later(f)` / `handle.update_later(f)` | パス末(sweep の前)に実行される遅延キュー。閉包は `'static`。`update_later` は適用時に `request_repaint` するが、`defer` は状態に触れないのでしない |
 
 `use_callback`、`memo` は提供しない。差分が無いので参照同一性を保つ意味がない。フレームを跨ぐ callback の代替は `Dispatch` である。
@@ -231,6 +232,18 @@ Dialog(cx, DialogProps {
 - 訪問のたびにキューを空にするので、同一フレームの 2 パス目でメッセージが二重に適用されることはない。
 - ハンドラから `send` した場合の見え方(次フレームで反映)は `State` への書き込みと同じで変わらない(5.7)。
 - スロットは 2 つ使う。state 側は素の `S` を持ち(`State` と `update_later` がそのまま downcast できる)、メッセージキューは `Arc<Mutex<Vec<M>>>` を持つ別スロットに置く。
+
+### `use_future` の詳細
+
+- 実行機構の platform 差は `SpawnFuture<T>` trait と core の `task::spawn` に閉じる。bound は native が `Future<Output = T> + Send + 'static`、wasm が `Future<Output = T> + 'static` で、cfg で切り替えた 2 つの blanket impl で同じ名前にする。ユーザーが書く型にこの差は出ない。結果の型 `T` は両 platform で `Send + 'static` を要求する。bound を platform ごとに変えるのは future 側だけにして、ユーザーの型を 1 種類で済ませるためである(wasm で `JsValue` を返したい場合は future の中で `Send` な型に変換する)。
+- native の executor はスレッド 1 本 + `pollster::block_on`。future 1 つにつきスレッド 1 本で、プールは作らない。`ehttp` やファイル IO のような「待つだけ」の future に十分で、依存も最小。CPU を食う処理は future の中で自分でスレッドを分ける。スレッド生成に失敗した場合は future を捨てて `log::error!` するだけで、panic しない(hook は `Pending` のまま止まる)。tokio が要るアプリは future の中で `Handle::current().spawn(..).await` する。
+- `f` は呼び出し位置でその場で呼ぶ(`use_effect` と同じ)。ローカルや `State` の guard を読んで future を組み立ててよい。future 自身は `'static` なので、`move` で clone した値を持つ。
+- スロットは 2 つ使う(`use_reducer` と同じ分け方)。**状態スロット**は deps のハッシュと `use_memo` と同じ `FrozenVec` を持ち、起動時に `Poll::Pending` を、結果が届いた時に `Poll::Ready(T)` を push する。**受信スロット**は `Arc<Mutex<Option<(u64, T)>>>`(世代付きの結果)と `Cell<u64>`(最後に起動した世代)を持つ。返り値は `use_memo` と同じ `&'s Poll<T>` で、`State` の guard と同時に生きる。古い `Poll` は同じパスで先に配った参照が指している可能性があるので、パス末の sweep(既存の `prune_memo`)で最新の 1 つだけを残す。
+- 起動の直後は `Pending` を返すだけで受信を試みない。その場で完了していても次のフレームで拾う(完了時に `request_repaint` が飛ぶので取りこぼさない)。同一フレームの 2 パス目は deps が一致するので起動せず、受信を試みるだけである。
+- deps を変えて future を作り直すのは訪問時。走っている古い future は止められないので完走するが、結果は世代不一致で捨てられる。訪問の前に「新しい方 → 古い方」の順で両方が届くと古い方が新しい結果を上書きしてしまうので、future 側の書き込みを「セルが空か、入っている世代より新しい時だけ」に限る。
+- unmount では 2 つのスロットが sweep で落ちる。走っている future は `Arc` の自分の側を持っているので書き込みは成功し、`request_repaint` が 1 回余分に飛ぶ。次のフレームで誰も読まず、`Arc` の最後の参照が future の終了と共に消える。
+- `Pending` を返す直前に `Store::note_pending()` を呼び、最も近い `<Suspense>` 境界のカウンタを +1 する。`Store` は `provide_context` のスタックと同じ形で `Vec<usize>` を持ち、`begin_suspense` / `end_suspense` が境界の出入りで push / pop する(`begin_pass` で clear)。境界が無ければ `note_pending` は何もしない。境界そのもの(`<Suspense>` 要素)は elements 側にある。
+- 子コンポーネントの書き方は `let Poll::Ready(x) = use_future(..) else { return };`。React の throw の代わりで、境界が fallback を描く。
 
 ## 5. ランタイム
 
@@ -337,13 +350,14 @@ examples/              counter, todo (use_reducer + use_persisted), layout, 後�
 
 `root` は毎パス呼ばれ、返す `View` は `root` の中で作ったものを借用できない(hook の guard を借りた `rsx!` はローカルを借用した値を返すことになる)。hooks はコンポーネントに置き、ルートは `|_cx| rsx!{ <App/> }` の形にする。
 
-egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut Ui` を受け取るので、ランナーはそれをそのまま `Cx` に包む。`react-egui`(core)は `egui_taffy` を通常依存に持つ。`Cx` の `Surface` が `Tui` を知る必要があるためで、wasm ターゲットでもそのままビルドできる。
+egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut Ui` を受け取るので、ランナーはそれをそのまま `Cx` に包む。`react-egui`(core)は `egui_taffy` を通常依存に持つ。`Cx` の `Surface` が `Tui` を知る必要があるためで、wasm ターゲットでもそのままビルドできる。加えて future の実行機構として、native では `pollster`(`cfg(not(target_arch = "wasm32"))`)、wasm では `wasm-bindgen-futures`(`cfg(target_arch = "wasm32")`)を持つ。
 
 ## 8. プラットフォーム
 
 - native / wasm / Android: eframe。wasm は trunk でビルドする。
 - iOS: eframe は未対応(emilk/egui#3117 が open)。`egui-winit` + `egui-wgpu` の薄いランナーを `react-egui-app` 内に書く。ビルドは cargo-mobile2。
 - ライブラリ本体は `&mut egui::Ui` しか触らないので、プラットフォーム対応はランナー層とタッチ / IME の調整に閉じる。
+- 非同期の実行機構は core の `task::spawn` に閉じる(4 章「`use_future` の詳細」)。iOS / Android は native と同じスレッド経路を使う。
 
 ## 9. テスト
 
@@ -380,3 +394,5 @@ egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut 
 | ストアの置き場 | ランナーの `App` | `Context::data()` | テストしやすさ |
 | `Handler` の実装 | マーカー型引数で 2 つの blanket impl を共存 | 引数個数で `call0` / `call1` を選ぶ | マーカーは常に推論され、マクロは 1 形式だけ emit すればよい |
 | 値 prop とハンドラの借用衝突 | ユーザーが clone か `update_later` | `rsx!` が暗黙に clone | 型情報なしに clone を挿入できず、ゼロコピーを既定にしたい |
+| future の executor | スレッド 1 本 + `pollster` | tokio を必須にする | 依存が小さく、待つだけの future に十分。tokio が要るアプリは future の中で `Handle::current()` を使えばよい |
+| 非同期の結果の表現 | `std::task::Poll<T>` | 独自の `Loading` / `Ready` / `Error` enum | std にあり、エラーは `T = Result<..>` で表せる。状態の種類を増やさない |

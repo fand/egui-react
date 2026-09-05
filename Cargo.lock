@@ -2820,11 +2820,13 @@ dependencies = [
  "egui_taffy",
  "elsa",
  "log",
+ "pollster",
  "react-egui-macros",
  "serde",
  "serde_json",
  "trybuild",
  "typed-builder",
+ "wasm-bindgen-futures",
 ]
 
 [[package]]

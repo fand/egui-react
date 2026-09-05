@@ -305,7 +305,17 @@ fn Response(cx: &mut Cx, url: &str, attempt: u32) {
 
 ## 9. 実装で判明した差分
 
-(実装中に書く)
+### 手順 1
+
+- **1.1** `f` の型は `impl FnOnce() -> impl SpawnFuture<T>` とは書けない(E0562「`impl Trait` is not allowed in the return type of `Fn` trait bounds」)。1.1 の但し書きどおり generic `F: SpawnFuture<T>` にした。シグネチャは `use_future<'s, D, T, F>(cx, deps, f: impl FnOnce() -> F) -> &'s Poll<T>`。
+- **1.5** 上書き条件は「セルが空か、入っている世代より新しい時だけ」を `Option::is_none_or` で書いた。書き込みの成否にかかわらず `request_repaint` は必ず呼ぶ(捨てられた結果でも 1 回余分に飛ぶだけで、これは 1.5 の unmount と同じ扱い)。
+- **1.6** `pollster` は 1.0.1 を `[workspace.dependencies]` に pin した(プランの「着手時の最新」)。`wasm-bindgen-futures` は既存の 0.4.56 をそのまま使う。
+- **2.1** `begin_suspense` / `end_suspense` / `note_pending` は `Store` の `pub` メソッドにした(elements から呼ぶため)。`end_suspense` は空スタックで `0` を返す。
+- **3.1 テスト** `wait_for_repaint` は `has_requested_repaint()` を 10ms 間隔で最大 2 秒待つ形にした(プラン 8 の代替案には落としていない)。書き込みの後に `request_repaint` する順を実装で固定しているので、repaint を観測できた時点で結果はセルに入っている。
+- **3.1 テスト 6-4** 「新しい方 → 古い方」の順で 2 つ目(古い方)の書き込みが終わったことを外から観測する手段が無いので、`wait_for_repaint` の後に 100ms の sleep を入れてから 1 回 `run` する。実装が正しければ古い方の書き込みは起きないため、sleep が短すぎても検出力が落ちるだけでテストが不安定になることはない。
+- **3.1 テスト 6-7** `Harness::new_ui_state` は構築時にアプリを 1 回呼び、そのまま `run_ok()` で安定するまで回す。即完了 future をそこで起動すると「初回訪問は `Pending`」を観測できないので、テスト側のフラグで hook の呼び出し自体を後から有効にし、`step()` 1 フレームで `Pending` を見る形にした。
+- **3.1 テスト 6-8** `spawn` はハンドラ(ボタン)から呼ぶ。クリック後は `run()` ではなく `step()` で 1 フレームだけ進める(`run()` はメッセージが届いて適用され切るまで回ってしまい、repaint 要求を観測できない)。
+- **6 章 ARCHITECTURE.md** 4 章の `use_future` の詳細に、`Store` の suspense カウンタ(2.1)の置き方を 1 文だけ入れた。5.8 が入るまで参照先が無いため。
 
 ## 10. PR 本文の材料
 
