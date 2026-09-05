@@ -3041,6 +3041,7 @@ dependencies = [
 name = "react-egui-app"
 version = "0.1.0"
 dependencies = [
+ "accesskit-web",
  "eframe",
  "egui",
  "egui_kittest",
