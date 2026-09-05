@@ -8,13 +8,13 @@ use react_egui::prelude::*;
 pub fn counter(cx: &mut Cx<'_, '_>, initial: i32) {
     let mut count = use_state(cx, || initial);
     let (store, scope) = (cx.store, cx.scope_id());
-    cx.ui.horizontal(|ui| {
-        let cx = Cx::new(store, ui, scope);
-        if cx.ui.button("-").clicked() {
+    cx.ui().horizontal(|ui| {
+        let mut cx = Cx::new(store, ui, scope);
+        if cx.ui().button("-").clicked() {
             (|| *count -= 1)();
         }
-        cx.ui.label(format!("count: {}", *count));
-        if cx.ui.button("+").clicked() {
+        cx.ui().label(format!("count: {}", *count));
+        if cx.ui().button("+").clicked() {
             (|| *count += 1)();
         }
     });
@@ -41,17 +41,17 @@ pub fn dialog(cx: &mut Cx<'_, '_>, props: DialogProps<'_>) {
     let on_cancel = Emitter::new(&sink);
     let on_rename = Emitter::new(&sink);
 
-    cx.ui.label(props.title);
+    cx.ui().label(props.title);
     let (store, scope) = (cx.store, cx.scope_id());
-    cx.ui.horizontal(|ui| {
-        let cx = Cx::new(store, ui, scope);
-        if cx.ui.button("OK").clicked() {
+    cx.ui().horizontal(|ui| {
+        let mut cx = Cx::new(store, ui, scope);
+        if cx.ui().button("OK").clicked() {
             on_ok.emit(DialogEvent::Ok(()));
         }
-        if cx.ui.button("Cancel").clicked() {
+        if cx.ui().button("Cancel").clicked() {
             on_cancel.emit(DialogEvent::Cancel(()));
         }
-        if cx.ui.button("Rename").clicked() {
+        if cx.ui().button("Rename").clicked() {
             on_rename.emit(DialogEvent::Rename(String::from("Renamed?")));
         }
     });
@@ -59,16 +59,16 @@ pub fn dialog(cx: &mut Cx<'_, '_>, props: DialogProps<'_>) {
 
 /// The root of the example.
 pub fn app(cx: &mut Cx<'_, '_>) {
-    cx.ui.heading("react-egui spike");
-    cx.ui.separator();
+    cx.ui().heading("react-egui spike");
+    cx.ui().separator();
 
     counter(cx, 0);
-    cx.ui.separator();
+    cx.ui().separator();
 
     let mut open = use_state(cx, || true);
     let mut title = use_state(cx, || String::from("Quit?"));
 
-    if !*open && cx.ui.button("Reopen").clicked() {
+    if !*open && cx.ui().button("Reopen").clicked() {
         *open = true;
     }
 

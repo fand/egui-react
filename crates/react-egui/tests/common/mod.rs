@@ -28,13 +28,13 @@ pub fn run_app(ui: &mut egui::Ui, store: &mut Store, app: impl FnOnce(&mut Cx<'_
 pub fn counter(cx: &mut Cx<'_, '_>, initial: i32) {
     let mut count = use_state(cx, || initial);
     let (store, scope) = (cx.store, cx.scope_id());
-    cx.ui.horizontal(|ui| {
-        let cx = Cx::new(store, ui, scope);
-        if cx.ui.button("-").clicked() {
+    cx.ui().horizontal(|ui| {
+        let mut cx = Cx::new(store, ui, scope);
+        if cx.ui().button("-").clicked() {
             (|| *count -= 1)();
         }
-        cx.ui.label(format!("count: {}", *count));
-        if cx.ui.button("+").clicked() {
+        cx.ui().label(format!("count: {}", *count));
+        if cx.ui().button("+").clicked() {
             (|| *count += 1)();
         }
     });
@@ -44,13 +44,13 @@ pub fn counter(cx: &mut Cx<'_, '_>, initial: i32) {
 pub fn named_counter(cx: &mut Cx<'_, '_>, name: &str, initial: i32) {
     let mut count = use_state(cx, || initial);
     let (store, scope) = (cx.store, cx.scope_id());
-    cx.ui.horizontal(|ui| {
-        let cx = Cx::new(store, ui, scope);
-        if cx.ui.button(format!("{name} -")).clicked() {
+    cx.ui().horizontal(|ui| {
+        let mut cx = Cx::new(store, ui, scope);
+        if cx.ui().button(format!("{name} -")).clicked() {
             (|| *count -= 1)();
         }
-        cx.ui.label(format!("{name}: {}", *count));
-        if cx.ui.button(format!("{name} +")).clicked() {
+        cx.ui().label(format!("{name}: {}", *count));
+        if cx.ui().button(format!("{name} +")).clicked() {
             (|| *count += 1)();
         }
     });
@@ -81,14 +81,14 @@ pub fn dialog(cx: &mut Cx<'_, '_>, props: DialogProps<'_>) {
     let on_cancel = Emitter::new(&sink);
     let on_rename = Emitter::new(&sink);
 
-    cx.ui.label(props.title);
-    if cx.ui.button("OK").clicked() {
+    cx.ui().label(props.title);
+    if cx.ui().button("OK").clicked() {
         on_ok.emit(DialogEvent::Ok(()));
     }
-    if cx.ui.button("Cancel").clicked() {
+    if cx.ui().button("Cancel").clicked() {
         on_cancel.emit(DialogEvent::Cancel(()));
     }
-    if cx.ui.button("Rename").clicked() {
+    if cx.ui().button("Rename").clicked() {
         on_rename.emit(DialogEvent::Rename(String::from("Renamed?")));
     }
 }

@@ -29,5 +29,5 @@ pub fn use_context<'s, T: 'static>(cx: &Cx<'s, '_>) -> Option<Handle<'s, T>> {
     let store = cx.store;
     let id = store.lookup_context(TypeId::of::<T>())?;
     let slot = store.slot_by_id(id)?;
-    Some(Handle::new(slot, store.ctx()))
+    Some(Handle::new(store, slot))
 }

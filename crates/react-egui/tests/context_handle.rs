@@ -15,8 +15,8 @@ struct Theme(String);
 
 fn child(cx: &mut Cx<'_, '_>) {
     let theme = use_context::<Theme>(cx).expect("theme must be provided");
-    cx.ui.label(format!("child sees: {}", theme.get().0));
-    if cx.ui.button("go dark").clicked() {
+    cx.ui().label(format!("child sees: {}", theme.get().0));
+    if cx.ui().button("go dark").clicked() {
         theme.set(Theme(String::from("dark")));
     }
 }
@@ -27,8 +27,8 @@ fn app(cx: &mut Cx<'_, '_>) {
     // ...and a `Handle` on another, which is what gets provided.
     let theme = use_handle(cx, || Theme(String::from("light")));
 
-    cx.ui.label(format!("clicks: {}", *clicks));
-    if cx.ui.button("bump").clicked() {
+    cx.ui().label(format!("clicks: {}", *clicks));
+    if cx.ui().button("bump").clicked() {
         *clicks += 1;
     }
 
@@ -36,7 +36,7 @@ fn app(cx: &mut Cx<'_, '_>) {
 
     // The parent reads the child's write later in the same pass, while its own
     // guard is still alive.
-    cx.ui
+    cx.ui()
         .label(format!("parent sees: {} ({})", theme.get().0, *clicks));
 }
 
@@ -77,7 +77,7 @@ fn use_context_without_a_provider_is_none() {
         |ui, store: &mut Store| {
             run_app(ui, store, |cx| {
                 let found = use_context::<Theme>(cx).is_some();
-                cx.ui.label(format!("found: {found}"));
+                cx.ui().label(format!("found: {found}"));
             });
         },
         Store::new(),

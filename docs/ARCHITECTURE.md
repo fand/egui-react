@@ -46,22 +46,36 @@ egui の「毎フレーム」は 60fps 固定ではなく、入力があった�
 コンポーネントと hooks に渡されるコンテキスト。以下を持つ。
 
 - `store: &'s Store`: hooks 状態のストアへの共有参照。lifetime `'s` は `&mut Cx` の借用とは独立で、hooks が返すハンドルはこの `'s` を持つ。
-- `ui: &'u mut egui::Ui`: 現在の描画先。egui のコンテナ(`ui.vertical(|ui| ..)` など)に入るたびに内側の `Ui` で新しい `Cx` を作る。
+- `surface: Surface<'u>`: 現在の描画先。`Surface::Ui(&mut egui::Ui)` か `Surface::Taffy(&mut egui_taffy::Tui)` のどちらかで、taffy コンテナの内側かどうかがこの enum そのものである(6 章参照)。フィールドは非公開で、`cx.ui()` メソッドが現在の `&mut egui::Ui` を返す(Taffy なら `tui.egui_ui_mut()`)。
 - `scope: Id`: 現在のコンポーネントスコープの Id。hooks の Id 導出の基点。
-- レイアウトコンテキスト(taffy コンテナの内側かどうか。6 章参照)。
-- 遅延実行キュー(`defer`、`update_later`。5.5 参照)。
 
-暗黙のグローバルや thread-local は使わない。`cx` は常に明示的に引き回す。
+主なメソッドは以下。
+
+| メソッド | 意味 |
+|---|---|
+| `ui() -> &mut egui::Ui` | 現在の `Ui`。Taffy モードでは taffy の配置を受けない escape hatch |
+| `ctx() -> &egui::Context` / `scope_id() -> Id` / `in_taffy() -> bool` | 参照系 |
+| `scope(source, f)` | コンポーネントスコープを一段深くする。Ui モードは `ui.push_id`、Taffy モードは `tui.with_auto_id_prefix`。どちらでも hooks の Id と egui 側のウィジェット Id が同時に分かれる |
+| `hook_scope(location, f)` | カスタム hook のスコープ。egui の Id には触らない |
+| `leaf(&ItemStyle, f)` | egui ウィジェットを 1 つ描く。Taffy モードなら `tui.style(style.to_taffy()).ui(f)` で taffy の leaf にし、Ui モードなら `f(ui)`(`style` は無視) |
+| `container(id, taffy::Style, f)` | taffy ノードを作り、その中を Taffy モードの `Cx` で描く。Ui モードなら `egui_taffy::tui(ui, id).reserve_available_width()`、Taffy モードなら子ノードの追加 |
+| `defer(f)` | パス末に走る遅延キューに積む(5.5 参照)。`f` は `'static` |
+
+egui のコンテナ閉包(`ui.vertical(|ui| ..)` など)に入るときは、これまでどおり内側の `Ui` で `Cx::new(store, ui, scope)` を作り直す。暗黙のグローバルや thread-local は使わない。`cx` は常に明示的に引き回す。
 
 ### 3.2 `View` と `rsx!`
 
 `rsx!{ ... }` は `impl View` を返す。`View` は `fn show(self, cx: &mut Cx)` を持つ trait で、実体は `FnOnce(&mut Cx)` の閉包である。`View` は以下にも実装する。
 
+- `()`: 何もしない。子を持たない要素の `children` がこれになる。
 - `&str`、`String`: `Label` として描く。
 - `Option<V: View>`: `Some` なら描く。
-- `IntoIterator<Item = V: View>`: 順に描く。
-- `()`: 何もしない。
+- `Vec<V: View>`、`[V: View; N]`: 順に描く。
 - `FnOnce(&mut Cx)`: そのまま呼ぶ(egui を直接触る escape hatch)。
+
+`IntoIterator<Item = V>` への blanket impl は `FnOnce` の blanket impl とも `Option<V>` とも coherence で衝突するので採らず、`Vec` と配列の個別 impl にした。`rsx!` の中の繰り返しは `for` で書けるので実用上の差はない。
+
+`rsx!` は常に `::react_egui::view(|cx| { .. })` を emit する。`pub fn view<F: FnOnce(&mut Cx<'_, '_>)>(f: F) -> impl View` は閉包の引数型を固定するためだけの補助関数で、`impl View` の位置に裸の閉包を書くと `cx` の型が推論されないことがある。ユーザーが escape hatch を書くときも `view(|cx| ..)` を使う。
 
 `rsx!` の閉包は非 `move` で、ローカルを借用する。閉包は生成された文の中で即座に消費されるので借用は短命である。
 
@@ -71,7 +85,7 @@ egui の「毎フレーム」は 60fps 固定ではなく、入力があった�
 - 式埋め込み: `{expr}`。`expr: impl View`。
 - 制御構文: `if` / `else` / `for` / `match` を直接書く(Dioxus 方式)。直接展開なので実際の Rust の制御構文を emit するだけで済み、`items.iter().map(|i| rsx!{..})` で起きる「`FnMut` から借用を返せない」問題を回避できる。
 - `key={expr}`: 要素のスコープ Id に混ぜる。`for` の中で hooks を持つコンポーネントを描く場合は必須。式は `Hash + Debug` を満たす必要がある(egui 0.36 の `Ui::push_id` が `AsIdSalt = Hash + Debug` を要求するため)。
-- ハンドラは `(|| ..)()` の形で生成・即時呼び出しされるので、`rsx!` は展開結果に `#[allow(clippy::redundant_closure_call)]` を付ける。
+- ハンドラは `Handler::call(closure, payload)` の形で生成・即時呼び出しされる。spike の手書き展開にあった `(|| ..)()` は使わないので、`rsx!` の展開結果に `#[allow(clippy::redundant_closure_call)]` は要らない。
 
 ### 3.3 コンポーネント
 
@@ -109,7 +123,7 @@ hook の Id は `scope.with(Location::caller())` で導出する。`use_state` �
 
 カスタム hook は `#[hook]` を付ける。`#[hook]` は関数に `#[track_caller]` を付け、本体を `cx.hook_scope(Location::caller(), |cx| { .. })` で包む。これによりネストした hook の Id は「スコープ → カスタム hook の呼び出し位置 → 内側の hook の呼び出し位置」という呼び出し位置のスタックになり、何段でも一意になる。合成可能性はこれで担保する。
 
-同一パス内で同じ Id が 2 回要求されたら衝突である(訪問済みマークで検出できる)。1 回目の guard がまだ生きている場合は同じ `RefCell` の二重借用になるので、原因と対処(`#[hook]` の付け忘れ、`for` 内の `key` 忘れ)を示すメッセージで panic する。素の `RefCell` の panic にはしない。1 回目の guard が既に落ちている場合は 2 回目が同じスロットを黙って再利用する(`for i in 0..3 { use_state(cx, || i) }` は 3 回とも 0 を返す)。これがまさに避けたい「静かなバグ」なので、記録と `log::warn!` に加えて、debug ビルドでは egui の Id 衝突警告と同じ UX で画面上に警告を出す(フェーズ 2)。オーバーレイの主目的はこの後者のケースである。
+同一パス内で同じ Id が 2 回要求されたら衝突である(訪問済みマークで検出できる)。1 回目の guard がまだ生きている場合は同じ `RefCell` の二重借用になるので、原因と対処(`#[hook]` の付け忘れ、`for` 内の `key` 忘れ)を示すメッセージで panic する。素の `RefCell` の panic にはしない。1 回目の guard が既に落ちている場合は 2 回目が同じスロットを黙って再利用する(`for i in 0..3 { use_state(cx, || i) }` は 3 回とも 0 を返す)。これがまさに避けたい「静かなバグ」なので、記録と `log::warn!` に加えて、debug ビルドでは egui の Id 衝突警告と同じ UX で画面上に警告を出す。オーバーレイの主目的はこの後者のケースである。実装は `Store::end_pass` の最後で、`warn_on_collision`(既定 `cfg!(debug_assertions)`、`set_warn_on_collision` で切り替え)が有効かつ衝突があれば、`Order::Debug` の `egui::Area` を左上に置き、`react-egui: hook id collision at {file}:{line}:{column}. Wrap custom hooks in #[hook], or add key= inside loops.` を赤字で出す。同じ呼び出し位置は 1 パスに 1 行にまとめる。
 
 却下した代替案: Id に「同一位置の出現回数」を混ぜて衝突を無くす案。衝突は消えるが、構造が変わった時に状態が別インスタンスへ静かに移る(React の rules-of-hooks 違反と同じ現象)。ループで出現回数が変わることを正当な利用として許すため検出もできない。「うるさいエラー」を「静かなバグ」と交換する設計なので採らない。
 
@@ -157,7 +171,7 @@ Dialog(cx, DialogProps {
 
 融合閉包で消えない借用衝突は 2 つあり、どちらも Rust そのものの制約である。
 
-1 つ目は「ループで回している state をループ内のハンドラが変更する」場合である。`for` の展開は読み取りを共有借用で行うので、ハンドラ内の `todos.remove(i)` はコンパイルエラーになる(実行時 panic ではない)。対処は `todos.update_later(|t| t.remove(i))` で、パス末に適用される書き込みキューに積む。egui の「削除は後でやる」慣習に対応する。
+1 つ目は「ループで回している state をループ内のハンドラが変更する」場合である。`for` の展開は読み取りを共有借用で行うので、ハンドラ内の `todos.remove(i)` はコンパイルエラーになる(実行時 panic ではない)。対処は `todos.update_later(move |t| { t.remove(i); })` で、パス末に適用される書き込みキューに積む。egui の「削除は後でやる」慣習に対応する。キューはパス末まで生きるので閉包は `'static` であり、ループ変数のようなローカルを使うには `move` が要る。借用したい場合は `Dispatch` か値の clone を使う。`update_later` は guard が生きたままでも呼べる(適用時には guard はとっくに落ちている)。
 
 2 つ目は「同一要素に、state を借用する値 prop と、同じ state を変更するハンドラを両方渡す」場合である。`<Dialog title={&*title} on_rename={|s| *title = s} />` は、props 構造体が `&str` の共有借用を持ち、融合閉包が同じ state の可変借用を持つので E0502 になる(spike で確認)。対処は値を先にコピーする(`title={title.clone()}`)か、書き込みを `update_later` に回すかのどちらかで、いずれもユーザーが書く。props は既定で借用(ゼロコピー)のままとし、`rsx!` に暗黙のクローンは入れない。フェーズ 3 の examples で頻出して苦痛なら、`TextEdit` の `bind` のように「読み書きを 1 つの `&mut` で渡す」形のコンポーネント設計で回避する。
 
@@ -169,10 +183,10 @@ Dialog(cx, DialogProps {
 | `use_persisted(cx, "key", init) -> State<T>` | `T: Serialize + Deserialize`。eframe の storage に保存し再起動を跨ぐ。キーは明示文字列 |
 | `use_memo(cx, deps, f) -> &T` | deps のハッシュが変化した時のみ `f` を再実行 |
 | `use_effect(cx, deps, f)` | deps 変化時(と初回)に `f` を**その場で**実行。`f` は cleanup(`FnOnce + 'static`)を返してよい |
-| `use_reducer(cx, reducer, init) -> (State<S>, Dispatch<Msg>)` | `Dispatch` は `Clone + Send + 'static`。`send` はキューに積み、パス末に reducer を適用して `request_repaint` |
+| `use_reducer(cx, reducer, init) -> (State<S>, Dispatch<Msg>)` | `Dispatch` は `Clone + Send + 'static`。`send` はキューに積んで `request_repaint` し、**次に hook を訪問した時**に reducer を順に適用する(下記) |
 | `provide_context(cx, handle, children)` / `use_context::<T>(cx) -> Option<Handle<T>>` | 子孫レンダリング中だけ有効。guard ではなく `Handle` を返す(親の guard と二重借用しないため)。ストアは `(TypeId, スロット Id)` のスタックを持ち、`use_context` がスロット Id から `Handle` を組み直す。`Handle` 自体は `'s` を持つので `dyn Any` には入れられない |
 | `use_future(cx, deps, async_fn) -> &Poll<T>` | native は thread / tokio、wasm は wasm-bindgen-futures で実行。完了時に `request_repaint` |
-| `cx.defer(f)` / `state.update_later(f)` | パス末に実行される遅延キュー |
+| `cx.defer(f)` / `state.update_later(f)` / `handle.update_later(f)` | パス末(sweep の前)に実行される遅延キュー。閉包は `'static`。`update_later` は適用時に `request_repaint` するが、`defer` は状態に触れないのでしない |
 
 `use_callback`、`memo` は提供しない。差分が無いので参照同一性を保つ意味がない。フレームを跨ぐ callback の代替は `Dispatch` である。
 
@@ -184,6 +198,19 @@ Dialog(cx, DialogProps {
 - cleanup は保存されるので `'static`。抱えるのは本体が作ったもの(task handle、購読解除子)なので自然に満たせる。unmount 時に他の state を変えたい場合は `Dispatch` を抱える。
 - 前回の cleanup があれば本体の前に走らせる。unmount はパス末の sweep で検出して cleanup を走らせる。
 - 多重パスの 2 パス目では deps が一致するので再実行されない。
+
+### `use_memo` の詳細
+
+- 返り値は `&'s T`(`'s` はストアの lifetime)で、`&mut Cx` の借用とは独立なので `State` の guard や後続の hooks と同時に生きられる。
+- 値は `RefCell` の外、スロット上の `elsa::FrozenVec<Box<dyn Any>>` に積む。deps のハッシュが変われば新しい値を push して新しい参照を返す。古い値は、同じパス内で先に配った `&'s T` が指している可能性があるので消さず、パス末の sweep で最新の 1 つを残して落とす。
+- deps の比較は `use_effect` と同じ Hash である。
+
+### `use_reducer` の詳細
+
+- メッセージは「パス末」ではなく「次に hook を訪問した時」に適用する。理由は 2 つ。(a) パス末に適用するには reducer を保存する必要があり `'static` になるが、訪問時なら reducer は通常の閉包でよい。(b) 別スレッドから届いたメッセージがパス末適用だと「次のパスの本体が古い状態を見て、そのパス末で適用され、さらに次のフレームで表示」となり 1 フレーム余計に遅れる。訪問時適用なら `send` の `request_repaint` で来る次のフレームの本体が新しい状態を見る。
+- 訪問のたびにキューを空にするので、同一フレームの 2 パス目でメッセージが二重に適用されることはない。
+- ハンドラから `send` した場合の見え方(次フレームで反映)は `State` への書き込みと同じで変わらない(5.7)。
+- スロットは 2 つ使う。state 側は素の `S` を持ち(`State` と `update_later` がそのまま downcast できる)、メッセージキューは `Arc<Mutex<Vec<M>>>` を持つ別スロットに置く。
 
 ## 5. ランタイム
 
@@ -205,13 +232,15 @@ egui_taffy はレイアウト変化時に `request_discard` を呼び、同一�
 2. 各コンポーネントが `use_state` でストアから guard を取り、ウィジェットを描く。
 3. クリック等が起きた場合、その場でハンドラが走り `State` を書き換える。
 4. コンポーネント本体を抜けると guard が落ちる(値はストアに直接書かれているので書き戻しは無い)。
-5. パス末に遅延キュー(`defer`、`update_later`、`Dispatch`)を適用し、sweep が未訪問 Id を破棄して cleanup を走らせる。
+5. パス末に遅延キュー(`defer`、`update_later`)を適用し、sweep が未訪問 Id を破棄して cleanup を走らせ、最後に Id 衝突のオーバーレイを描く。
 6. `request_discard` されていれば空イベントで 2 パス目。
 7. 次フレームは更新済みの値から描き始める。
 
 ### 5.5 遅延キュー
 
-`cx.defer(f)`、`state.update_later(f)`、`Dispatch::send` はいずれもパス末(sweep の前)に適用される。適用で状態が変われば `request_repaint` する。
+`cx.defer(f)` と `state.update_later(f)` / `handle.update_later(f)` は `Store` の 1 本のキュー(`Vec<Box<dyn FnOnce(&Store)>>`)に積まれ、`end_pass` の先頭、sweep より前に空になるまで適用される。sweep より前なので、そのパスで unmount されるスロットへの書き込みも届く(スロットが既に無ければ黙って捨てる)。`update_later` は適用時に `request_repaint` し、`defer` はストアに触れないのでしない。
+
+`Dispatch::send` はこのキューには入らない。メッセージは `use_reducer` を次に訪問した時に適用される(4 章)。
 
 ### 5.6 repaint ポリシー
 
@@ -235,11 +264,20 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 </View>
 ```
 
-- `Cx` が「今 taffy コンテナの中か」を持つ。中なら各直接子は `tui.style(item_style).add(|tui| ..)` に包まれ、外なら素の `ui` に流れる。
-- `grow` / `shrink` / `basis` / `align_self` / `w` / `h` / `min_w` / `max_w` / `p` / `m` などのレイアウト属性は全要素共通で受け付け、`Cx` が taffy の item style に変換する。
-- egui 標準の `<Vertical>` / `<Horizontal>` / `<Grid>` も leaf として残し、パフォーマンスが要る箇所の逃げ道にする。
+- `Cx` が「今 taffy コンテナの中か」を `Surface` として持つ(3.1)。`cx.leaf(&style, f)` は中なら `tui.style(style.to_taffy()).ui(f)`、外なら素の `ui` に流す。`cx.container(id, style, f)` は中なら子ノードの追加、外なら新しい `egui_taffy::tui(..)` ツリーの開始で、いずれも `f` には Taffy モードの `Cx` を渡す。
+- Ui モード直下の `container` は `reserve_available_width()` を既定とし、ランナーのルートだけ `reserve_available_space()` を使う。
+- egui 標準の `<Vertical>` / `<Horizontal>` / `<Grid>` も leaf として残し、パフォーマンスが要る箇所の逃げ道にする。Taffy モードから呼ばれた場合、これらの egui-native なコンテナは 1 つの leaf として振る舞い、その中の子は Ui モードで描かれる。
 - `<Text>` はデフォルトの wrap を `Extend` にし、egui_taffy が警告する「テキストが縦一列になる」問題を避ける。
 - ルートパネルは既定で `direction="column"` の `<View>` で包む。
+
+### レイアウト属性
+
+`react_egui::layout` に置く。taffy の型は `egui_taffy::taffy` を `react_egui::taffy` として re-export したものを使う。
+
+- `Length`: `Px(f32)` / `Percent(f32)`(taffy と同じく 0.0〜1.0 の割合)/ `Auto`。`From<f32>` と `From<i32>` は `Px`、`From<&str>` は `"auto"` / `"50%"` / `"12px"` / `"12"` をパースし、それ以外は panic する。
+- `ItemStyle`: 全要素が共通で受け付ける item 側の属性。`w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl`。setter は `impl Into<Length>` を取るので `rsx!` は数値リテラルも文字列リテラルもそのまま渡せる。`m` / `p` の短縮形は「全体 → `x` / `y` → 各辺」の順で、より具体的な指定が勝つ。`to_taffy()` で `taffy::Style` になる。
+- `ContainerStyle`: `<View>` が受け付ける親側の属性。`display direction wrap justify align align_content gap cols`。`merge(&ItemStyle)` で item 側と合わせた 1 つの `taffy::Style` を作る(taffy のノードは自分の item 属性と子への container 属性を 1 つの `Style` に持つため)。`display="grid"` のときだけ `cols` が等幅カラムになる。
+- `Direction` / `Justify` / `Align`(= `AlignSelf`)/ `Display` は enum で、`From<&str>` が CSS 綴り(`"row"`, `"space-between"`, `"center"`, `"grid"` など)をパースする。不正な文字列は候補を並べて panic する。`Justify` と `Align` は既定値 `Normal` を持ち、これは「未指定」を意味して taffy 側では `None` になる。`Option<Justify>` に `From<&str>` を実装することは orphan rule で不可能なので、Option ではなく `Normal` variant で「未指定」を表す。
 
 却下した代替案: egui_flex。egui 0.35 止まりで、`justify-content` 未実装、`flex-shrink` は構造的に不可能と README 自身が述べている。一級市民には足りない。
 
@@ -253,7 +291,7 @@ react-egui-app/        run(|cx| rsx!{..})。eframe を包み native / wasm / And
 examples/              counter, todo (use_reducer), fetch (use_future), layout, mobile
 ```
 
-egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut Ui` を受け取るので、ランナーはそれをそのまま `Cx` に包む。
+egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut Ui` を受け取るので、ランナーはそれをそのまま `Cx` に包む。`react-egui`(core)は `egui_taffy` を通常依存に持つ。`Cx` の `Surface` が `Tui` を知る必要があるためで、wasm ターゲットでもそのままビルドできる。
 
 ## 8. プラットフォーム
 

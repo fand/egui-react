@@ -13,9 +13,9 @@ path = "src/lib.rs"
 
 [dependencies]
 egui.workspace = true
+egui_taffy.workspace = true
 elsa.workspace = true
 log.workspace = true
 
 [dev-dependencies]
 egui_kittest.workspace = true
-egui_taffy.workspace = true

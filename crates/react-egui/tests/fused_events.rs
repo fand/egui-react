@@ -14,8 +14,8 @@ fn app(cx: &mut Cx<'_, '_>) {
     let mut open = use_state(cx, || true);
     let mut title = use_state(cx, || String::from("Quit?"));
 
-    cx.ui.label(format!("state: {}", *title));
-    if !*open && cx.ui.button("Reopen").clicked() {
+    cx.ui().label(format!("state: {}", *title));
+    if !*open && cx.ui().button("Reopen").clicked() {
         *open = true;
     }
 

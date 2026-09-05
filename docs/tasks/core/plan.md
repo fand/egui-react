@@ -469,4 +469,17 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 
 ## 8. 実装で判明した差分
 
-(実装中に追記する)
+### フェーズ 2(手順 1)
+
+- **1.1** `impl View for &str` / `String` / `Option` / `Vec` / 配列と `FnOnce` の blanket impl は coherence で衝突せず、そのまま共存した。`view(|cx| ..)` の型推論も注釈なしで通る(テスト `view::every_view_impl_draws`)。
+- **1.2** `elsa::FrozenVec<Box<dyn Any>>` の `push_get` は素直に `&'s dyn Any` を返すので、6 章の代替案(`Memo` guard)には落とさずに `&'s T` を実現できた。`Slot` に `memo_last` / `memo_push` / `prune_memo` を足し、`prune_memo` は sweep の中で生存スロットに対して呼ぶ(`end_pass` の別ループにはしていない)。deps のハッシュ計算は `hooks::deps_hash` として `use_effect` と共用した。
+- **1.3** スロットの値は `(S, Arc<Mutex<Vec<M>>>)` のタプルにせず、state 用スロット(素の `S`)とキュー用スロット(`id.with("__react_egui_reducer_queue")`、`Arc<Mutex<Vec<M>>>`)の 2 つに分けた。タプルにすると `State` / `update_later` が `Box<dyn Any>` から `S` へ downcast できず、スロット値への射影関数を `State` に持たせる必要が出るため。2 スロットとも同じパスで訪問されるので sweep の挙動は変わらない。
+- **1.4** `update_later` は `State` / `Handle` の両方に生えるが、実装は `state.rs` の `queue_update` 1 つに寄せた。`State` と `Handle` は `ctx: &'s egui::Context` の代わりに `store: &'s Store` を持つように変え(`ctx` は `store.ctx()` から取る)、`State::new` / `Handle::new` のシグネチャが `(store, slot, location)` / `(store, slot)` になった。
+- **1.4** 遅延キューの適用は sweep より前なので、公開 API の範囲では「スロットが既に無い」経路には到達しない(そのパスで unmount されるスロットもまだ生きている)。`slot_by_id` が `None` の場合に黙って捨てる分岐は防御的なもので、テスト `deferred::update_later_on_a_slot_that_unmounts_in_the_same_pass_is_dropped` は「同じパスで unmount される state への `update_later` が panic しない」ことまでを確認する。
+- **1.6** オーバーレイの文言は `Collision::location` ごとに `BTreeSet` で重複を落とす。kittest からは `query_by_label_contains` で読める。
+- **1.7** `Surface` は `pub` にせず `cx.rs` の非公開 enum にした。外から必要なのは `Cx::new` / `Cx::new_taffy` / `in_taffy()` だけである。`Cx::hook_scope` は `Surface` を短い lifetime に再借用する `reborrow()` を経由する。`container` の `reserve_available_space()` 版(ランナーのルート用)はフェーズ 5 で足す。
+- **1.8** `ContainerStyle` の `justify` / `align` を `Option` にはできない。`rsx!` が `justify="center"` を渡せるためには `From<&str>` が要り、`impl From<&str> for Option<Justify>` は orphan rule に反するため。代わりに `Justify` / `Align` に既定値 `Normal`(= 未指定、taffy では `None`)の variant を足した。`align_content` は taffy の `AlignContent` が `JustifyContent` と同じ型なので、プランの `Option<Align>` ではなく `Option<Justify>` にした。`AlignSelf` は taffy と同じく `Align` の型エイリアスである。`ItemStyle.align_self` は `Option<Align>` のままで、setter が `impl Into<AlignSelf>` を取る。
+- **1.8** 等幅カラムは `taffy::style_helpers::evenly_sized_tracks(cols)` を使う。プランの `vec![fr(1.0); cols]` と等価だが、taffy 0.9 ではこれは `repeat(cols, 1fr)` 1 要素の `Vec` になる。
+- **1.8** `Length::Percent` は taffy に合わせて 0.0〜1.0 の割合を持つ。`"50%"` は `Percent(0.5)` になる。
+- **1.9** プランの表に無い `tests/layout.rs`(`Length` とレイアウト enum のパース、`m` / `p` 短縮形の優先順位、`to_taffy` / `merge` の写り方)を足した。テスト 2-7 の「`cx.scope` が Taffy モードでも Id を分ける」は、hooks 側(`use_state`)と egui 側(`ui.collapsing`)の 2 本に分けて確認している。
+- **その他** `Store::end_pass` を `run_deferred` → `sweep` → `show_collision_overlay` の 3 つに分割した。`react-egui` は `egui_taffy::taffy` を `react_egui::taffy` として re-export する。

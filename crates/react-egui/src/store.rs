@@ -2,9 +2,10 @@
 
 use std::any::{Any, TypeId};
 use std::cell::{Cell, Ref, RefCell, RefMut};
+use std::collections::BTreeSet;
 use std::panic::Location;
 
-use elsa::FrozenMap;
+use elsa::{FrozenMap, FrozenVec};
 
 /// A single hook's storage.
 ///
@@ -16,6 +17,11 @@ pub(crate) struct Slot {
     last_visited: Cell<u64>,
     cleanup: RefCell<Option<Box<dyn FnOnce()>>>,
     deps_hash: Cell<Option<u64>>,
+    /// `use_memo` values, newest last.
+    ///
+    /// Old entries are kept until the end of the pass because a `&'s T` handed
+    /// out earlier in the same pass may still point at one.
+    memo: FrozenVec<Box<dyn Any>>,
     #[allow(dead_code)]
     location: &'static Location<'static>,
 }
@@ -48,12 +54,12 @@ impl Slot {
         }))
     }
 
-    /// The deps hash recorded by the last `use_effect` run, if any.
+    /// The deps hash recorded by the last `use_effect` / `use_memo` run, if any.
     pub(crate) fn deps_hash(&self) -> Option<u64> {
         self.deps_hash.get()
     }
 
-    /// Record the deps hash of the current `use_effect` run.
+    /// Record the deps hash of the current `use_effect` / `use_memo` run.
     pub(crate) fn set_deps_hash(&self, hash: u64) {
         self.deps_hash.set(Some(hash));
     }
@@ -67,7 +73,32 @@ impl Slot {
     pub(crate) fn set_cleanup(&self, cleanup: Option<Box<dyn FnOnce()>>) {
         *self.cleanup.borrow_mut() = cleanup;
     }
+
+    /// The newest memo value, if `use_memo` ever ran here.
+    pub(crate) fn memo_last(&self) -> Option<&dyn Any> {
+        let len = self.memo.len();
+        (len > 0).then(|| &self.memo[len - 1])
+    }
+
+    /// Append a memo value and borrow it for as long as the slot lives.
+    pub(crate) fn memo_push(&self, value: Box<dyn Any>) -> &dyn Any {
+        self.memo.push_get(value)
+    }
+
+    /// Drop every memo value but the newest.
+    ///
+    /// Safe only between passes: within a pass, references handed out earlier
+    /// may still point at the older entries.
+    fn prune_memo(&mut self) {
+        let memo = self.memo.as_mut();
+        if memo.len() > 1 {
+            memo.drain(..memo.len() - 1);
+        }
+    }
 }
+
+/// One piece of work queued by `cx.defer` or `update_later`.
+pub(crate) type Deferred = Box<dyn FnOnce(&Store)>;
 
 /// A hook id that was requested twice within one pass.
 ///
@@ -81,6 +112,16 @@ pub struct Collision {
     pub location: &'static Location<'static>,
 }
 
+/// The overlay text shown for one colliding call site.
+fn collision_message(location: &Location<'static>) -> String {
+    format!(
+        "react-egui: hook id collision at {}:{}:{}. Wrap custom hooks in #[hook], or add key= inside loops.",
+        location.file(),
+        location.line(),
+        location.column(),
+    )
+}
+
 /// Owns every hook's state, keyed by [`egui::Id`].
 ///
 /// The runner (or a test) calls [`Store::begin_pass`] before the tree is drawn
@@ -92,6 +133,9 @@ pub struct Store {
     collisions: RefCell<Vec<Collision>>,
     /// The `provide_context` stack: the slot id each type is currently bound to.
     contexts: RefCell<Vec<(TypeId, egui::Id)>>,
+    /// Work queued by `cx.defer` and `update_later`, applied in `end_pass`.
+    deferred: RefCell<Vec<Deferred>>,
+    warn_on_collision: bool,
 }
 
 impl Default for Store {
@@ -112,6 +156,8 @@ impl Store {
             ctx: egui::Context::default(),
             collisions: RefCell::new(Vec::new()),
             contexts: RefCell::new(Vec::new()),
+            deferred: RefCell::new(Vec::new()),
+            warn_on_collision: cfg!(debug_assertions),
         }
     }
 
@@ -123,16 +169,41 @@ impl Store {
         self.contexts.borrow_mut().clear();
     }
 
-    /// Finish the pass: drop every slot that was not visited and run its cleanup.
+    /// Finish the pass: apply the deferred queue, then sweep, then warn.
     ///
-    /// Every [`crate::State`] guard must have been dropped before this is called.
+    /// Every [`crate::State`] guard must have been dropped before this is
+    /// called. The deferred queue runs first so that a queued write lands on a
+    /// slot that is still alive, and the collision overlay last so that it is
+    /// painted over the frame it describes.
     pub fn end_pass(&mut self) {
+        self.run_deferred();
+        self.sweep();
+        self.show_collision_overlay();
+    }
+
+    /// Apply everything `cx.defer` / `update_later` queued, until nothing is left.
+    fn run_deferred(&mut self) {
+        loop {
+            let batch: Vec<Deferred> = std::mem::take(&mut *self.deferred.borrow_mut());
+            if batch.is_empty() {
+                return;
+            }
+            for f in batch {
+                f(self);
+            }
+        }
+    }
+
+    /// Drop every slot that was not visited this pass and run its cleanup.
+    fn sweep(&mut self) {
         let pass = self.pass.get();
         let mut cleanups = Vec::new();
         let map: &mut std::collections::HashMap<egui::Id, Box<Slot>> = self.slots.as_mut();
         map.retain(|_, slot| {
             let alive = slot.last_visited.get() >= pass;
-            if !alive {
+            if alive {
+                slot.prune_memo();
+            } else {
                 cleanups.extend(slot.take_cleanup());
             }
             alive
@@ -142,6 +213,44 @@ impl Store {
         for cleanup in cleanups {
             cleanup();
         }
+    }
+
+    /// Paint the debug overlay listing this pass's id collisions.
+    fn show_collision_overlay(&self) {
+        if !self.warn_on_collision {
+            return;
+        }
+        let messages: BTreeSet<String> = self
+            .collisions
+            .borrow()
+            .iter()
+            .map(|c| collision_message(c.location))
+            .collect();
+        if messages.is_empty() {
+            return;
+        }
+        egui::Area::new(egui::Id::new("react_egui_collision_warning"))
+            .order(egui::Order::Debug)
+            .anchor(egui::Align2::LEFT_TOP, egui::vec2(8.0, 8.0))
+            .show(&self.ctx, |ui| {
+                egui::Frame::popup(ui.style()).show(ui, |ui| {
+                    for message in &messages {
+                        ui.colored_label(egui::Color32::RED, message);
+                    }
+                });
+            });
+    }
+
+    /// Whether id collisions are drawn as an on-screen overlay.
+    ///
+    /// Defaults to `cfg!(debug_assertions)`.
+    pub fn warn_on_collision(&self) -> bool {
+        self.warn_on_collision
+    }
+
+    /// Turn the collision overlay on or off.
+    pub fn set_warn_on_collision(&mut self, warn: bool) {
+        self.warn_on_collision = warn;
     }
 
     /// The context repaints are requested on.
@@ -167,6 +276,14 @@ impl Store {
     /// Whether the store holds no slots.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Queue work to run at the end of the pass.
+    ///
+    /// The closure gets the store back, which is how `update_later` reaches
+    /// its slot without borrowing it across the pass.
+    pub(crate) fn defer_raw(&self, f: Deferred) {
+        self.deferred.borrow_mut().push(f);
     }
 
     /// Look up a slot without visiting it.
@@ -225,6 +342,7 @@ impl Store {
                 last_visited: Cell::new(pass),
                 cleanup: RefCell::new(None),
                 deps_hash: Cell::new(None),
+                memo: FrozenVec::new(),
                 location,
             }),
         )
