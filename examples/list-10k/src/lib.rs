@@ -50,6 +50,9 @@ pub const DEFAULT_COUNT: usize = 10_000;
 pub const ROW_H: f32 = 18.0;
 pub const ROW_GAP: f32 = 2.0;
 
+/// The width of the index column, so the names line up.
+pub const INDEX_W: f32 = 64.0;
+
 /// Row `i`'s text. Deterministic, so both versions and every machine agree.
 pub fn row_name(i: usize) -> String {
     format!("row {i} {}", WORDS[i % WORDS.len()])
@@ -100,7 +103,7 @@ pub fn App(cx: &mut Cx, #[prop(default = DEFAULT_COUNT)] initial_count: usize) {
                     // Every one of these is laid out, on screen or not.
                     for (i, name) in visible.iter() {
                         <View key={i} direction="row" gap={8} align="center" w="100%">
-                            <Text w={64.0}>{format!("#{i}")}</Text>
+                            <Text w={INDEX_W}>{format!("#{i}")}</Text>
                             <Text grow={1.0}>{name.as_str()}</Text>
                             <Button on_click={|| {
                                 removed.insert(*i);

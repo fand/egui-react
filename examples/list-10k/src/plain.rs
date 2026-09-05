@@ -13,7 +13,7 @@
 
 use std::collections::BTreeSet;
 
-use crate::{DEFAULT_COUNT, ROW_GAP, ROW_H, rows};
+use crate::{DEFAULT_COUNT, INDEX_W, ROW_GAP, ROW_H, rows};
 
 /// Everything the plain version keeps between frames, including the cache.
 pub struct PlainState {
@@ -84,12 +84,17 @@ pub fn ui(ui: &mut egui::Ui, state: &mut PlainState) {
         egui::ScrollArea::vertical().show_rows(ui, ROW_H, visible.len(), |ui, range| {
             for (i, name) in &visible[range] {
                 ui.horizontal(|ui| {
-                    // `add_sized` would centre the index in its box; the other
-                    // version's `<Text w={64}>` starts it at the left edge.
+                    // A column of its own width, like the other version's
+                    // `<Text w={INDEX_W}>`. `add_sized` would centre the text
+                    // in the box, and an allocation with no minimum would
+                    // shrink to the text, so the names would not line up.
                     ui.allocate_ui_with_layout(
-                        egui::vec2(64.0, ROW_H),
+                        egui::vec2(INDEX_W, ROW_H),
                         egui::Layout::left_to_right(egui::Align::Center),
-                        |ui| ui.label(format!("#{i}")),
+                        |ui| {
+                            ui.set_min_width(INDEX_W);
+                            ui.label(format!("#{i}"))
+                        },
                     );
                     ui.label(name);
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
