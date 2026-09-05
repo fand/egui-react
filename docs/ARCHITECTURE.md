@@ -254,7 +254,7 @@ egui_taffy はレイアウト変化時に `request_discard` を呼び、同一�
 
 ### 5.6 repaint ポリシー
 
-- `State` の `DerefMut` が呼ばれたら dirty とし、guard の Drop で `request_repaint`。
+- `State` の `DerefMut` が呼ばれたら dirty とし、guard の Drop で `request_repaint`。例外は `State::bind()` で、これは `&mut T` を渡すだけで dirty にしない。`TextEdit` のような bind 系ウィジェットに `&mut *state` を渡すと毎フレーム dirty になり、アプリがアイドルにならない(egui_kittest の `Harness::run` が `ExceededMaxSteps` で panic する)。値が変わるのは入力があった時だけで、その時は egui が自分で repaint するので取りこぼさない。
 - 遅延キューの適用で状態が変われば `request_repaint`。
 - `use_future` の完了、`Dispatch::send`(別スレッドから)は `request_repaint`。これを忘れると非同期結果が届いてもマウスを動かすまで画面が変わらない。
 - 裏返しとして、毎パス state を書き換えるコンポーネントは毎パス repaint を要求し、アプリがアイドルにならない(egui_kittest の `Harness::run` は `ExceededMaxSteps` で panic する)。React の「render 中に setState」と同じ無限ループであり、アニメーション以外では避ける。
@@ -275,10 +275,24 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 ```
 
 - `Cx` が「今 taffy コンテナの中か」を `Surface` として持つ(3.1)。`cx.leaf(&style, f)` は中なら `tui.style(style.to_taffy()).ui(f)`、外なら素の `ui` に流す。`cx.container(id, style, f)` は中なら子ノードの追加、外なら新しい `egui_taffy::tui(..)` ツリーの開始で、いずれも `f` には Taffy モードの `Cx` を渡す。
-- Ui モード直下の `container` は `reserve_available_width()` を既定とし、ランナーのルートだけ `reserve_available_space()` を使う。
-- egui 標準の `<Vertical>` / `<Horizontal>` / `<Grid>` も leaf として残し、パフォーマンスが要る箇所の逃げ道にする。Taffy モードから呼ばれた場合、これらの egui-native なコンテナは 1 つの leaf として振る舞い、その中の子は Ui モードで描かれる。
-- `<Text>` はデフォルトの wrap を `Extend` にし、egui_taffy が警告する「テキストが縦一列になる」問題を避ける。
+- Ui モード直下の `container` は `reserve_available_width()` を既定とし、ランナーのルートだけ `reserve_available_space()` を使う。`grow` や `justify="space-between"` は余白の分配なので、`<View>` 自身に幅(`w`)が無いと効かない。
+- egui 標準の `<Vertical>` / `<Horizontal>` / `<Grid>` などのコンテナも leaf として残し、パフォーマンスが要る箇所の逃げ道にする。Taffy モードから呼ばれた場合、これらの egui-native なコンテナは 1 つの leaf として振る舞い、その中の子は Ui モードで描かれる。
+- `<Text>` はデフォルトの wrap を `Extend` にし、egui_taffy が警告する「テキストが縦一列になる」問題を避ける。`<Label>` は egui 既定の wrap で、両者の違いはそこだけである。
 - ルートパネルは既定で `direction="column"` の `<View>` で包む。
+
+### 要素一覧(`react-egui-elements`)
+
+全要素が `#[component]` で書かれ、`#[prop(default)] style: ItemStyle` を受け取る。`rsx!` はレイアウト属性をまとめて `style` に詰める。イベント enum も含めて `react_egui_elements::prelude` から re-export する(3.6 のとおり、`on_*` を使う場所には enum 名が必要なため)。
+
+| 種類 | 要素 |
+|---|---|
+| レイアウト | `View`(`display` / `direction` / `wrap` / `justify` / `align` / `align_content` / `gap` / `cols`)、`Text`(`size` / `color` / `strong` / `wrap`) |
+| ウィジェット | `Button`(`enabled`, `on_click`)、`Label`、`TextEdit`(`bind` / `multiline` / `hint` / `desired_width`, `on_change` / `on_submit`)、`Checkbox`(`bind` / `label`, `on_change`)、`Slider<T: Numeric>`(`bind` / `range` / `label`, `on_change`)、`ComboBox`(`bind` / `options` / `label`, `on_change`)、`Image`(`source` / `fit`)、`Separator`(`vertical`) |
+| コンテナ | `ScrollArea`、`Collapsing`、`Frame`、`Window`、`Panel`(`side`)、`CentralPanel`、`Vertical`、`Horizontal`、`Grid` + `row()` |
+
+`bind` を持つ要素はウィジェットが直接 state に書き込むので、`State::bind()` を通す。これは `&mut *state` と違って state を dirty にしない(5.6)。同じ state を触るハンドラを同じ要素に渡すと E0502 になるので、`bind` 要素の `on_change` はログや `Dispatch` のように別の場所へ通知する用途に限る。
+
+egui 標準のコンテナのうち、親から場所を切り取るもの(`Panel` / `CentralPanel`)と、親の `Ui` に依存するもの(`Grid` の行区切り)は、`rsx!` が要素ごとに `Ui::push_id` で子 `Ui` を作ることの影響を受ける。行区切りは要素ではなく `{row()}`(`{expr}` ノードはスコープされない)として提供する。ドッキングされたパネルは自分の子 `Ui` から場所を切り取るので、兄弟要素として並べても左右には並ばない。パネルはアプリのルート(フェーズ 5 のランナー)で使うことを想定する。
 
 ### レイアウト属性
 

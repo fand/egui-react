@@ -21,7 +21,7 @@ pub use dispatch::{Dispatch, use_reducer};
 pub use events::{Arity0, Arity1, Emitter, EventSink, Handler};
 pub use hooks::{FnCleanup, IntoCleanup, NoCleanup, use_effect, use_handle, use_memo, use_state};
 pub use layout::{
-    Align, AlignSelf, ContainerStyle, Direction, Display, ItemStyle, Justify, Length,
+    Align, AlignSelf, ContainerStyle, Direction, Display, Gap, ItemStyle, Justify, Length,
 };
 pub use state::{Handle, State};
 pub use store::{Collision, Store};
@@ -70,7 +70,7 @@ pub mod prelude {
     pub use crate::events::{Emitter, EventSink, Handler};
     pub use crate::hooks::{use_effect, use_handle, use_memo, use_state};
     pub use crate::layout::{
-        Align, AlignSelf, ContainerStyle, Direction, Display, ItemStyle, Justify, Length,
+        Align, AlignSelf, ContainerStyle, Direction, Display, Gap, ItemStyle, Justify, Length,
     };
     pub use crate::state::{Handle, State};
     pub use crate::store::{Collision, Store};

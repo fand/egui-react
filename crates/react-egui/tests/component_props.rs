@@ -10,8 +10,9 @@ use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
 use react_egui::prelude::*;
 
-/// `Option<T>` is optional without an attribute; `#[prop(default = ..)]` sets a
-/// value; `#[prop(into)]` makes the setter take `impl Into<T>`.
+/// `Option<T>` is optional without an attribute and its setter takes the inner
+/// value; `#[prop(default = ..)]` sets a value; `#[prop(into)]` makes the setter
+/// take `impl Into<T>`.
 #[component]
 fn Field(
     cx: &mut Cx,
@@ -47,7 +48,7 @@ fn optional_and_defaulted_props() {
                     // Everything spelled out.
                     <Field
                         label="full"
-                        hint={Some("h")}
+                        hint="h"
                         rows={9}
                         disabled
                         value={String::from("w")}

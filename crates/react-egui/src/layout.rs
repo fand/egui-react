@@ -292,6 +292,10 @@ pub struct ItemStyle {
     pub pb: Option<Length>,
     /// `padding-left`.
     pub pl: Option<Length>,
+    /// `grid-column: span N`.
+    pub col_span: Option<u16>,
+    /// `grid-row: span N`.
+    pub row_span: Option<u16>,
 }
 
 macro_rules! length_setters {
@@ -374,6 +378,20 @@ impl ItemStyle {
         self
     }
 
+    /// Set how many grid columns this item spans.
+    #[must_use]
+    pub fn col_span(mut self, v: u16) -> Self {
+        self.col_span = Some(v);
+        self
+    }
+
+    /// Set how many grid rows this item spans.
+    #[must_use]
+    pub fn row_span(mut self, v: u16) -> Self {
+        self.row_span = Some(v);
+        self
+    }
+
     /// The taffy style of this item, with container properties left default.
     pub fn to_taffy(&self) -> taffy::Style {
         let dim = |v: Option<Length>| {
@@ -417,6 +435,12 @@ impl ItemStyle {
         if let Some(align_self) = self.align_self {
             style.align_self = align_self.to_taffy();
         }
+        if let Some(span) = self.col_span {
+            style.grid_column = taffy::style_helpers::span(span);
+        }
+        if let Some(span) = self.row_span {
+            style.grid_row = taffy::style_helpers::span(span);
+        }
         style
     }
 }
@@ -438,6 +462,33 @@ fn resolve_rect<T: Copy>(
         right: pick(right, x),
         bottom: pick(bottom, y),
         left: pick(left, x),
+    }
+}
+
+/// The `gap` prop of a container: one value for both axes, or one per axis.
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+pub struct Gap {
+    /// Space between columns, in points.
+    pub column: f32,
+    /// Space between rows, in points.
+    pub row: f32,
+}
+
+impl From<f32> for Gap {
+    fn from(v: f32) -> Self {
+        Self { column: v, row: v }
+    }
+}
+
+impl From<i32> for Gap {
+    fn from(v: i32) -> Self {
+        Self::from(v as f32)
+    }
+}
+
+impl From<(f32, f32)> for Gap {
+    fn from((column, row): (f32, f32)) -> Self {
+        Self { column, row }
     }
 }
 
@@ -505,10 +556,11 @@ impl ContainerStyle {
         self
     }
 
-    /// Set the column and row gap to the same value.
+    /// Set the column and row gap.
     #[must_use]
-    pub fn gap(mut self, v: f32) -> Self {
-        self.gap = (v, v);
+    pub fn gap(mut self, v: impl Into<Gap>) -> Self {
+        let gap = v.into();
+        self.gap = (gap.column, gap.row);
         self
     }
 

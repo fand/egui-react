@@ -503,3 +503,23 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 - **2.5** `tests/common/mod.rs` はマクロ版の `Counter` / `NamedCounter` / `Dialog` / `use_counter` を持ち、加えて `counter(cx, initial)` / `named_counter(..)` という薄いラッパ関数(`rsx!` を 1 行呼ぶだけ)を残した。これで `sibling_handlers` / `custom_hook` / `collision` は無修正のまま通る。`fused_events` だけは手書きの `DialogProps { .. }` を組み立てていたので、`rsx!` + `on_ok` / `on_cancel` / `on_rename` に書き換えた(assert は無修正)。
 - **2.6** テストファイル名はプランどおり `rsx_control_flow.rs` / `rsx_children.rs` / `component_props.rs` / `component_events.rs` / `rsx_scope.rs` / `compile_fail.rs`。
 - **その他** `examples/spike` はマクロ版に置き換えた(`App` / `Counter` / `Dialog`)。`main.rs` は `rsx! { <components::App/> }.show(&mut cx)` を呼ぶ。
+
+### フェーズ 4(手順 3)
+
+#### フェーズ 3 への追随
+
+- **2.1** `Option<T>` prop は `#[builder(default, setter(strip_option))]` になった。`hint="x"` / `size={14.0}` と書ける。`#[prop(into)]` と併用すると `setter(into, strip_option)`。フェーズ 3 の「`strip_option` は付けない」判断はここで撤回した。trybuild の `.stderr` は影響を受けなかった。
+
+#### 実装
+
+- **3.1** `Gap`(`From<f32>` / `From<i32>` / `From<(f32, f32)>`)は `react_egui::layout` に置いた。`ContainerStyle::gap` の隣にあるべき型で、`ContainerStyle::gap()` setter も `impl Into<Gap>` を取るようにした。`ItemStyle` には `col_span` / `row_span` を足し、`rsx!` のレイアウト属性一覧にも加えた。
+- **3.1** `View` の `align_content` は `Option<Justify>`(フェーズ 2 の型どおり)。`display` / `direction` / `justify` / `align` / `gap` / `side` は `#[prop(default, into)]` で、文字列リテラルをそのまま受ける。
+- **3.2** `ComboBox` の `options` は `&[impl AsRef<str>]` ではなく generic `S: AsRef<str>` の `&[S]`。`#[component]` は引数型のトップレベルの `impl Trait` しか脱糖しないため。
+- **3.2 / 5.6** `bind` を `&mut *state` で渡すと `DerefMut` が毎フレーム dirty を立て、アプリがアイドルにならない(kittest が `ExceededMaxSteps` で落ちる)。`State::bind(&mut self) -> &mut T` を core に足した。dirty を立てずに `&mut T` を貸すだけで、値が変わるのは入力があった時だけなので repaint は egui 側が出す。ARCHITECTURE.md 5.6 に追記した。
+- **3.3** egui 0.36 には `SidePanel` / `TopBottomPanel` が無く、`Panel::left/right/top/bottom` に統合されている。要素も `Panel`(`side="left"|"right"|"top"|"bottom"`)1 つ + `CentralPanel` にした。`Side` enum は `react-egui-elements` に置く。
+- **3.3** `Grid` の行区切りは `<Row/>` 要素ではなく `row()` という `impl View` を返す関数にし、`{row()}` と書く。`rsx!` は要素ごとに `cx.scope` → `Ui::push_id` で子 `Ui` を作るので、`<Row/>` の中の `ui.end_row()` は grid の `Ui` に届かない。`{expr}` ノードはスコープされないので届く。
+- **3.3** 同じ理由で、`<Panel>` と `<CentralPanel>` を兄弟要素として並べてもドッキングしない(それぞれが自分の子 `Ui` から場所を切り取り、親のカーソルはその下に進む)。スコープを挟まずに同じ `Ui` へ描けば期待どおり並ぶことをテスト `containers::panels_dock_when_they_share_one_ui` で固定した。パネルはランナーのルートで使う想定。ARCHITECTURE.md 6 に明記した。
+- **3.4 テスト 4-3** `grow` と `justify="space-between"` は余白の分配なので、`<View>` に `w` が無いと差が出ない(Ui モードの `container` は `reserve_available_width()` で親の幅を確保するが、taffy ノード自身の `size.width` は `auto` のまま)。テストでは `w={300.0}` を付けた。
+- **3.4 テスト 4-5** core の `multi_pass.rs` はそのまま残し、`react-egui-elements/tests/multi_pass.rs` に `<View>` + `<Button>` + `<Text>` 版を足した(core が elements に依存しないため)。taffy の再計算は「同じパスの中でノードの内容が変わった」時に起きるので、幅の変わる `<Text>` はハンドラより**後**に書く必要がある。
+- **3.4 テスト 4-4** スナップショットは feature `snapshot`(`egui_kittest/snapshot` + `egui_kittest/wgpu`)の裏。このマシンでは wgpu が動いたので 5 枚の PNG を生成してコミットした(`row` / `column_justify` / `grid` / `text_wrap` / `widgets`)。
+- **その他** `View` 要素(関数、値の名前空間)と `View` trait(型の名前空間)は共存できるので、`react_egui::prelude` と `react_egui_elements::prelude` を両方 glob import しても衝突しない。

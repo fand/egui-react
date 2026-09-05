@@ -37,6 +37,8 @@ const LAYOUT_ATTRS: &[&str] = &[
     "pr",
     "pb",
     "pl",
+    "col_span",
+    "row_span",
 ];
 
 pub(crate) fn expand(input: TokenStream) -> TokenStream {

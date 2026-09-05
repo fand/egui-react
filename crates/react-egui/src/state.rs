@@ -75,6 +75,17 @@ impl<'s, T: 'static> State<'s, T> {
         // `self` is dropped here, requesting a repaint if it was mutated.
     }
 
+    /// Hand `&mut T` to a widget that writes into it directly.
+    ///
+    /// Unlike `&mut *state` this does *not* mark the state dirty, so a bound
+    /// widget does not ask for a repaint on every single frame. That is safe
+    /// because the widget only changes the value in response to input, and
+    /// input makes egui repaint anyway. This is what the `bind` prop of
+    /// `TextEdit`, `Checkbox`, `Slider` and `ComboBox` expects.
+    pub fn bind(&mut self) -> &mut T {
+        self.inner.as_mut().expect("state guard already released")
+    }
+
     /// Queue a write for the end of the pass and request a repaint.
     ///
     /// This is the way out of "the loop borrows the state, so the handler

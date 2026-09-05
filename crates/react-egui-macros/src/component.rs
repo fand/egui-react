@@ -388,9 +388,19 @@ fn builder_attr_for(prop: &Prop) -> Option<TokenStream> {
         None if is_option(&prop.ty) => parts.push(quote!(default)),
         None => {}
     }
+
+    let mut setter: Vec<TokenStream> = Vec::new();
     if prop.attr.into {
-        parts.push(quote!(setter(into)));
+        setter.push(quote!(into));
     }
+    // An `Option<T>` prop is written `hint="x"`, not `hint={Some("x")}`.
+    if is_option(&prop.ty) {
+        setter.push(quote!(strip_option));
+    }
+    if !setter.is_empty() {
+        parts.push(quote!(setter(#(#setter),*)));
+    }
+
     (!parts.is_empty()).then(|| quote! { #[builder(#(#parts),*)] })
 }
 
