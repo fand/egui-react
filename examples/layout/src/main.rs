@@ -25,11 +25,10 @@ fn Section(cx: &mut Cx, title: &str, children: impl View) {
 /// A coloured box, so the layout is visible.
 #[component]
 fn Chip(cx: &mut Cx, #[prop(default)] style: ItemStyle, label: &str) {
-    // `style=` and the shorthand attributes both fill the same prop, so the
-    // padding is added to the caller's style here instead of as `p={6}`.
-    let style = style.p(6);
     rsx! {
-        <View style={style}>
+        // The shorthand attributes chain onto whatever `style=` passed in, so a
+        // wrapper can take its caller's layout and add to it.
+        <View style={style} p={6}>
             <Text>{label}</Text>
         </View>
     }

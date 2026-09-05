@@ -542,6 +542,41 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 - **4.1** ルート閉包の `cx` は実質使わないので、examples と README は `|_cx| rsx!{ <App/> }` と書く。シグネチャは計画どおり `FnMut(&mut Cx) -> V` のまま残した。
 - **3.2 の変更** `TextEdit` の `on_submit` のペイロードを `()` から `String` に変え、`clear_on_submit: bool` を足した。`bind` が `&mut String` を握っている間は、同じ要素のハンドラから同じ state を触れない(E0499)。todo の「Enter で追加して入力欄を空にする」が書けなくなるので、テキストはイベントのペイロードで渡し、クリアは要素の仕事にした。
 - **4.3** todo は `use_persisted("todos", ..)` を真の保存先とし、`use_reducer` の state はそのコピーとして扱う。パスの先頭で差があれば書き戻す(毎パス無条件に書くと dirty が立ち続けてアイドルにならない)。チェックボックスは `todos` がループに借用されているのでスクラッチのコピーに bind し、実際の変更は `Dispatch` を通す。
-- **4.3** `style={..}` とレイアウト短縮属性(`p={6}` など)を同じ要素に書くと typed-builder の "Repeated field style" でコンパイルエラーになる。examples/layout の `Chip` は `style.p(6)` と Rust 側で足している。
+- **2.3(仕上げ)** `style={expr}` とレイアウト短縮属性は同じ `style` prop を埋めるので、`rsx!` が 1 つの `.style(..)` にまとめるようにした。両方あれば `style=` の式を起点に短縮属性を繋ぐ(`<Chip style={style} p={6}/>` → `.style((style).p(6))`)。`style: ItemStyle` を受け取るラッパーが呼び出し元のレイアウトを受けて自分の分を足せる。examples/layout の `Chip` とテスト `layout::style_and_shorthand_attributes_are_merged` がこの形。ARCHITECTURE.md 6 に追記した。
 - **4.5** スナップショットの CI ステップは入れない(上記 4.5)。wasm の check は `--workspace` に広げ、`jetli/trunk-action` で `trunk build --release examples/counter/index.html` を足した。
 - **その他** `examples/spike` を削除し、`counter` / `todo` / `layout` を追加した。それぞれ `index.html` と `Trunk.toml` を持つ。
+
+### 後続 PR への持ち越し
+
+- `use_persisted` と `use_reducer` を 1 つにした `use_persisted_reducer(cx, key, reducer, init)`。今は todo が「永続スロットとリデューサの state を毎パス突き合わせる」形になっており、ここだけ書き心地が落ちる。
+- `use_persisted` の wasm(localStorage)経路の自動テスト。native の `Storage` 相当でしかテストしていない。
+- `App::save` は毎回すべての永続キーを直列化する。値が大きくなるならスロットに dirty フラグを持たせる。
+
+## 9. PR 本文の材料
+
+### フェーズごとの成果
+
+| フェーズ | やったこと |
+|---|---|
+| 2(core hooks) | `View` trait と `view()`、`layout`(`Length` / `ItemStyle` / `ContainerStyle` / 各 enum の `From<&str>`)、`Cx` の `Surface`(Ui / Taffy)と `ui()` / `leaf` / `container` / `defer`、`use_memo`(`&'s T`)、`dispatch.rs` と `use_reducer`、遅延キュー(`defer` / `update_later`)、Id 衝突のオーバーレイ。テスト 2-1 〜 2-7 + `layout.rs`。 |
+| 3(マクロ) | `#[hook]`、`#[component]`(Props 構造体 + typed-builder、イベント enum、`Emitter`、末尾式の `View::show` 書き換え)、`rsx!`(rstml + `if` / `for` / `match` のカスタムノード、属性の振り分け、融合イベント閉包)、`__private`(`Props` / `props_builder`)、trybuild 9 本。spike の 10 本をマクロ版で通した。 |
+| 4(elements) | `react-egui-elements`: `View` / `Text`、ウィジェット 8 種、コンテナ 10 種、`prelude`。テスト 4-1 〜 4-5 とスナップショット 5 枚。`#[component(shares_ui)]`(フェーズ 5 で追加)で `Panel` / `CentralPanel` / `Row` を親の `Ui` に描く。 |
+| 5(ランナー) | `use_persisted` と `Store` の永続化、`react-egui-app::run(Options, root)`(native / wasm)、examples `counter` / `todo` / `layout`(`index.html` + `Trunk.toml`)、README の使い方と Testing、CI の wasm 全体 check と trunk ビルド。`examples/spike` を削除。 |
+
+### ARCHITECTURE.md の変更点
+
+- **3.1** `Cx` は `ui` フィールドではなく `ui()` メソッド。`Surface`(Ui / Taffy)、`leaf` / `container` / `root_container` / `defer` / `scope_sharing_ui` を持つ。メソッド表を追加。
+- **3.2** `View` の impl 一覧を `()` / `&str` / `String` / `Option` / `Vec` / 配列 / 閉包に改めた(`IntoIterator` の blanket impl は coherence で不可)。`rsx!` は `view(|cx| ..)` を emit する。`#[allow(clippy::redundant_closure_call)]` は不要。`rsx!` の中で書けるもの(属性、`children` の渡り方)を明記。
+- **3.3** Props は typed-builder。`Option<T>` と `#[prop(default)]` が省略可能で、`Option<T>` の setter は `strip_option`。`children` は必ず存在する。本体の末尾式は `View::show(tail, cx)` に書き換わる。`props_builder(&Name)` による型推論。`#[component(shares_ui)]` と `Props::SHARES_UI` / `enter_scope`。
+- **3.4** 衝突オーバーレイの実装(`warn_on_collision`、`Order::Debug` の `Area`、文面)。
+- **3.6** `Emitter<'a, 'e, E, A>` はペイロード型と variant コンストラクタを持つ。`events` は `Option<&mut dyn FnMut(E)>` で省略時は no-op。イベント enum のジェネリクスは実際に使う分だけ。`on_*` を書く場所には enum 名の import が要る。
+- **3.7** `update_later` の閉包は `'static`(`move`)。
+- **4** `use_reducer` のメッセージは次の訪問時に適用(理由付き)。`use_memo` の `&'s T` と `FrozenVec`。`use_persisted` はキーのみで識別し、eframe `Storage` の 1 キーに JSON でまとめる。遅延キューの行を更新。
+- **5.4 / 5.5** パス末の順序を「遅延キュー → sweep → オーバーレイ」に。`Dispatch` は遅延キューに入らない。
+- **5.6** `State::bind()` は dirty を立てない(bind 系ウィジェットが毎フレーム repaint を要求しないため)。
+- **6** `leaf` / `container` の挙動、レイアウト属性一覧(`Length` の単位、`ItemStyle` / `ContainerStyle`、enum の `From<&str>`、`style=` と短縮属性のマージ)、要素一覧の表、egui-native コンテナが Taffy モードでは leaf になること、パネルと `Row` が `shares_ui` である理由。
+- **7** `react-egui` が `egui_taffy` / `typed-builder` / `serde` に依存する。`run(Options, |_cx| rsx!{ <App/> })` の 1 フレームの流れと `Options` の中身。
+
+### 落としたもの
+
+- スナップショットテストの CI ステップ。コミット済みの画像は macOS のレンダラで生成しており、GitHub Actions の Linux ソフトウェアレンダラとは一致しないため。feature `snapshot` の裏に残し、ローカルでの回し方を README の Testing 節に書いた(task.md の終了条件と決めごとも更新済み)。

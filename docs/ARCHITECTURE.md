@@ -308,7 +308,8 @@ egui 標準のコンテナのうち、親から場所を切り取るもの(`Pane
 `react_egui::layout` に置く。taffy の型は `egui_taffy::taffy` を `react_egui::taffy` として re-export したものを使う。
 
 - `Length`: `Px(f32)` / `Percent(f32)`(taffy と同じく 0.0〜1.0 の割合)/ `Auto`。`From<f32>` と `From<i32>` は `Px`、`From<&str>` は `"auto"` / `"50%"` / `"12px"` / `"12"` をパースし、それ以外は panic する。
-- `ItemStyle`: 全要素が共通で受け付ける item 側の属性。`w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl`。setter は `impl Into<Length>` を取るので `rsx!` は数値リテラルも文字列リテラルもそのまま渡せる。`m` / `p` の短縮形は「全体 → `x` / `y` → 各辺」の順で、より具体的な指定が勝つ。`to_taffy()` で `taffy::Style` になる。
+- `ItemStyle`: 全要素が共通で受け付ける item 側の属性。`w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl col_span row_span`。setter は `impl Into<Length>` を取るので `rsx!` は数値リテラルも文字列リテラルもそのまま渡せる。`m` / `p` の短縮形は「全体 → `x` / `y` → 各辺」の順で、より具体的な指定が勝つ。`to_taffy()` で `taffy::Style` になる。
+- 短縮属性と `style={expr}` は同じ `style` prop を埋めるので、`rsx!` は 1 つの `.style(..)` にまとめる。両方あれば `style=` の式を起点に短縮属性を繋ぐ(`<Chip style={style} p={6}/>` は `.style((style).p(6))`)。これにより、`style: ItemStyle` を受け取るラッパーコンポーネントが呼び出し元のレイアウトをそのまま受けて自分の分を足せる。
 - `ContainerStyle`: `<View>` が受け付ける親側の属性。`display direction wrap justify align align_content gap cols`。`merge(&ItemStyle)` で item 側と合わせた 1 つの `taffy::Style` を作る(taffy のノードは自分の item 属性と子への container 属性を 1 つの `Style` に持つため)。`display="grid"` のときだけ `cols` が等幅カラムになる。
 - `Direction` / `Justify` / `Align`(= `AlignSelf`)/ `Display` は enum で、`From<&str>` が CSS 綴り(`"row"`, `"space-between"`, `"center"`, `"grid"` など)をパースする。不正な文字列は候補を並べて panic する。`Justify` と `Align` は既定値 `Normal` を持ち、これは「未指定」を意味して taffy 側では `None` になる。`Option<Justify>` に `From<&str>` を実装することは orphan rule で不可能なので、Option ではなく `Normal` variant で「未指定」を表す。
 

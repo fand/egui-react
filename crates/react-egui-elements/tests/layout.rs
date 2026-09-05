@@ -246,3 +246,44 @@ fn text_extends_instead_of_wrapping() {
         "wrap makes it taller: {extended:?} {wrapped:?}"
     );
 }
+
+/// A wrapper component takes its caller's `ItemStyle` through `style=` and adds
+/// to it with the shorthand attributes; `rsx!` chains the two into one call.
+#[component]
+fn Chip(cx: &mut Cx, #[prop(default)] style: ItemStyle, label: &str) {
+    rsx! {
+        <View style={style} p={10.0}>
+            <Text>{label}</Text>
+        </View>
+    }
+}
+
+#[test]
+fn style_and_shorthand_attributes_are_merged() {
+    let harness = harness_for(|cx| {
+        rsx! {
+            <View direction="row">
+                // `w` reaches `Chip`'s `style` prop, and `Chip` adds `p` to it.
+                <Chip w={160.0} label="wide"/>
+                <Chip label="plain"/>
+                <Text>"tail"</Text>
+            </View>
+        }
+        .show(cx);
+    });
+
+    let wide = harness.get_by_label("wide").rect();
+    let plain = harness.get_by_label("plain").rect();
+    let tail = harness.get_by_label("tail").rect();
+
+    // The caller's `w={160.0}` survived: the next chip starts a full 160pt in.
+    assert!(
+        plain.left() - wide.left() > 140.0,
+        "the first chip is 160pt wide: {wide:?} {plain:?}"
+    );
+    // ...and the callee's `p={10.0}` is applied to both of them.
+    assert!(
+        wide.left() > 15.0 && plain.left() - tail.left() < -15.0,
+        "p={{10}} pads the text inside each chip: {wide:?} {plain:?} {tail:?}"
+    );
+}

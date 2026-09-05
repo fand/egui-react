@@ -233,6 +233,8 @@ struct Attributes {
     setters: Vec<(syn::Ident, TokenStream)>,
     /// `(ItemStyle setter name, value)`.
     layout: Vec<(syn::Ident, TokenStream)>,
+    /// `style={expr}`, the base the shorthand attributes build on.
+    style: Option<TokenStream>,
     /// `(event enum path, variant, handler)`.
     handlers: Vec<(syn::Path, syn::Ident, TokenStream)>,
     /// `events={..}`, the escape hatch.
@@ -295,6 +297,8 @@ impl Attributes {
 
             if text == "key" {
                 out.key = Some(syn::parse2(value)?);
+            } else if text == "style" {
+                out.style = Some(value);
             } else if text == "events" {
                 out.events = Some(value);
             } else if let Some(variant) = text.strip_prefix("on_") {
@@ -316,17 +320,22 @@ impl Attributes {
         Ok(out)
     }
 
-    /// `.style(ItemStyle::default().w(..)..)`, or nothing.
+    /// `.style(..)`, built from `style={expr}` and the shorthand attributes.
+    ///
+    /// Both fill the same prop, so the shorthand setters are chained onto
+    /// whatever `style=` gave: `<Chip style={style} p={6}/>` becomes
+    /// `.style((style).p(6))`. That is what lets a wrapper component take an
+    /// `ItemStyle` from its caller and still add to it.
     fn style_call(&self) -> Option<TokenStream> {
-        if self.layout.is_empty() {
-            return None;
-        }
+        let base = match &self.style {
+            Some(style) => quote!((#style)),
+            None if self.layout.is_empty() => return None,
+            None => quote!(::react_egui::layout::ItemStyle::default()),
+        };
         let setters = self.layout.iter().map(|(name, value)| {
             quote_spanned! { name.span() => .#name(#value) }
         });
-        Some(quote! {
-            .style(::react_egui::layout::ItemStyle::default() #(#setters)*)
-        })
+        Some(quote! { .style(#base #(#setters)*) })
     }
 
     /// `.events(&mut |ev| match ev { .. })`, or the escape hatch, or nothing.
