@@ -137,11 +137,15 @@ fn ready_reference_lives_next_to_a_state_guard() {
     harness.step();
     assert!(harness.query_by_label("loading").is_some());
 
+    // `wait_for_repaint` is no help here: the body asks for a repaint on every
+    // pass of its own accord. Step until the result lands instead.
     gates.complete(0, "value");
-    wait_for_repaint(&harness);
-
-    harness.step();
-    assert!(harness.query_by_label_contains("ready: value").is_some());
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while harness.query_by_label_contains("ready: value").is_none() {
+        assert!(Instant::now() < deadline, "the result never landed");
+        std::thread::sleep(Duration::from_millis(10));
+        harness.step();
+    }
 }
 
 #[test]
@@ -340,14 +344,18 @@ fn spawn_with_dispatch_lands() {
     harness.run();
     assert!(harness.query_by_label("count: 0").is_some());
 
-    // One frame to deliver the click and start the future; `run` would keep
-    // going until the message had already been applied.
+    // The click starts the future, which reports through `Dispatch`. Pointer
+    // input makes egui ask for repaints of its own, so `wait_for_repaint` says
+    // nothing here: run until the message has actually been applied. That
+    // `send` requests a repaint is pinned down by `reducer.rs`.
     harness.get_by_label("load").click();
     harness.step();
-    wait_for_repaint(&harness);
-
-    harness.run();
-    assert!(harness.query_by_label("count: 41").is_some());
+    let deadline = Instant::now() + Duration::from_secs(2);
+    while harness.query_by_label("count: 41").is_none() {
+        assert!(Instant::now() < deadline, "the dispatch never landed");
+        std::thread::sleep(Duration::from_millis(10));
+        harness.run();
+    }
 }
 
 #[test]

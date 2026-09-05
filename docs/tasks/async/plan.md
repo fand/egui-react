@@ -317,6 +317,15 @@ fn Response(cx: &mut Cx, url: &str, attempt: u32) {
 - **3.1 テスト 6-8** `spawn` はハンドラ(ボタン)から呼ぶ。クリック後は `run()` ではなく `step()` で 1 フレームだけ進める(`run()` はメッセージが届いて適用され切るまで回ってしまい、repaint 要求を観測できない)。
 - **6 章 ARCHITECTURE.md** 4 章の `use_future` の詳細に、`Store` の suspense カウンタ(2.1)の置き方を 1 文だけ入れた。5.8 が入るまで参照先が無いため。
 
+### 手順 2
+
+- **2.2** オフスクリーンの矩形は `Rect::from_min_size` が const fn ではないので、`Rect { min, max }` のリテラルで書いた(`egui::pos2` は const fn)。値はプランどおり `(-1.0e5, -1.0e5)` から 4096x4096。
+- **2.2** プランの `let pending = store.end_suspense(); if pending == 0 { .. }` は `if store.end_suspense() == 0 { .. }` に畳んだ。中身は同じ。
+- **2.2 / 3.2 テスト** egui はウィジェットの accessibility ノードを可視性と無関係に作るので、suspended 中の children も `egui_kittest` の `query_by_label` から見える(座標は画面外の `-100000`)。「children のラベルが見つからない」ではテストできないため、テスト側に `shows(harness, label)`(ノードがあり、かつ矩形が画面内)を置き、6-10 / 6-11 / 6-12 / 6-13 / 6-14 / 6-15 / 6-16 の可視判定をこれに寄せた。`request_discard` による切り替えと `invisible()` による操作の無効化はそのまま効いている(6-12 / 6-16 が緑)。ARCHITECTURE.md 5.8 にこの制限を明記した。egui 側に「不可視の `Ui` の accessibility ノードを作らない」入口が無く、`Context::disable_accesskit` はパス開始時にしか効かないので、回避策は無い。
+- **3.2 テスト 6-16** suspended 中の children はオフスクリーンなので、kittest の `Node::click`(ノード中心をクリック)では位置を取れない。可視の時のボタンの矩形を覚えておき、`Harness::hover_at` / `drag_at` / `drop_at` で同じ座標を直接クリックする形にした。可視の時に同じ helper でクリックが通ることを先に assert してあるので、空振りではない。
+- **3.2 テスト** プラン 8 の懸念(オフスクリーン `Ui` と egui_taffy が毎パス `request_discard` する)は起きなかった。`sizing_pass()` を外す必要も、`ui.new_child` に切り替える必要も無かった。6-15 も `shares_ui` のまま通り、`<View direction="row" w={300}>` の中で `<Suspense>` の子 `<Text grow={1.0}>` が行を埋め、隣の `"end"` が右端(left = 285)に寄る。
+- **3.1 テストの手直し(手順 1 のフレーク修正)** `spawn_with_dispatch_lands` と `ready_reference_lives_next_to_a_state_guard` は `wait_for_repaint` に頼れないことが分かった。前者はポインタ入力の後に egui 自身が repaint を要求し、後者は本体が毎パス state を書くので、どちらも `has_requested_repaint` が結果と無関係に立つ。表示が変わるまで `run` / `step` を繰り返す形に変えた(タイムアウト 2 秒)。両テストのバイナリを 80 回ずつ回して緑。
+
 ## 10. PR 本文の材料
 
 (実装中に書く)

@@ -242,7 +242,7 @@ Dialog(cx, DialogProps {
 - 起動の直後は `Pending` を返すだけで受信を試みない。その場で完了していても次のフレームで拾う(完了時に `request_repaint` が飛ぶので取りこぼさない)。同一フレームの 2 パス目は deps が一致するので起動せず、受信を試みるだけである。
 - deps を変えて future を作り直すのは訪問時。走っている古い future は止められないので完走するが、結果は世代不一致で捨てられる。訪問の前に「新しい方 → 古い方」の順で両方が届くと古い方が新しい結果を上書きしてしまうので、future 側の書き込みを「セルが空か、入っている世代より新しい時だけ」に限る。
 - unmount では 2 つのスロットが sweep で落ちる。走っている future は `Arc` の自分の側を持っているので書き込みは成功し、`request_repaint` が 1 回余分に飛ぶ。次のフレームで誰も読まず、`Arc` の最後の参照が future の終了と共に消える。
-- `Pending` を返す直前に `Store::note_pending()` を呼び、最も近い `<Suspense>` 境界のカウンタを +1 する。`Store` は `provide_context` のスタックと同じ形で `Vec<usize>` を持ち、`begin_suspense` / `end_suspense` が境界の出入りで push / pop する(`begin_pass` で clear)。境界が無ければ `note_pending` は何もしない。境界そのもの(`<Suspense>` 要素)は elements 側にある。
+- `Pending` を返す直前に `Store::note_pending()` を呼び、最も近い `<Suspense>` 境界のカウンタを +1 する(5.8)。境界が無ければ何もしない。
 - 子コンポーネントの書き方は `let Poll::Ready(x) = use_future(..) else { return };`。React の throw の代わりで、境界が fallback を描く。
 
 ## 5. ランタイム
@@ -286,6 +286,18 @@ egui_taffy はレイアウト変化時に `request_discard` を呼び、同一�
 
 ハンドラや effect が state を書き換えると、同じコンポーネント内でそれより前に描かれたウィジェットには次フレームで反映される。これは egui アプリの通常の性質で、React の「setState は次レンダで反映」に対応する差異として明示する。
 
+### 5.8 Suspense
+
+`<Suspense fallback={..}>children</Suspense>`(6 章、`react-egui-elements`)は、中の `use_future` が 1 つでも `Pending` なら children の代わりに `fallback` を描く。React の throw に当たるものが Rust には無いので、子は `let Poll::Ready(x) = use_future(..) else { return };` で抜け、`Pending` の数を `Store` のカウンタで数える。
+
+- **カウンタのスタック** `Store` は `provide_context` と同じ形で `RefCell<Vec<usize>>` を持つ。`begin_suspense` が 0 を積み、`end_suspense` が積んだ数(= 中で `Pending` だった `use_future` の数)を返し、`note_pending` が最も近い(= 一番内側の)カウンタを +1 する。入れ子は内側が自分の分を消費するので、外側には数えられない。スタックは `begin_pass` で clear する。core に足すのはこの 3 メソッドだけで、境界そのものは elements にある(`Collapsing` と同じ「子を包む要素」)。
+- **初期状態は suspended** 初回はオフスクリーンに描いてから、`Pending` が無ければ可視に切り替える。`max_passes` を使い切って `request_discard` が却下された時に、描きかけの children ではなく `fallback` が見える側に倒すためである。
+- **suspended 中も children は描く** オフスクリーンの不可視 `Ui`(`egui::Ui::new(ctx, id, UiBuilder::new().max_rect(画面外の固定矩形).invisible().sizing_pass())`)に描く。hooks が走り、future が起動して完了する。矩形を固定値にしてあるのは、egui_taffy が毎パス同じ大きさを見て無駄な `request_discard` を出さないようにするため。`invisible()` は描画と操作の両方を無効にするので、children のハンドラはオフスクリーンでは発火しない。ただし egui はウィジェットの accessibility ノードを可視性に関係なく作るので、スクリーンリーダーと `egui_kittest` からは suspended 中の children も「画面外の座標にあるノード」として見える。
+- **children のスコープ** suspended / 可視のどちらでも `Suspense` 自身の `scope_id()` を使う(`Cx::new(store, &mut ui, scope)` の第 3 引数)。hook のスロットが両経路で同じ Id になることが、切り替えで state と future が保たれる根拠である。`fallback` は同じ `cx` に描くが、`rsx!` の要素 Id は行・列で分かれるので children と衝突しない。
+- **切り替えは同一フレーム** 切り替えの瞬間に `Handle::set` で状態を反転し、`request_discard` で同じフレームをやり直す。描きかけの children も、fallback から children への 1 フレームの隙間も見えない。`Handle::set` は `request_repaint` するが、呼ぶのは切り替えの時だけなので suspended のまま毎フレーム repaint することはない。`max_passes`(ランナー既定 3)を使い切って discard が却下された場合は、ランナーが `request_repaint` して次フレームで揃う。
+- **`shares_ui`** `Suspense` は自分の `Ui` / leaf を作らず、children と fallback を親の surface(Ui でも Taffy でも)にそのまま流す。`<View>` の中に置けば children の `<View>` は親の taffy ツリーの子になる。
+- **React との差** suspended 中の children の `use_effect` は走る(React は commit しないので走らない)。React の `SuspenseList` / `useTransition` に当たるものは持たない。
+
 ## 6. レイアウト
 
 Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、egui 0.36、taffy 0.9 対応)。React Native と同じく「`<View>` が taffy ノード、egui ウィジェットは leaf」とする。
@@ -312,10 +324,11 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 | レイアウト | `View`(`display` / `direction` / `wrap` / `justify` / `align` / `align_content` / `gap` / `cols`)、`Text`(`size` / `color` / `strong` / `wrap`) |
 | ウィジェット | `Button`(`enabled`, `on_click`)、`Label`、`TextEdit`(`bind` / `multiline` / `hint` / `desired_width`, `on_change` / `on_submit`)、`Checkbox`(`bind` / `label`, `on_change`)、`Slider<T: Numeric>`(`bind` / `range` / `label`, `on_change`)、`ComboBox`(`bind` / `options` / `label`, `on_change`)、`Image`(`source` / `fit`)、`Separator`(`vertical`) |
 | コンテナ | `ScrollArea`、`Collapsing`、`Frame`、`Window`、`Panel`(`side`)、`CentralPanel`、`Vertical`、`Horizontal`、`Grid` + `row()` |
+| 非同期 | `Suspense`(`fallback: impl View`、`shares_ui`。中の `use_future` が 1 つでも `Pending` なら children の代わりに `fallback` を描く。5.8) |
 
 `bind` を持つ要素はウィジェットが直接 state に書き込むので、`State::bind()` を通す。これは `&mut *state` と違って state を dirty にしない(5.6)。同じ state を触るハンドラを同じ要素に渡すと E0502 になるので、`bind` 要素の `on_change` はログや `Dispatch` のように別の場所へ通知する用途に限る。
 
-egui 標準のコンテナのうち、親から場所を切り取るもの(`Panel` / `CentralPanel`)と、親の `Ui` に依存するもの(`Grid` の行区切り)は、`rsx!` が要素ごとに `Ui::push_id` で子 `Ui` を作ることの影響を受ける。行区切りは要素ではなく `{row()}`(`{expr}` ノードはスコープされない)として提供する。ドッキングされたパネルは自分の子 `Ui` から場所を切り取るので、兄弟要素として並べても左右には並ばない。パネルはアプリのルート(フェーズ 5 のランナー)で使うことを想定する。
+egui 標準のコンテナのうち、親から場所を切り取るもの(`Panel` / `CentralPanel`)と、親の `Ui` に依存するもの(`Grid` の行区切り)は、`rsx!` が要素ごとに `Ui::push_id` で子 `Ui` を作ることの影響を受ける。行区切りは要素ではなく `{row()}`(`{expr}` ノードはスコープされない)として提供する。ドッキングされたパネルは自分の子 `Ui` から場所を切り取るので、兄弟要素として並べても左右には並ばない。パネルはアプリのルート(フェーズ 5 のランナー)で使うことを想定する。これらは `#[component(shares_ui)]` を付けて親の surface をそのまま引き継ぐ。`Suspense` も同じ理由で `shares_ui` である。自分では何も描かず children と `fallback` を親にそのまま流すので、`<View>` の中に置けば children が親の taffy ツリーの子になる。
 
 ### レイアウト属性
 
@@ -396,3 +409,4 @@ egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut 
 | 値 prop とハンドラの借用衝突 | ユーザーが clone か `update_later` | `rsx!` が暗黙に clone | 型情報なしに clone を挿入できず、ゼロコピーを既定にしたい |
 | future の executor | スレッド 1 本 + `pollster` | tokio を必須にする | 依存が小さく、待つだけの future に十分。tokio が要るアプリは future の中で `Handle::current()` を使えばよい |
 | 非同期の結果の表現 | `std::task::Poll<T>` | 独自の `Loading` / `Ready` / `Error` enum | std にあり、エラーは `T = Result<..>` で表せる。状態の種類を増やさない |
+| Suspense の実現 | オフスクリーン描画 + カウンタ + `request_discard` | panic / `catch_unwind` による巻き戻し | Rust に安価な巻き戻しが無い。子は let-else 1 行で抜けられる |
