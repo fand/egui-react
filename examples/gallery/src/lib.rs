@@ -11,9 +11,16 @@ use example_meta::Meta;
 use react_egui::prelude::*;
 use react_egui_elements::prelude::*;
 
+use clock::App as ClockApp;
 use counter::App as CounterApp;
+use custom_hook::App as CustomHookApp;
+use escape_hatch::App as EscapeHatchApp;
 use fetch::App as FetchApp;
+use form::App as FormApp;
 use layout::App as LayoutApp;
+use list_10k::App as ListApp;
+use showcase::App as ShowcaseApp;
+use theme::App as ThemeApp;
 use todo::App as TodoApp;
 
 /// Every example the gallery can run, in list order.
@@ -22,7 +29,19 @@ use todo::App as TodoApp;
 /// [`Running`] needs to know the concrete `App` behind a name, because each
 /// `#[component]` has a props type of its own and they cannot share a `fn`
 /// pointer.
-pub const EXAMPLES: &[Meta] = &[counter::META, todo::META, layout::META, fetch::META];
+pub const EXAMPLES: &[Meta] = &[
+    showcase::META,
+    counter::META,
+    todo::META,
+    form::META,
+    theme::META,
+    clock::META,
+    custom_hook::META,
+    escape_hatch::META,
+    list_10k::META,
+    layout::META,
+    fetch::META,
+];
 
 /// Where the source links point.
 const REPO: &str = "https://github.com/fand/react-egui/blob/main/examples";
@@ -188,15 +207,27 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
         if plain {
             match name {
                 "todo" => { <TodoPlain/> }
+                "form" => { <FormPlain/> }
+                "list-10k" => { <ListPlain/> }
                 "layout" => { <LayoutPlain/> }
                 _ => { <CounterPlain/> }
             }
         } else {
             match name {
+                "counter" => { <CounterApp/> }
                 "todo" => { <TodoApp/> }
+                "form" => { <FormApp/> }
+                "theme" => { <ThemeApp/> }
+                "clock" => { <ClockApp/> }
+                "custom-hook" => { <CustomHookApp/> }
+                "escape-hatch" => { <EscapeHatchApp/> }
+                // A thousand, not the ten thousand the binary opens with: at
+                // 10k a frame takes ~85ms, and the gallery around it would
+                // crawl too. The slider still reaches 10k for anyone curious.
+                "list-10k" => { <ListApp initial_count={1_000}/> }
                 "layout" => { <LayoutApp/> }
                 "fetch" => { <FetchApp/> }
-                _ => { <CounterApp/> }
+                _ => { <ShowcaseApp/> }
             }
         }
     }
@@ -227,6 +258,18 @@ macro_rules! plain_example {
 
 plain_example!(CounterPlain, counter::plain);
 plain_example!(TodoPlain, todo::plain);
+plain_example!(FormPlain, form::plain);
+
+/// The plain list, written out rather than through [`plain_example!`], so both
+/// versions show the same number of rows and the comparison is fair. The
+/// virtualised one would not have minded ten thousand.
+#[component]
+fn ListPlain(cx: &mut Cx) {
+    let mut state = use_state(cx, || list_10k::plain::PlainState::with_count(1_000));
+    cx.leaf_fill(&ItemStyle::default().grow(1.0), |ui| {
+        list_10k::plain::ui(ui, state.bind());
+    });
+}
 plain_example!(LayoutPlain, layout::plain);
 
 /// The code column, and the toggle between the two versions.

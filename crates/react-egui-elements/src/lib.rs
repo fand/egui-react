@@ -20,6 +20,7 @@
 pub mod containers;
 pub mod suspense;
 pub mod view;
+pub mod virtual_list;
 pub mod widgets;
 
 /// Every element and every generated event enum, in one `use`.
@@ -33,6 +34,7 @@ pub mod prelude {
     };
     pub use crate::suspense::Suspense;
     pub use crate::view::{Text, View};
+    pub use crate::virtual_list::VirtualList;
     pub use crate::widgets::{
         Button, ButtonEvent, Checkbox, CheckboxEvent, ComboBox, ComboBoxEvent, Image, Label,
         Separator, Slider, SliderEvent, TextEdit, TextEditEvent,

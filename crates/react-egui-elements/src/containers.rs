@@ -136,12 +136,19 @@ pub fn Frame(
 /// A window is anchored to the [`egui::Context`], not to the surrounding
 /// layout, so it takes no space in its parent even inside a `<View>`. Setting
 /// `open` to `false` stops drawing the children, which unmounts their hooks.
+///
+/// `default_pos` and `default_size` apply on the first frame only; after that
+/// the window keeps wherever the user dragged it. Without a `default_pos` egui
+/// opens it in the top-left corner, over whatever is there.
 #[component]
+#[allow(clippy::too_many_arguments)]
 pub fn Window(
     cx: &mut Cx,
     title: &str,
     open: Option<&mut bool>,
     #[prop(default = true)] resizable: bool,
+    default_pos: Option<egui::Pos2>,
+    default_size: Option<egui::Vec2>,
     children: impl View,
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
@@ -150,17 +157,35 @@ pub fn Window(
     if let Some(open) = open {
         window = window.open(open);
     }
+    // Only the first frame: after that the window remembers where the user put
+    // it, which is the whole point of a floating window.
+    if let Some(pos) = default_pos {
+        window = window.default_pos(pos);
+    }
+    if let Some(size) = default_size {
+        window = window.default_size(size);
+    }
     window.show(&ctx, move |ui| {
         let mut cx = Cx::new(store, ui, scope);
         children.show(&mut cx);
     });
 }
 
-/// A panel docked to one edge of the surrounding `Ui`.
+/// A panel docked to one edge.
 ///
-/// `shares_ui`, because a docked panel carves its space out of the `Ui` its
-/// siblings are drawn into. Without that, `<Panel/>` followed by
-/// `<CentralPanel/>` would stack instead of docking.
+/// **Which edge**: a panel docks in the nearest enclosing egui `Ui` — the one
+/// the current taffy tree was started in. Any `<View>`s between that `Ui` and
+/// the panel are skipped. Under the runner that `Ui` is the window, which is
+/// what "panels belong at the app root" has always meant, and it is why a
+/// `<Panel>` written inside a `<View>` jumps out to the tree's edge rather than
+/// taking a slice of the row it was written in. That is the consequence of
+/// docking, not a bug: carving a taffy node would put the panel inside its own
+/// little box, where four sibling panels would all draw at the same corner.
+///
+/// `shares_ui` for the same reason: a docked panel carves space out of the `Ui`
+/// its siblings are drawn into, so it must not be given a child `Ui` of its
+/// own. Without it, `<Panel/>` followed by `<CentralPanel/>` would stack
+/// instead of docking.
 #[component(shares_ui)]
 pub fn Panel(
     cx: &mut Cx,
@@ -171,7 +196,7 @@ pub fn Panel(
     children: impl View,
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
-    cx.leaf(&style, move |ui| {
+    let show = move |ui: &mut egui::Ui| {
         let mut panel = match side {
             Side::Left => egui::Panel::left(scope),
             Side::Right => egui::Panel::right(scope),
@@ -186,19 +211,36 @@ pub fn Panel(
             let mut cx = Cx::new(store, ui, scope);
             children.show(&mut cx);
         });
-    });
+    };
+
+    if cx.in_taffy() {
+        // The tree's own `Ui`, not a node of it. `style` is ignored here: a
+        // docked panel's size is `default_size` and the drag handle, not a
+        // taffy attribute.
+        show(cx.ui());
+    } else {
+        cx.leaf(&style, show);
+    }
 }
 
 /// The panel that takes whatever space the docked panels left over.
+///
+/// Docks in the same `Ui` as [`Panel`], for the same reasons.
 #[component(shares_ui)]
 pub fn CentralPanel(cx: &mut Cx, #[prop(default)] style: ItemStyle, children: impl View) {
     let (store, scope) = (cx.store, cx.scope_id());
-    cx.leaf(&style, move |ui| {
+    let show = move |ui: &mut egui::Ui| {
         egui::CentralPanel::default().show(ui, move |ui| {
             let mut cx = Cx::new(store, ui, scope);
             children.show(&mut cx);
         });
-    });
+    };
+
+    if cx.in_taffy() {
+        show(cx.ui());
+    } else {
+        cx.leaf(&style, show);
+    }
 }
 
 /// egui's own vertical layout, as an escape hatch from taffy.

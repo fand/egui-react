@@ -1,0 +1,34 @@
+[package]
+name = "shell"
+description = "react-egui example: shell"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "shell"
+path = "src/lib.rs"
+
+[[bin]]
+name = "shell"
+path = "src/main.rs"
+
+[features]
+# Pixel snapshots, as in the gallery: a GPU (or a software Vulkan driver)
+# through `egui_kittest`'s wgpu renderer. `shell` keeps its own because it is
+# not in the gallery — it uses `Panel`.
+snapshot = ["egui_kittest/snapshot", "egui_kittest/wgpu"]
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+react-egui.workspace = true
+react-egui-app.workspace = true
+react-egui-elements.workspace = true
+example-meta.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true

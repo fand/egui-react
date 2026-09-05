@@ -38,8 +38,8 @@ fn selecting_an_example_runs_it() {
     let mut harness = harness();
     harness.run();
 
-    // The first example is the default, and "reset" is one of its buttons.
-    assert!(harness.query_by_label("reset").is_some());
+    // `showcase` is the first example, and it opens on an empty notebook.
+    assert!(harness.query_by_label("no notes").is_some());
     assert!(harness.query_by_label("0 left").is_none());
 
     harness.get_by_label("todo").click();
@@ -47,9 +47,9 @@ fn selecting_an_example_runs_it() {
     harness.run();
     harness.run();
 
-    // The todo example is running, and counter's hooks went with its scope.
+    // The todo example is running, and showcase's hooks went with its scope.
     assert!(harness.query_by_label("0 left").is_some());
-    assert!(harness.query_by_label("reset").is_none());
+    assert!(harness.query_by_label("no notes").is_none());
 }
 
 /// A taffy leaf is measured from its first draw, which happens in a zero-width
@@ -70,7 +70,7 @@ fn a_tag_narrows_the_list() {
     let mut harness = harness();
     harness.run();
 
-    for name in ["counter", "todo", "layout", "fetch"] {
+    for name in ["showcase", "counter", "todo", "layout", "fetch"] {
         assert!(harness.query_by_label(name).is_some(), "{name} missing");
     }
 
@@ -84,14 +84,14 @@ fn a_tag_narrows_the_list() {
     harness.run();
 
     assert!(harness.query_by_label("fetch").is_some());
-    for name in ["counter", "todo", "layout"] {
+    for name in ["showcase", "counter", "todo", "layout"] {
         assert!(
             harness.query_by_label(name).is_none(),
             "{name} not filtered"
         );
     }
     // Filtering the list does not change what is running.
-    assert!(harness.query_by_label("reset").is_some());
+    assert!(harness.query_by_label("no notes").is_some());
 
     harness.get_by_label("clear").click();
     harness.run();
@@ -141,8 +141,13 @@ fn the_toggle_follows_the_example() {
     let mut harness = harness();
     harness.run();
 
-    // counter has a plain version, so both buttons are there and react-egui is
-    // the one that is on.
+    // `showcase` has no plain version, so there is no toggle to start with.
+    assert!(harness.query_by_label("plain egui").is_none());
+    harness.get_by_label("counter").click();
+    harness.run();
+    harness.run();
+
+    // counter has one, so both buttons are there and react-egui is the one on.
     assert!(toggled(&harness, "react-egui"));
     assert!(!toggled(&harness, "plain egui"));
 

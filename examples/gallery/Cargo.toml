@@ -31,9 +31,16 @@ react-egui-app.workspace = true
 react-egui-elements.workspace = true
 example-meta.workspace = true
 
+clock = { path = "../clock" }
 counter = { path = "../counter" }
+custom-hook = { path = "../custom-hook" }
+escape-hatch = { path = "../escape-hatch" }
 fetch = { path = "../fetch" }
+form = { path = "../form" }
 layout = { path = "../layout" }
+list-10k = { path = "../list-10k" }
+showcase = { path = "../showcase" }
+theme = { path = "../theme" }
 todo = { path = "../todo" }
 
 # `location.hash` is the deep link on the web; natively the first argument does

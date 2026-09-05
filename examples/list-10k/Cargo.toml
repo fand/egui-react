@@ -1,0 +1,32 @@
+[package]
+name = "list-10k"
+description = "react-egui example: list-10k"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "list_10k"
+path = "src/lib.rs"
+
+[[bin]]
+name = "list-10k"
+path = "src/main.rs"
+
+[[bin]]
+name = "list-10k-plain"
+path = "src/plain_main.rs"
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+react-egui.workspace = true
+react-egui-app.workspace = true
+react-egui-elements.workspace = true
+example-meta.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true
