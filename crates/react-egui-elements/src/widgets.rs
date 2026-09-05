@@ -74,6 +74,12 @@ pub fn TextEdit(
     #[event] on_change: (),
     #[event] on_submit: String,
 ) {
+    // Inside a `<View>` the node's width is taffy's decision (`w`, `grow`, or
+    // the space left over), and the widget should fill it. `egui::TextEdit`
+    // otherwise draws at its own 280pt default and leaves the rest of the node
+    // empty. An explicit `desired_width` still wins: that is what the prop is
+    // for. Outside taffy there is nothing to fill, so egui's default stands.
+    let fill = desired_width.is_none() && cx.in_taffy();
     let response = cx.leaf(&style, |ui| {
         let mut edit = if multiline {
             egui::TextEdit::multiline(bind)
@@ -85,6 +91,8 @@ pub fn TextEdit(
         }
         if let Some(width) = desired_width {
             edit = edit.desired_width(width);
+        } else if fill {
+            edit = edit.desired_width(ui.available_width());
         }
         ui.add(edit)
     });

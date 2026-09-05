@@ -290,3 +290,33 @@ fn a_label_in_a_taffy_leaf_stays_on_one_line() {
         assert!(rect.width() > rect.height(), "{label:?} wrapped: {rect:?}",);
     }
 }
+
+/// A leaf takes the width taffy gave it.
+///
+/// `egui::TextEdit` has a `desired_width` of its own (280pt by default) and
+/// would otherwise draw at that width inside a node twice the size, leaving a
+/// gap nobody asked for.
+#[test]
+fn a_growing_text_edit_fills_its_node() {
+    let mut harness = Harness::new_ui_state(
+        |ui, store: &mut Store| {
+            run_app(ui, store, |cx| {
+                rsx! {
+                    <View direction="row" w={400.0}>
+                        <TextEdit grow={1.0} bind={&mut String::new()}/>
+                    </View>
+                }
+                .show(cx);
+            });
+        },
+        Store::new(),
+    );
+
+    harness.run();
+    harness.run();
+    let rect = harness.get_by_role(egui::accesskit::Role::TextInput).rect();
+    assert!(
+        rect.width() > 380.0,
+        "the field did not fill its node: {rect:?}",
+    );
+}
