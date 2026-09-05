@@ -12,8 +12,8 @@ web(wasm)で動く react-egui アプリを、スクリーンリーダーとキ�
 |---|---|
 | egui → AccessKit ツリー | ある。`Context::enable_accesskit()` を呼ぶと毎フレーム `PlatformOutput.accesskit_update: Option<TreeUpdate>` に差分が出る。web でも動く |
 | AccessKit → OS(native) | ある。macOS / Windows / Unix(AT-SPI)/ Android。egui-winit が `enable_accesskit` を呼び、adapter に渡す |
-| AccessKit → DOM(web) | **無い**。AccessKit に web adapter が存在しない |
-| eframe web でツリーを受け取る口 | **無い**。`eframe/src/web/app_runner.rs` が `accesskit_update: _, // not currently implemented` と捨てている。`App::update` からは `FullOutput` に触れない |
+| AccessKit → DOM(web) | **リリース版は無い**。crates.io に `accesskit_web` は無く、`web-basics` ブランチに 2024-07 で止まった試作が 1 本あるだけ(plan.md 1.1)|
+| eframe web でツリーを受け取る口 | eframe には**無い**。`eframe/src/web/app_runner.rs` が `accesskit_update: _, // not currently implemented` と捨てており、`App` からは `FullOutput` に触れない。ただし **egui 0.36 の `Plugin::output_hook(&Context, &mut FullOutput)` から拾える**(plan.md 1.2)|
 | web の代替 | `web_screen_reader` feature(既定 on)。`Options.screen_reader = true` のときだけ、起きたイベントの説明文を `speechSynthesis` で読み上げる。ツリーもフォーカス移動も無い |
 | ツリーの保持 | `accesskit_consumer` が `TreeUpdate` を適用して歩ける(`Tree::new` / `update_and_process_changes`、`Node::role() / label() / value() / bounding_box() / is_focused()`)。kittest が同じ経路を使っている |
 | 逆方向 | 支援技術からの操作は `accesskit::ActionRequest`(Click / Focus / SetValue など)。egui は `Event::AccessKitActionRequest` として受け取って処理する |
