@@ -390,3 +390,41 @@ task.md の終了条件は 3 つある。この PR で満たせるのは 3 番�
 | ARCHITECTURE.md に web の a11y の現状と方針が書かれている | 手順 5(**この PR**) |
 
 ## 6. 実装で判明した差分
+
+手順 2〜5(main に入るラベル固め)を実装したときに分かったこと。
+
+### 6.1 `Button` の `label` は 3 章のとおり。`Image` の `alt` も同じ
+
+`ui.ctx().accesskit_node_builder(response.id, |node| node.set_label(label))` は egui 0.36.1 でそのまま通る(`Context::accesskit_node_builder(Id, impl FnOnce(&mut accesskit::Node) -> R) -> Option<R>`)。ウィジェットが自分のノードを書いた後に呼べば名前を上書きでき、accesskit が無効なら `None` が返るだけで何も起きない。描くものは変わらないので、生 egui 版と並べる example でもピクセルが動かない。
+
+### 6.2 名前を付けられないウィジェットが残った
+
+A-3(`examples/gallery/tests/a11y.rs`)を書いて全 example を走らせたところ、focusable で名前が空のノードが 13 個出た。**そのどれも、今の要素の API では「描くものを変えずに」名前を付けられない。**
+
+| 出たもの | なぜ付けられないか |
+|---|---|
+| `TextInput`(showcase / todo / form / custom-hook / list-10k) | `egui::TextEdit` は AccessKit ノードに label を一切書かない。`hint_text` は `PlatformOutput`(web screen reader 用の読み上げ文)に行くだけでノードには乗らない。`<TextEdit>` にも名前の prop が無い |
+| `form` の `CheckBox` ×2 / `Slider` / `SpinButton` / `ComboBox` | ラベルは隣の列(`<Field>`)が描いている。AccessKit ではこれは `labelled_by` 関係で、要素は `Response::labelled_by` を出していない。各要素が持つ `label` prop は**文字を描く**ので、名前が画面に 2 回出て、隣に並ぶ生 egui 版ともズレる |
+| `escape-hatch` の `ColorWell` | 生の `ui.color_edit_button_srgba`。egui が名前を付けていない |
+| `shader` の `Unknown` | `<Canvas>` の leaf。コントロールではなく描画面なので、canvas 一般の扱いを決めてからにする |
+
+そこで A-3 は「focusable で名前が空のノードが 0」ではなく、**この 13 個を `KNOWN_UNNAMED` として並べ、完全一致で比べる**形にした。名前の無いウィジェットが増えれば落ち、既知のものを直したときも(表から消し忘れれば)落ちる。リストは減る方向にしか動かない。
+
+続きとして要るもの。どちらも要素の API を増やす話なので、この PR には入れない。
+
+1. `<TextEdit>` に `Button` と同じ「描かない名前」を足す。上の 5 個が消える。
+2. `<Field>` のような「隣のラベル」を AccessKit に繋ぐ道(`Response::labelled_by` 相当)。form の 5 個が消える。
+
+### 6.3 `examples/todo` の行内チェックボックスは直せなかった
+
+2.5 で「実際の問題」と書いた場所。名前を与える唯一の口である `label` prop は文字を描くので、行の見た目が変わり、同じ絵と比べている生 egui 版(と `snapshot` の画像)とズレる。6.2 の 1 と同じ「描かない名前」が要る。なお既定の todo は空リストで始まるので、この行は A-3 のツリーには出てこない。
+
+`x` ボタン(2.5 のもう 1 つ)は `label="remove"` で直した。生 egui 版にも同じ名前を `accesskit_node_builder` で手で付けてある。両方を同じ手順で driving しているテストがラベルで引いているため、かつ「同じアプリ」であるべきだからである。`list-10k` の `x` も同じ。
+
+### 6.4 `+` / `-` はそのままにした
+
+counter と custom-hook のボタン。名前は空ではない(「プラス」「マイナス」と読まれる)し、隣に数が出ているので意味は通る。直すと生 egui 版と react-egui 版を同じ手順で driving しているテストが片方だけズレるため、費用の方が大きいと判断した。
+
+### 6.5 A-3 は `run` ではなく `run_steps(2)`
+
+`shader`(と `clock`)は毎フレーム再描画を要求するので、`Harness::run` が「4 ステップで落ち着かない」と panic する。`fetch` は描いた瞬間に本物の HTTP を投げるので、既存の `gallery.rs` と同じ理由で外してある。
