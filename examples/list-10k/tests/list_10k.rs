@@ -88,7 +88,7 @@ fn removing_a_row_shortens_the_list() {
     // `ScrollArea` is swallowed before it reaches the row, and the button never
     // fires. Asking accessibility to activate it works.
     harness
-        .get_all_by_label("x")
+        .get_all_by_label("remove")
         .next()
         .expect("a remove button")
         .click_accesskit();
@@ -133,7 +133,7 @@ fn virtualising_keeps_the_behaviour() {
     assert!(harness.query_by_label("showing 13").is_some());
 
     harness
-        .get_all_by_label("x")
+        .get_all_by_label("remove")
         .next()
         .expect("a remove button")
         .click_accesskit();

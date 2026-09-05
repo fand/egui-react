@@ -97,7 +97,7 @@ fn drive<S>(harness: &mut Harness<'_, S>) {
     );
 
     // Remove the first item.
-    harness.get_all_by_label("x").next().unwrap().click();
+    harness.get_all_by_label("remove").next().unwrap().click();
     harness.run();
     harness.run();
     assert!(

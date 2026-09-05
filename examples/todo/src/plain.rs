@@ -83,7 +83,12 @@ pub fn ui(ui: &mut egui::Ui, state: &mut PlainState) {
                 // `<Text grow={1.0}>` before the button: here the button is
                 // put in a right-to-left `Ui` filling the rest of the row.
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if ui.button("x").clicked() {
+                    let button = ui.button("x");
+                    // `<Button label="remove">`, by hand: an "x" is drawn but
+                    // "remove" is the name assistive technology reads.
+                    ui.ctx()
+                        .accesskit_node_builder(button.id, |node| node.set_label("remove"));
+                    if button.clicked() {
                         remove = Some(i);
                     }
                 });
