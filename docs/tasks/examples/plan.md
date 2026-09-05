@@ -297,7 +297,18 @@ gallery を目視して見つかった、core 以外の 2 つのバグ。計画�
 
 **バグ 1: taffy leaf の中でテキストが 1 文字ずつ縦に並ぶ。** `cargo run -p counter` の `reset` ボタンが 15x77(1 文字幅)になっていた。原因は egui_taffy の測り方で、leaf は「前回描いた時の `ui.min_size()`」だけを覚え(`ui_finite` が `min_size` と `max_size` に同じ値を入れる)、taffy にはそれを min-content としても max-content としても返す。最初の描画は幅 0 の `Ui` で起きるので、wrap する widget はそこで 1 文字幅を報告し、ノードはその細さで固定される。`grow` や `w` を持つ leaf は taffy が幅を決めるので無事で、そのため gallery の一覧ボタン(`grow={1.0}`)だけは正常に見えていた。修正は `react-egui-elements` で、テキストを持つ leaf を全て `TextWrapMode::Extend` にする(`Text` が既にやっていたこと)。`Button` / `Label` は widget の `wrap_mode` builder、`Checkbox` / `Slider` / `ComboBox` / `Collapsing` のヘッダは leaf の `Ui` の `style.wrap_mode`。`Label` には `wrap` 属性を足して egui 既定の折り返しに戻せるようにした(`Text` と同じ)。テストは `crates/react-egui-elements/tests/widgets.rs` の `a_label_in_a_taffy_leaf_stays_on_one_line`。
 
-**バグ 2: ルートコンテナが窓を埋めない。** counter の `0` とボタンが中央ではなく左上に出ていた(gallery の中に埋めた同じ `App` は中央に出る)。`reserve_available_space()` は egui_taffy に available space を伝えて `ui.set_min_size` するだけで、ルートノード自身の `size` は `auto` のままなので、taffy はそのノードを中身の大きさにする。`<View grow={1.0} justify="center">` は広がる余地も中央寄せする先も持たない。修正は `react-egui-app` で、ルートの `ItemStyle` に `min_w("100%")` / `min_h("100%")` を入れる。固定サイズではなく最小値にしたのは、中身が窓より高い時にそのまま伸びるため。ついでにルートの id とスタイルを `root_id()` / `root_style()` として公開し、テストが同じ枠を再現できるようにした(`crates/react-egui-app/tests/root_fill.rs`)。
+**バグ 2: ルートコンテナが窓を埋めない。** counter の `0` とボタンが中央ではなく左上に出ていた(gallery の中に埋めた同じ `App` は中央に出る)。`reserve_available_space()` は egui_taffy に available space を伝えて `ui.set_min_size` するだけで、ルートノード自身の `size` は `auto` のままなので、taffy はそのノードを中身の大きさにする。`<View grow={1.0} justify="center">` は広がる余地も中央寄せする先も持たない。修正は `react-egui-app` で、ルートの `ItemStyle` に `w("100%")` / `min_h("100%")` を入れる(縦だけ最小値にしたのは、中身が窓より高い時にそのまま伸ばすため)。ついでにルートの id とスタイルを `root_id()` / `root_style()` として公開し、テストが同じ枠を再現できるようにした(`crates/react-egui-app/tests/root_fill.rs`)。
 
 - gallery の `Chip` は残す。`Button` は直ったが、タグは押された状態を見せたいのに elements にトグル要素が無く、`egui::SelectableLabel` には `wrap_mode` builder も無いため。leaf を手で書く側も `style.wrap_mode` を置く必要がある、という例になっている。
 - elements にトグル要素(`SelectableLabel` / `RadioButton`)が無いのは今後の候補。
+
+### 手順 2.6(gallery の 3 列がはみ出す)
+
+バグ 2 と同じ原因の続き。gallery で layout を選ぶとコード列が画面外に出て、layout の `w="100%"` 行が 1600px 幅になっていた。
+
+原因は「ルートノードが中身のサイズになる」ことのもう半分である。`min_w("100%")` はルートに下限を与えるだけで `size` は `auto` のままなので、中身が窓より広ければルートはそれに合わせて広がる。overflow が発生しないということは `flex-shrink` の出番も無いということで、真ん中の列は `grow={1.0} min_w={0.0}` を持っているのに縮まず、行がそのまま窓の外へ伸びる。`min_w` が taffy に届いていない訳ではない(`Length::Px(0.0)` → `Dimension::length(0.0)`)。
+
+修正はルートの `w` を `100%` にして幅を確定させること(`react-egui-app`)。窓の幅は固定なので確定値でよく、それより広いものは横 `ScrollArea` に入れる話になる。縦は `min_h("100%")` のまま。core(`layout.rs`)に `overflow` を足す必要は無かった。
+
+- gallery 側はコード列を `shrink={0.0}` にした。幅を確定させただけだと、layout のように中身が大きい example の時にコード列が `min_w` の 360 まで削られる。`shrink={0}` なら overflow は全部真ん中の列(`min_w={0}`)へ行き、列幅が example によって動かない。
+- gallery のテストはランナーと同じ枠を使うよう `react_egui_app::root_id()` / `root_style()` に切り替えた。自前で組んだ枠のままでは、まさにこのバグをテストが見逃す。

@@ -310,7 +310,7 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 ```
 
 - `Cx` が「今 taffy コンテナの中か」を `Surface` として持つ(3.1)。`cx.leaf(&style, f)` は中なら `tui.style(style.to_taffy()).ui(f)`、外なら素の `ui` に流す。`cx.container(id, style, f)` は中なら子ノードの追加、外なら新しい `egui_taffy::tui(..)` ツリーの開始で、いずれも `f` には Taffy モードの `Cx` を渡す。
-- Ui モード直下の `container` は `reserve_available_width()` を既定とし、ランナーのルートだけ `reserve_available_space()` を使う。`grow` や `justify="space-between"` は余白の分配なので、`<View>` 自身に幅(`w`)が無いと効かない。`reserve_available_space()` は egui_taffy に「これだけ場所がある」と伝えるだけで、ルートノード自身の `size` は `auto` のままである。そのためランナーのルート item style は `min_w`/`min_h` を `100%` にする(7 章)。これが無いとルートノードは中身の大きさになり、`<View grow={1.0} justify="center">` は広がる余地も中央寄せする先も持たず、アプリは左上に寄る。
+- Ui モード直下の `container` は `reserve_available_width()` を既定とし、ランナーのルートだけ `reserve_available_space()` を使う。`grow` や `justify="space-between"` は余白の分配なので、`<View>` 自身に幅(`w`)が無いと効かない。`reserve_available_space()` は egui_taffy に「これだけ場所がある」と伝えるだけで、ルートノード自身の `size` は `auto` のままである。これが無いとルートノードは中身の大きさになり、2 つ壊れる。(a) `<View grow={1.0} justify="center">` は広がる余地も中央寄せする先も持たず、アプリは左上に寄る。(b) 入りきらない子が縮まない。親が中身に合わせて伸びるので overflow が発生せず、`flex-shrink` が働く前提が消えて、行が窓の右へはみ出す。そこでランナーのルート item style は `w` を `100%`(窓の幅は固定なので確定値)、`min_h` を `100%`(縦は中身が高ければ伸ばす)にする(7 章)。
 - egui 標準の `<Vertical>` / `<Horizontal>` / `<Grid>` などのコンテナも leaf として残し、パフォーマンスが要る箇所の逃げ道にする。Taffy モードから呼ばれた場合、これらの egui-native なコンテナは 1 つの leaf として振る舞い、その中の子は Ui モードで描かれる。 `ScrollArea` だけは `leaf_fill`(3.1)で置く。与えられた空間を埋めるウィジェットなので、内容で測る leaf では最初のフレームの大きさに固定されてしまう。`<View>` の中の `ScrollArea` には `grow` か `h` を与える。
 - テキストを持つ leaf は全て wrap を `Extend` にする(`Text` `Label` `Button` `Checkbox` `Slider` `ComboBox` のラベル、`Collapsing` のヘッダ)。egui_taffy は leaf を「前回描いた時の大きさ」で測り、その 1 つの値を min-content としても max-content としても taffy に返す。最初の描画は幅 0 の `Ui` で起きるので、wrap する widget はそこで「1 文字幅」を報告し、ノードはその細さのまま固定され、ラベルが 1 文字ずつ縦に並ぶ。`grow` や `w` を持つ leaf は taffy が幅を決めるので影響を受けない。`wrap_mode` の builder がある widget(`Button` / `Label`)はそれを使い、無いもの(`Checkbox` / `Slider` / `ComboBox` / `CollapsingHeader`)は leaf の `Ui` の `style.wrap_mode` に置く。`Collapsing` は本体に入る前に元の値へ戻す(children が描くものは呼び出し側の領分)。
 - `<Text>` と `<Label>` は共に `wrap` 属性で egui 既定の折り返しに切り替えられる。折り返すには幅が要るので、`w` か(幅の決まったコンテナの中の)`grow` と併せて使う。両者の違いは `Text` が `size` / `color` / `strong` を持つことだけである。
@@ -357,7 +357,7 @@ examples/              counter, todo (use_reducer + use_persisted), layout, fetc
 
 1. `CentralPanel` で包む(eframe が渡すルート `Ui` には余白も背景も無く、ライトモードで文字が読めないため)。
 2. `store.begin_pass(ctx)`。
-3. ルートの `Cx` を作り、`root(cx)` が返した `View` を `cx.root_container(..)`(`direction: column`、`min_w`/`min_h` は `100%`、`reserve_available_space`)の中で `show` する。ネストしたコンテナは幅だけを確保するので、ルートだけが高さも取る。この id とスタイルは `react_egui_app::root_id()` / `root_style()` として公開し、テストや自作ランナーが同じ枠を再現できるようにする。
+3. ルートの `Cx` を作り、`root(cx)` が返した `View` を `cx.root_container(..)`(`direction: column`、`w` は `100%`、`min_h` は `100%`、`reserve_available_space`)の中で `show` する。ネストしたコンテナは幅だけを確保するので、ルートだけが高さも取る。この id とスタイルは `react_egui_app::root_id()` / `root_style()` として公開し、テストや自作ランナーが同じ枠を再現できるようにする。
 4. `store.end_pass()`。
 
 `Options` は `title` / `max_passes`(既定 3、`ctx.options_mut` で明示設定。5.3 参照)/ `persist` / `canvas_id`(wasm)/ `native`(native のみ)を持つ。`App::save` が `store.save_persisted()` を `Storage` の `"react_egui"` キーに書き、`CreationContext::storage` から `load_persisted` する。wasm では `cfg(target_arch = "wasm32")` で `WebRunner` を `wasm_bindgen_futures::spawn_local` に載せ、canvas は `canvas_id` で引く。

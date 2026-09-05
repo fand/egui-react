@@ -61,9 +61,10 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
                 on_clear={|| tags.clear()}
             />
             <Separator vertical/>
-            // `min_w={0}`: without it the centre's automatic minimum size is
-            // its content, and a wide example would push the code column off
-            // the right edge instead of getting a scroll bar of its own.
+            // `min_w={0}` makes the centre the column that gives way: taffy
+            // may otherwise take a flex item's content as its automatic
+            // minimum, and a wide example would push the code column off the
+            // right edge instead of being cut off itself.
             <View direction="column" grow={1.0} min_w={0.0} gap={4}>
                 // The summary, not the name: the name is already the label of
                 // the list button and two widgets with one label are ambiguous
@@ -190,10 +191,10 @@ fn Code(cx: &mut Cx, meta: Meta) {
     let link = format!("{REPO}/{}/src/lib.rs", meta.name);
 
     rsx! {
-        // Proportional with a floor, and free to shrink further only once the
-        // centre has given up all of its width, so a narrow window never
-        // leaves the running example with nothing.
-        <View direction="column" w="40%" min_w={360.0} gap={6}>
+        // A fixed share of the window, never squeezed by what the running
+        // example wants: `shrink={0}` sends the whole overflow to the centre
+        // column, which is the one with `min_w={0}`.
+        <View direction="column" w="40%" min_w={360.0} shrink={0.0} gap={6}>
             <View direction="row" gap={8} align="center" w="100%">
                 <Text grow={1.0}>{format!("{} lines", source.lines().count())}</Text>
                 {view(move |cx| {

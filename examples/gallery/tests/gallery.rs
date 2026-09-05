@@ -4,32 +4,32 @@
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
 use gallery::App;
-use react_egui::layout::{ContainerStyle, ItemStyle};
 use react_egui::prelude::*;
+use react_egui_app::{root_id, root_style};
 
-/// The runner's frame: a pass around a root taffy container that reserves the
-/// whole area, so the gallery's three columns and their `grow` behave as they
-/// do under `react_egui_app::run`.
+/// The runner's frame, minus eframe: one pass inside the real root container,
+/// so the gallery's three columns are sized the way they are under
+/// `react_egui_app::run`.
 fn run_app(ui: &mut egui::Ui, store: &mut Store) {
-    let root = egui::Id::new("root");
     store.begin_pass(ui.ctx());
     {
         let store: &Store = store;
-        let mut cx = Cx::new(store, ui, root);
+        let mut cx = Cx::new(store, ui, root_id());
         let view = rsx! { <App/> };
-        let style = ContainerStyle::default()
-            .direction("column")
-            .merge(&ItemStyle::default());
-        cx.root_container(root, style, |cx| view.show(cx));
+        cx.root_container(root_id(), root_style(), |cx| view.show(cx));
     }
     store.end_pass();
 }
 
-/// Tall enough that the whole left column is on screen: a `ScrollArea` culls
-/// what it does not draw, and a culled widget is not in the tree to be found.
+/// The window the tests measure against. Tall enough that the whole left
+/// column is on screen: a `ScrollArea` culls what it does not draw, and a
+/// culled widget is not in the tree to be found.
+const WIDTH: f32 = 1280.0;
+const HEIGHT: f32 = 1000.0;
+
 fn harness<'a>() -> Harness<'a, Store> {
     Harness::builder()
-        .with_size(egui::vec2(1200.0, 1000.0))
+        .with_size(egui::vec2(WIDTH, HEIGHT))
         .build_ui_state(run_app, Store::new())
 }
 
@@ -103,4 +103,33 @@ fn a_tag_narrows_the_list() {
             "{name} still hidden"
         );
     }
+}
+
+/// All three columns fit inside the window, whatever the running example wants.
+///
+/// `layout` is the widest example, so it is the one that used to push the code
+/// column off the right edge: the root node was sized by its content, which
+/// left the row with no overflow to shrink away.
+#[test]
+fn every_column_stays_inside_the_window() {
+    let mut harness = harness();
+    harness.run();
+
+    harness.get_by_label("layout").click();
+    harness.run();
+    harness.run();
+
+    let link = harness.get_by_label("source on GitHub").rect();
+    assert!(
+        link.right() <= WIDTH,
+        "the code column ran off the right edge: {link:?}",
+    );
+
+    // The code column is the last one, and it starts well right of the list.
+    let lines = format!("{} lines", layout::META.source.lines().count());
+    let lines = harness.get_by_label(&lines).rect();
+    assert!(
+        lines.left() > 700.0,
+        "the code column is not where it should be: {lines:?}",
+    );
 }

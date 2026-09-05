@@ -23,19 +23,25 @@ pub fn root_id() -> egui::Id {
 
 /// The taffy style of the root container: a column that fills the window.
 ///
-/// The 100% minimums are what make the window the reference for the whole
-/// tree. `reserve_available_space` tells egui_taffy how much room there is,
-/// but it leaves the root node's own `size` at `auto`, so taffy sizes that node
-/// by its content: a `<View grow={1.0} justify="center">` child would then find
-/// no free space to grow into and nothing to be centred in, and the app would
-/// sit in the window's top-left corner. Minimums rather than fixed sizes, so
-/// content taller than the window still lays out at its own height.
+/// `reserve_available_space` tells egui_taffy how much room there is, but it
+/// leaves the root node's own `size` at `auto`, so taffy would size that node
+/// by its content. Two things go wrong then. A `<View grow={1.0}
+/// justify="center">` child finds no free space to grow into and nothing to be
+/// centred in, so the app sits in the window's top-left corner. And a child
+/// too wide to fit never has to shrink, because a content-sized parent simply
+/// grows with it and there is no overflow to resolve — the row runs off the
+/// right edge instead of `grow` and `flex-shrink` sharing out what there is.
+///
+/// So the width is fixed at 100%: a window is exactly as wide as it is, and
+/// content that wants more belongs in a horizontal `ScrollArea`. The height is
+/// only a *minimum* of 100%, so a column taller than the window still lays out
+/// at its own height rather than being clipped.
 ///
 /// Exposed for the same reason as [`root_id`].
 pub fn root_style() -> react_egui::taffy::Style {
     ContainerStyle::default()
         .direction("column")
-        .merge(&ItemStyle::default().min_w("100%").min_h("100%"))
+        .merge(&ItemStyle::default().w("100%").min_h("100%"))
 }
 
 /// How to run the app.
