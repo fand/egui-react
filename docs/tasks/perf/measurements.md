@@ -387,3 +387,58 @@ against 0.123 ms with no discard, no node creation and no layout change on
 either side. Closing that needs a profile of the idle path (state lookup in egui
 memory, per-node `Style` comparison, the `id_to_node_id` retain sweep, hook
 overhead), which is what decision D in the plan weighs.
+
+## Idle gap attribution (after step C)
+
+Date: 2026-09-06. Instruments Time Profiler via `xctrace`, release build with
+line tables, one scenario and one mode per process (40,000 Virtual frames,
+7,524 samples). Samples are charged to the nearest enclosing egui_taffy /
+egui-react / egui / epaint frame. Temporary ablation modes were added to the
+benchmark and reverted; nothing here is committed code. Isolated runs are
+faster than the mixed benchmark (Virtual 0.187 / Plain 0.099 ms here vs
+0.241 / 0.123 published) with the same 1.9x ratio.
+
+| Mode | Idle ms |
+|---|---:|
+| Plain | 0.099 |
+| Flat: whole visible range in one `<View>` tree (ablation) | 0.149 |
+| Virtual (root tree + 37 row trees) | 0.187 |
+| Virtual without the per-row `push_id` (ablation) | 0.173 |
+
+| Bucket | Virtual µs/frame | Flat | Plain |
+|---|---:|---:|---:|
+| (1) egui_taffy per tree: `TuiInitializer::show`, `Tui::create`, `recalculate` | 8.3 | 1.0 | 0 |
+| (2) egui_taffy per node: `add_container_dyn`, `add_child_dyn`, `add_child_node`, and the egui `Ui` work they induce | 71.9 | 68.9 | 0 |
+| (3) egui-react: `Cx::scope` 28.2, `ItemStyle::to_taffy` 2.1, `View`/`leaf`/`container` ~4, `Store` 0.05 | 38.3 | 11.3 | 0 |
+| (4) drawing the rows themselves: galleys, tessellation, scroll area | 69.7 | 67.6 | 63.3 |
+| egui's own row layout, paid by Plain only (`horizontal`, `with_layout`, `push_id`) | 0 | 0 | 33.0 |
+| Total | 188.1 | 148.9 | 96.7 |
+
+Findings:
+
+- Taffy's algorithm costs nothing at idle: no sample lands in a `taffy::`
+  frame. `recalculate` is about 7 ns per tree. Per-tree state lookup and lock
+  are negligible.
+- Per-node work dominates. egui_taffy builds one child `Ui` per node
+  (`add_child_dyn`, `lib.rs:453`) and a second one per leaf
+  (`add_container_dyn`, `lib.rs:622`). Each `Ui::new_child` clones Arcs,
+  registers an accesskit parent, and calls `create_widget` / `get_response`.
+  A `<Row>` is 4 nodes = 7 `Ui`s, plus the tree `Ui` and the row `push_id`
+  `Ui`: 9 per row against 4 in Plain. That ratio (2.25) matches the measured
+  1.94x.
+- The per-row `push_id` in VirtualList is worth 0.013 to 0.028 ms per frame
+  and exists only because rows sit in a plain `Ui` between trees.
+- Top self-time symbols (owner-attributed, µs/frame): `Ui::new_child` 23.2,
+  `Tui::add_container_dyn` 17.0, `Context::get_response` 16.7,
+  `Context::create_widget` 12.6, `Tui::add_child_dyn` 6.3, `Ui::scope_dyn`
+  6.1, `WidgetRects::insert` 5.5, `tessellate_text` 5.4.
+
+Implication for plan section 5: the remaining gap is not the per-tree
+bookkeeping the plan named (9%, cheap). It is per-node `Ui` construction in
+egui_taffy. Fixing that upstream means collapsing the leaf's two `Ui`s into
+one and skipping widget/accesskit registration for non-interactive nodes,
+which egui_taffy's backgrounds, interactive containers and sticky scrolling
+rely on, and may need an egui change. An own thin layer over taffy could
+create one `Ui` per leaf and register a response only when the element asks,
+with an expected floor near Plain + 0.03 to 0.05 ms instead of + 0.12 ms.
+Steps B and C stand on their own and should go upstream either way.

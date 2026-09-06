@@ -41,10 +41,12 @@ or the patch removed.
 
 After C, VirtualList / Plain: Idle 1.96x, Scroll 2.08x, Filter 1.15x, Resize
 2.03x. Only Filter meets task.md's 1.5x. The remaining gap is per-frame
-overhead at one pass, not extra passes. Decision D (keep egui_taffy and
-upstream B + C, or replace it with an own layer over taffy) is open; plan
-section 5 lists the criteria. An attribution of the idle gap (per-tree
-bookkeeping vs per-node vs egui-react) is the input it still needs.
+overhead at one pass, not extra passes. Profiled (measurements.md, "Idle gap
+attribution"): taffy itself costs nothing at idle; ~80% of the gap is
+egui_taffy creating one or two egui `Ui`s per taffy node (9 `Ui`s per row vs
+4 in Plain). Decision D (keep egui_taffy and upstream B + C, or replace it
+with an own layer over taffy) is open for the user; plan section 5 lists the
+criteria and the profile favours the own layer.
 
 Known pre-existing: `cargo fmt --all -- --check` fails on ~30 untouched files
 (import order); the two board gallery snapshots are missing.
