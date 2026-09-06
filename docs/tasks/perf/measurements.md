@@ -121,3 +121,79 @@ which nodes/root sizes become dirty on scrolling and resizing, then eliminate
 unnecessary layout invalidation or redraw passes while preserving the component
 API. This benchmark does not adopt direct egui rows for React mode, establish
 web/120-Hz performance, or prove that floating-point jitter causes idle discards.
+
+## After step A (slot-keyed VirtualList row trees)
+
+Date: 2026-09-06. Same machine and conditions as the baseline above: native
+macOS arm64, Rust 1.95.0, release profile, egui 0.36.1, egui_taffy 0.14.0 from
+crates.io (no `[patch]`). Code state: uncommitted, on top of `cd7b599`. Samples
+in [samples-a.csv](samples-a.csv). One recorded run.
+
+Reproduce:
+
+```sh
+PERF_CSV="$PWD/docs/tasks/perf/samples-a.csv" \
+  cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
+```
+
+| Scenario | Mode | Mean ms | p50 ms | p95 ms | Passes/frame | Discard frames /120 | Final rows | Row callbacks/frame |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Idle | All | 39.380 | 38.932 | 42.846 | 1.00 | 0 | 10000 | 10000.00 |
+| Idle | Virtual | 0.222 | 0.226 | 0.253 | 1.00 | 0 | 37 | 37.00 |
+| Idle | Plain | 0.114 | 0.115 | 0.129 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | All | 39.682 | 39.339 | 42.451 | 1.00 | 0 | 10000 | 10000.00 |
+| Scroll | Virtual | 0.466 | 0.598 | 0.741 | 2.00 | 60 | 37 | 74.00 |
+| Scroll | Plain | 0.149 | 0.136 | 0.306 | 1.00 | 0 | 37 | 37.00 |
+| Filter | All | 50.269 | 18.222 | 166.684 | 1.60 | 72 | 1250–10000 | 7000.00 |
+| Filter | Virtual | 1.263 | 1.233 | 1.661 | 1.60 | 72 | 37 | 59.20 |
+| Filter | Plain | 1.021 | 1.002 | 1.307 | 1.00 | 0 | 37 | 37.00 |
+| Resize | All | 130.745 | 130.700 | 136.807 | 2.98 | 119 | 10000 | 29833.33 |
+| Resize | Virtual | 0.653 | 0.662 | 0.734 | 2.98 | 119 | 37–40 | 116.06 |
+| Resize | Plain | 0.147 | 0.140 | 0.197 | 1.00 | 0 | 37–40 | 38.90 |
+
+| Scenario | Virtual pass histogram (passes: frames) | Virtual discard requests |
+|---|---|---:|
+| Idle | 1: 120 | 0 |
+| Scroll | 1: 60, 3: 60 | 4440 |
+| Filter | 1: 48, 2: 72 | 2136 |
+| Resize | 1: 1, 3: 119 | 4750 |
+
+### Compared with the baseline
+
+Nothing in the pass behaviour moved. Pass histograms, discard frames, discard
+request totals, row callbacks and final row ranges are identical to the
+baseline, scenario for scenario. Frame times shifted by roughly the same
+fraction in every mode, `Plain` included (Idle All 44.1 to 39.4 ms, Idle Plain
+0.124 to 0.114 ms), so the timing difference is run-to-run variation on the
+machine, not the change. The Virtual/Plain ratio is unchanged within that
+noise: 1.95 idle and 3.13 scrolling, against 1.81 and 2.95 in the baseline.
+What did change is not in this table: `<VirtualList>` no longer opens a taffy
+tree per scrolled row, so egui memory stops growing with the scroll distance
+(`egui_memory_does_not_grow_with_scroll_distance` in
+`crates/egui-react-elements/tests/virtual_list.rs`: 85 entries against 771 for
+the same scroll before the change).
+
+**The gate in section 0 of the plan is not met.** "Scroll passes/frame drop
+from 2.00" did not happen; "no new node per scrolled row" did.
+
+The reason the gate cannot be met by keying alone: the discard on a scroll
+frame is not driven by new nodes. Every row tree recomputes on every scroll
+frame because its *root rect* changes size. `TuiInitializer::show`
+(`egui_taffy/src/lib.rs:129`) takes `ui.available_rect_before_wrap()` as the
+tree's root rect, and `recalculate` (`src/lib.rs:632`) recomputes and discards
+when `state.last_size != root_rect.size()`. Inside `ScrollArea::show_rows` that
+rect runs from the row down to the bottom of the viewport, so its height is a
+function of where the row sits on screen. Measured with a temporary probe that
+printed `cx.ui().available_rect_before_wrap()` at the top of each row body,
+scrolling one row per frame: on three consecutive frames the top slot saw root
+heights of 322, 345 and 322 points, and row 1's own tree saw 301, 324 and 322.
+Every tree gets a different root height on every scroll frame, whether it is
+keyed by row index (each row's own tree, moving up the screen) or by slot (one
+tree per screen position, taking a new row each frame).
+
+So the recompute is unavoidable here, but the *result* of it is not: the row has
+a fixed height and a `grow` text, so recomputing yields the same layout it had
+before. That is exactly the case step B skips the discard for. Step A's value
+is the node and memory work it removes, and it is a precondition for B: with
+per-row trees, a scrolled-in row is a `first_frame` tree that has to discard
+whatever B does.

@@ -35,6 +35,10 @@ const OFFSCREEN_RECT: egui::Rect = egui::Rect {
 #[component(shares_ui)]
 pub fn Suspense(cx: &mut Cx, fallback: impl View, children: impl View) {
     let (store, scope) = (cx.store, cx.scope_id());
+    // The offscreen path draws the same children, so it keeps the layout id as
+    // well as the scope id: the taffy trees below are then the same trees, and
+    // resolving does not have to build them again.
+    let layout = cx.layout_id();
     let suspended = use_handle(cx, || true);
 
     if suspended.get() {
@@ -53,7 +57,7 @@ pub fn Suspense(cx: &mut Cx, fallback: impl View, children: impl View) {
         store.begin_suspense();
         {
             let mut cx = Cx::new(store, &mut ui, scope);
-            children.show(&mut cx);
+            cx.with_layout_id(layout, |cx| children.show(cx));
         }
         if store.end_suspense() == 0 {
             suspended.set(false);

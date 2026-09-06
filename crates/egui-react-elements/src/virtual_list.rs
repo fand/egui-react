@@ -31,7 +31,8 @@ use egui_react::prelude::*;
 /// `render` is an ordinary component body. It may open a `<View>`, call hooks,
 /// and hold state: each row is entered under `cx.scope(i, ..)`, so row 7 keeps
 /// its own state as it scrolls in and out — the same keying `key={i}` gives a
-/// `for` loop.
+/// `for` loop. The layout underneath is keyed the other way, by the slot the
+/// row sits in, so that scrolling reuses the same handful of taffy trees.
 ///
 /// **Every row must be `row_h` tall.** That is what lets `show_rows` work out
 /// the range without measuring anything, and it is the one thing this element
@@ -51,14 +52,23 @@ pub fn VirtualList(
     render: impl for<'a, 's, 'u> FnMut(&'a mut Cx<'s, 'u>, usize),
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
+    let layout = cx.layout_id();
     let mut render = render;
     cx.leaf_fill(&style, move |ui| {
         egui::ScrollArea::vertical().show_rows(ui, row_h, rows, move |ui, range| {
             // The same shape as any container element: rebuild a `Cx` around
             // the `Ui` egui handed back, then enter a scope per row.
             let mut cx = Cx::new(store, ui, scope);
-            for i in range {
-                cx.scope(i, |cx| render(cx, i));
+            for (slot, i) in range.enumerate() {
+                // Hooks are keyed by the row index, so row 7 keeps its state
+                // wherever it sits. The taffy tree is keyed by the slot the row
+                // occupies, because a slot is drawn on every frame: scrolling
+                // reuses its nodes instead of building a tree for each row that
+                // comes into view, measuring it in an invisible pass, and
+                // leaving it in egui memory when the row goes out again.
+                cx.scope(i, |cx| {
+                    cx.with_layout_id(layout.with(("vl-slot", slot)), |cx| render(cx, i))
+                });
             }
         });
     });

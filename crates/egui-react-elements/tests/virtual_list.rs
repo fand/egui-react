@@ -49,6 +49,152 @@ fn harness<'a>() -> Harness<'a, Store> {
         )
 }
 
+/// A row that says which index it is and how often it was clicked, so a test
+/// can read both back by label.
+#[component]
+fn CountedRow(cx: &mut Cx, index: usize) {
+    let mut clicks = use_state(cx, || 0u32);
+    let bump = format!("bump {index}");
+    rsx! {
+        <View direction="row" gap={8} align="center" w="100%">
+            <Text>{format!("item {index}")}</Text>
+            <Text>{format!("clicks {index}:{}", *clicks)}</Text>
+            <Button label={bump.as_str()} on_click={|| *clicks += 1}>"+"</Button>
+        </View>
+    }
+}
+
+fn counted_harness<'a>() -> Harness<'a, Store> {
+    Harness::builder()
+        .with_size(egui::vec2(300.0, 300.0))
+        .build_ui_state(
+            |ui, store: &mut Store| {
+                run_app(ui, store, |cx| {
+                    rsx! {
+                        <View direction="column" w="100%" h={280.0}>
+                            <VirtualList
+                                rows={ROWS}
+                                row_h={ROW_H}
+                                grow={1.0}
+                                render={|cx: &mut Cx<'_, '_>, i: usize| {
+                                    rsx! { <CountedRow index={i}/> }.show(cx);
+                                }}
+                            />
+                        </View>
+                    }
+                    .show(cx);
+                });
+            },
+            Store::new(),
+        )
+}
+
+/// Scroll the list by `points`, positive downwards, one frame per call.
+///
+/// Wheel events rather than `Node::scroll_down`, so the distance is a number
+/// this test picks. `TouchPhase::Start` turns off egui's wheel smoothing, so
+/// one call moves exactly this far.
+fn scroll(harness: &mut Harness<'_, Store>, points: f32) {
+    let input = harness.input_mut();
+    input
+        .events
+        .push(egui::Event::PointerMoved(egui::pos2(150.0, 150.0)));
+    for (phase, delta) in [
+        (egui::TouchPhase::Start, egui::Vec2::ZERO),
+        (egui::TouchPhase::Move, egui::vec2(0.0, -points)),
+    ] {
+        input.events.push(egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            phase,
+            delta,
+            modifiers: egui::Modifiers::NONE,
+        });
+    }
+    harness.step();
+}
+
+/// Which of the first `WINDOW` rows show `clicks`.
+const WINDOW: usize = 80;
+
+fn rows_with_clicks(harness: &Harness<'_, Store>, clicks: u32) -> Vec<usize> {
+    (0..WINDOW)
+        .filter(|i| {
+            harness
+                .query_by_label(&format!("clicks {i}:{clicks}"))
+                .is_some()
+        })
+        .collect()
+}
+
+/// Hooks are keyed by the row, the taffy tree by the slot the row sits in. So a
+/// row that moves to another slot takes its state with it, and the row that
+/// takes over the slot does not inherit it.
+#[test]
+fn row_state_follows_the_row_not_the_slot() {
+    let mut harness = counted_harness();
+    harness.run();
+    harness.run();
+
+    for _ in 0..3 {
+        harness.get_by_label("bump 5").click();
+        harness.run();
+    }
+    assert_eq!(rows_with_clicks(&harness, 3), vec![5]);
+
+    // Two rows' worth: row 5 is still on screen, in a different slot.
+    scroll(&mut harness, ROW_H * 2.0);
+    assert!(
+        harness.query_by_label("item 5").is_some(),
+        "row 5 should still be on screen",
+    );
+    assert_eq!(
+        rows_with_clicks(&harness, 3),
+        vec![5],
+        "the count belongs to row 5, not to the slot it used to be in",
+    );
+
+    // Far enough that row 5 unmounts, then back. Its state is gone, the way
+    // React drops the state of an unmounted component; what matters here is
+    // that no other row picked it up.
+    for _ in 0..20 {
+        scroll(&mut harness, ROW_H * 3.0);
+    }
+    assert!(harness.query_by_label("item 5").is_none());
+    for _ in 0..20 {
+        scroll(&mut harness, -ROW_H * 3.0);
+    }
+    assert!(
+        harness.query_by_label("item 5").is_some(),
+        "row 5 should be back on screen",
+    );
+    assert!(rows_with_clicks(&harness, 3).is_empty());
+}
+
+/// Rows used to open a taffy tree keyed by their index, and egui_taffy keeps one
+/// state entry per tree in egui memory forever. Keyed by slot, a long scroll
+/// reuses the same handful of trees, so memory stops growing with the distance
+/// scrolled.
+#[test]
+fn egui_memory_does_not_grow_with_scroll_distance() {
+    let mut harness = counted_harness();
+    harness.run();
+    harness.run();
+
+    for _ in 0..20 {
+        scroll(&mut harness, ROW_H * 4.0);
+    }
+    let after_short = harness.ctx.data(|d| d.len());
+    for _ in 0..200 {
+        scroll(&mut harness, ROW_H * 4.0);
+    }
+    let after_long = harness.ctx.data(|d| d.len());
+
+    assert_eq!(
+        after_short, after_long,
+        "egui memory grew from {after_short} to {after_long} entries over a longer scroll",
+    );
+}
+
 #[test]
 fn only_the_visible_rows_are_drawn() {
     let mut harness = harness();

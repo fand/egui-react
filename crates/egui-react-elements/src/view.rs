@@ -40,7 +40,9 @@ pub fn View(
         cols,
     };
     let taffy_style = container.merge(&style);
-    let id = cx.scope_id();
+    // The layout id, not the hook scope: inside a reused list slot the two
+    // differ, and the tree has to stay with the slot.
+    let id = cx.layout_id();
     cx.container(id, taffy_style, |cx| children.show(cx));
 }
 
