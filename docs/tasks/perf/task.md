@@ -1,71 +1,71 @@
-# タスク: perf(レイアウトのフレームコスト、時期未定)
+# Task: perf (layout frame cost, schedule TBD)
 
-## 目的
+## Objective
 
-react-egui のフレームコストを生 egui に近づける。今は同じ UI を react-egui で書くと生 egui より重く、web(120 Hz)では 1 フレームの予算 8.3 ms を超えて 16.7 ms に落ちる。原因はレイアウト層(egui_taffy)の 2 パス制と、要素ごとの固定コストにある。
+Bring react-egui's per-frame cost closer to plain egui. The same UI currently costs more in react-egui than in plain egui; on the web (120 Hz), it exceeds the 8.3 ms frame budget and drops to 16.7 ms. The causes are the layout layer's (egui_taffy) two-pass approach and fixed per-element overhead.
 
-## 症状(2026-09、examples PR B の list-10k で観測)
+## Symptoms (observed in list-10k from examples PR B, 2026-09)
 
-- web で `<VirtualList>` をスクロールすると、スクロール中の全フレームで `egui PERF WARNING: request_discard has been called N frames in a row` が出る。fps 表示も乱れる。
-- スクロールしていないあいだも react-egui 側は 16.7 ms(60 Hz 相当)、生 egui 側は 8.3 ms(120 Hz)。desktop でも react-egui の方が遅い。
-- kittest の CPU 計測(`examples/list-10k/tests/bench.rs`、release、600×800、20 フレーム):
+- Scrolling `<VirtualList>` on the web produces `egui PERF WARNING: request_discard has been called N frames in a row` on every frame while scrolling. The FPS display also fluctuates.
+- Even when idle, react-egui takes 16.7 ms (equivalent to 60 Hz), versus 8.3 ms (120 Hz) for plain egui. react-egui is also slower on desktop.
+- CPU measurements with kittest (`examples/list-10k/tests/bench.rs`, release, 600×800, 20 frames):
 
-| rows | `<ScrollArea>` + `for` | `<VirtualList>` | 生 egui `show_rows` |
+| rows | `<ScrollArea>` + `for` | `<VirtualList>` | Plain egui `show_rows` |
 |---|---|---|---|
 | 100 | 0.88 ms | 0.36 ms | 0.16 ms |
 | 1,000 | 5.06 ms | 0.28 ms | 0.13 ms |
 | 10,000 | 78.04 ms | 0.27 ms | 0.17 ms |
 
-`<VirtualList>` で行数依存は消えたが、画面内の十数行だけでも生 egui の 2 倍かかる。
+`<VirtualList>` removes the dependency on row count, but even a dozen or so visible rows cost twice as much as plain egui.
 
-## 原因(egui_taffy 0.14 のソースから)
+## Causes (from the egui_taffy 0.14 source)
 
-1. **レイアウトが 2 パス制。** egui_taffy は「子を描いてサイズを測る → taffy を計算する → 結果が前回と違えば `request_discard` で同じフレームをもう 1 回描く」(`egui_taffy/src/lib.rs` 632 行: `taffy.dirty(node) || state.last_size != root_rect.size()` のとき再計算、712 行で `request_discard`)。dirty になる条件は、新しいノード、測定サイズの変化、ルートのサイズ変化。生 egui は 1 パス。
-2. **新規ツリーは必ず discard する。** 測定値が無い状態から始まるので、初回は常に dirty。`<VirtualList>` の行は `<View>` で行ごとに小さい taffy ツリーを作るため、スクロールで行が入れ替わるたびに新規ツリーが生まれ、毎フレーム discard が走る。これが PERF WARNING の直接原因。
-3. **要素ごとの固定コスト。** 要素 1 つ = taffy ノード 1 つ + `Ui::push_id` の子 `Ui` + Id のハッシュ + ストア参照。ノード数に比例してかかり、wasm では native の 2〜3 倍。
-4. **アイドル時の dirty(未確認)。** 測定サイズが浮動小数のゆらぎで毎フレーム変われば、静止中も毎フレーム 2 パスになる。計測で確定させる。
+1. **Two-pass layout.** egui_taffy draws children to measure their sizes, computes the taffy layout, then uses `request_discard` to draw the same frame again if the result differs from the previous one (`egui_taffy/src/lib.rs`, line 632: recompute when `taffy.dirty(node) || state.last_size != root_rect.size()`; line 712: `request_discard`). New nodes, changes in measured sizes, and changes in the root size mark the layout dirty. Plain egui uses one pass.
+2. **New trees always trigger a discard.** With no measurements available, the first pass is always dirty. Each `<VirtualList>` row creates a small taffy tree through `<View>`, so scrolling creates new trees as rows are replaced, triggering a discard every frame. This directly causes the PERF WARNING.
+3. **Fixed per-element overhead.** Each element requires one taffy node, a child `Ui` from `Ui::push_id`, Id hashing, and a store lookup. The cost scales with node count and is 2–3 times higher on wasm than on native.
+4. **Dirty layout while idle (unconfirmed).** If floating-point fluctuations change measured sizes every frame, even an idle UI takes two passes per frame. Confirm this through measurement.
 
-関連する既知の性質(examples plan.md 7〜8 章): taffy の leaf は「前回描いたサイズ」を min / max 両方の content size として返す。初回は幅 0 の `Ui` で描かれる。`grow` は余白の分配であってサイズではない。
+Related known behavior (examples plan.md, sections 7–8): taffy leaves return their previously drawn size as both the min-content and max-content sizes. On the first pass, they are drawn in a `Ui` with zero width. `grow` distributes extra space; it does not specify a size.
 
-## スコープ
+## Scope
 
-### 含む
+### Included
 
-- **計測**(最初にやる。結果を本書に書く)
-  - native / web で、`ctx.will_discard()` と pass 数を毎フレーム数える計測フックを runner に仮置きする(`Options` の debug フラグでよい)。
-  - gallery の list-10k(`for` / `VirtualList` / plain)、showcase、counter で、アイドル時とスクロール中の pass 数とフレーム時間を取る。web は Chrome の Performance パネル。
-  - アイドル時に discard が起きているかを確定させる(原因 4)。
-- **egui_taffy 側の改善**(fork して試作 → 上流 PR)
-  - 描かずに測る: テキスト系 leaf は `ui.fonts(|f| f.layout(..))` でサイズが取れる。描画前に測定できる leaf だけ先に測り、初回から 1 パスで確定させる。
-  - 親がサイズを渡している新規ツリー(`leaf_fill`、`VirtualList` の行)は discard せずその場で確定させる。
-  - 測定値を丸めて dirty 判定を安定させる(原因 4 が確定した場合)。
-- **react-egui 側の改善**
-  - `VirtualList` の行が taffy ツリーを作らずに済む道(行の内側だけ egui の `horizontal` で組む `Row` 要素、または行を 1 つの taffy ツリーの子ノードとして再利用する)。
-  - `Cx::leaf` / `container` の固定コスト(子 `Ui` の生成、Id ハッシュ)のプロファイルと削減。
-  - ランナーの `max_passes` の既定値の見直し。
-- 計測を `examples/list-10k/tests/bench.rs` と同じ形で残し、改善の前後を数字で比べる。
+- **Measurement** (do this first; record results here)
+  - Add temporary instrumentation to the runner to track `ctx.will_discard()` and count passes per frame on native and web (a debug flag in `Options` is sufficient).
+  - Measure pass counts and frame times while idle and scrolling in the gallery's list-10k (`for` / `VirtualList` / plain), showcase, and counter examples. Use Chrome's Performance panel for the web.
+  - Determine whether discards occur while idle (cause 4).
+- **egui_taffy improvements** (prototype in a fork, then submit an upstream PR)
+  - Measure without drawing: text leaves can obtain their sizes through `ui.fonts(|f| f.layout(..))`. Premeasure leaves that support it so their layout settles in one pass from the start.
+  - Settle new trees whose parent supplies their size (`leaf_fill`, `VirtualList` rows) immediately, without discarding.
+  - Round measurements to stabilize dirty checks (if cause 4 is confirmed).
+- **react-egui improvements**
+  - Provide a way for `VirtualList` rows to avoid creating taffy trees: a `Row` element that uses egui's `horizontal` only inside each row, or reuse rows as child nodes of a single taffy tree.
+  - Profile and reduce the fixed overhead in `Cx::leaf` / `container` (child `Ui` creation, Id hashing).
+  - Revisit the runner's default `max_passes`.
+- Preserve measurements in the same format as `examples/list-10k/tests/bench.rs` and compare results before and after improvements.
 
-### 含まない
+### Excluded
 
-- egui 本体の変更。
-- レイアウトエンジンの置き換え(egui_flex 等)。ARCHITECTURE 6 章で却下済み。
-- wgpu / 描画側の最適化(描画は egui のもの)。
+- Changes to egui itself.
+- Replacing the layout engine (e.g. egui_flex). Already rejected in ARCHITECTURE section 6.
+- wgpu / rendering optimizations (egui handles rendering).
 
-## 成果物
+## Deliverables
 
-- 計測結果(本書に表で追記)。
-- egui_taffy への PR(または fork の差分と、上流に出せない理由)。
-- react-egui の変更と、その前後の bench。
-- ARCHITECTURE.md 5.3(多重パス)、6 章の更新。
+- Measurement results (add tables to this document).
+- An egui_taffy PR (or the fork diff and an explanation of why it cannot be submitted upstream).
+- react-egui changes with before/after benchmarks.
+- Updates to ARCHITECTURE.md sections 5.3 (multiple passes) and 6.
 
-## 終了条件
+## Completion criteria
 
-- web(120 Hz)の gallery で、list-10k の `VirtualList` をスクロールしても PERF WARNING が出ず、アイドル時に 8.3 ms に収まる。
-- 上の表の `<VirtualList>` 列が生 egui の 1.5 倍以内。
-- 既存テストと snapshot がすべて通る(snapshot が変わる場合は理由を plan に書く)。
+- In the web gallery (120 Hz), scrolling list-10k's `VirtualList` produces no PERF WARNING, and idle frame time stays within 8.3 ms.
+- The `<VirtualList>` column in the table above is no more than 1.5 times the plain egui cost.
+- All existing tests and snapshots pass (document the reason in the plan if snapshots change).
 
-## 決めごと(着手時点での前提)
+## Decisions (initial assumptions)
 
-- 先に計測、次に egui_taffy、最後に react-egui 側。原因を確定させる前に react-egui 側を触らない。
-- egui_taffy の変更は上流に出す前提で書く。react-egui の main に fork を依存として入れない。
-- 優先度はフェーズ 8(公開準備)の前後。examples PR C(wgpu)より後。
+- Measure first, then improve egui_taffy, then react-egui. Do not change react-egui before confirming the causes.
+- Write egui_taffy changes with upstream submission in mind. Do not add a fork as a dependency on react-egui's main branch.
+- Schedule this around phase 8 (release preparation), after examples PR C (wgpu).

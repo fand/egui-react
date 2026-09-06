@@ -1,22 +1,22 @@
-# 開発計画
+# Development plan
 
-設計の決定事項は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) を参照。本書は作業の分割と進め方を定める。
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for design decisions. This document defines how to divide and carry out the work.
 
-## 進め方
+## Workflow
 
-- 複数のフェーズをまとめて 1 つの PR で進める。PR とフェーズの対応は下表のとおり。
-- 各 PR は次の手順で進める。
-  1. `docs/tasks/<name>/task.md` にタスク定義(目的、スコープ、終了条件)を書く。
-  2. `docs/tasks/<name>/plan.md` に詳細プラン(作業項目、確認方法、テスト)を書く。
-  3. docs をコミットする。
-  4. 実装作業は Opus5 subagent に行わせる(`/sub` コマンド)。subagent は task.md と plan.md に沿って実装する。
-- 実装中に設計上の前提が崩れた場合、コードより先に `docs/ARCHITECTURE.md` を更新する。プランが変わった場合は plan.md を更新する。
-- CI(fmt / clippy / test / `wasm32-unknown-unknown` の check)は PR1 から回す。
-- egui_kittest によるテストは PR1 から書き、以降のフェーズで同じテストが通り続けることを確認する。
+- Group multiple phases into each PR, as shown in the table below.
+- Follow these steps for each PR:
+  1. Write the task definition (objective, scope, completion criteria) in `docs/tasks/<name>/task.md`.
+  2. Write the detailed plan (work items, verification, tests) in `docs/tasks/<name>/plan.md`.
+  3. Commit the docs.
+  4. Delegate implementation to an Opus5 subagent (`/sub` command). The subagent implements according to task.md and plan.md.
+- If a design assumption breaks during implementation, update `docs/ARCHITECTURE.md` before changing code. Update plan.md when the plan changes.
+- Run CI (fmt / clippy / test / `wasm32-unknown-unknown` check) starting with PR1.
+- Write egui_kittest tests starting with PR1 and ensure those tests continue to pass in subsequent phases.
 
-## PR とフェーズの対応
+## PR-to-phase mapping
 
-| PR | フェーズ | タスク定義 |
+| PR | Phases | Task definition |
 |---|---|---|
 | PR1 | 0, 1 | `docs/tasks/spike/` |
 | PR2 | 2, 3, 4, 5 | `docs/tasks/core/` |
@@ -26,75 +26,75 @@
 | PR7 | 6.5(canvas) | `docs/tasks/canvas/` |
 | PR8 | 6.6 | `docs/tasks/board/`, `docs/tasks/patch/` |
 
-フェーズ 8(公開準備)は PR4 の後に別途計画する。web のアクセシビリティ(`docs/tasks/a11y/`)とレイアウトのフレームコスト(`docs/tasks/perf/`)はその後の候補で、時期未定。
+Plan phase 8 (release preparation) separately after PR4. Web accessibility (`docs/tasks/a11y/`) and layout frame cost (`docs/tasks/perf/`) are candidates for later work; timing is undecided.
 
-## フェーズ
+## Phases
 
-### フェーズ 0: ワークスペース準備
+### Phase 0: Workspace setup
 
-- Cargo workspace に `egui-react` / `egui-react-macros` / `egui-react-elements` / `egui-react-app` と `examples/` を作る。
-- egui 0.36、rstml 0.13、egui_taffy 0.14 を pin する。
-- `rust-toolchain.toml`、CI、LICENSE、README の骨組み。
+- Create `egui-react` / `egui-react-macros` / `egui-react-elements` / `egui-react-app` and `examples/` in a Cargo workspace.
+- Pin egui 0.36, rstml 0.13, and egui_taffy 0.14.
+- Set up `rust-toolchain.toml`, CI, LICENSE, and a README skeleton.
 
-### フェーズ 1: スパイク
+### Phase 1: Spike
 
-- `egui-react` core に最小限の `Store` / `Cx` / `State` / `use_state` / `use_effect` / `hook_scope` / sweep を書く。
-- マクロなしで Counter と Dialog(2 つの callback props)の手書き展開形を examples に置く。
-- ARCHITECTURE.md 10 章の検証項目を egui_kittest のテストとして 1 つずつ固定する。
-- 終了条件: 検証項目が全てテストで緑。崩れた項目があれば設計を修正し ARCHITECTURE.md を更新する。
+- Implement minimal `Store` / `Cx` / `State` / `use_state` / `use_effect` / `hook_scope` / sweep functionality in the `egui-react` core.
+- Add handwritten expansions of Counter and Dialog (with two callback props) to examples, without macros.
+- Capture each validation item from ARCHITECTURE.md section 10 as an egui_kittest test.
+- Completion criteria: all validation tests pass. If any item fails, revise the design and update ARCHITECTURE.md.
 
-### フェーズ 2: core hooks
+### Phase 2: Core hooks
 
-- `use_memo` / `use_reducer` + `Dispatch` / `provide_context` + `use_context` / `defer` + `update_later`。
-- repaint ポリシーの実装。Id 衝突検出の警告表示。
+- `use_memo` / `use_reducer` + `Dispatch` / `provide_context` + `use_context` / `defer` + `update_later`.
+- Implement the repaint policy. Display warnings for detected Id collisions.
 
-### フェーズ 3: マクロ
+### Phase 3: Macros
 
-- `#[component]`: Props 構造体、children、イベント enum、`Emitter`。
-- `#[hook]`: `#[track_caller]` と `hook_scope` の付与。
-- `rsx!`: rstml でパース。要素、式埋め込み、`if` / `for` / `match`、`key`、`on_*` 融合、`events=` escape hatch、共通レイアウト属性の抽出。
-- trybuild でコンパイルエラーの文面を固定する。スパイクの手書き展開形をマクロ版に置き換え、同じテストが通ることを確認する。
+- `#[component]`: Props structs, children, event enums, `Emitter`.
+- `#[hook]`: attach `#[track_caller]` and `hook_scope`.
+- `rsx!`: parse with rstml. Elements, embedded expressions, `if` / `for` / `match`, `key`, `on_*` fusion, the `events=` escape hatch, and extraction of common layout attributes.
+- Lock down compiler error messages with trybuild. Replace the spike's handwritten expansions with macro versions and verify that the same tests pass.
 
-### フェーズ 4: elements とレイアウト
+### Phase 4: Elements and layout
 
-- `<View>` / `<Text>` を egui_taffy 上に実装し、レイアウト属性を taffy style に変換する。
-- Button / Label / TextEdit(`bind`)/ Checkbox / Slider / ComboBox / Image / Separator。
-- ScrollArea / Collapsing / Frame / Window / Panel 群。egui-native の Vertical / Horizontal / Grid。
-- kittest スナップショットで見た目を固定する。
+- Implement `<View>` / `<Text>` on egui_taffy, converting layout attributes into taffy styles.
+- Button / Label / TextEdit (`bind`) / Checkbox / Slider / ComboBox / Image / Separator.
+- ScrollArea / Collapsing / Frame / Window / Panel variants. egui-native Vertical / Horizontal / Grid.
+- Capture appearance with kittest snapshots.
 
-### フェーズ 5: ランナーと examples
+### Phase 5: Runner and examples
 
-- `egui-react-app::run`。`Options::max_passes = 2` の設定。`use_persisted`。
-- native と trunk による wasm ビルドを CI で回す。
-- examples: counter、todo(`use_reducer`)、layout デモ。
+- `egui-react-app::run`. Set `Options::max_passes = 2`. `use_persisted`.
+- Run native builds and wasm builds via trunk in CI.
+- Examples: counter, todo (`use_reducer`), layout demo.
 
-### フェーズ 6: 非同期
+### Phase 6: Async
 
-- `use_future`(native は thread / tokio、wasm は wasm-bindgen-futures)。完了時の `request_repaint`。
-- fetch example。
+- `use_future` (thread / tokio on native, wasm-bindgen-futures on wasm). `request_repaint` on completion.
+- Fetch example.
 
-### フェーズ 6.5: examples と gallery
+### Phase 6.5: Examples and gallery
 
-- 既存 example を lib + bin に分割し、全 example をブラウザで試せる gallery(1 wasm)を GitHub Pages に置く。
-- gallery で example と実装コードを並べ、生 egui 版と切り替えて差を見せる。
-- examples を足す: form、theme、clock、custom-hook、escape-hatch、list-10k、shell、showcase。
-- `egui-react-app` の `wgpu` feature と `Options.setup`、`<Canvas>` 要素、shader example。
+- Split existing examples into lib + bin and publish a gallery (one wasm binary) on GitHub Pages where all examples can be tried in the browser.
+- Show each example alongside its implementation in the gallery, with a toggle to compare it with the plain egui version.
+- Add examples: form, theme, clock, custom-hook, escape-hatch, list-10k, shell, showcase.
+- Add the `wgpu` feature and `Options.setup` to `egui-react-app`, the `<Canvas>` element, and a shader example.
 
-### フェーズ 6.6: 複雑な UI の example
+### Phase 6.6: Complex UI examples
 
-既存 example が示していない React の利点 — 動的に増減・並べ替えされる要素が各々ローカル state を持つこと、その state が key に付いて回ること、自作コンポーネントと custom hook で組み上げられること — を 2 つの example で示す。
+Use two examples to demonstrate React benefits that existing examples do not cover: dynamically added, removed, and reordered elements each retain local state; that state follows their keys; and custom components and hooks compose into larger UIs.
 
-1 PR にまとめる。board を先に仕上げ、その custom hook が固まってから patch に入る。
+Combine them into one PR. Finish board first, then start patch once its custom hooks are settled.
 
-- board: Trello 風のカンバン。DnD、undo、debounce を custom hook として書き、生 egui 版と並べて差を出す。
-- patch: TouchDesigner 風のノードエディタ。シェーダノードを繋ぐと 1 本の WGSL が生成され、プレビューが変わる。board の custom hook を再利用する。生 egui 版は書かない。
+- board: a Trello-style kanban board. Implement DnD, undo, and debounce as custom hooks and compare it side by side with a plain egui version.
+- patch: a TouchDesigner-style node editor. Connecting shader nodes generates a single WGSL shader and updates the preview. Reuse board's custom hooks. Do not write a plain egui version.
 
-### フェーズ 7: モバイル
+### Phase 7: Mobile
 
-- Android: eframe で examples をビルドする。
-- iOS: `egui-winit` + `egui-wgpu` のランナーを `egui-react-app` に書き、cargo-mobile2 でビルドする。
-- タッチ / IME / safe area の調整。
+- Android: build examples with eframe.
+- iOS: implement an `egui-winit` + `egui-wgpu` runner in `egui-react-app` and build with cargo-mobile2.
+- Adjust touch / IME / safe area handling.
 
-### フェーズ 8: 公開準備
+### Phase 8: Release preparation
 
-- ドキュメント(英訳を含む)、API の見直し、crates.io への公開。
+- Documentation (including English translation), API review, and publication to crates.io.
