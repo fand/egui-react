@@ -2,7 +2,19 @@
 
 ## Objective
 
-Bring react-egui's per-frame cost closer to plain egui. The same UI currently costs more in react-egui than in plain egui; on the web (120 Hz), it exceeds the 8.3 ms frame budget and drops to 16.7 ms. The causes are the layout layer's (egui_taffy) two-pass approach and fixed per-element overhead.
+Bring react-egui's per-frame cost closer to plain egui while preserving the React-like component API and declarative row layout. Investigate layout passes and per-element overhead through measurement.
+
+## Current measurements
+
+See [measurements.md](measurements.md) for the matched native CPU benchmark and
+[samples.csv](samples.csv) for frame/pass data. These measurements supersede the
+unverified causal claims below: idle VirtualList uses one pass in this fixture;
+scrolling and resizing add passes. The example's `stable_dt` display measures a
+frame interval or prediction, not CPU rendering time, so 16.7 ms alone does not
+prove that an 8.3 ms CPU budget was exceeded. Browser performance remains unmeasured.
+
+The earlier observations and hypotheses below are retained as investigation context.
+Direct egui row layout is not the intended production solution.
 
 ## Symptoms (observed in list-10k from examples PR B, 2026-09)
 

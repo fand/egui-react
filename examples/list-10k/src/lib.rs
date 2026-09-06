@@ -158,7 +158,7 @@ pub fn App(
 /// One row. The same component either way: what changes is who calls it, a
 /// `for` loop over every row or `<VirtualList>` over the ones in view.
 #[component]
-fn Row(cx: &mut Cx, index: usize, name: &str, #[event] on_remove: ()) {
+pub fn Row(cx: &mut Cx, index: usize, name: &str, #[event] on_remove: ()) {
     rsx! {
         <View direction="row" gap={8} align="center" w="100%" h={ROW_H}>
             <Text w={INDEX_W}>{format!("#{index}")}</Text>
