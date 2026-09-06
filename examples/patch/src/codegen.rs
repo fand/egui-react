@@ -300,6 +300,36 @@ fn emit(wgsl: &mut String, graph: &Graph, id: NodeId, slot: usize) {
                 input(1, "uv")
             )
         }
+        Kind::Invert => format!(
+            "    let src = {};\n\
+             \x20   return vec4<f32>(\n\
+             \x20       mix(src.rgb, vec3<f32>(1.0) - src.rgb, clamp(p.x, 0.0, 1.0)),\n\
+             \x20       src.a,\n\
+             \x20   );\n",
+            input(0, "uv")
+        ),
+        Kind::Posterize => format!(
+            "    let src = {};\n\
+             \x20   let n = max(floor(p.x), 1.0);\n\
+             \x20   return vec4<f32>(floor(src.rgb * n) / n, src.a);\n",
+            input(0, "uv")
+        ),
+        // Another node that rewrites the `uv` it passes down. The `uv` here is
+        // 0..1 across the frame (`fs_main` converts), so `n` is cells across
+        // the whole width, and the half-cell shift samples the cell's centre.
+        Kind::Pixelate => format!(
+            "    let n = max(floor(p.x), 1.0);\n\
+             \x20   let q = floor(uv * n) / n + vec2<f32>(0.5 / n);\n\
+             \x20   return {};\n",
+            input(0, "q")
+        ),
+        // `fract` of a scaled 0..1 uv: the picture starts again at every whole
+        // step, p.x times across and p.y times down.
+        Kind::Tile => format!(
+            "    let q = fract(uv * vec2<f32>(p.x, p.y));\n\
+             \x20   return {};\n",
+            input(0, "q")
+        ),
         Kind::Output => format!("    return {};\n", input(0, "uv")),
     };
 
@@ -416,6 +446,30 @@ mod tests {
             let wgsl = generated(&graph).wgsl;
             assert!(wgsl.contains("let g = "), "{method:?}");
         }
+    }
+
+    #[test]
+    fn invert_and_posterize_work_on_the_colour() {
+        let wgsl = generated(&chain(&[source(), Kind::Invert])).wgsl;
+        assert!(
+            wgsl.contains("mix(src.rgb, vec3<f32>(1.0) - src.rgb"),
+            "{wgsl}"
+        );
+
+        let wgsl = generated(&chain(&[source(), Kind::Posterize])).wgsl;
+        assert!(wgsl.contains("floor(src.rgb * n) / n"), "{wgsl}");
+    }
+
+    /// Both of these rewrite the `uv`, so they call their input with `q`.
+    #[test]
+    fn pixelate_and_tile_work_on_the_uv() {
+        let wgsl = generated(&chain(&[source(), Kind::Pixelate])).wgsl;
+        assert!(wgsl.contains("floor(uv * n) / n"), "{wgsl}");
+        assert!(wgsl.contains("return n2(q);"), "{wgsl}");
+
+        let wgsl = generated(&chain(&[source(), Kind::Tile])).wgsl;
+        assert!(wgsl.contains("fract(uv * vec2<f32>(p.x, p.y))"), "{wgsl}");
+        assert!(wgsl.contains("return n2(q);"), "{wgsl}");
     }
 
     /// Nested transforms are why nothing is hoisted: each one calls its input

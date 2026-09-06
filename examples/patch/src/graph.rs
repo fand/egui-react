@@ -95,6 +95,14 @@ pub enum Kind {
     Transform,
     /// Two pictures, one blend.
     Mix { mode: MixMode },
+    /// Flips the colour towards its opposite.
+    Invert,
+    /// Rounds each channel down to a few steps.
+    Posterize,
+    /// Reads one colour per square cell, like a big pixel.
+    Pixelate,
+    /// Repeats the picture across the frame.
+    Tile,
     /// The end of the chain. Exactly one per patch.
     Output,
 }
@@ -107,7 +115,7 @@ impl Kind {
     ///
     /// `Output` is not here: a patch has exactly one and it comes with the
     /// empty patch.
-    pub fn palette() -> [Self; 6] {
+    pub fn palette() -> [Self; 10] {
         [
             Self::Shader {
                 src: String::from(DEFAULT_SRC),
@@ -119,6 +127,10 @@ impl Kind {
             },
             Self::Transform,
             Self::Mix { mode: MixMode::Mix },
+            Self::Invert,
+            Self::Posterize,
+            Self::Pixelate,
+            Self::Tile,
         ]
     }
 
@@ -131,6 +143,10 @@ impl Kind {
             Self::Grayscale { .. } => "grayscale",
             Self::Transform => "transform",
             Self::Mix { .. } => "mix",
+            Self::Invert => "invert",
+            Self::Posterize => "posterize",
+            Self::Pixelate => "pixelate",
+            Self::Tile => "tile",
             Self::Output => "out",
         }
     }
@@ -168,6 +184,14 @@ impl Kind {
             Self::Transform => [0.0, 0.0, 0.0, 1.0],
             // amount
             Self::Mix { .. } => [0.5, 0.0, 0.0, 0.0],
+            // amount
+            Self::Invert => [1.0, 0.0, 0.0, 0.0],
+            // levels
+            Self::Posterize => [4.0, 0.0, 0.0, 0.0],
+            // cells
+            Self::Pixelate => [16.0, 0.0, 0.0, 0.0],
+            // x, y
+            Self::Tile => [2.0, 2.0, 0.0, 0.0],
             Self::Grayscale { .. } | Self::Output => [0.0; 4],
         }
     }

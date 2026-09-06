@@ -973,6 +973,10 @@ fn NodeBody(cx: &mut Cx, node: &Node, #[prop(default)] wide: bool) {
             Kind::Hsv => { <HsvParams node={node} wide={wide}/> }
             Kind::Transform => { <TransformParams node={node} wide={wide}/> }
             Kind::Mix { mode } => { <MixParams node={node} mode={*mode} wide={wide}/> }
+            Kind::Invert => { <InvertParams node={node} wide={wide}/> }
+            Kind::Posterize => { <PosterizeParams node={node} wide={wide}/> }
+            Kind::Pixelate => { <PixelateParams node={node} wide={wide}/> }
+            Kind::Tile => { <TileParams node={node} wide={wide}/> }
             // Nothing to slide: the method is the whole node.
             Kind::Grayscale { method } => { <GrayParams node={node} method={*method}/> }
             Kind::Output => { <Text size={10.0}>"the picture"</Text> }
@@ -1056,6 +1060,47 @@ fn MixParams(cx: &mut Cx, node: &Node, mode: MixMode, wide: bool) {
                 }}
             />
             <Knob node={id} owner={node.name.as_str()} index={0} label="amount" value={node.params[0]} range={0.0..=1.0} wide={wide}/>
+        </View>
+    }
+}
+
+#[component]
+fn InvertParams(cx: &mut Cx, node: &Node, wide: bool) {
+    let id = node.id;
+    rsx! {
+        <View direction="column" w="100%" gap={2}>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="amount" value={node.params[0]} range={0.0..=1.0} wide={wide}/>
+        </View>
+    }
+}
+
+#[component]
+fn PosterizeParams(cx: &mut Cx, node: &Node, wide: bool) {
+    let id = node.id;
+    rsx! {
+        <View direction="column" w="100%" gap={2}>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="levels" value={node.params[0]} range={2.0..=16.0} wide={wide}/>
+        </View>
+    }
+}
+
+#[component]
+fn PixelateParams(cx: &mut Cx, node: &Node, wide: bool) {
+    let id = node.id;
+    rsx! {
+        <View direction="column" w="100%" gap={2}>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="cells" value={node.params[0]} range={2.0..=128.0} wide={wide}/>
+        </View>
+    }
+}
+
+#[component]
+fn TileParams(cx: &mut Cx, node: &Node, wide: bool) {
+    let id = node.id;
+    rsx! {
+        <View direction="column" w="100%" gap={2}>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="x" value={node.params[0]} range={1.0..=8.0} wide={wide}/>
+            <Knob node={id} owner={node.name.as_str()} index={1} label="y" value={node.params[1]} range={1.0..=8.0} wide={wide}/>
         </View>
     }
 }
