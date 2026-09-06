@@ -4,18 +4,18 @@
 
 ## 0. 全体
 
-1 フェーズ(フェーズ 6)を 1 PR で進める。コミットは 2 つ以上に分ける(`use_future` / `Suspense` + example)。触るのは `react-egui`(hook 1 つ、`spawn`、`Store` のカウンタ)、`react-egui-elements`(`Suspense`)、`examples/fetch`、CI、docs。`Slot` / `Cx` / マクロ / app には手を入れない(入れる必要が出たら 9 章に書く)。
+1 フェーズ(フェーズ 6)を 1 PR で進める。コミットは 2 つ以上に分ける(`use_future` / `Suspense` + example)。触るのは `egui-react`(hook 1 つ、`spawn`、`Store` のカウンタ)、`egui-react-elements`(`Suspense`)、`examples/fetch`、CI、docs。`Slot` / `Cx` / マクロ / app には手を入れない(入れる必要が出たら 9 章に書く)。
 
 追加する依存(`[workspace.dependencies]` に pin する)。
 
 | crate | 用途 | 場所 |
 |---|---|---|
-| pollster | native の executor(`block_on`) | react-egui(`cfg(not(target_arch = "wasm32"))`) |
+| pollster | native の executor(`block_on`) | egui-react(`cfg(not(target_arch = "wasm32"))`) |
 | ehttp 0.7(feature `native-async`) | fetch example の HTTP クライアント(native = ureq、wasm = fetch API)。`fetch_async` は native では `native-async` が要る | examples/fetch |
 
-`wasm-bindgen-futures` は既に workspace にあり、`react-egui` の wasm 依存に足す。
+`wasm-bindgen-futures` は既に workspace にあり、`egui-react` の wasm 依存に足す。
 
-## 1. `use_future` と `spawn`(`crates/react-egui/src/future.rs`)
+## 1. `use_future` と `spawn`(`crates/egui-react/src/future.rs`)
 
 ### 1.1 API
 
@@ -54,7 +54,7 @@ pub fn spawn(fut: impl SpawnFuture<()>)
 スロットは 2 つ使う(`use_reducer` と同じ分け方)。
 
 - **状態スロット**(`scope_id.with(location_key)`)。値は `()`。`deps_hash` に deps のハッシュ、`memo` の `FrozenVec` に `Poll<T>` を積む。`Pending` を起動時に 1 つ、届いたら `Ready(T)` を 1 つ。返り値は `memo_last()` の downcast。
-- **受信スロット**(`id.with("__react_egui_future_inbox")`)。値は `Arc<Mutex<Option<(u64, T)>>>` と現在の世代 `Cell<u64>` をまとめた構造体。
+- **受信スロット**(`id.with("__egui_react_future_inbox")`)。値は `Arc<Mutex<Option<(u64, T)>>>` と現在の世代 `Cell<u64>` をまとめた構造体。
 
 ```rust
 struct Inbox<T> {
@@ -82,10 +82,10 @@ mod task {
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
         if let Err(err) = std::thread::Builder::new()
-            .name("react-egui-future".into())
+            .name("egui-react-future".into())
             .spawn(move || pollster::block_on(fut))
         {
-            log::error!("react-egui: could not spawn a thread for use_future: {err}");
+            log::error!("egui-react: could not spawn a thread for use_future: {err}");
         }
     }
     #[cfg(target_arch = "wasm32")]
@@ -132,7 +132,7 @@ impl Store {
 
 `use_future` は返す直前、`Pending` なら `note_pending()` を呼ぶ(1.3 の手順 4)。起動直後も受信で `Pending` のままでも同じ。
 
-### 2.2 要素(`crates/react-egui-elements/src/suspense.rs`)
+### 2.2 要素(`crates/egui-react-elements/src/suspense.rs`)
 
 ```rust
 /// 中の `use_future` が 1 つでも Pending なら children の代わりに fallback を描く。
@@ -187,7 +187,7 @@ pub fn Suspense(cx: &mut Cx, fallback: impl View, children: impl View) {
 
 ## 3. テスト
 
-### 3.1 `crates/react-egui/tests/future.rs`
+### 3.1 `crates/egui-react/tests/future.rs`
 
 `tests/common` の `run_app` を使う。future の完了は `std::sync::mpsc` の `Receiver` を future の中で `recv()` してテスト側から `send` する(future は自分のスレッドにいるので blocking でよい)。完了は別スレッドなので、`ctx.has_requested_repaint()` が立つまで最大 2 秒 `sleep(10ms)` で待つ補助関数 `wait_for_repaint(&harness)` を書く。
 
@@ -203,9 +203,9 @@ pub fn Suspense(cx: &mut Cx, fallback: impl View, children: impl View) {
 | 6-8 | `spawn_with_dispatch_lands` | `spawn(async move { dispatch.send(Msg::Add(n)) })` で reducer に届き、repaint が要求される |
 | 6-9 | `pending_is_counted_by_the_nearest_boundary` | `begin_suspense` / `end_suspense` を直接使い、Pending 2 つ + Ready 1 つで 2 が返る。入れ子の内側の Pending は外側に数えられない |
 
-### 3.2 `crates/react-egui-elements/tests/suspense.rs`
+### 3.2 `crates/egui-react-elements/tests/suspense.rs`
 
-`react-egui-elements/tests/common` のランナーを使い、`max_passes` は 3。
+`egui-react-elements/tests/common` のランナーを使い、`max_passes` は 3。
 
 | # | テスト | 確認すること |
 |---|---|---|
@@ -278,7 +278,7 @@ fn Response(cx: &mut Cx, url: &str, attempt: u32) {
 - **5 章に「5.8 Suspense」を追加** 2.1 / 2.2 の内容(カウンタのスタック、初期 suspended、オフスクリーン不可視 `Ui`、同じスコープ Id で描く理由、`request_discard` による同一フレーム切り替えと却下時の挙動、`use_effect` が走る差、React の throw との対応)。
 - **5.6** 既に「`use_future` の完了は `request_repaint`」とある。変更なし(実装が一致していることを確認)。
 - **6 章の要素一覧** `Suspense`(`shares_ui`、`fallback: impl View`)を足す。「パネルと `Row` が `shares_ui` である理由」の段落に `Suspense` を足す(surface を引き継ぐため)。
-- **7 章** `react-egui` の依存に `pollster`(native)と `wasm-bindgen-futures`(wasm)。examples に `fetch`。
+- **7 章** `egui-react` の依存に `pollster`(native)と `wasm-bindgen-futures`(wasm)。examples に `fetch`。
 - **8 章** 「非同期の実行機構は core の `task::spawn` に閉じる。iOS / Android は native と同じスレッド経路」を 1 行足す。
 - **11 章(決定ログ)** 行を 3 つ足す。
   - executor: スレッド + `pollster` を採用、tokio 必須を却下。理由: 依存が小さく、待つだけの future に十分。tokio を使うアプリは future の中で `Handle::current()` を使えばよい。
@@ -287,7 +287,7 @@ fn Response(cx: &mut Cx, url: &str, attempt: u32) {
 
 ## 7. 手順
 
-1. `future.rs`(`SpawnFuture` → `task::spawn` / `spawn` → `use_future`)、`store.rs` のカウンタ、re-export、`Cargo.toml`。テスト 6-1 〜 6-9。`cargo check --target wasm32-unknown-unknown -p react-egui` を通す。ARCHITECTURE.md 4 / 7 / 8 / 11 を更新。コミット。
+1. `future.rs`(`SpawnFuture` → `task::spawn` / `spawn` → `use_future`)、`store.rs` のカウンタ、re-export、`Cargo.toml`。テスト 6-1 〜 6-9。`cargo check --target wasm32-unknown-unknown -p egui-react` を通す。ARCHITECTURE.md 4 / 7 / 8 / 11 を更新。コミット。
 2. `suspense.rs` と `prelude`。テスト 6-10 〜 6-16。ARCHITECTURE.md 5.8 / 6 を更新。コミット。
 3. `examples/fetch`。`cargo run -p fetch` と `trunk serve` を目視(取得中はスピナーだけ、UI が動く、完了後に勝手に更新される、URL を変えて Enter で再取得、fetch ボタンで同じ URL を再取得)。CI と README。コミット。
 4. CI が全ステップ緑であることを確認する。
@@ -351,7 +351,7 @@ fn Response(cx: &mut Cx, url: &str, attempt: u32) {
 | 手順 | やったこと |
 |---|---|
 | 1(`use_future`) | `future.rs`(`SpawnFuture<T>` の cfg 切り替え、`task::spawn`、`spawn`、`use_future`)、`Store` の suspense カウンタ 3 メソッド、`lib.rs` / `prelude` の再エクスポート(`Poll` を含む)、`pollster`(native)/ `wasm-bindgen-futures`(wasm)の依存。テスト 6-1 〜 6-9。 |
-| 2(`Suspense`) | `react-egui-elements` の `suspense.rs`(`#[component(shares_ui)]`、初期 suspended、オフスクリーンの不可視 `Ui`、`begin_suspense` / `end_suspense`、`request_discard` による同一フレーム切り替え)と `prelude` への追加。テスト 6-10 〜 6-16。 |
+| 2(`Suspense`) | `egui-react-elements` の `suspense.rs`(`#[component(shares_ui)]`、初期 suspended、オフスクリーンの不可視 `Ui`、`begin_suspense` / `end_suspense`、`request_discard` による同一フレーム切り替え)と `prelude` への追加。テスト 6-10 〜 6-16。 |
 | 3(example) | `examples/fetch`(`ehttp::fetch_async` + `<Suspense>` + 再取得ボタン、native / wasm 共通)、CI の `trunk build (fetch)`、README の examples と Usage の 1 文。 |
 
 ### ARCHITECTURE.md の変更点
@@ -360,7 +360,7 @@ fn Response(cx: &mut Cx, url: &str, attempt: u32) {
 - **4 章「`use_future` の詳細」を追加** `SpawnFuture` に閉じた platform 差、native のスレッド + `pollster`、スロット 2 つと `FrozenVec` に積む `Poll`、世代番号と古い結果の捨て方、起動直後は受信しない理由、unmount 後の扱い、`note_pending`、子の `let`-`else` の書き方。
 - **5.8 Suspense を追加** カウンタのスタック、初期 suspended の理由、オフスクリーンの不可視 `Ui`(と accessibility ノードが残る制限)、両経路で同じスコープ Id を使う理由、`request_discard` による同一フレーム切り替えと却下時の挙動、`shares_ui`、`use_effect` が走る React との差。
 - **6 章** 要素一覧に `Suspense` の行を足し、`shares_ui` の段落に `Suspense` を足した。
-- **7 章** `react-egui` の依存に `pollster`(native)と `wasm-bindgen-futures`(wasm)。examples に `fetch`。
+- **7 章** `egui-react` の依存に `pollster`(native)と `wasm-bindgen-futures`(wasm)。examples に `fetch`。
 - **8 章** 非同期の実行機構は core の `task::spawn` に閉じ、iOS / Android は native と同じスレッド経路を使う。
 - **11 章(決定ログ)** 3 行追加。executor(スレッド + `pollster` / tokio 必須を却下)、結果の表現(`Poll<T>` / 独自 enum を却下)、Suspense の実現(オフスクリーン + カウンタ + `request_discard` / panic による巻き戻しを却下)。
 

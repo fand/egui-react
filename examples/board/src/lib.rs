@@ -43,8 +43,8 @@
 //! No `Panel`, so the gallery can run it in a column of its own.
 
 use example_meta::Meta;
-use react_egui::prelude::*;
-use react_egui_elements::prelude::*;
+use egui_react::prelude::*;
+use egui_react_elements::prelude::*;
 
 pub mod board;
 pub mod hooks;
@@ -837,7 +837,7 @@ fn Placeholder(cx: &mut Cx, #[prop(default)] style: ItemStyle, gap: Gap, target:
 
 /// A small toggle: the two filters in the toolbar.
 ///
-/// `react-egui-elements` has no chip and no toggle, so this is the escape
+/// `egui-react-elements` has no chip and no toggle, so this is the escape
 /// hatch, one leaf deep — and it is also the smallest example of the shape
 /// every component here has: take a `style`, draw one thing, report the click.
 #[component]

@@ -1,5 +1,0 @@
-error: react-egui: text must be a string literal: "..."
- --> tests/ui/unquoted_text.rs:9:18
-  |
-9 |     rsx! { <Text>hello</Text> }.show(cx);
-  |                  ^^^^^

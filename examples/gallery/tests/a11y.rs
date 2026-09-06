@@ -12,8 +12,8 @@
 use egui_kittest::Harness;
 use egui_kittest::kittest::NodeT as _;
 use gallery::{App, EXAMPLES};
-use react_egui::prelude::*;
-use react_egui_app::{root_id, root_style};
+use egui_react::prelude::*;
+use egui_react_app::{root_id, root_style};
 
 /// Examples this test does not run.
 ///

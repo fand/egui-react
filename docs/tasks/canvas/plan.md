@@ -4,7 +4,7 @@
 
 ## 0. 全体
 
-1 PR。触るのは `react-egui-elements`(`Canvas`)、`examples/shader`、`examples/gallery`(登録と `setup`)、`examples/escape-hatch`(painter 節の置き換え、任意)、README、ARCHITECTURE。`react-egui-app` は済み(`Options.setup`)。core は無変更。
+1 PR。触るのは `egui-react-elements`(`Canvas`)、`examples/shader`、`examples/gallery`(登録と `setup`)、`examples/escape-hatch`(painter 節の置き換え、任意)、README、ARCHITECTURE。`egui-react-app` は済み(`Options.setup`)。core は無変更。
 
 前提の訂正: eframe 0.36 は既定で wgpu(glow は opt-in)、WebGL fallback は `egui-wgpu/default` 経由で入っている。backend を選ぶ feature は置かない。
 
@@ -23,7 +23,7 @@ pub struct Options {
 
 `ReactApp::new` の先頭で呼ぶ。egui 公式 demo(`custom3d_wgpu`)と同じ形。`use_context` で `RenderState` を配る案は slot を作る手間に対して得るものが少ないので採らない。hook にも context にも wgpu の型は出ない。
 
-### 3.3 `<Canvas>` 要素(`react-egui-elements`)
+### 3.3 `<Canvas>` 要素(`egui-react-elements`)
 
 ```rust
 #[component]
@@ -86,7 +86,7 @@ fn App(cx: &mut Cx) {
 - `state` がそのまま uniform に流れるのが見せ所。`Slider` の `bind` → `speed` → uniform。
 - `ShaderResources` は `callback_resources`(`TypeMap`)に型で置く。gallery で他の example と同居しても型が違えば衝突しない。
 - 多重パス: 捨てられたパスの shape は egui が破棄する。callback が二重に走ることはない。
-- gallery は `react-egui-app/wgpu` を on にし、`setup` で `shader::gpu::setup(cc)` を呼ぶ。
+- gallery は `egui-react-app/wgpu` を on にし、`setup` で `shader::gpu::setup(cc)` を呼ぶ。
 - 生 egui 版は作らない(wgpu 部分は同じコードになり、差が出ない)。
 
 ### 3.5 テスト
@@ -109,9 +109,9 @@ fn App(cx: &mut Cx) {
 
 ### 手順 1: `Canvas`
 
-**閉包 prop の名前は `on_paint` ではなく `paint` にした。** `rsx!` は属性名が `on_` で始まればそれをイベントハンドラと見なし、`<要素名>Event` の variant(`on_paint` → `CanvasEvent::Paint`)を探しに行く(`crates/react-egui-macros/src/rsx/mod.rs` の属性の振り分け)。つまり `on_` で始まる普通の prop は rsx! からは書けない。逃げ道は「core を変える」か「名前を変える」かで、core 無変更が前提なので後者を採った。`VirtualList` の `render` と同じ命名になり、`on_*` = イベント、それ以外 = prop という読み方も保てる。3.4 の shader example のコードも `paint={..}` になる。
+**閉包 prop の名前は `on_paint` ではなく `paint` にした。** `rsx!` は属性名が `on_` で始まればそれをイベントハンドラと見なし、`<要素名>Event` の variant(`on_paint` → `CanvasEvent::Paint`)を探しに行く(`crates/egui-react-macros/src/rsx/mod.rs` の属性の振り分け)。つまり `on_` で始まる普通の prop は rsx! からは書けない。逃げ道は「core を変える」か「名前を変える」かで、core 無変更が前提なので後者を採った。`VirtualList` の `render` と同じ命名になり、`on_*` = イベント、それ以外 = prop という読み方も保てる。3.4 の shader example のコードも `paint={..}` になる。
 
-`#[prop(default = egui::Sense::hover())]` は通った(task.md の「通らなければ `Option<egui::Sense>`」は不要)。イベントは `Response` から発火する: `dragged()` なら `on_drag(drag_delta())`、`hover_pos()` があれば `on_hover(pos)`。kittest は `crates/react-egui-elements/tests/canvas.rs` に 4 本(`w`/`h` どおりの rect、`grow` で残り全部、drag の delta、hover の位置)。イベントハンドラは `move` で書けない(融合された閉包が `FnMut` なので、テストの `Rc` は借用で捕まえる)。
+`#[prop(default = egui::Sense::hover())]` は通った(task.md の「通らなければ `Option<egui::Sense>`」は不要)。イベントは `Response` から発火する: `dragged()` なら `on_drag(drag_delta())`、`hover_pos()` があれば `on_hover(pos)`。kittest は `crates/egui-react-elements/tests/canvas.rs` に 4 本(`w`/`h` どおりの rect、`grow` で残り全部、drag の delta、hover の位置)。イベントハンドラは `move` で書けない(融合された閉包が `FnMut` なので、テストの `Rc` は借用で捕まえる)。
 
 ### 手順 2: `examples/shader`
 
@@ -133,11 +133,11 @@ fn App(cx: &mut Cx) {
 
 **3.1 の前提が間違っていた。「eframe は default(glow)のまま」は eframe 0.36 では成り立たない。** eframe 0.36.1 の `default` feature は `["accesskit", "default_fonts", "links", "wayland", "web_screen_reader", "wgpu", "winit/default", "x11"]` で、**`glow` は入っていない**。`Renderer::Glow` は `glow` feature が無いと存在すらせず、`Renderer::default()` は `Wgpu` を返す。つまり **このリポジトリは最初から wgpu で描いていた**。0.35 までとは逆で、今は glow の方が opt-in である。
 
-そのため **`wgpu` feature は置かない**。一度は `wgpu = ["eframe/wgpu"]` を足したが、今日の eframe では何も変えない feature であり、API の雑音にしかならない。5 章の「wgpu を唯一の backend にするか」は、eframe 側が先に決めてくれた形になる。glow で動かしたい人は `eframe/glow` を明示する話で、それはこの crate の仕事ではない。判断の根拠は `crates/react-egui-app/Cargo.toml` のコメントと ARCHITECTURE 8 章に残した。
+そのため **`wgpu` feature は置かない**。一度は `wgpu = ["eframe/wgpu"]` を足したが、今日の eframe では何も変えない feature であり、API の雑音にしかならない。5 章の「wgpu を唯一の backend にするか」は、eframe 側が先に決めてくれた形になる。glow で動かしたい人は `eframe/glow` を明示する話で、それはこの crate の仕事ではない。判断の根拠は `crates/egui-react-app/Cargo.toml` のコメントと ARCHITECTURE 8 章に残した。
 
 **WebGL fallback も何もしなくても入っている。** `eframe/wgpu` → `egui-wgpu/default` → `wgpu/webgl`。3.1 の「wasm は `wgpu` の `webgl` feature を on にする」は不要だった。`[workspace.dependencies]` には `wgpu = "30.0"`(eframe 0.36.1 が使う版)を pin だけしてある。shader example が pipeline を組むときに同じ wgpu へリンクするため。
 
 **`Options.setup`** は 3.2 のとおり足した。型は `Option<Setup>`、`pub type Setup = Box<dyn FnOnce(&eframe::CreationContext<'_>)>`(clippy の `type_complexity` が生の型を蹴るので別名にした。API としてもこちらが読みやすい)。`ReactApp::new` の先頭で `take()` して呼ぶ。1 フレーム目に paint callback が追加されうるので、store を作るより前に走らせる。`ReactApp::new` の `options` 引数を `&Options` から `&mut Options` にし、native / wasm どちらの起動閉包も `options` を move で持って `take` する(閉包はどちらも 1 回しか呼ばれない)。
 
-- テストは `crates/react-egui-app/src/lib.rs` の `#[cfg(test)] mod tests` に 1 つ、`setup` の既定が `None` であること。kittest は eframe を動かせないので、実際に wgpu で描かれることの確認は目視(`RUST_LOG=eframe=info`)に委ねる。
+- テストは `crates/egui-react-app/src/lib.rs` の `#[cfg(test)] mod tests` に 1 つ、`setup` の既定が `None` であること。kittest は eframe を動かせないので、実際に wgpu で描かれることの確認は目視(`RUST_LOG=eframe=info`)に委ねる。
 - ARCHITECTURE 7 章(`Options` の一覧と `setup`)と 8 章(バックエンドと WebGL fallback)を更新。

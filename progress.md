@@ -1,6 +1,6 @@
 # progress: フェーズ 6.6(board + patch)の引き継ぎ
 
-PR: https://github.com/fand/react-egui/pull/10(ブランチ `claude/complex-ui-demo-idea-lmigbs`、base `main`)
+PR: https://github.com/fand/egui-react/pull/10(ブランチ `claude/complex-ui-demo-idea-lmigbs`、base `main`)
 タスク定義: `docs/tasks/board/`、`docs/tasks/patch/`(各 plan.md の 8 章に実装で判明したことが全部ある)
 
 ## 状態(2026-09-06)
@@ -39,7 +39,7 @@ cargo run -p board && cargo run -p board --bin board-plain
 cargo run -p patch          # プレビューが動く / スライダで絵が変わる / Shader ノードの式を書き換えると再コンパイル / 結線のワイヤ
 cargo run -p gallery board  # plain 切替
 trunk serve --config examples/patch/Trunk.toml   # WebGL fallback でも naga → pipeline が通るか
-UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot react_egui && cargo test -p gallery --features snapshot
+UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_react && cargo test -p gallery --features snapshot
 ```
 
 board の snapshot 画像 2 枚(`board_react` / `board_plain`)は未生成。patch に snapshot は無い(shader と同じ扱い)。

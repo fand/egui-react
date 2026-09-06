@@ -13,8 +13,8 @@
 #![cfg(feature = "snapshot")]
 
 use egui_kittest::Harness;
-use react_egui::prelude::*;
-use react_egui_app::{root_id, root_style};
+use egui_react::prelude::*;
+use egui_react_app::{root_id, root_style};
 use shell::App;
 
 #[test]

@@ -4,12 +4,12 @@
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
 use gallery::App;
-use react_egui::prelude::*;
-use react_egui_app::{root_id, root_style};
+use egui_react::prelude::*;
+use egui_react_app::{root_id, root_style};
 
 /// The runner's frame, minus eframe: one pass inside the real root container,
 /// so the gallery's three columns are sized the way they are under
-/// `react_egui_app::run`.
+/// `egui_react_app::run`.
 fn run_app(ui: &mut egui::Ui, store: &mut Store) {
     store.begin_pass(ui.ctx());
     {
@@ -135,8 +135,8 @@ fn every_column_stays_inside_the_window() {
     );
 }
 
-/// The react-egui / plain egui toggle: only where there is a plain version,
-/// and back to react-egui when another example is picked.
+/// The egui-react / plain egui toggle: only where there is a plain version,
+/// and back to egui-react when another example is picked.
 #[test]
 fn the_toggle_follows_the_example() {
     let mut harness = harness();
@@ -148,21 +148,21 @@ fn the_toggle_follows_the_example() {
     harness.run();
     harness.run();
 
-    // counter has one, so both buttons are there and react-egui is the one on.
-    assert!(toggled(&harness, "react-egui"));
+    // counter has one, so both buttons are there and egui-react is the one on.
+    assert!(toggled(&harness, "egui-react"));
     assert!(!toggled(&harness, "plain egui"));
 
     harness.get_by_label("plain egui").click();
     harness.run();
     harness.run();
     assert!(toggled(&harness, "plain egui"));
-    assert!(!toggled(&harness, "react-egui"));
+    assert!(!toggled(&harness, "egui-react"));
 
-    // Picking another example starts it on its own react-egui version.
+    // Picking another example starts it on its own egui-react version.
     harness.get_by_label("todo").click();
     harness.run();
     harness.run();
-    assert!(toggled(&harness, "react-egui"));
+    assert!(toggled(&harness, "egui-react"));
 
     // An example with no plain version shows no toggle at all. `fetch` is the
     // one, but selecting it here would send a real request, so this checks the

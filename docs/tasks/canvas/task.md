@@ -4,11 +4,11 @@
 
 コンポーネントの中で wgpu の shader アニメーションを描けるようにする。そのために必要な最小の口を開ける: `<Canvas>` 要素(taffy から矩形をもらい `on_paint(ui, rect)` を呼ぶ leaf)と、`examples/shader`(fullscreen triangle + fragment shader、state が uniform に流れる)。ランナー側の口 `Options.setup`(起動時に 1 回、pipeline を作って `callback_resources` に置く場所)は済んでいる。
 
-もとは [docs/tasks/examples/](../examples/task.md) の PR C だった。PR A(#4)/ PR B(#6 → #8)が先にマージされ、C は `Options.setup` だけ実装した時点で作業を止めたので、残りを独立タスクに切り出した。core(`react-egui`、`react-egui-macros`)には手を入れない。
+もとは [docs/tasks/examples/](../examples/task.md) の PR C だった。PR A(#4)/ PR B(#6 → #8)が先にマージされ、C は `Options.setup` だけ実装した時点で作業を止めたので、残りを独立タスクに切り出した。core(`egui-react`、`egui-react-macros`)には手を入れない。
 
 ## 現状
 
-- 済: `Options.setup: Option<Setup>`(`react-egui-app`)。`ReactApp::new` の先頭で呼ぶ。`wgpu = "30.0"` を workspace に pin。ARCHITECTURE 7 / 8 章更新。
+- 済: `Options.setup: Option<Setup>`(`egui-react-app`)。`ReactApp::new` の先頭で呼ぶ。`wgpu = "30.0"` を workspace に pin。ARCHITECTURE 7 / 8 章更新。
 - 済(判断): `wgpu` feature は置かない。eframe 0.36 は既定が wgpu で glow が opt-in。WebGL fallback も `egui-wgpu/default` 経由で入っている。
 - 未: `<Canvas>` 要素、`examples/shader`、gallery への登録、テスト、README。
 
@@ -16,7 +16,7 @@
 
 ### 含む
 
-- `<Canvas>`(`react-egui-elements`): `style` / `sense` / `on_paint` / `on_drag` / `on_hover`。`leaf_fill` で taffy がサイズを決める。egui-wgpu には依存しない。kittest 付き。
+- `<Canvas>`(`egui-react-elements`): `style` / `sense` / `on_paint` / `on_drag` / `on_hover`。`leaf_fill` で taffy がサイズを決める。egui-wgpu には依存しない。kittest 付き。
 - `examples/shader`: `lib.rs`(App)/ `gpu.rs`(`setup(cc)`、`ShaderResources`、`ShaderCallback: CallbackTrait`)/ `shader.wgsl` / `main.rs`。Slider(speed)、Checkbox(pause)、drag で uniform を動かす。native と trunk で動く。gallery に登録し、gallery の `setup` で pipeline を登録する。
 - escape-hatch example の painter 節を `<Canvas>` に置き換える(1 行で済むなら)。
 - README の表に shader を足す。ARCHITECTURE 6 章に `Canvas`。
@@ -29,7 +29,7 @@
 
 ## 成果物
 
-- `crates/react-egui-elements/src/canvas.rs` + `tests/canvas.rs`。
+- `crates/egui-react-elements/src/canvas.rs` + `tests/canvas.rs`。
 - `examples/shader/`。
 - gallery / README / ARCHITECTURE の更新。plan.md 7 章に実装で判明した差分。
 

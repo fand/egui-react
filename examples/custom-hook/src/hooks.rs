@@ -11,7 +11,7 @@
 
 use std::time::Duration;
 
-use react_egui::prelude::*;
+use egui_react::prelude::*;
 
 /// `value` as it was once it stopped changing for `delay` seconds.
 ///

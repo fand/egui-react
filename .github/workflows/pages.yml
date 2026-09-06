@@ -1,6 +1,6 @@
 name: Pages
 
-# Publishes the example gallery to https://fand.github.io/react-egui/.
+# Publishes the example gallery to https://fand.github.io/egui-react/.
 #
 # One manual step, once per repository: set Settings -> Pages -> Build and
 # deployment -> Source to "GitHub Actions". Without it `deploy-pages` fails
@@ -61,7 +61,7 @@ jobs:
       # deep links are read from `location.hash` inside the wasm and are not
       # affected by it.
       - name: trunk build
-        run: trunk build --release --public-url /react-egui/ --config examples/gallery/Trunk.toml
+        run: trunk build --release --public-url /egui-react/ --config examples/gallery/Trunk.toml
 
       # `dist = "dist"` in Trunk.toml is relative to the config file.
       - uses: actions/upload-pages-artifact@v3

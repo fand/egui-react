@@ -7,8 +7,8 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
-use react_egui::prelude::*;
-use react_egui_app::{root_id, root_style};
+use egui_react::prelude::*;
+use egui_react_app::{root_id, root_style};
 use shell::App;
 
 fn harness<'a>() -> Harness<'a, Store> {

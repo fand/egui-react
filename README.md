@@ -1,15 +1,15 @@
-# react-egui
+# egui-react
 
-react-egui is a Rust library for writing [egui](https://github.com/emilk/egui) applications the way you write React: a JSX-like `rsx!` macro, function components with `#[component]`, and hooks such as `use_state` and `use_effect`. Because egui is immediate mode there is no retained tree and no reconciler, so event handlers run where they are written and can borrow local state with `&mut` — none of the `'static` closures, `Rc<RefCell<_>>` or `.clone()` ceremony that retained-mode Rust UI frameworks require. Flexbox and Grid layout are first-class through [egui_taffy](https://github.com/PPakalns/egui_taffy).
+egui-react is a Rust library for writing [egui](https://github.com/emilk/egui) applications the way you write React: a JSX-like `rsx!` macro, function components with `#[component]`, and hooks such as `use_state` and `use_effect`. Because egui is immediate mode there is no retained tree and no reconciler, so event handlers run where they are written and can borrow local state with `&mut` — none of the `'static` closures, `Rc<RefCell<_>>` or `.clone()` ceremony that retained-mode Rust UI frameworks require. Flexbox and Grid layout are first-class through [egui_taffy](https://github.com/PPakalns/egui_taffy).
 
 Design decisions are recorded in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 ## Usage
 
 ```rust
-use react_egui::prelude::*;
-use react_egui_app::{Options, run};
-use react_egui_elements::prelude::*;
+use egui_react::prelude::*;
+use egui_react_app::{Options, run};
+use egui_react_elements::prelude::*;
 
 #[component]
 pub fn App(cx: &mut Cx) {
@@ -30,7 +30,7 @@ pub fn App(cx: &mut Cx) {
 fn main() -> eframe::Result {
     run(
         Options {
-            title: String::from("react-egui: counter"),
+            title: String::from("egui-react: counter"),
             ..Default::default()
         },
         // Hooks belong in components, so that a view can borrow their guards;
@@ -48,27 +48,27 @@ The hooks, the elements and the layout attributes are listed in [docs/ARCHITECTU
 
 ## Examples
 
-Every example but one runs in the browser in the [gallery](https://fand.github.io/react-egui/), next to its source. Start with `showcase`, a small notes app that uses most of the library at once; the rest take one idea each. `shell` is standalone: a docked panel carves up the nearest enclosing `Ui`, which is the window, so there is nothing sensible for a gallery column to do with it. Some of them also have a version written with plain egui, so you can switch between the two and compare. The gallery draws to a canvas, so a screen reader cannot read it on the web — natively it can, and the widget names are there either way (`docs/tasks/a11y/`).
+Every example but one runs in the browser in the [gallery](https://fand.github.io/egui-react/), next to its source. Start with `showcase`, a small notes app that uses most of the library at once; the rest take one idea each. `shell` is standalone: a docked panel carves up the nearest enclosing `Ui`, which is the window, so there is nothing sensible for a gallery column to do with it. Some of them also have a version written with plain egui, so you can switch between the two and compare. The gallery draws to a canvas, so a screen reader cannot read it on the web — natively it can, and the widget names are there either way (`docs/tasks/a11y/`).
 
 ![The gallery: example list, the running example, and its source next to it](docs/gallery.png)
 
 | name | what | live | source | plain egui |
 |---|---|---|---|---|
-| `showcase` | A notes app: reducer, persistence, context, memo and a settings window, together. | [#showcase](https://fand.github.io/react-egui/#showcase) | [lib.rs](examples/showcase/src/lib.rs) | – |
-| `board` | Cards that keep the title being typed into them while they are dragged between columns. | [#board](https://fand.github.io/react-egui/#board) | [lib.rs](examples/board/src/lib.rs) | [plain.rs](examples/board/src/plain.rs) |
-| `patch` | A node editor that generates, validates and previews its own WGSL shader. | [#patch](https://fand.github.io/react-egui/#patch) | [lib.rs](examples/patch/src/lib.rs) | – |
-| `counter` | One piece of state, three handlers that borrow it in turn. | [#counter](https://fand.github.io/react-egui/#counter) | [lib.rs](examples/counter/src/lib.rs) | [plain.rs](examples/counter/src/plain.rs) |
-| `todo` | A reducer drives the list; `use_persisted` keeps it across restarts. | [#todo](https://fand.github.io/react-egui/#todo) | [lib.rs](examples/todo/src/lib.rs) | [plain.rs](examples/todo/src/plain.rs) |
-| `form` | Every bound widget, a change log, and settings that survive a restart. | [#form](https://fand.github.io/react-egui/#form) | [lib.rs](examples/form/src/lib.rs) | [plain.rs](examples/form/src/plain.rs) |
-| `theme` | Two values provided at the top and read three levels down, with nothing in between. | [#theme](https://fand.github.io/react-egui/#theme) | [lib.rs](examples/theme/src/lib.rs) | – |
-| `clock` | A stopwatch that asks for its own repaints, and an effect that cleans up after itself. | [#clock](https://fand.github.io/react-egui/#clock) | [lib.rs](examples/clock/src/lib.rs) | – |
-| `custom-hook` | Three hooks of your own, each called from two components that keep their own state. | [#custom-hook](https://fand.github.io/react-egui/#custom-hook) | [lib.rs](examples/custom-hook/src/lib.rs) | – |
-| `escape-hatch` | Four ways down to plain egui: a closure, a leaf, a painter, and a nested Cx. | [#escape-hatch](https://fand.github.io/react-egui/#escape-hatch) | [lib.rs](examples/escape-hatch/src/lib.rs) | – |
-| `shader` | A wgpu fragment shader in a `<Canvas>`, with a slider wired to its uniform. | [#shader](https://fand.github.io/react-egui/#shader) | [lib.rs](examples/shader/src/lib.rs) | – |
-| `list-10k` | Ten thousand rows: what drawing all of them costs, and what `<VirtualList>` saves. | [#list-10k](https://fand.github.io/react-egui/#list-10k) | [lib.rs](examples/list-10k/src/lib.rs) | [plain.rs](examples/list-10k/src/plain.rs) |
+| `showcase` | A notes app: reducer, persistence, context, memo and a settings window, together. | [#showcase](https://fand.github.io/egui-react/#showcase) | [lib.rs](examples/showcase/src/lib.rs) | – |
+| `board` | Cards that keep the title being typed into them while they are dragged between columns. | [#board](https://fand.github.io/egui-react/#board) | [lib.rs](examples/board/src/lib.rs) | [plain.rs](examples/board/src/plain.rs) |
+| `patch` | A node editor that generates, validates and previews its own WGSL shader. | [#patch](https://fand.github.io/egui-react/#patch) | [lib.rs](examples/patch/src/lib.rs) | – |
+| `counter` | One piece of state, three handlers that borrow it in turn. | [#counter](https://fand.github.io/egui-react/#counter) | [lib.rs](examples/counter/src/lib.rs) | [plain.rs](examples/counter/src/plain.rs) |
+| `todo` | A reducer drives the list; `use_persisted` keeps it across restarts. | [#todo](https://fand.github.io/egui-react/#todo) | [lib.rs](examples/todo/src/lib.rs) | [plain.rs](examples/todo/src/plain.rs) |
+| `form` | Every bound widget, a change log, and settings that survive a restart. | [#form](https://fand.github.io/egui-react/#form) | [lib.rs](examples/form/src/lib.rs) | [plain.rs](examples/form/src/plain.rs) |
+| `theme` | Two values provided at the top and read three levels down, with nothing in between. | [#theme](https://fand.github.io/egui-react/#theme) | [lib.rs](examples/theme/src/lib.rs) | – |
+| `clock` | A stopwatch that asks for its own repaints, and an effect that cleans up after itself. | [#clock](https://fand.github.io/egui-react/#clock) | [lib.rs](examples/clock/src/lib.rs) | – |
+| `custom-hook` | Three hooks of your own, each called from two components that keep their own state. | [#custom-hook](https://fand.github.io/egui-react/#custom-hook) | [lib.rs](examples/custom-hook/src/lib.rs) | – |
+| `escape-hatch` | Four ways down to plain egui: a closure, a leaf, a painter, and a nested Cx. | [#escape-hatch](https://fand.github.io/egui-react/#escape-hatch) | [lib.rs](examples/escape-hatch/src/lib.rs) | – |
+| `shader` | A wgpu fragment shader in a `<Canvas>`, with a slider wired to its uniform. | [#shader](https://fand.github.io/egui-react/#shader) | [lib.rs](examples/shader/src/lib.rs) | – |
+| `list-10k` | Ten thousand rows: what drawing all of them costs, and what `<VirtualList>` saves. | [#list-10k](https://fand.github.io/egui-react/#list-10k) | [lib.rs](examples/list-10k/src/lib.rs) | [plain.rs](examples/list-10k/src/plain.rs) |
 | `shell` | Docked panels, a floating window, and an editor in what is left. | – (standalone) | [lib.rs](examples/shell/src/lib.rs) | – |
-| `layout` | Every flex and grid attribute `<View>` understands, one section each. | [#layout](https://fand.github.io/react-egui/#layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
-| `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [#fetch](https://fand.github.io/react-egui/#fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |
+| `layout` | Every flex and grid attribute `<View>` understands, one section each. | [#layout](https://fand.github.io/egui-react/#layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
+| `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [#fetch](https://fand.github.io/egui-react/#fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |
 
 Run one natively, or in a browser with [trunk](https://trunkrs.dev/):
 
@@ -97,8 +97,8 @@ cargo check --workspace --target wasm32-unknown-unknown
 Pixel snapshot tests live behind a cargo feature because they need a GPU, and the committed images were rendered on macOS, so they will not match another platform's renderer. They do not run in CI, so regenerate them by hand after any change that alters what they draw.
 
 ```sh
-cargo test -p react-egui-elements --features snapshot
-# Each example drawn twice, react-egui and plain egui, compared with one image:
+cargo test -p egui-react-elements --features snapshot
+# Each example drawn twice, egui-react and plain egui, compared with one image:
 # if both render the same picture, the only difference is the code.
 cargo test -p gallery --features snapshot
 ```
@@ -106,10 +106,10 @@ cargo test -p gallery --features snapshot
 After an intentional visual change, regenerate on the platform the images came from:
 
 ```sh
-UPDATE_SNAPSHOTS=1 cargo test -p react-egui-elements --features snapshot
-# The gallery's pairs share one file, so write it from the react-egui side
+UPDATE_SNAPSHOTS=1 cargo test -p egui-react-elements --features snapshot
+# The gallery's pairs share one file, so write it from the egui-react side
 # first and then let the plain egui side check itself against it.
-UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot react_egui
+UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_react
 cargo test -p gallery --features snapshot
 ```
 

@@ -20,7 +20,7 @@
 //! demand, and a line that deletes the entries of cards that are gone. Forget
 //! that line and the map grows for as long as the program runs.
 //!
-//! The react-egui version has no such field and no such line. Each `<Card>`
+//! The egui-react version has no such field and no such line. Each `<Card>`
 //! holds its own state, and the pass-end sweep frees it when the card stops
 //! being drawn. That is the trade the two files are here to price: the react
 //! side pays with a scope and an id per card, the plain side pays with the
@@ -48,7 +48,7 @@ use crate::look::{PLACEHOLDER_H, Theme, gap_amount, ghost, lifted, placeholder};
 pub const STORAGE_KEY: &str = "board_plain";
 
 /// How long the search box has to be quiet, and how far back undo goes. The
-/// same numbers as the react-egui version.
+/// same numbers as the egui-react version.
 const DEBOUNCE: f64 = 0.3;
 const DEPTH: usize = 64;
 
@@ -59,7 +59,7 @@ const FOOTER_H: f32 = 26.0;
 /// than by the column's item spacing, for the reason [`drop_gap`] gives.
 const CARD_GAP: f32 = 6.0;
 
-/// One card's own state. The react-egui version has this too — as two
+/// One card's own state. The egui-react version has this too — as two
 /// `use_identity` hooks inside `<Card>`, where nothing else can see them.
 #[derive(Clone, Debug, Default)]
 struct CardUi {
@@ -113,7 +113,7 @@ pub struct PlainState {
     /// Which column is being renamed, and to what. And which column is having a
     /// card added to it, and what is being typed as its title.
     ///
-    /// One at a time each, unlike the react-egui version, where every
+    /// One at a time each, unlike the egui-react version, where every
     /// `<Column>` has a `use_state` of its own and two could be open at once. A
     /// map here would be another thing to sweep, for a case nobody asked for —
     /// which is exactly the choice a caller is forced to make when the state of
@@ -266,7 +266,7 @@ pub fn ui(ui: &mut egui::Ui, state: &mut PlainState) {
     // Undo and redo are not messages, so they are collected separately.
     let (mut undo, mut redo) = (false, false);
 
-    // `p={8}` and `gap={8}` on the react-egui version's root `<View>`.
+    // `p={8}` and `gap={8}` on the egui-react version's root `<View>`.
     egui::Frame::new().inner_margin(8.0).show(ui, |ui| {
         ui.spacing_mut().item_spacing.y = 8.0;
         toolbar(ui, state, theme, &mut undo, &mut redo);
@@ -285,7 +285,7 @@ pub fn ui(ui: &mut egui::Ui, state: &mut PlainState) {
     }
 
     // **The line.** Card state is keyed by the card, so it has to be dropped
-    // when the card is: nothing else will. The react-egui version's cards are
+    // when the card is: nothing else will. The egui-react version's cards are
     // components, and the pass-end sweep frees the hooks of a component that
     // stopped being drawn.
     state.ui.retain(|id, _| state.board.card(*id).is_some());
@@ -308,7 +308,7 @@ fn toolbar(
 ) {
     ui.horizontal(|ui| {
         ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
-        // `gap={6}` on the react-egui version's toolbar row.
+        // `gap={6}` on the egui-react version's toolbar row.
         ui.spacing_mut().item_spacing.x = 6.0;
         ui.label(
             egui::RichText::new("board")
@@ -414,7 +414,7 @@ fn column(
         } else {
             ui.label(egui::RichText::new(&name).strong().color(theme.accent()));
         }
-        // The same reading order as the react-egui column header, where the
+        // The same reading order as the egui-react column header, where the
         // name has `grow={1.0}` and pushes the rest to the right.
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.label(format!("{}/{}", shown.len(), total));
@@ -427,7 +427,7 @@ fn column(
     });
 
     // The cards and, after them, the footer that adds one and catches a drop
-    // meant for the end of the column — the same order as the react-egui
+    // meant for the end of the column — the same order as the egui-react
     // version, where the footer is inside the `<ScrollArea>` too.
     egui::ScrollArea::vertical().id_salt(id).show(ui, |ui| {
         ui.set_min_width(ui.available_width());
@@ -531,7 +531,7 @@ fn column(
 /// The space between two cards, and the gap a card in hand would drop into.
 ///
 /// One of these goes in front of every card and in front of the footer, open or
-/// closed, and closed it is the column's card spacing. The react-egui version
+/// closed, and closed it is the column's card spacing. The egui-react version
 /// has the same rule for a reason that does not apply here — a taffy node that
 /// comes and goes has no rectangle on the frame it appears — but the two are
 /// laid out to the same numbers, so this one keeps the rule too and the same

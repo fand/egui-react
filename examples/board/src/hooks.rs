@@ -18,7 +18,7 @@ use std::hash::Hash;
 use std::rc::Rc;
 use std::time::Duration;
 
-use react_egui::prelude::*;
+use egui_react::prelude::*;
 
 /// One `use_state` whose slot is keyed by `key` rather than by where the
 /// component sits in the tree.

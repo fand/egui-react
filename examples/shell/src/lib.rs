@@ -21,8 +21,8 @@
 //! own — as the toolbar and the inspector do.
 
 use example_meta::Meta;
-use react_egui::prelude::*;
-use react_egui_elements::prelude::*;
+use egui_react::prelude::*;
+use egui_react_elements::prelude::*;
 
 pub const META: Meta = Meta {
     name: "shell",

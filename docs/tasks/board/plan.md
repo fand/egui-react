@@ -6,7 +6,7 @@
 
 ## 0. 全体
 
-1 PR。触るのは `examples/board`(新規)、`examples/gallery`(登録)、README、必要なら `crates/react-egui-elements` と ARCHITECTURE 6 章。core は無変更。
+1 PR。触るのは `examples/board`(新規)、`examples/gallery`(登録)、README、必要なら `crates/egui-react-elements` と ARCHITECTURE 6 章。core は無変更。
 
 ```
 examples/board/src/
@@ -162,7 +162,7 @@ struct CardUi { editing: bool, draft_title: String, draft_body: String, expanded
 pub fn ui(ui: &mut egui::Ui, state: &mut PlainState);
 ```
 
-- 公平に書く。添字ではなく `CardId` をキーにし、**カードが消えた時に `ui` から掃除する**行も書く(これを書かないとリークする、というのが react-egui 版で sweep が担うもの)。
+- 公平に書く。添字ではなく `CardId` をキーにし、**カードが消えた時に `ui` から掃除する**行も書く(これを書かないとリークする、というのが egui-react 版で sweep が担うもの)。
 - レイアウトは `ui.columns(4, ..)` + `ScrollArea` で taffy 版と同じ絵にする(`layout` example の plain 版と同じ方針)。
 - DnD と undo は react 版と同じ挙動にする。ロジックは `board.rs` を共有するので、差は「状態をどこに置くか」だけになる。これがこの example の見せ場なので、`plain.rs` の冒頭コメントに「共有しているもの / していないもの」を書く。
 - **実装での差**: 列名の編集中の下書きは `renaming: Option<(ColumnId, String)>`(同時に 1 列だけ)にした。react 版は `<Column>` ごとの `use_state` なので 2 列同時に開ける。map をもう 1 つ持てば揃えられるが、掃除する対象が 1 つ増えるだけで誰も頼んでいない機能なので、`plain.rs` のコメントに理由を書いて 1 列に留めてある。「部品の state を全体が持つと、こういう選択を呼び出し側が迫られる」こと自体が差である。
@@ -197,7 +197,7 @@ B-3 は上半分に落として前へ、下半分に落として後ろへ、の 
 
 ## 8. 実装で判明した差分
 
-core(`react-egui` / `react-egui-macros`)にも `react-egui-elements` にも手を入れていない。以下は「書けなかったこと / どう回避したか / 足すとしたら何か」。
+core(`egui-react` / `egui-react-macros`)にも `egui-react-elements` にも手を入れていない。以下は「書けなかったこと / どう回避したか / 足すとしたら何か」。
 
 ### 8.1 state は木の中の位置に付いていて、identity には付かない(この example の主題そのもの)
 

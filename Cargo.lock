@@ -510,11 +510,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_kittest",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
  "serde",
  "serde_json",
 ]
@@ -662,11 +662,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_kittest",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
  "web-time",
 ]
 
@@ -765,11 +765,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_kittest",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
 ]
 
 [[package]]
@@ -824,11 +824,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_kittest",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
 ]
 
 [[package]]
@@ -980,6 +980,59 @@ dependencies = [
  "smallvec",
  "unicode-segmentation",
  "web-sys",
+]
+
+[[package]]
+name = "egui-react"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "egui-react-macros",
+ "egui_kittest",
+ "egui_taffy",
+ "elsa",
+ "log",
+ "pollster",
+ "serde",
+ "serde_json",
+ "trybuild",
+ "typed-builder",
+ "wasm-bindgen-futures",
+]
+
+[[package]]
+name = "egui-react-app"
+version = "0.1.0"
+dependencies = [
+ "accesskit-web",
+ "eframe",
+ "egui",
+ "egui-react",
+ "egui-react-elements",
+ "egui_kittest",
+ "log",
+ "wasm-bindgen",
+ "wasm-bindgen-futures",
+ "web-sys",
+]
+
+[[package]]
+name = "egui-react-elements"
+version = "0.1.0"
+dependencies = [
+ "egui",
+ "egui-react",
+ "egui_kittest",
+]
+
+[[package]]
+name = "egui-react-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "rstml",
+ "syn 3.0.5",
 ]
 
 [[package]]
@@ -1245,11 +1298,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_kittest",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
 ]
 
 [[package]]
@@ -1318,11 +1371,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "ehttp",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
 ]
 
 [[package]]
@@ -1391,11 +1444,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_kittest",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
  "serde",
  "serde_json",
 ]
@@ -1474,6 +1527,9 @@ dependencies = [
  "custom-hook",
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_extras",
  "egui_kittest",
  "escape-hatch",
@@ -1483,9 +1539,6 @@ dependencies = [
  "layout",
  "list-10k",
  "patch",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
  "shader",
  "showcase",
  "theme",
@@ -2042,11 +2095,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_kittest",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
 ]
 
 [[package]]
@@ -2113,11 +2166,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_kittest",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
 ]
 
 [[package]]
@@ -2739,14 +2792,14 @@ dependencies = [
  "bytemuck",
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui-wgpu",
  "egui_kittest",
  "example-meta",
  "log",
  "naga",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
  "serde",
  "serde_json",
  "wgpu",
@@ -3090,59 +3143,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "react-egui"
-version = "0.1.0"
-dependencies = [
- "egui",
- "egui_kittest",
- "egui_taffy",
- "elsa",
- "log",
- "pollster",
- "react-egui-macros",
- "serde",
- "serde_json",
- "trybuild",
- "typed-builder",
- "wasm-bindgen-futures",
-]
-
-[[package]]
-name = "react-egui-app"
-version = "0.1.0"
-dependencies = [
- "accesskit-web",
- "eframe",
- "egui",
- "egui_kittest",
- "log",
- "react-egui",
- "react-egui-elements",
- "wasm-bindgen",
- "wasm-bindgen-futures",
- "web-sys",
-]
-
-[[package]]
-name = "react-egui-elements"
-version = "0.1.0"
-dependencies = [
- "egui",
- "egui_kittest",
- "react-egui",
-]
-
-[[package]]
-name = "react-egui-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "rstml",
- "syn 3.0.5",
-]
-
-[[package]]
 name = "read-fonts"
 version = "0.41.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3433,13 +3433,13 @@ dependencies = [
  "bytemuck",
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui-wgpu",
  "egui_kittest",
  "example-meta",
  "log",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
  "wgpu",
 ]
 
@@ -3449,11 +3449,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_kittest",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
 ]
 
 [[package]]
@@ -3468,11 +3468,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_kittest",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
  "serde",
 ]
 
@@ -3753,11 +3753,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_kittest",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
 ]
 
 [[package]]
@@ -3855,11 +3855,11 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
  "egui_kittest",
  "example-meta",
- "react-egui",
- "react-egui-app",
- "react-egui-elements",
  "serde",
  "serde_json",
 ]

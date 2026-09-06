@@ -2,11 +2,11 @@
 
 ## 目的
 
-TouchDesigner 風のノードエディタで、**複雑な UI がそのまま react-egui で組める**ことを示す。[board](../board/task.md) が 1 つずつ証明した性質(ローカル state、key、自作コンポーネント、custom hook、context)が、3 ペイン + ノードグラフ + GPU プレビューという規模の画面でも崩れないことを見せるのが役目である。
+TouchDesigner 風のノードエディタで、**複雑な UI がそのまま egui-react で組める**ことを示す。[board](../board/task.md) が 1 つずつ証明した性質(ローカル state、key、自作コンポーネント、custom hook、context)が、3 ペイン + ノードグラフ + GPU プレビューという規模の画面でも崩れないことを見せるのが役目である。
 
 本格的な VJ アプリを作ることは目的ではない。ノードは「シェーダを書けるノード + 定番のエフェクト 5 つ」に絞る。
 
-技術的な芯は **グラフ → WGSL の生成 → 1 本の fragment shader** である。オフスクリーンの合成パスを持たないので実装が軽く、しかも react-egui の主張と噛み合う。
+技術的な芯は **グラフ → WGSL の生成 → 1 本の fragment shader** である。オフスクリーンの合成パスを持たないので実装が軽く、しかも egui-react の主張と噛み合う。
 
 - グラフの形が変わった時だけ `use_memo` が WGSL を作り直し、それが変わった時だけ pipeline を作り直す。
 - スライダを動かしただけならシェーダは再生成されず、値が uniform に流れるだけ。
@@ -14,7 +14,7 @@ TouchDesigner 風のノードエディタで、**複雑な UI がそのまま re
 
 board が作る `use_dnd` をノードの移動とポートの結線に再利用する。これが board を先にする理由でもある。
 
-core(`react-egui`、`react-egui-macros`)には手を入れない。
+core(`egui-react`、`egui-react-macros`)には手を入れない。
 
 ## スコープ
 

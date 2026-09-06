@@ -4,7 +4,7 @@
 
 ## 0. 全体
 
-- 触るのは `examples/board/`(`board.rs` / `lib.rs` / `hooks.rs` / `look.rs` / `plain.rs` / `tests/board.rs`)、`examples/gallery/tests/a11y.rs`、docs、README の表。core と `react-egui-elements` は無変更。足りないものが出たら 9 章に書いて回避する。
+- 触るのは `examples/board/`(`board.rs` / `lib.rs` / `hooks.rs` / `look.rs` / `plain.rs` / `tests/board.rs`)、`examples/gallery/tests/a11y.rs`、docs、README の表。core と `egui-react-elements` は無変更。足りないものが出たら 9 章に書いて回避する。
 - react 版と plain 版は同じ挙動にし、同じテストで叩く(v1 の B-7 方式)。**両方を同じコミットで直す。**
 - example の主張(card のローカル state が card に付いて回る)は残す。body と `expanded` が消えるので、付いて回る state は **`editing` と `draft`** の 2 つになる。だから **編集中でも drag できる**ことが必須(3 章)。
 - 文体は既存に合わせる(コメントは英語、docs は日本語)。

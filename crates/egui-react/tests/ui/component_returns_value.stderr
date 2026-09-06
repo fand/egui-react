@@ -1,0 +1,5 @@
+error: egui-react: a #[component] function returns nothing; put the view in the body's tail expression instead of returning it
+ --> tests/ui/component_returns_value.rs:4:27
+  |
+4 | fn Broken(cx: &mut Cx) -> i32 {
+  |                           ^^^

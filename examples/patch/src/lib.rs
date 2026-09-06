@@ -55,8 +55,8 @@ use std::sync::Arc;
 
 use board::hooks::{Dnd, Undoable, use_dnd, use_undoable};
 use example_meta::Meta;
-use react_egui::prelude::*;
-use react_egui_elements::prelude::*;
+use egui_react::prelude::*;
+use egui_react_elements::prelude::*;
 
 pub mod codegen;
 pub mod gpu;
@@ -1475,7 +1475,7 @@ fn Inspector(
 }
 
 /// A tab, and the smallest example of the shape every component here has: take
-/// a style, draw one thing, report the click. `react-egui-elements` has no
+/// a style, draw one thing, report the click. `egui-react-elements` has no
 /// toggle, so this is the escape hatch one leaf deep.
 #[component]
 fn Tab(

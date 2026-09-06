@@ -1,6 +1,6 @@
 //! What a long list costs, told honestly.
 //!
-//! react-egui draws every row. `for` in `rsx!` is a real loop, each row is a
+//! egui-react draws every row. `for` in `rsx!` is a real loop, each row is a
 //! `<View>` with three children, and taffy lays out all of them whether they
 //! are on screen or not. At ten thousand rows that is around forty thousand
 //! taffy nodes per frame, and the frame time says so.
@@ -28,8 +28,8 @@
 use std::collections::BTreeSet;
 
 use example_meta::Meta;
-use react_egui::prelude::*;
-use react_egui_elements::prelude::*;
+use egui_react::prelude::*;
+use egui_react_elements::prelude::*;
 
 pub mod plain;
 

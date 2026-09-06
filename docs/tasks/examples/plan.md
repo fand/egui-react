@@ -15,16 +15,16 @@ examples の拡充と、ブラウザで全 example を試せる gallery ペー�
 |---|---|---|
 | A: gallery | example の lib / bin 分割、gallery、生 egui 版(counter / todo / layout)、snapshot 一致テスト、GitHub Pages | `examples/*`、`examples/gallery`、CI、README |
 | B: examples | form / theme / clock / custom-hook / escape-hatch / list-10k / shell / showcase | `examples/*`、gallery への登録 |
-| C: canvas | `react-egui-app` の `wgpu` feature と `Options.setup`、`<Canvas>` 要素、shader example | `react-egui-app`、`react-egui-elements`、`examples/shader`、gallery |
+| C: canvas | `egui-react-app` の `wgpu` feature と `Options.setup`、`<Canvas>` 要素、shader example | `egui-react-app`、`egui-react-elements`、`examples/shader`、gallery |
 
-core(`react-egui`、macros)には手を入れない。入れる必要が出たら 7 章に書く。
+core(`egui-react`、macros)には手を入れない。入れる必要が出たら 7 章に書く。
 
 追加する依存(`[workspace.dependencies]` に pin する)。
 
 | crate | 用途 | 場所 |
 |---|---|---|
 | egui_extras(feature なし) | gallery のコード表示(`syntax_highlighting::code_view_ui`)。`syntect` は wasm が太るので使わない。組み込みの簡易ハイライタで足りる | examples/gallery |
-| eframe `wgpu` feature | paint callback | react-egui-app(feature `wgpu` の裏) |
+| eframe `wgpu` feature | paint callback | egui-react-app(feature `wgpu` の裏) |
 | wgpu(eframe 経由、web は `webgl` feature も) | shader example の pipeline | examples/shader |
 | bytemuck | uniform の `Pod` | examples/shader |
 
@@ -73,7 +73,7 @@ fetch は既に main にある(PR3)。同じ形に分割して gallery に載せ
 +----------+----------------------+-------------------------+
 | 一覧     | 実行中の example     | コード                  |
 | (w=200)  | (grow)               | (w=480, ScrollArea)     |
-| タグで   | <View key={name}     | [react-egui | 生 egui]  |
+| タグで   | <View key={name}     | [egui-react | 生 egui]  |
 | 絞り込み |   grow={1.0}>        | N 行 / M 行             |
 |          |   {App}              | GitHub へのリンク       |
 +----------+----------------------+-------------------------+
@@ -90,7 +90,7 @@ gallery の `Options.setup` は PR C で shader の pipeline 登録に使う(3.2
 
 ### 1.3 生 egui 版(`plain.rs`)
 
-react-egui 版と同じ見た目を egui だけで書く。差が出る場所を残す。
+egui-react 版と同じ見た目を egui だけで書く。差が出る場所を残す。
 
 | example | 生 egui 版で見える差 |
 |---|---|
@@ -98,7 +98,7 @@ react-egui 版と同じ見た目を egui だけで書く。差が出る場所を
 | todo | 状態の持ち方(`struct` の field を全部 `&mut self` で回す)、削除をループ中でできないので index を持ち越す、永続化を `eframe::App::save` に手で書く |
 | layout | `justify="space-between"` / `grow` / `wrap` / grid を `ui.horizontal` + `allocate_space` + 手計算で書く。ここが最も長くなる |
 
-形は `pub struct PlainState` + `pub fn ui(ui: &mut egui::Ui, state: &mut PlainState)`。単体でも動くよう `[[bin]] counter-plain` を足し、`eframe::App` を実装した薄い `main` から呼ぶ。trunk は react-egui 版だけ。
+形は `pub struct PlainState` + `pub fn ui(ui: &mut egui::Ui, state: &mut PlainState)`。単体でも動くよう `[[bin]] counter-plain` を足し、`eframe::App` を実装した薄い `main` から呼ぶ。trunk は egui-react 版だけ。
 
 ### 1.4 テスト
 
@@ -108,7 +108,7 @@ example が lib になるので kittest を置ける。`cargo test --workspace` 
 |---|---|---|
 | A-1 | `examples/counter/tests/` | `+` を押すと表示が 1 増える。生 egui 版でも同じ操作で同じ結果 |
 | A-2 | `examples/todo/tests/` | 追加 / toggle / 削除 / clear done。生 egui 版も同じ |
-| A-3 | `examples/gallery/tests/snapshots.rs`(feature `snapshot`) | 各 example の react-egui 版と生 egui 版を同じサイズで描き、**同じ snapshot 名**で比較する。1 つの画像に両方が一致すれば「見た目が同じでコードだけ違う」が主張になる |
+| A-3 | `examples/gallery/tests/snapshots.rs`(feature `snapshot`) | 各 example の egui-react 版と生 egui 版を同じサイズで描き、**同じ snapshot 名**で比較する。1 つの画像に両方が一致すれば「見た目が同じでコードだけ違う」が主張になる |
 | A-4 | `examples/gallery/tests/` | 一覧から example を選ぶと `App` が出る。タグの絞り込み |
 
 snapshot は既存と同じく CI では回さない(README の Testing 節に gallery を足す)。
@@ -116,7 +116,7 @@ snapshot は既存と同じく CI では回さない(README の Testing 節に g
 ### 1.5 CI と Pages
 
 - `ci.yml`: trunk build を counter / fetch の 2 ステップから、`examples/*/Trunk.toml` のループに変える。gallery も含む。
-- `pages.yml`(新規): `main` への push で `trunk build --release --public-url /react-egui/ --config examples/gallery/Trunk.toml`、`actions/upload-pages-artifact` + `actions/deploy-pages`。URL は `https://fand.github.io/react-egui/`。
+- `pages.yml`(新規): `main` への push で `trunk build --release --public-url /egui-react/ --config examples/gallery/Trunk.toml`、`actions/upload-pages-artifact` + `actions/deploy-pages`。URL は `https://fand.github.io/egui-react/`。
 - リポジトリ設定で Pages の source を GitHub Actions にする(手作業、1 回)。
 
 ### 1.6 README
@@ -157,9 +157,9 @@ examples 節を表にする。
 
 コンポーネントの中で wgpu の shader アニメーションを描く。core は無変更で済む。ランナー、elements、example の 3 段。
 
-### 3.1 `react-egui-app` の `wgpu` feature
+### 3.1 `egui-react-app` の `wgpu` feature
 
-- eframe は default(glow)のまま。`react-egui-app` に feature `wgpu = ["eframe/wgpu"]` を足す。
+- eframe は default(glow)のまま。`egui-react-app` に feature `wgpu = ["eframe/wgpu"]` を足す。
 - `wgpu` feature が on のとき `Options::default()` の `native.renderer` を `eframe::Renderer::Wgpu` にする。glow は残す(両方コンパイルされる。feature は workspace で unify されるので `--workspace` では全 example が wgpu で動く。害はない)。
 - wasm: WebGPU 非対応ブラウザのため `wgpu` の `webgl` feature を on にする。`trunk build` で確認。
 - `Cargo.toml` の「`wgpu` は意図的に外す」は kittest の話で、headless テストには影響しない。
@@ -177,7 +177,7 @@ pub struct Options {
 
 `ReactApp::new` の先頭で呼ぶ。egui 公式 demo(`custom3d_wgpu`)と同じ形。`use_context` で `RenderState` を配る案は slot を作る手間に対して得るものが少ないので採らない。hook にも context にも wgpu の型は出ない。
 
-### 3.3 `<Canvas>` 要素(`react-egui-elements`)
+### 3.3 `<Canvas>` 要素(`egui-react-elements`)
 
 ```rust
 #[component]
@@ -240,7 +240,7 @@ fn App(cx: &mut Cx) {
 - `state` がそのまま uniform に流れるのが見せ所。`Slider` の `bind` → `speed` → uniform。
 - `ShaderResources` は `callback_resources`(`TypeMap`)に型で置く。gallery で他の example と同居しても型が違えば衝突しない。
 - 多重パス: 捨てられたパスの shape は egui が破棄する。callback が二重に走ることはない。
-- gallery は `react-egui-app/wgpu` を on にし、`setup` で `shader::gpu::setup(cc)` を呼ぶ。
+- gallery は `egui-react-app/wgpu` を on にし、`setup` で `shader::gpu::setup(cc)` を呼ぶ。
 - 生 egui 版は作らない(wgpu 部分は同じコードになり、差が出ない)。
 
 ### 3.5 テスト
@@ -265,7 +265,7 @@ fn App(cx: &mut Cx) {
 
 ## 5. 判断が必要になりそうな点
 
-- **react-egui 版と生 egui 版の snapshot 一致(A-3)**。taffy と egui の丸めで 1px ずれる可能性がある。ずれたら閾値(`SnapshotOptions::threshold`)を緩めるか、諦めて別名の snapshot にして「並べて見せる」だけにする。layout で最初に試す。
+- **egui-react 版と生 egui 版の snapshot 一致(A-3)**。taffy と egui の丸めで 1px ずれる可能性がある。ずれたら閾値(`SnapshotOptions::threshold`)を緩めるか、諦めて別名の snapshot にして「並べて見せる」だけにする。layout で最初に試す。
 - **`impl FnOnce` の prop(3.3)**。`#[component]` の typed-builder が閉包 prop で推論に失敗する場合は `&mut dyn FnMut(&mut egui::Ui, egui::Rect)` に落とす。
 - **`Panel` を gallery に埋め込めるか(shell)**。`SidePanel::show_inside` は子 `Ui` から場所を切り取るので、gallery の中央列の中でなら見た目は成立するかもしれない。試して成立すれば shell も gallery に載せる。
 - **kittest で shader の snapshot(C-3)**。`WgpuTestRenderer` の `RenderState` に `callback_resources` を差し込む口が無ければ、C-3 は落として目視だけにする。
@@ -277,9 +277,9 @@ fn App(cx: &mut Cx) {
 ## 6. ARCHITECTURE.md に反映する変更
 
 - 6 章 要素一覧: コンテナに `Canvas`(`sense` / `on_paint`, `on_drag` / `on_hover`)。「egui-wgpu に依存しない。callback は利用側が `painter().add`」。
-- 7 章 クレート構成: `react-egui-app` の feature `wgpu`、`Options.setup`。examples は lib + bin で gallery が lib を依存に取る。
+- 7 章 クレート構成: `egui-react-app` の feature `wgpu`、`Options.setup`。examples は lib + bin で gallery が lib を依存に取る。
 - 8 章 プラットフォーム: wgpu backend、web は WebGL fallback。Pages の URL。
-- 9 章 テスト: examples に kittest。react-egui 版と生 egui 版の snapshot 一致(gallery の `snapshot` feature)。
+- 9 章 テスト: examples に kittest。egui-react 版と生 egui 版の snapshot 一致(gallery の `snapshot` feature)。
 - 11 章 決定ログ: gallery を 1 wasm にした理由、生 egui 版を並べる理由、`Options.setup` を `use_context` より優先した理由、`Canvas` が egui-wgpu を持たない理由。
 
 ## 7. 実装で判明した差分
@@ -295,11 +295,11 @@ fn App(cx: &mut Cx) {
 
 ### 手順 2.5(バグ修正)
 
-gallery を目視して見つかった、core 以外の 2 つのバグ。計画には無かったので 1 コミット足す。`crates/react-egui`(core)とマクロは無変更。
+gallery を目視して見つかった、core 以外の 2 つのバグ。計画には無かったので 1 コミット足す。`crates/egui-react`(core)とマクロは無変更。
 
-**バグ 1: taffy leaf の中でテキストが 1 文字ずつ縦に並ぶ。** `cargo run -p counter` の `reset` ボタンが 15x77(1 文字幅)になっていた。原因は egui_taffy の測り方で、leaf は「前回描いた時の `ui.min_size()`」だけを覚え(`ui_finite` が `min_size` と `max_size` に同じ値を入れる)、taffy にはそれを min-content としても max-content としても返す。最初の描画は幅 0 の `Ui` で起きるので、wrap する widget はそこで 1 文字幅を報告し、ノードはその細さで固定される。`grow` や `w` を持つ leaf は taffy が幅を決めるので無事で、そのため gallery の一覧ボタン(`grow={1.0}`)だけは正常に見えていた。修正は `react-egui-elements` で、テキストを持つ leaf を全て `TextWrapMode::Extend` にする(`Text` が既にやっていたこと)。`Button` / `Label` は widget の `wrap_mode` builder、`Checkbox` / `Slider` / `ComboBox` / `Collapsing` のヘッダは leaf の `Ui` の `style.wrap_mode`。`Label` には `wrap` 属性を足して egui 既定の折り返しに戻せるようにした(`Text` と同じ)。テストは `crates/react-egui-elements/tests/widgets.rs` の `a_label_in_a_taffy_leaf_stays_on_one_line`。
+**バグ 1: taffy leaf の中でテキストが 1 文字ずつ縦に並ぶ。** `cargo run -p counter` の `reset` ボタンが 15x77(1 文字幅)になっていた。原因は egui_taffy の測り方で、leaf は「前回描いた時の `ui.min_size()`」だけを覚え(`ui_finite` が `min_size` と `max_size` に同じ値を入れる)、taffy にはそれを min-content としても max-content としても返す。最初の描画は幅 0 の `Ui` で起きるので、wrap する widget はそこで 1 文字幅を報告し、ノードはその細さで固定される。`grow` や `w` を持つ leaf は taffy が幅を決めるので無事で、そのため gallery の一覧ボタン(`grow={1.0}`)だけは正常に見えていた。修正は `egui-react-elements` で、テキストを持つ leaf を全て `TextWrapMode::Extend` にする(`Text` が既にやっていたこと)。`Button` / `Label` は widget の `wrap_mode` builder、`Checkbox` / `Slider` / `ComboBox` / `Collapsing` のヘッダは leaf の `Ui` の `style.wrap_mode`。`Label` には `wrap` 属性を足して egui 既定の折り返しに戻せるようにした(`Text` と同じ)。テストは `crates/egui-react-elements/tests/widgets.rs` の `a_label_in_a_taffy_leaf_stays_on_one_line`。
 
-**バグ 2: ルートコンテナが窓を埋めない。** counter の `0` とボタンが中央ではなく左上に出ていた(gallery の中に埋めた同じ `App` は中央に出る)。`reserve_available_space()` は egui_taffy に available space を伝えて `ui.set_min_size` するだけで、ルートノード自身の `size` は `auto` のままなので、taffy はそのノードを中身の大きさにする。`<View grow={1.0} justify="center">` は広がる余地も中央寄せする先も持たない。修正は `react-egui-app` で、ルートの `ItemStyle` に `w("100%")` / `min_h("100%")` を入れる(縦だけ最小値にしたのは、中身が窓より高い時にそのまま伸ばすため)。ついでにルートの id とスタイルを `root_id()` / `root_style()` として公開し、テストが同じ枠を再現できるようにした(`crates/react-egui-app/tests/root_fill.rs`)。
+**バグ 2: ルートコンテナが窓を埋めない。** counter の `0` とボタンが中央ではなく左上に出ていた(gallery の中に埋めた同じ `App` は中央に出る)。`reserve_available_space()` は egui_taffy に available space を伝えて `ui.set_min_size` するだけで、ルートノード自身の `size` は `auto` のままなので、taffy はそのノードを中身の大きさにする。`<View grow={1.0} justify="center">` は広がる余地も中央寄せする先も持たない。修正は `egui-react-app` で、ルートの `ItemStyle` に `w("100%")` / `min_h("100%")` を入れる(縦だけ最小値にしたのは、中身が窓より高い時にそのまま伸ばすため)。ついでにルートの id とスタイルを `root_id()` / `root_style()` として公開し、テストが同じ枠を再現できるようにした(`crates/egui-react-app/tests/root_fill.rs`)。
 
 - gallery の `Chip` は残す。`Button` は直ったが、タグは押された状態を見せたいのに elements にトグル要素が無く、`egui::SelectableLabel` には `wrap_mode` builder も無いため。leaf を手で書く側も `style.wrap_mode` を置く必要がある、という例になっている。
 - elements にトグル要素(`SelectableLabel` / `RadioButton`)が無いのは今後の候補。
@@ -310,10 +310,10 @@ gallery を目視して見つかった、core 以外の 2 つのバグ。計画�
 
 原因は「ルートノードが中身のサイズになる」ことのもう半分である。`min_w("100%")` はルートに下限を与えるだけで `size` は `auto` のままなので、中身が窓より広ければルートはそれに合わせて広がる。overflow が発生しないということは `flex-shrink` の出番も無いということで、真ん中の列は `grow={1.0} min_w={0.0}` を持っているのに縮まず、行がそのまま窓の外へ伸びる。`min_w` が taffy に届いていない訳ではない(`Length::Px(0.0)` → `Dimension::length(0.0)`)。
 
-修正はルートの `w` を `100%` にして幅を確定させること(`react-egui-app`)。窓の幅は固定なので確定値でよく、それより広いものは横 `ScrollArea` に入れる話になる。縦は `min_h("100%")` のまま。core(`layout.rs`)に `overflow` を足す必要は無かった。
+修正はルートの `w` を `100%` にして幅を確定させること(`egui-react-app`)。窓の幅は固定なので確定値でよく、それより広いものは横 `ScrollArea` に入れる話になる。縦は `min_h("100%")` のまま。core(`layout.rs`)に `overflow` を足す必要は無かった。
 
 - gallery 側はコード列を `shrink={0.0}` にした。幅を確定させただけだと、layout のように中身が大きい example の時にコード列が `min_w` の 360 まで削られる。`shrink={0}` なら overflow は全部真ん中の列(`min_w={0}`)へ行き、列幅が example によって動かない。
-- gallery のテストはランナーと同じ枠を使うよう `react_egui_app::root_id()` / `root_style()` に切り替えた。自前で組んだ枠のままでは、まさにこのバグをテストが見逃す。
+- gallery のテストはランナーと同じ枠を使うよう `egui_react_app::root_id()` / `root_style()` に切り替えた。自前で組んだ枠のままでは、まさにこのバグをテストが見逃す。
 
 ### 手順 3(A-3)
 
@@ -321,7 +321,7 @@ gallery を目視して見つかった、core 以外の 2 つのバグ。計画�
 
 行数(`source.lines().count()`、META と doc コメントを含むファイル全体)。
 
-| example | react-egui | 生 egui |
+| example | egui-react | 生 egui |
 |---|---|---|
 | counter | 32 | 84 |
 | todo | 143 | 143 |
@@ -341,23 +341,23 @@ todo が同数になるのは、`lib.rs` 側に `META`(12 行)と reducer の定
 
 ここに来るまでに直したもの。
 
-1. **背景の塗り面積**(4 万〜11 万 px)。生 egui 側の harness で `ui.set_min_size(ui.available_size())` を呼び、react-egui のルートと同じだけ場所を取らせる。
-2. **`<TextEdit grow={1.0}>` がノードを埋めない**(todo、773 px)。taffy はノードを 321pt に広げるのに、`egui::TextEdit` は自分の既定 `desired_width`(280pt)で描くので中に 40pt の空きが残っていた。`react-egui-elements` の `TextEdit` を直した: `desired_width` が明示されておらず、かつ `cx.in_taffy()` なら `ui.available_width()` を渡す。Ui モードでは埋める相手が無いので egui の既定のまま。テストは `a_growing_text_edit_fills_its_node`(`w={400}` のノードで 400pt になる)。todo の差は 773 → 26 px になった。
+1. **背景の塗り面積**(4 万〜11 万 px)。生 egui 側の harness で `ui.set_min_size(ui.available_size())` を呼び、egui-react のルートと同じだけ場所を取らせる。
+2. **`<TextEdit grow={1.0}>` がノードを埋めない**(todo、773 px)。taffy はノードを 321pt に広げるのに、`egui::TextEdit` は自分の既定 `desired_width`(280pt)で描くので中に 40pt の空きが残っていた。`egui-react-elements` の `TextEdit` を直した: `desired_width` が明示されておらず、かつ `cx.in_taffy()` なら `ui.available_width()` を渡す。Ui モードでは埋める相手が無いので egui の既定のまま。テストは `a_growing_text_edit_fills_its_node`(`w={400}` のノードで 400pt になる)。todo の差は 773 → 26 px になった。
    - `Slider` と `ComboBox` は同じ問題を持つ(400pt のノードで両方 100pt のまま。`spacing.slider_width` / `spacing.combo_width` が既定)。`Button` も伸びない(28pt)。今回は直さず記録だけ。`Slider` には幅の builder が無いので `ui.spacing_mut().slider_width` を触ることになり、`ComboBox` は `.width()` がある。
 3. **生 egui 版の `nested` が 1 行になっていた**。`ui.allocate_ui` は親の左右レイアウトを引き継ぐので、列ごとに `allocate_ui_with_layout(.., Layout::top_down(..))` を使い、`ui.set_min_width` で幅を主張する(そうしないと確保が中身の幅まで縮む)。
 4. **`grow` の計算を flexbox と同じにした**。最初は幅全体を 1:2 に割っていたが、`grow` が配るのは *余り* である。各列の中身の幅を測り、残りを 1:2 で足す。これで `right top` の x が 218.0 対 217.9 になった。
 5. **justify セクションの縦の間隔**。`gap={4}` + 各行の `mb={4}` は「行間 8、最後の行のあとに 4」。egui は `add_space` の周りにも item_spacing を足すので、`item_spacing.y = 0` にして 8 と 4 を明示した。これで全セクションの y が完全に一致した。
 
-`crates/react-egui-elements/tests/snapshots/` の 2 枚を撮り直した。`row.png` は手順 2.5 の wrap 修正のあと撮り直されておらず、`right` が 1 文字ずつ縦に並んだ**バグのままの絵**が commit されていた(snapshot は feature の裏なので、あの手順では回っていなかった)。`widgets.png` は上の `TextEdit` 修正でフィールドが広がったぶん。**feature 付きのテストは、その feature が触る変更のたびに手で回す必要がある。**
+`crates/egui-react-elements/tests/snapshots/` の 2 枚を撮り直した。`row.png` は手順 2.5 の wrap 修正のあと撮り直されておらず、`right` が 1 文字ずつ縦に並んだ**バグのままの絵**が commit されていた(snapshot は feature の裏なので、あの手順では回っていなかった)。`widgets.png` は上の `TextEdit` 修正でフィールドが広がったぶん。**feature 付きのテストは、その feature が触る変更のたびに手で回す必要がある。**
 
-snapshot の生成は react-egui 側を先に撮る(`UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot react_egui`)。同名の 2 テストを同時に update すると同じファイルを取り合う。
+snapshot の生成は egui-react 側を先に撮る(`UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_react`)。同名の 2 テストを同時に update すると同じファイルを取り合う。
 
 todo の絵は空リストでは何も言えないので、撮る前に両方を同じ手順で動かす(`milk` / `eggs` を入れて 1 つ done にする)。`done (1)` は両方とも既定の閉じた状態。
 
 **その他の判断。**
 
 - gallery の生 egui 版は `use_state(cx, PlainState::default)` + `cx.leaf_fill(.., |ui| plain::ui(ui, state.bind()))`。`&mut *state` だと毎フレーム dirty になって repaint を要求し続け、kittest の `run()` が `max_steps` で落ちる。`bind()` は bind 付きウィジェットと同じ理由でここでも正しい。
-- トグルはコード列に置き、両方の行数をその下に並べる(`"32 lines"` と `"84 lines plain"`)。example を選び直すと react-egui 版に戻る。
+- トグルはコード列に置き、両方の行数をその下に並べる(`"32 lines"` と `"84 lines plain"`)。example を選び直すと egui-react 版に戻る。
 - `PlainState` は example ごとに違う型なので、`Running` と同じく `match` で分岐する(マクロ 1 つで 3 つ生成)。
 - todo の永続化は `serde_json` で JSON を作る `save()` / `load()` にし、eframe の `Storage` は `plain_main.rs` が触る。`plain.rs` を egui + serde だけに保つため。
 - layout の生 egui 版の最後のセクション(`Grid` / `Vertical`)は両方ほぼ同じ長さになる。egui 自身のコンテナを両側で使っているので当然で、これも正直に見せる。
@@ -367,12 +367,12 @@ todo の絵は空リストでは何も言えないので、撮る前に両方を
 CI、Pages、README。
 
 - `ci.yml`: counter / fetch の 2 ステップを `for config in examples/*/Trunk.toml` のループ 1 つにした。glob は 5 つ(counter / fetch / gallery / layout / todo)に当たる。`examples/meta` は Trunk.toml を持たないので入らない。Actions の `run:` は既定で `bash -e` なので、ループ中の失敗はその場で止まる(ローカルで確認済み)。`--config` を渡す理由のコメントと fetch のコメントはループの上にまとめた。末尾の snapshot に関するコメントに gallery の分を足した。
-- `pages.yml`(新規): `main` への push と `workflow_dispatch`。build ジョブが `trunk build --release --public-url /react-egui/ --config examples/gallery/Trunk.toml` して `upload-pages-artifact@v3` に `examples/gallery/dist` を渡し、deploy ジョブが `deploy-pages@v4`。`pages: write` / `id-token: write` は deploy ジョブだけに付け、トップレベルは `contents: read`。`concurrency: pages` は `cancel-in-progress: false`(公開されるのはビルドが完走したコミットであってほしいため)。
+- `pages.yml`(新規): `main` への push と `workflow_dispatch`。build ジョブが `trunk build --release --public-url /egui-react/ --config examples/gallery/Trunk.toml` して `upload-pages-artifact@v3` に `examples/gallery/dist` を渡し、deploy ジョブが `deploy-pages@v4`。`pages: write` / `id-token: write` は deploy ジョブだけに付け、トップレベルは `contents: read`。`concurrency: pages` は `cancel-in-progress: false`(公開されるのはビルドが完走したコミットであってほしいため)。
   - `dist = "dist"` は Trunk.toml からの相対なので、出力は `examples/gallery/dist` で正しい。ローカルで確認。
-  - `--public-url` は生成される `index.html` の `<link href>` を `/react-egui/gallery-….js` に書き換えるだけである。`#todo` の直リンクは wasm の中で `location.hash` を読むので、`--public-url` とは無関係。両方ローカルで確認した。
+  - `--public-url` は生成される `index.html` の `<link href>` を `/egui-react/gallery-….js` に書き換えるだけである。`#todo` の直リンクは wasm の中で `location.hash` を読むので、`--public-url` とは無関係。両方ローカルで確認した。
   - 依存の apt install は ci.yml と同じものを入れた。wasm だけのビルドには要らないはずだが、deploy で確かめる話ではない。
   - **手作業が 1 回だけ残る**: リポジトリの Settings → Pages → Source を "GitHub Actions" にする。pages.yml の先頭コメントにも書いた。
-- `README.md`: 「`examples/counter` verbatim」を直した(手順 1 で挙げた宿題)。スニペットは lib.rs のコンポーネントと main.rs の `run(..)` を合わせたものだと明記し、中身は現在のファイルから写した。Examples 節を表(name / what / live / source / plain egui)にして gallery へリンクし、`cargo run -p <name>`、`--bin <name>-plain`、`trunk serve`、`cargo run -p gallery <name>` の走らせ方を並べた。Testing 節に `cargo test -p gallery --features snapshot` と、同名比較を先に react-egui 側で撮る手順を足した。行数は README には書いていない(手順 3 のとおり todo が同数で、説明抜きでは誤解を招くため)。
+- `README.md`: 「`examples/counter` verbatim」を直した(手順 1 で挙げた宿題)。スニペットは lib.rs のコンポーネントと main.rs の `run(..)` を合わせたものだと明記し、中身は現在のファイルから写した。Examples 節を表(name / what / live / source / plain egui)にして gallery へリンクし、`cargo run -p <name>`、`--bin <name>-plain`、`trunk serve`、`cargo run -p gallery <name>` の走らせ方を並べた。Testing 節に `cargo test -p gallery --features snapshot` と、同名比較を先に egui-react 側で撮る手順を足した。行数は README には書いていない(手順 3 のとおり todo が同数で、説明抜きでは誤解を招くため)。
 - スクリーンショットは未挿入。`<!-- TODO: gallery screenshot -->` を置いてある。
 
 ## 8. PR B の記録
@@ -383,9 +383,9 @@ CI、Pages、README。
 
 - **`on_change` が新しい値を読めない件**。`bind` の要素は widget が state の `&mut` を握っているので、同じ要素のハンドラから同じ state は触れない(6 章の約束)。だから log に積むのは widget が payload で渡せるものだけになる: `Checkbox` は新しい `bool`、`ComboBox` は新しい index、`TextEdit` と `Slider` は `()` なので「name edited」「volume changed」としか書けない。これは制約であって不便でもあるが、`bind` の意味がそのまま出ている場所なので、そのまま見せてコメントに書いた。
 - **`Slider` / `ComboBox` の幅は直さなかった**。手順 3 で見つけた「grow のノードでも 100pt のまま」は残っている。ただし設定フォームでは、ラベルの隣にウィジェットが自然な幅で並ぶのが普通で、横いっぱいに伸びた ComboBox はむしろ変である。だから form は `grow` を使わず、ラベル列に幅(90pt)を与えて揃える形にした。伸ばしたい example(list-10k あたり)が出てきたら、その時に `TextEdit` と同じやり方で直す。
-- **snapshot は完全一致**(diff 0 px、許容も 0)。counter / todo / layout と違って 1px も違わない。react-egui 側は `<Field>` がラベルに `w={90}` を与える行、生 egui 側は `egui::Grid::new(..).min_col_width(90)`。どちらも「ラベル列を作る」ことを 1 行で言っている。
+- **snapshot は完全一致**(diff 0 px、許容も 0)。counter / todo / layout と違って 1px も違わない。egui-react 側は `<Field>` がラベルに `w={90}` を与える行、生 egui 側は `egui::Grid::new(..).min_col_width(90)`。どちらも「ラベル列を作る」ことを 1 行で言っている。
   - 最初は 503 px ずれた。生 egui 側で `ui.add_sized([200, interact_size.y], TextEdit)` と高さを固定していたためで、`TextEdit::singleline(..).desired_width(200.0)` にして egui に高さを決めさせたら 0 になった。
-- 行数は **react-egui 158 / 生 egui 123 で、react-egui の方が長い**。理由は 2 つあり、どちらも正直に見せる価値がある。(a) `Settings` と `THEMES` と `META` は `lib.rs` にあり、`plain.rs` は `use crate::Settings` で貰っている。共有する型のぶんだけ `lib.rs` が重い。(b) egui の `Grid` はラベル列の整列をやってくれるので、`<Field>` コンポーネントを書く react-egui 側の方が手数が多い。**フォームは egui が元々得意な領域で、ここで react-egui が勝つ話にはならない。** 差が出るのは state の持ち方(1 つの struct を `&mut` で回す)、ログを「行を描く前に集めておく」必要があること、永続化を手で書くことの 3 点で、それは 1.3 の todo と同じ種類の差である。
+- 行数は **egui-react 158 / 生 egui 123 で、egui-react の方が長い**。理由は 2 つあり、どちらも正直に見せる価値がある。(a) `Settings` と `THEMES` と `META` は `lib.rs` にあり、`plain.rs` は `use crate::Settings` で貰っている。共有する型のぶんだけ `lib.rs` が重い。(b) egui の `Grid` はラベル列の整列をやってくれるので、`<Field>` コンポーネントを書く egui-react 側の方が手数が多い。**フォームは egui が元々得意な領域で、ここで egui-react が勝つ話にはならない。** 差が出るのは state の持ち方(1 つの struct を `&mut` で回す)、ログを「行を描く前に集めておく」必要があること、永続化を手で書くことの 3 点で、それは 1.3 の todo と同じ種類の差である。
 - gallery 一覧では counter / todo の次(form / layout / fetch の前)に置いた。
 
 ### 手順 5-2: theme
@@ -455,16 +455,16 @@ CI、Pages、README。
 
 **測った数字**(`cargo test --release -p list-10k --test bench -- --ignored --nocapture`。`Harness::step` を 20 フレーム、600x800、GPU 無しなので「1 フレームの CPU 側」。M4 Max)。
 
-| 行数 | react-egui | 生 egui(`show_rows`) |
+| 行数 | egui-react | 生 egui(`show_rows`) |
 |---|---|---|
 | 100 | 0.84 ms | 0.18 ms |
 | 1,000 | 5.03 ms | 0.14 ms |
 | 10,000 | 86.82 ms | 0.17 ms |
 
-react-egui は全行を描く。`rsx!` の `for` は本物のループで、1 行が `<View>` + 子 3 つ、10k 行で taffy ノードが 4 万個になる。生 egui 版は `ScrollArea::show_rows` で見えている 15 行前後しか描かず、残りは高さの予約だけなので、行数を 100 倍にしても frame time が動かない。**この example は生 egui が勝つ。** 数字は README には書かない(ここと example の module doc にある)。
+egui-react は全行を描く。`rsx!` の `for` は本物のループで、1 行が `<View>` + 子 3 つ、10k 行で taffy ノードが 4 万個になる。生 egui 版は `ScrollArea::show_rows` で見えている 15 行前後しか描かず、残りは高さの予約だけなので、行数を 100 倍にしても frame time が動かない。**この example は生 egui が勝つ。** 数字は README には書かない(ここと example の module doc にある)。
 
 - **`<ScrollArea>` の仮想化 prop は足さなかった**。plan 5 章の候補だが、`<ScrollArea>` は children を `impl View` という不透明な閉包で受け取るので、`for` ループの中身を切り出すことができない。`rows={(count, row_height)}` を意味あるものにするには「index を受け取って View を返す閉包」を prop に取る別の要素が要る。→ **手順 5-8 でその要素(`<VirtualList>`)を足した。** この節の「生 egui が勝つ」という結論はそこで更新される。
-- **既定の行数**。`DEFAULT_COUNT = 10_000`(名前どおり)。ただし gallery は `initial_count={1_000}` を渡す。10k だと 1 フレーム 85ms で gallery 全体が 12fps になり、「react-egui が遅い」と読まれてしまう。スライダーは 10k まで届くので、押したい人は押せる。生 egui 版も gallery では 1,000 に揃える(仮想化されているので 10k でも平気だが、トグルで行数が変わると比較にならない)。
+- **既定の行数**。`DEFAULT_COUNT = 10_000`(名前どおり)。ただし gallery は `initial_count={1_000}` を渡す。10k だと 1 フレーム 85ms で gallery 全体が 12fps になり、「egui-react が遅い」と読まれてしまう。スライダーは 10k まで届くので、押したい人は押せる。生 egui 版も gallery では 1,000 に揃える(仮想化されているので 10k でも平気だが、トグルで行数が変わると比較にならない)。
 - **snapshot は別名**(`list_10k_react.png` / `list_10k_plain.png`)。同名で撮ると 9,373 px ずれる。中身は同じリストだが、片方は全行を描き、片方は見えている 12〜14 行を描いて残りを予約するので、行の中の 3px 程度のずれが行数ぶん繰り返される。詰めるには生 egui 版を taffy の計算に合わせて書くことになり、5 章の線を越える。form / counter / todo / layout と違ってここは構造が違う。
 - **kittest: `ScrollArea` の中のボタンは `click()` では押せない**。シミュレートしたポインタ押下がスクロール領域に吸われて widget に届かない。`click_accesskit()` なら効く。行の削除テストで踏んだ。
 - ベンチは `#[ignore]` のテストとして置いた(`tests/bench.rs`)。release でしか意味が無く、アサーションでもないため。
@@ -472,14 +472,14 @@ react-egui は全行を描く。`rsx!` の `for` は本物のループで、1 �
 
 ### 手順 5-7: shell(と list-10k の索引列の手直し)
 
-**list-10k の手直し。** 生 egui 版の索引列が中身の幅になっていて、名前の開始位置が react-egui 版と揃っていなかった。`INDEX_W`(64pt)を lib に出し、両方がそれを使う。生 egui 側は `allocate_ui_with_layout` + `set_min_width`(`add_sized` だと中央寄せになり、最小幅を言わないと中身まで縮む)。snapshot を撮り直した。別名のままである。
+**list-10k の手直し。** 生 egui 版の索引列が中身の幅になっていて、名前の開始位置が egui-react 版と揃っていなかった。`INDEX_W`(64pt)を lib に出し、両方がそれを使う。生 egui 側は `allocate_ui_with_layout` + `set_min_width`(`add_sized` だと中央寄せになり、最小幅を言わないと中身まで縮む)。snapshot を撮り直した。別名のままである。
 
 **shell.** IDE 風の枠。上 / 左 / 下の `<Panel>`、`<CentralPanel>` のエディタ、浮いた `<Window>` のインスペクタ、左のツリーは `<Collapsing>` + `selectable_label`。
 
 **バグ: `<Panel>` がランナーの下で docking しなかった。elements で直した。**
 
 - 原因。`Panel` は `shares_ui` だが中身は `cx.leaf(&style, ..)` で、taffy モードではノードが 1 つ作られてその中を切り取る。ランナーは必ず `root_container` を開くので、4 つのパネルが 4 つの小さなノードを切り取り、全部が同じ左上に重なって描かれていた(実測: `save` / `files` / `log` が全部 (16,10) 付近)。ARCHITECTURE 6 章の「パネルはアプリのルートで使うことを想定する」が、ランナーの下では成立していなかった。
-- 修正(`react-egui-elements`)。**パネルが場所を切り取る先は「最も近い egui の `Ui`」= 今の taffy ツリーを開始した `Ui`** と決めた。taffy モードなら `cx.leaf` ではなく `cx.ui()` に対して `show_inside` する。ツリーの外(Ui モード)では今までどおり。`CentralPanel` も同じ。ランナーの下ではこの `Ui` は窓なので、「ルートで使う」が自動的に成り立つ。
+- 修正(`egui-react-elements`)。**パネルが場所を切り取る先は「最も近い egui の `Ui`」= 今の taffy ツリーを開始した `Ui`** と決めた。taffy モードなら `cx.leaf` ではなく `cx.ui()` に対して `show_inside` する。ツリーの外(Ui モード)では今までどおり。`CentralPanel` も同じ。ランナーの下ではこの `Ui` は窓なので、「ルートで使う」が自動的に成り立つ。
 - 帰結として、`<View>` の奥に書いた `<Panel>` はその行の一部ではなく窓の端まで飛ぶ。docking の意味そのものなので、doc コメントに「不具合ではない」と明記した。テストは `a_panel_inside_a_view_docks_in_the_window`(`<View grow>` の中の左パネルが窓の左端に着き、残りと重ならない)。既存の `panels_written_as_siblings_dock` はそのまま通る。
 - **gallery には載せられない**(この規則の下でも変わらない)。gallery の中央列に置いても、パネルが切り取るのは gallery のツリーを開始した `Ui` = 窓全体だからである。実際に 1280x800 で試したとき、gallery 自身のラベルは `CentralPanel` に塗り潰されて消えた。plan 5 章の「試して成立すれば gallery に載せる」は **不成立**。standalone のままにする。
 
@@ -497,9 +497,9 @@ react-egui は全行を描く。`rsx!` の `for` は本物のループで、1 �
 
 ### 手順 5-8: `<VirtualList>` と list-10k の 3 つ目
 
-`ScrollArea` + `for` が全行を描くのは事実だが、「だから生 egui が勝つ」で終わらせるのは正しくない。**react-egui でも仮想化はできる。`<ScrollArea>` 経由ではできないだけである。** 要素を足して、list-10k をその比較に作り替えた。
+`ScrollArea` + `for` が全行を描くのは事実だが、「だから生 egui が勝つ」で終わらせるのは正しくない。**egui-react でも仮想化はできる。`<ScrollArea>` 経由ではできないだけである。** 要素を足して、list-10k をその比較に作り替えた。
 
-**`crates/react-egui-elements/src/virtual_list.rs`**
+**`crates/egui-react-elements/src/virtual_list.rs`**
 
 ```rust
 #[component]
@@ -517,7 +517,7 @@ pub fn VirtualList(
 - **閉包 prop は書ける。ただし bound を明示すること**(3.3 の心配ごとへの答え)。`render: impl FnMut(&mut Cx, usize)` は通らない。`#[component]` の `ElideToPropLifetime` が prop の省略ライフタイムを props 構造体のものに書き換えるので、`impl Trait` の中に未宣言のライフタイムが現れて `use of undeclared lifetime name` になる。`impl for<'a, 's, 'u> FnMut(&'a mut Cx<'s, 'u>, usize)` と自分で書けば、書き換える対象が無いのでそのまま通る。`&mut dyn FnMut` に落とす必要は無かった。5-2 の `Handle` prop とは別の問題で、あちらは props の型が `'s` を名乗ってしまうのが原因だった。
 - 制約は「全行が同じ高さ」。`show_rows` が測らずに範囲を出せる条件で、要素側では検査できないので doc に明記した。
 - `leaf_fill` なので `grow` か `h` を与える(手順 5-5 の教訓)。
-- テスト(`crates/react-egui-elements/tests/virtual_list.rs`): 10,000 行を 300pt の harness に置くと木に載るのは 15 行前後だけ、`row 9999` は存在しない。スクロールすると先頭行が消えて後ろの行が入る。
+- テスト(`crates/egui-react-elements/tests/virtual_list.rs`): 10,000 行を 300pt の harness に置くと木に載るのは 15 行前後だけ、`row 9999` は存在しない。スクロールすると先頭行が消えて後ろの行が入る。
 
 **list-10k の 3 つ目。** `Checkbox "virtualise"` で `<ScrollArea>` + `for` と `<VirtualList>` を切り替える。行は `<Row>` コンポーネント 1 つで、どちらの経路も同じものを描く。既定は off で、gallery が最初に見せるのは「全部描く値段」のまま。
 
@@ -527,7 +527,7 @@ pub fn VirtualList(
 | 1,000 | 5.06 ms | 0.28 ms | 0.13 ms |
 | 10,000 | 78.04 ms | 0.27 ms | 0.17 ms |
 
-`<VirtualList>` は行数に対して平らである。生 egui との差(0.27 対 0.17)は、画面に出ている 15 行ぶんの taffy ノードの値段で、これは react-egui を使うことの値段そのものだから、そのまま見せる。**結論は「生 egui が勝つ」ではなく「`for` で 1 万行書くのが高い。長いリストには専用の要素がある」に変わった。**
+`<VirtualList>` は行数に対して平らである。生 egui との差(0.27 対 0.17)は、画面に出ている 15 行ぶんの taffy ノードの値段で、これは egui-react を使うことの値段そのものだから、そのまま見せる。**結論は「生 egui が勝つ」ではなく「`for` で 1 万行書くのが高い。長いリストには専用の要素がある」に変わった。**
 
 - テスト: 切り替えても filter と削除の挙動が変わらないこと、両方の経路が先頭 10 行に同じものを出すこと。
 - ARCHITECTURE 6 章の要素表に `VirtualList` を足し、`ScrollArea` が全部描くことと使い分けを書いた。README の list-10k の 1 行も差し替え。
@@ -556,11 +556,11 @@ pub fn VirtualList(
 
 **3.1 の前提が間違っていた。「eframe は default(glow)のまま」は eframe 0.36 では成り立たない。** eframe 0.36.1 の `default` feature は `["accesskit", "default_fonts", "links", "wayland", "web_screen_reader", "wgpu", "winit/default", "x11"]` で、**`glow` は入っていない**。`Renderer::Glow` は `glow` feature が無いと存在すらせず、`Renderer::default()` は `Wgpu` を返す。つまり **このリポジトリは最初から wgpu で描いていた**。0.35 までとは逆で、今は glow の方が opt-in である。
 
-そのため **`wgpu` feature は置かない**。一度は `wgpu = ["eframe/wgpu"]` を足したが、今日の eframe では何も変えない feature であり、API の雑音にしかならない。5 章の「wgpu を唯一の backend にするか」は、eframe 側が先に決めてくれた形になる。glow で動かしたい人は `eframe/glow` を明示する話で、それはこの crate の仕事ではない。判断の根拠は `crates/react-egui-app/Cargo.toml` のコメントと ARCHITECTURE 8 章に残した。
+そのため **`wgpu` feature は置かない**。一度は `wgpu = ["eframe/wgpu"]` を足したが、今日の eframe では何も変えない feature であり、API の雑音にしかならない。5 章の「wgpu を唯一の backend にするか」は、eframe 側が先に決めてくれた形になる。glow で動かしたい人は `eframe/glow` を明示する話で、それはこの crate の仕事ではない。判断の根拠は `crates/egui-react-app/Cargo.toml` のコメントと ARCHITECTURE 8 章に残した。
 
 **WebGL fallback も何もしなくても入っている。** `eframe/wgpu` → `egui-wgpu/default` → `wgpu/webgl`。3.1 の「wasm は `wgpu` の `webgl` feature を on にする」は不要だった。`[workspace.dependencies]` には `wgpu = "30.0"`(eframe 0.36.1 が使う版)を pin だけしてある。shader example が pipeline を組むときに同じ wgpu へリンクするため。
 
 **`Options.setup`** は 3.2 のとおり足した。型は `Option<Setup>`、`pub type Setup = Box<dyn FnOnce(&eframe::CreationContext<'_>)>`(clippy の `type_complexity` が生の型を蹴るので別名にした。API としてもこちらが読みやすい)。`ReactApp::new` の先頭で `take()` して呼ぶ。1 フレーム目に paint callback が追加されうるので、store を作るより前に走らせる。`ReactApp::new` の `options` 引数を `&Options` から `&mut Options` にし、native / wasm どちらの起動閉包も `options` を move で持って `take` する(閉包はどちらも 1 回しか呼ばれない)。
 
-- テストは `crates/react-egui-app/src/lib.rs` の `#[cfg(test)] mod tests` に 1 つ、`setup` の既定が `None` であること。kittest は eframe を動かせないので、実際に wgpu で描かれることの確認は目視(`RUST_LOG=eframe=info`)に委ねる。
+- テストは `crates/egui-react-app/src/lib.rs` の `#[cfg(test)] mod tests` に 1 つ、`setup` の既定が `None` であること。kittest は eframe を動かせないので、実際に wgpu で描かれることの確認は目視(`RUST_LOG=eframe=info`)に委ねる。
 - ARCHITECTURE 7 章(`Options` の一覧と `setup`)と 8 章(バックエンドと WebGL fallback)を更新。

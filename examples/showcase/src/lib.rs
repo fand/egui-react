@@ -20,8 +20,8 @@
 //! No `Panel`, so the gallery can run it in a column of its own.
 
 use example_meta::Meta;
-use react_egui::prelude::*;
-use react_egui_elements::prelude::*;
+use egui_react::prelude::*;
+use egui_react_elements::prelude::*;
 
 pub mod notes;
 
@@ -240,7 +240,7 @@ fn Sidebar(
             <ScrollArea grow={1.0}>
                 <View direction="column" w="100%">
                     for note in notes.iter() {
-                        // A selectable row: `react-egui-elements` has no toggle
+                        // A selectable row: `egui-react-elements` has no toggle
                         // element, so this is the escape hatch, one leaf deep.
                         {view(|cx| {
                             let picked = cx.leaf(&ItemStyle::default().w("100%").my(pad), |ui| {

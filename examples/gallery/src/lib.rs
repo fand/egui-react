@@ -8,8 +8,8 @@
 
 use egui_extras::syntax_highlighting::{CodeTheme, code_view_ui};
 use example_meta::Meta;
-use react_egui::prelude::*;
-use react_egui_elements::prelude::*;
+use egui_react::prelude::*;
+use egui_react_elements::prelude::*;
 
 use board::App as BoardApp;
 use clock::App as ClockApp;
@@ -50,7 +50,7 @@ pub const EXAMPLES: &[Meta] = &[
 ];
 
 /// Where the source links point.
-const REPO: &str = "https://github.com/fand/react-egui/blob/main/examples";
+const REPO: &str = "https://github.com/fand/egui-react/blob/main/examples";
 
 /// The gallery: list, running example, code.
 ///
@@ -68,7 +68,7 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
     // without tripping over a live borrow.
     let active: Vec<&'static str> = tags.to_vec();
     let current: &'static Meta = find(*selected).unwrap_or(&EXAMPLES[0]);
-    // An example with no plain version is always shown as react-egui, whatever
+    // An example with no plain version is always shown as egui-react, whatever
     // the toggle was left on.
     let showing_plain = *plain && current.plain.is_some();
     let shown: Vec<&'static Meta> = EXAMPLES
@@ -87,7 +87,7 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
                 selected={current.name}
                 on_select={|name: &'static str| {
                     *selected = name;
-                    // A new example starts on its react-egui version.
+                    // A new example starts on its egui-react version.
                     *plain = false;
                 }}
                 on_tag={|tag: &'static str| toggle(&mut tags, tag)}
@@ -172,7 +172,7 @@ fn List(
 
 /// A small button, optionally showing whether it is on.
 ///
-/// The escape hatch, because `react-egui-elements` has no toggle element and a
+/// The escape hatch, because `egui-react-elements` has no toggle element and a
 /// tag wants to look pressed while it is filtering. `egui::SelectableLabel` has
 /// no `wrap_mode` builder, so the mode goes on the leaf's `Ui`: a taffy leaf is
 /// measured from its first draw, which happens in a zero-width `Ui`, and a
@@ -246,7 +246,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
 /// A plain egui example: one `use_state` for its whole state, drawn into a
 /// leaf that taffy sizes.
 ///
-/// This is what running a non-react-egui UI inside a react-egui tree looks
+/// This is what running a non-egui-react UI inside a egui-react tree looks
 /// like: the state is a hook, the drawing is a closure over `&mut egui::Ui`.
 ///
 /// `bind()` rather than `&mut *state`, for the same reason a bound `TextEdit`
@@ -310,7 +310,7 @@ fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
             if meta.plain.is_some() {
                 <View direction="row" gap={4} align="center" w="100%">
                     <Chip
-                        label="react-egui"
+                        label="egui-react"
                         active={!plain}
                         on_click={|| on_pick.emit(false)}
                     />

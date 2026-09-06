@@ -32,13 +32,13 @@
 
 ### フェーズ 0: ワークスペース準備
 
-- Cargo workspace に `react-egui` / `react-egui-macros` / `react-egui-elements` / `react-egui-app` と `examples/` を作る。
+- Cargo workspace に `egui-react` / `egui-react-macros` / `egui-react-elements` / `egui-react-app` と `examples/` を作る。
 - egui 0.36、rstml 0.13、egui_taffy 0.14 を pin する。
 - `rust-toolchain.toml`、CI、LICENSE、README の骨組み。
 
 ### フェーズ 1: スパイク
 
-- `react-egui` core に最小限の `Store` / `Cx` / `State` / `use_state` / `use_effect` / `hook_scope` / sweep を書く。
+- `egui-react` core に最小限の `Store` / `Cx` / `State` / `use_state` / `use_effect` / `hook_scope` / sweep を書く。
 - マクロなしで Counter と Dialog(2 つの callback props)の手書き展開形を examples に置く。
 - ARCHITECTURE.md 10 章の検証項目を egui_kittest のテストとして 1 つずつ固定する。
 - 終了条件: 検証項目が全てテストで緑。崩れた項目があれば設計を修正し ARCHITECTURE.md を更新する。
@@ -64,7 +64,7 @@
 
 ### フェーズ 5: ランナーと examples
 
-- `react-egui-app::run`。`Options::max_passes = 2` の設定。`use_persisted`。
+- `egui-react-app::run`。`Options::max_passes = 2` の設定。`use_persisted`。
 - native と trunk による wasm ビルドを CI で回す。
 - examples: counter、todo(`use_reducer`)、layout デモ。
 
@@ -78,7 +78,7 @@
 - 既存 example を lib + bin に分割し、全 example をブラウザで試せる gallery(1 wasm)を GitHub Pages に置く。
 - gallery で example と実装コードを並べ、生 egui 版と切り替えて差を見せる。
 - examples を足す: form、theme、clock、custom-hook、escape-hatch、list-10k、shell、showcase。
-- `react-egui-app` の `wgpu` feature と `Options.setup`、`<Canvas>` 要素、shader example。
+- `egui-react-app` の `wgpu` feature と `Options.setup`、`<Canvas>` 要素、shader example。
 
 ### フェーズ 6.6: 複雑な UI の example
 
@@ -92,7 +92,7 @@
 ### フェーズ 7: モバイル
 
 - Android: eframe で examples をビルドする。
-- iOS: `egui-winit` + `egui-wgpu` のランナーを `react-egui-app` に書き、cargo-mobile2 でビルドする。
+- iOS: `egui-winit` + `egui-wgpu` のランナーを `egui-react-app` に書き、cargo-mobile2 でビルドする。
 - タッチ / IME / safe area の調整。
 
 ### フェーズ 8: 公開準備

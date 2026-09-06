@@ -4,8 +4,8 @@ use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
 use form::App;
 use form::plain::{self, PlainState};
-use react_egui::prelude::*;
-use react_egui_app::{root_id, root_style};
+use egui_react::prelude::*;
+use egui_react_app::{root_id, root_style};
 
 const SIZE: egui::Vec2 = egui::vec2(420.0, 420.0);
 
@@ -81,7 +81,7 @@ fn drive<S>(harness: &mut Harness<'_, S>) {
 }
 
 #[test]
-fn the_react_egui_version_edits_the_settings() {
+fn the_egui_react_version_edits_the_settings() {
     let mut harness = react();
     harness.run();
     drive(&mut harness);

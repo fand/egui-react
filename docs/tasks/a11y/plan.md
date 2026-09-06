@@ -6,14 +6,14 @@
 
 ## 0. 全体
 
-**1 PR では終わらない。main に入るものと、`a11y-spike` ブランチに置くものに割る。** task.md の決めごと「react-egui の main に fork した eframe を依存として入れない」を守るためで、境界は「crates.io の依存だけで完結するか」に置く。
+**1 PR では終わらない。main に入るものと、`a11y-spike` ブランチに置くものに割る。** task.md の決めごと「egui-react の main に fork した eframe を依存として入れない」を守るためで、境界は「crates.io の依存だけで完結するか」に置く。
 
 **割り方は着手後に変わった。** 当初は手順 6 以降をまるごと `a11y-spike` に置く前提だったが、1.2 で「`TreeUpdate` を受け取るのに eframe の fork は要らない」(2.2 の案 C)ことが分かった。**手順 6〜10 は crates.io の依存だけで閉じるので main に入れる。** fork が要るのは手順 11(F2)だけで、そこだけが spike に残る。
 
 | | 場所 | 内容 |
 |---|---|---|
-| PR #4(済) | main | 本書、ARCHITECTURE 1 章 / 8 章の一文、README の一文、`react-egui-elements` のラベル固め(`Image` の `alt`、`Button` の `label`)、名前の無いウィジェットを検出する kittest |
-| PR #5(この続き) | main | `accesskit-web`(adapter crate)、`react_egui_app::a11y::WebA11y`(egui の plugin)、gallery での有効化、DOM → `ActionRequest`、フォーカス F1 |
+| PR #4(済) | main | 本書、ARCHITECTURE 1 章 / 8 章の一文、README の一文、`egui-react-elements` のラベル固め(`Image` の `alt`、`Button` の `label`)、名前の無いウィジェットを検出する kittest |
+| PR #5(この続き) | main | `accesskit-web`(adapter crate)、`egui_react_app::a11y::WebA11y`(egui の plugin)、gallery での有効化、DOM → `ActionRequest`、フォーカス F1 |
 | 続き | `a11y-spike` ブランチ | 手順 11 だけ: fork した eframe で `has_focus` を緩める F2 |
 | その後 | 上流 | AccessKit へ web adapter の PR、eframe / egui へ差し込み口の issue |
 
@@ -55,7 +55,7 @@ task.md の背景表は「AccessKit に web adapter が存在しない」と書�
 
 `crates/eframe/src/web/app_runner.rs` の 394 行目、`handle_platform_output` の分解パターンに `accesskit_update: _, // not currently implemented` がある(手元の `~/.cargo/registry/.../eframe-0.36.1/src/web/app_runner.rs:394`)。ここは task.md のとおり。ただし調べた結果、**周辺の前提が 3 つ違っていた。**
 
-**(a) `accesskit` は egui の feature ではない。** eframe の `accesskit` feature は `["egui-winit/accesskit"]` だけで、native 専用である。egui 本体は `accesskit = "0.24.1"` を**無条件の依存**として持ち、`Context::enable_accesskit()` / `disable_accesskit()` / `accesskit_node_builder()` はいつでも呼べる(`egui-0.36.1/src/context.rs:3698`)。**wasm でも `ctx.enable_accesskit()` を呼べばその場でツリーが作られ始める。** 呼ぶ主体が居ないだけで、機能は生きている。呼ぶのはアプリでよく、`react_egui_app::Options::setup` の `&CreationContext` から `cc.egui_ctx.enable_accesskit()` と書ける。
+**(a) `accesskit` は egui の feature ではない。** eframe の `accesskit` feature は `["egui-winit/accesskit"]` だけで、native 専用である。egui 本体は `accesskit = "0.24.1"` を**無条件の依存**として持ち、`Context::enable_accesskit()` / `disable_accesskit()` / `accesskit_node_builder()` はいつでも呼べる(`egui-0.36.1/src/context.rs:3698`)。**wasm でも `ctx.enable_accesskit()` を呼べばその場でツリーが作られ始める。** 呼ぶ主体が居ないだけで、機能は生きている。呼ぶのはアプリでよく、`egui_react_app::Options::setup` の `&CreationContext` から `cc.egui_ctx.enable_accesskit()` と書ける。
 
 **(b) egui 0.36 には `Plugin` trait があり、`FullOutput` を横から掴める。** `egui::plugin::Plugin`(`egui-0.36.1/src/plugin.rs`)は次を持つ。
 
@@ -77,7 +77,7 @@ pub trait Plugin: Send + Sync + std::any::Any + 'static {
 注意が 2 つ。
 
 - `Plugin` は `Send + Sync` を要求するが、`web_sys::HtmlElement` などは `!Send`。**DOM 側の状態は `thread_local!` のレジストリに置き、plugin 構造体は整数のキーだけを持つ**形にする(wasm は単スレッドなので `unsafe impl Send` を書く必要も無い)。
-- `output_hook` は**パスごとに**呼ばれる。egui は `request_discard` されたパスをやり直すので(`context.rs:833` の `loop`)、react-egui では taffy が普通に 2 パス回る(ARCHITECTURE 5.3)。`output.platform_output.requested_discard()` が立っているパスの `TreeUpdate` は**捨てる**。捨てたパスのツリーを DOM に流すと、レイアウトが決まる前の座標が一瞬出る。
+- `output_hook` は**パスごとに**呼ばれる。egui は `request_discard` されたパスをやり直すので(`context.rs:833` の `loop`)、egui-react では taffy が普通に 2 パス回る(ARCHITECTURE 5.3)。`output.platform_output.requested_discard()` が立っているパスの `TreeUpdate` は**捨てる**。捨てたパスのツリーを DOM に流すと、レイアウトが決まる前の座標が一瞬出る。
 
 **(c) web 側に流用できる「隠し DOM」は screen reader 経路ではなく text agent。** `web_screen_reader` feature(既定 on)の実体は `web/screen_reader.rs` の `speak(text)` だけで、`speechSynthesis` に `platform_output.events_description()` の 1 行を投げる。ツリーもフォーカスも無い。流用価値は無い。
 
@@ -249,24 +249,24 @@ impl Adapter {
 | B | 自前の web ランナーを書く(`egui::Context` + `egui-wgpu` + 入力の橋渡しを全部自分で) | text agent / IME / タッチ / リサイズ / storage を全部書き直すことになる。eframe web は 15 ファイルある。**採らない** |
 | C | **egui の `Plugin::output_hook` で拾う**(1.2(b)) | crates.io の eframe / egui のまま動く。native でも kittest でも同じコードが動く |
 
-**C を採る。** 1.2 で分かったとおり、これは fork も自前ランナーも要らない。試作は `react-egui-app` の `Options::setup` から 2 行で始められる。
+**C を採る。** 1.2 で分かったとおり、これは fork も自前ランナーも要らない。試作は `egui-react-app` の `Options::setup` から 2 行で始められる。
 
 ```rust
 // spike ブランチの gallery/src/main.rs
 Options {
     setup: Some(Box::new(|cc| {
         cc.egui_ctx.enable_accesskit();
-        cc.egui_ctx.add_plugin(react_egui_app::a11y::WebA11y::new("react_egui_canvas"));
+        cc.egui_ctx.add_plugin(egui_react_app::a11y::WebA11y::new("egui_react_canvas"));
     })),
     ..Default::default()
 }
 ```
 
-`WebA11y` は `react-egui-app` 側の薄い glue(`#[cfg(target_arch = "wasm32")]`)で、`accesskit_web::Adapter` を `thread_local!` に持ち、`Plugin` の 2 つの穴を繋ぐだけ。
+`WebA11y` は `egui-react-app` 側の薄い glue(`#[cfg(target_arch = "wasm32")]`)で、`accesskit_web::Adapter` を `thread_local!` に持ち、`Plugin` の 2 つの穴を繋ぐだけ。
 
 ```rust
 impl egui::plugin::Plugin for WebA11y {
-    fn debug_name(&self) -> &'static str { "react_egui_web_a11y" }
+    fn debug_name(&self) -> &'static str { "egui_react_web_a11y" }
 
     fn output_hook(&mut self, _ctx: &egui::Context, output: &mut egui::FullOutput) {
         if output.platform_output.requested_discard() { return; }   // 5.3 の捨てられるパス
@@ -300,7 +300,7 @@ impl egui::plugin::Plugin for WebA11y {
 
 `ctx.enable_accesskit()` は毎フレーム全ウィジェットぶんの `accesskit::Node` を作るので、常時 on にはしない。Flutter web は「窓の外の 1px の `<button aria-label="Enable accessibility">` がクリックされたら」で判定している(1.4)。
 
-**試作は常時 on にする。** 目的が「支援技術から使えるか」の確認なので、有効化の作法まで一度に確かめると原因の切り分けができない。有効化の設計は上流に持ち込むときの論点として残し、AccessKit の `ActivationHandler`(`request_initial_tree`)がすでにその形の穴なので、adapter の API はそれに合わせておく(2.1)。react-egui 側に `Options.a11y: bool` を置くのは、上流の形が決まってからでよい。
+**試作は常時 on にする。** 目的が「支援技術から使えるか」の確認なので、有効化の作法まで一度に確かめると原因の切り分けができない。有効化の設計は上流に持ち込むときの論点として残し、AccessKit の `ActivationHandler`(`request_initial_tree`)がすでにその形の穴なので、adapter の API はそれに合わせておく(2.1)。egui-react 側に `Options.a11y: bool` を置くのは、上流の形が決まってからでよい。
 
 ### 2.5 main に入るラベル固め
 
@@ -331,7 +331,7 @@ ARCHITECTURE / README に足す一文は次の趣旨。
 ### PR #4(main、済)
 
 1. **本書と task.md の訂正。** 1.1 で分かった `web-basics` ブランチの存在を task.md の背景表に反映する(「無い」→「リリース版は無い。試作ブランチが 1 本ある」)。コミット。
-2. **`Image` の `alt`、`Button` の `label`。** `crates/react-egui-elements/src/widgets.rs`。kittest を `tests/widgets.rs` に 2 本(A-1、A-2)。コミット。
+2. **`Image` の `alt`、`Button` の `label`。** `crates/egui-react-elements/src/widgets.rs`。kittest を `tests/widgets.rs` に 2 本(A-1、A-2)。コミット。
 3. **examples のラベル埋め。** todo のチェックボックスと `x` ボタン、他の example を一通り見て名前の無いウィジェットを潰す。snapshot が動くなら撮り直す。コミット。
 4. **名前の無いノードを見つける kittest**(A-3)。gallery の全 example を 1 つずつ描き、focusable なノードに空でない名前があることを確かめる。コミット。
 5. **ARCHITECTURE 1 章 / 8 章と README の一文。** README は「Examples」節の gallery の段落(`Every example but one runs in the browser ..`)の末尾に足す。コミット。PR。
@@ -342,7 +342,7 @@ ARCHITECTURE / README に足す一文は次の趣旨。
 
 6. **`accesskit_web` の骨格を移植する。** `web-basics` の 4 ファイルを `crates/accesskit-web/` に置き、accesskit 0.24.1 / consumer 0.38 に合わせて直す(`name()` → `label()`、`is_focusable(&filter)`、`TreeId`)。まだ座標もイベントも無い。ビルドが通ることだけ確かめる。
 7. **座標とホストの CSS**(2.1)。`bounding_box()` を `position: absolute` に落とし、canvas に重ねる。DevTools で矩形がウィジェットの上に乗っていることを目視。
-8. **`react_egui_app::a11y::WebA11y`(plugin)と `Options::setup` からの起動**(2.2)。gallery を trunk でビルドし、DOM が毎フレーム更新されることを目視。捨てられたパスを弾く条件がちゃんと効いているかを、taffy が 2 パス回る example(layout)で確かめる。
+8. **`egui_react_app::a11y::WebA11y`(plugin)と `Options::setup` からの起動**(2.2)。gallery を trunk でビルドし、DOM が毎フレーム更新されることを目視。捨てられたパスを弾く条件がちゃんと効いているかを、taffy が 2 パス回る example(layout)で確かめる。
 9. **DOM → `ActionRequest`**(2.1 の表)。click と Enter / Space で counter の `+` が増えるところまで。
 10. **フォーカス F1**(2.3)。`aria-activedescendant` 版。VoiceOver(macOS Safari / Chrome)で counter / todo / form を触る。
 
@@ -364,7 +364,7 @@ kittest は AccessKit ツリーをそのまま歩く(`egui_kittest::Harness::roo
 
 | # | 場所 | 内容 |
 |---|---|---|
-| A-1 | `crates/react-egui-elements/tests/widgets.rs` | `<Image alt="a cat"/>` を `harness.get_by_label("a cat")` で引ける。`alt` 無しなら引けない |
+| A-1 | `crates/egui-react-elements/tests/widgets.rs` | `<Image alt="a cat"/>` を `harness.get_by_label("a cat")` で引ける。`alt` 無しなら引けない |
 | A-2 | 同上 | `<Button label="delete">"x"</Button>` が `get_by_role_and_label(Role::Button, "delete")` で引ける。見た目(`get_by_label("x")` が引く矩形)は変わらない |
 | A-3 | `examples/gallery/tests/` | `gallery::EXAMPLES` を回して `<App start={meta.name}/>` を描き、ツリーを root から辿って「focusable かつ `label()` が空」のノードが無いことを確かめる。見つかったら example 名と role と矩形を出す。**これが 3 の再発防止** |
 
@@ -436,7 +436,7 @@ A-3(`examples/gallery/tests/a11y.rs`)を書いて全 example を走らせたと�
 
 ### 6.4 `+` / `-` はそのままにした
 
-counter と custom-hook のボタン。名前は空ではない(「プラス」「マイナス」と読まれる)し、隣に数が出ているので意味は通る。直すと生 egui 版と react-egui 版を同じ手順で driving しているテストが片方だけズレるため、費用の方が大きいと判断した。
+counter と custom-hook のボタン。名前は空ではない(「プラス」「マイナス」と読まれる)し、隣に数が出ているので意味は通る。直すと生 egui 版と egui-react 版を同じ手順で driving しているテストが片方だけズレるため、費用の方が大きいと判断した。
 
 ### 6.5 A-3 は `run` ではなく `run_steps(2)`
 
@@ -522,4 +522,4 @@ counter と custom-hook のボタン。名前は空ではない(「プラス」�
 
 ### 手順 12: 上流化はしない
 
-2026-09-05 の判断で取り下げ。AccessKit(discussions#514)にも eframe にも出さない。`crates/accesskit-web` と `react_egui_app::a11y::WebA11y` は react-egui の一部として保守する。上流が同等のものを出したら乗り換える。
+2026-09-05 の判断で取り下げ。AccessKit(discussions#514)にも eframe にも出さない。`crates/accesskit-web` と `egui_react_app::a11y::WebA11y` は egui-react の一部として保守する。上流が同等のものを出したら乗り換える。

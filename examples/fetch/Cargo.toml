@@ -1,6 +1,6 @@
 [package]
 name = "fetch"
-description = "react-egui example: fetch"
+description = "egui-react example: fetch"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -19,9 +19,9 @@ path = "src/main.rs"
 [dependencies]
 eframe.workspace = true
 egui.workspace = true
-react-egui.workspace = true
-react-egui-app.workspace = true
-react-egui-elements.workspace = true
+egui-react.workspace = true
+egui-react-app.workspace = true
+egui-react-elements.workspace = true
 example-meta.workspace = true
 
 # `fetch_async` needs `native-async` on native (it pulls in `async-channel`);

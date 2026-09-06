@@ -12,7 +12,7 @@ struct PlainApp {
 #[cfg(not(target_arch = "wasm32"))]
 impl eframe::App for PlainApp {
     fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
-        // The same `CentralPanel` the react-egui runner puts around the root:
+        // The same `CentralPanel` the egui-react runner puts around the root:
         // the `Ui` eframe hands out has no margin and no background.
         egui::CentralPanel::default().show(ui, |ui| plain::ui(ui, &mut self.state));
     }
@@ -21,13 +21,13 @@ impl eframe::App for PlainApp {
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
     eframe::run_native(
-        "react-egui: counter (plain egui)",
+        "egui-react: counter (plain egui)",
         eframe::NativeOptions::default(),
         Box::new(|_cc| Ok(Box::<PlainApp>::default())),
     )
 }
 
-/// The plain versions are native only. `trunk` builds the react-egui binaries,
+/// The plain versions are native only. `trunk` builds the egui-react binaries,
 /// and `cargo check --target wasm32` builds every binary in the workspace.
 #[cfg(target_arch = "wasm32")]
 fn main() {}

@@ -1,13 +1,13 @@
 //! Runs the `clock` example on its own; the app itself is in `lib.rs`.
 
 use clock::App;
-use react_egui::prelude::*;
-use react_egui_app::{Options, run};
+use egui_react::prelude::*;
+use egui_react_app::{Options, run};
 
 fn main() -> eframe::Result {
     run(
         Options {
-            title: String::from("react-egui: clock"),
+            title: String::from("egui-react: clock"),
             ..Default::default()
         },
         |_cx| rsx! { <App/> },

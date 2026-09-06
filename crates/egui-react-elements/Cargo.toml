@@ -1,0 +1,24 @@
+[package]
+name = "egui-react-elements"
+description = "Widgets, containers and flex/grid layout elements for egui-react"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "egui_react_elements"
+path = "src/lib.rs"
+
+[features]
+# Pixel snapshot tests. Needs a GPU (or a software Vulkan driver), so it is off
+# by default and run as its own CI step.
+snapshot = ["egui_kittest/snapshot", "egui_kittest/wgpu"]
+
+[dependencies]
+egui.workspace = true
+egui-react.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true

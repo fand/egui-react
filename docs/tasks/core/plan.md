@@ -8,27 +8,27 @@
 
 | フェーズ | 主な対象 | 触るクレート |
 |---|---|---|
-| 2 | `View`、hooks の残り、遅延キュー、`Cx` のレイアウトコンテキスト、衝突オーバーレイ | `react-egui` |
-| 3 | `#[component]` / `#[hook]` / `rsx!`、trybuild、spike のマクロ版置換 | `react-egui-macros`、`react-egui`(re-export と tests) |
-| 4 | `View` / `Text`、ウィジェット、コンテナ、スナップショット | `react-egui-elements` |
-| 5 | `run`、`use_persisted`、wasm、examples、CI | `react-egui-app`、`examples/*`、`react-egui`(persist) |
+| 2 | `View`、hooks の残り、遅延キュー、`Cx` のレイアウトコンテキスト、衝突オーバーレイ | `egui-react` |
+| 3 | `#[component]` / `#[hook]` / `rsx!`、trybuild、spike のマクロ版置換 | `egui-react-macros`、`egui-react`(re-export と tests) |
+| 4 | `View` / `Text`、ウィジェット、コンテナ、スナップショット | `egui-react-elements` |
+| 5 | `run`、`use_persisted`、wasm、examples、CI | `egui-react-app`、`examples/*`、`egui-react`(persist) |
 
 追加する依存(`[workspace.dependencies]` に pin する)。
 
 | crate | 用途 | 場所 |
 |---|---|---|
-| egui_taffy 0.14(dev → 通常依存に昇格) | `Cx` の `Tui` モード | react-egui |
-| serde / serde_json | `use_persisted` | react-egui |
-| typed-builder | Props の builder | react-egui(`__private` で再エクスポート) |
-| syn 2(`full`, `extra-traits`)/ quote / proc-macro2 | マクロ | react-egui-macros |
-| trybuild | コンパイルエラーの固定 | react-egui(dev) |
-| egui_kittest `snapshot` + `wgpu` | スナップショット | react-egui-elements(feature `snapshot` の dev) |
-| eframe `persistence` feature | `Storage` | react-egui-app |
-| wasm-bindgen-futures / web-sys(`Document`, `HtmlCanvasElement`) | wasm ランナー | react-egui-app(`cfg(target_arch = "wasm32")`) |
+| egui_taffy 0.14(dev → 通常依存に昇格) | `Cx` の `Tui` モード | egui-react |
+| serde / serde_json | `use_persisted` | egui-react |
+| typed-builder | Props の builder | egui-react(`__private` で再エクスポート) |
+| syn 2(`full`, `extra-traits`)/ quote / proc-macro2 | マクロ | egui-react-macros |
+| trybuild | コンパイルエラーの固定 | egui-react(dev) |
+| egui_kittest `snapshot` + `wgpu` | スナップショット | egui-react-elements(feature `snapshot` の dev) |
+| eframe `persistence` feature | `Storage` | egui-react-app |
+| wasm-bindgen-futures / web-sys(`Document`, `HtmlCanvasElement`) | wasm ランナー | egui-react-app(`cfg(target_arch = "wasm32")`) |
 
-`react-egui` は `react-egui-macros` を通常依存に持ち、`rsx!` / `component` / `hook` を re-export する。ユーザーは `react_egui::prelude::*` だけを `use` する。マクロの trybuild テストは `react-egui` 側の `tests/ui/` に置く(proc-macro クレートから facade への dev-dependency 循環を避ける)。
+`egui-react` は `egui-react-macros` を通常依存に持ち、`rsx!` / `component` / `hook` を re-export する。ユーザーは `egui_react::prelude::*` だけを `use` する。マクロの trybuild テストは `egui-react` 側の `tests/ui/` に置く(proc-macro クレートから facade への dev-dependency 循環を避ける)。
 
-## 1. フェーズ 2: core hooks(`crates/react-egui/src/`)
+## 1. フェーズ 2: core hooks(`crates/egui-react/src/`)
 
 ### 1.1 `view.rs`
 
@@ -49,7 +49,7 @@ pub fn view<F: FnOnce(&mut Cx<'_, '_>)>(f: F) -> impl View { f }
 
 ARCHITECTURE.md 3.2 の `IntoIterator<Item = V>` への blanket impl は、`FnOnce` の blanket impl および `Option<V>` と coherence で衝突する(rustc で確認済み)。`Option` / `Vec` / 配列の個別 impl に置き換える。`rsx!` 内の繰り返しは `for` で書けるので実用上の差はない。ARCHITECTURE.md 3.2 を更新する。
 
-`{ |cx| .. }` を直接 `impl View` の引数に渡すと閉包の引数型が推論されないことがあるので、`rsx!` は必ず `::react_egui::view(|cx| { .. })` を emit する。ユーザーの escape hatch も `view(|cx| ..)` を案内する。
+`{ |cx| .. }` を直接 `impl View` の引数に渡すと閉包の引数型が推論されないことがあるので、`rsx!` は必ず `::egui_react::view(|cx| { .. })` を emit する。ユーザーの escape hatch も `view(|cx| ..)` を案内する。
 
 ### 1.2 `use_memo`
 
@@ -104,7 +104,7 @@ pub fn update_later(&self, f: impl FnOnce(&mut T) + 'static);
 
 ### 1.6 衝突オーバーレイ
 
-`Store` に `warn_on_collision: bool`(既定 `cfg!(debug_assertions)`)と `set_warn_on_collision` を足す。`end_pass` の最後で、有効かつ `collisions` が空でなければ `egui::Area::new(Id::new("react_egui_collision_warning")).order(Order::Debug).anchor(Align2::LEFT_TOP, (8.0, 8.0))` に `Frame::popup` で赤い文字を出す。文面は `react-egui: hook id collision at {file}:{line}:{column}. Wrap custom hooks in #[hook], or add key= inside loops.` とし、同じ位置は 1 パスに 1 行にまとめる。`end_pass` はランナーの `App::ui` の中で呼ばれるので、そのフレームの `Context` に描ける。
+`Store` に `warn_on_collision: bool`(既定 `cfg!(debug_assertions)`)と `set_warn_on_collision` を足す。`end_pass` の最後で、有効かつ `collisions` が空でなければ `egui::Area::new(Id::new("egui_react_collision_warning")).order(Order::Debug).anchor(Align2::LEFT_TOP, (8.0, 8.0))` に `Frame::popup` で赤い文字を出す。文面は `egui-react: hook id collision at {file}:{line}:{column}. Wrap custom hooks in #[hook], or add key= inside loops.` とし、同じ位置は 1 パスに 1 行にまとめる。`end_pass` はランナーの `App::ui` の中で呼ばれるので、そのフレームの `Context` に描ける。
 
 ### 1.7 `Cx` のレイアウトコンテキスト
 
@@ -165,7 +165,7 @@ impl ContainerStyle { pub fn merge(&self, item: &ItemStyle) -> taffy::Style; }
 
 kittest の `Harness::new_ui_state` と `run_app` の形は spike と同じ。`tests/common/mod.rs` の `run_app` は `Cx::new` を使い続ける。
 
-## 2. フェーズ 3: マクロ(`crates/react-egui-macros/src/`)
+## 2. フェーズ 3: マクロ(`crates/egui-react-macros/src/`)
 
 ### 2.1 `#[component]`(`component.rs`)
 
@@ -187,8 +187,8 @@ kittest の `Harness::new_ui_state` と `run_app` の形は spike と同じ。`t
 
 ```rust
 pub enum NameEvent { X(A), .. }                                  // #[event] が 1 つ以上ある場合のみ
-#[derive(::react_egui::__private::TypedBuilder)]
-#[builder(crate_module_path = ::react_egui::__private::typed_builder)]
+#[derive(::egui_react::__private::TypedBuilder)]
+#[builder(crate_module_path = ::egui_react::__private::typed_builder)]
 pub struct NameProps<'e, C: View, ..generics> {
     pub x: T,
     #[builder(default)] pub y: Option<U>,
@@ -200,11 +200,11 @@ pub fn Name<'e, C: View, ..>(cx: &mut Cx<'_, '_>, props: NameProps<'e, C, ..>) {
     let NameProps { x, y, events, children } = props;
     let mut __noop = |_: NameEvent| {};
     let __events: &mut dyn FnMut(NameEvent) = match events { Some(e) => e, None => &mut __noop };   // match の腕で lifetime を縮める
-    let __sink = ::react_egui::EventSink::new(__events);
-    let on_x = ::react_egui::Emitter::new(&__sink, NameEvent::X);
-    { /* 本体。末尾式 tail は ::react_egui::View::show(tail, cx) に書き換える */ }
+    let __sink = ::egui_react::EventSink::new(__events);
+    let on_x = ::egui_react::Emitter::new(&__sink, NameEvent::X);
+    { /* 本体。末尾式 tail は ::egui_react::View::show(tail, cx) に書き換える */ }
 }
-impl<'e, C: View, ..> ::react_egui::__private::Props for NameProps<'e, C, ..> {   // 2.3 の props_builder 用
+impl<'e, C: View, ..> ::egui_react::__private::Props for NameProps<'e, C, ..> {   // 2.3 の props_builder 用
     type Builder = NamePropsBuilder<'e, C, ..>;
     fn builder() -> Self::Builder { Self::builder() }
 }
@@ -235,7 +235,7 @@ impl<'e, C: View, ..> ::react_egui::__private::Props for NameProps<'e, C, ..> { 
 | `<Name attrs>children</Name>` / `<Name attrs/>` | コンポーネント呼び出し。`Name` は Rust のパス(`elements::Button` も可) |
 | `"literal"` | 文字列リテラル。`View` として `show` する |
 | 引用符なしのテキスト | エラー: `text must be a string literal: "..."` |
-| `{expr}` | `::react_egui::View::show(expr, cx);` |
+| `{expr}` | `::egui_react::View::show(expr, cx);` |
 | `<> .. </>` | 子を順に展開 |
 | `<!-- -->` | 無視 |
 | `if` / `for` / `match` | Rust の制御構文をそのまま emit し、本体を展開する |
@@ -245,43 +245,43 @@ impl<'e, C: View, ..> ::react_egui::__private::Props for NameProps<'e, C, ..> { 
 | 形 | 扱い |
 |---|---|
 | `key={expr}` | scope の Id に混ぜる。要素ごとに最大 1 つ |
-| `on_x={expr}` | 融合閉包の腕 `NameEvent::X(a) => ::react_egui::Handler::call(expr, a)` |
+| `on_x={expr}` | 融合閉包の腕 `NameEvent::X(a) => ::egui_react::Handler::call(expr, a)` |
 | `events={expr}` | 融合閉包の代わりに `expr` を `events` に渡す。`on_*` と併用はエラー |
-| レイアウト属性(`w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl`) | まとめて `.style(::react_egui::layout::ItemStyle::default().w(..).grow(..))` を 1 回呼ぶ。1 つも無ければ呼ばない |
+| レイアウト属性(`w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl`) | まとめて `.style(::egui_react::layout::ItemStyle::default().w(..).grow(..))` を 1 回呼ぶ。1 つも無ければ呼ばない |
 | その他 `name={expr}` / `name="lit"` / `name`(bool の true) | builder の setter `.name(expr)` |
 
 `on_x` → `X` の変換は `on_` を外して PascalCase(`on_ok` → `Ok`、`on_value_change` → `ValueChange`)。属性名の重複はエラー。
 
 #### 展開
 
-`rsx!{ nodes }` 全体は `::react_egui::view(|cx| { stmts })` になる(非 `move`)。要素 1 つは次の文になる。
+`rsx!{ nodes }` 全体は `::egui_react::view(|cx| { stmts })` になる(非 `move`)。要素 1 つは次の文になる。
 
 ```rust
 cx.scope((line!(), column!(), 3usize, key), |cx| {          // line!/column! は要素の span で emit。3 は rsx! 内の要素の通し番号
-    Name(cx, ::react_egui::props_builder(&Name)
+    Name(cx, ::egui_react::props_builder(&Name)
         .x(expr)
-        .style(::react_egui::layout::ItemStyle::default().grow(1.0))
+        .style(::egui_react::layout::ItemStyle::default().grow(1.0))
         .events(&mut |__ev| {
             #[allow(unreachable_patterns)]
             match __ev {
-                NameEvent::Ok(a) => ::react_egui::Handler::call(|| *open = false, a),
-                NameEvent::Cancel(a) => ::react_egui::Handler::call(|| *open = false, a),
+                NameEvent::Ok(a) => ::egui_react::Handler::call(|| *open = false, a),
+                NameEvent::Cancel(a) => ::egui_react::Handler::call(|| *open = false, a),
                 _ => {}
             }
         })
-        .children(::react_egui::view(|cx| { .. }))
+        .children(::egui_react::view(|cx| { .. }))
         .build());
 });
 ```
 
 - `key` が無ければ `(line!(), column!(), n)`。`line!()` / `column!()` が要素の位置を返さない(マクロ呼び出し位置を返す)場合は、`Span::line()` / `Span::column()`(1.88 で stable)でマクロ側に埋め込む。どちらでも要素ごとに一意になればよい。
-- `children`: 常に `.children(..)` を呼ぶ。子が「1 つの文字列リテラル」または「1 つの `{expr}`」ならその式をそのまま渡す(`Button` の `children: impl Into<WidgetText>` と `View` の `children: impl View` の両方に効く)。複数の子か要素の子なら `::react_egui::view(|cx| { .. })`。子が無ければ `()`。`<View/>` は `()` が `View` なので通り、`<Button/>` は `()` が `Into<WidgetText>` でないので落ちる。generic `C` が未指定のまま残らないので、`children: impl View` を `#[builder(default)]` にする必要がない。
+- `children`: 常に `.children(..)` を呼ぶ。子が「1 つの文字列リテラル」または「1 つの `{expr}`」ならその式をそのまま渡す(`Button` の `children: impl Into<WidgetText>` と `View` の `children: impl View` の両方に効く)。複数の子か要素の子なら `::egui_react::view(|cx| { .. })`。子が無ければ `()`。`<View/>` は `()` が `View` なので通り、`<Button/>` は `()` が `Into<WidgetText>` でないので落ちる。generic `C` が未指定のまま残らないので、`children: impl View` を `#[builder(default)]` にする必要がない。
 - `props_builder`: `pub fn props_builder<P: Props, F: for<'a, 's, 'u> Fn(&'a mut Cx<'s, 'u>, P)>(_: &F) -> P::Builder { P::builder() }`。関数アイテムの型は名指しできないので、`Fn` bound から `P` を推論させる。`Props` trait は `#[component]` が `NameProps` に実装し、関連型で `NamePropsBuilder` に結ぶ。これで `use components::Name;` だけで `<Name/>` が書ける。
 - `.style(..)` は `style` prop を持たないコンポーネントに対しては「no method named `style`」で落ちる。レイアウト属性を受けたいユーザーコンポーネントは `style: ItemStyle` を宣言して子に渡す。
 - ハンドラは `Handler::call(closure, a)` の形で呼ばれるので、spike の `(|| ..)()` にあった `redundant_closure_call` は出ない。展開結果には `#[allow(clippy::redundant_closure_call)]` を付けない(付ける理由が無くなった。ARCHITECTURE.md 3.2 を更新)。
 - 融合閉包は `#[event]` の無いコンポーネントに `on_*` を渡した場合、`.events(..)` メソッドが無いことでコンパイルエラーになる。variant 名の誤りは `NameEvent::Foo` が無いことで落ちる。どちらも trybuild で文面を固定する。
 
-### 2.4 trybuild(`crates/react-egui/tests/ui/`)
+### 2.4 trybuild(`crates/egui-react/tests/ui/`)
 
 `tests/compile_fail.rs` から `trybuild::TestCases::new().compile_fail("tests/ui/*.rs")` と `pass("tests/ui/pass/*.rs")` を回す。
 
@@ -315,7 +315,7 @@ cx.scope((line!(), column!(), 3usize, key), |cx| {          // line!/column! は
 | 3-6 | `rsx_scope.rs` | 同じ `rsx!` 内の 2 つの `<Counter/>` が独立、`for` 内で `key` あり / なし(なしは `collisions()` が非空)、要素を `if` で消すと unmount される |
 | 3-7 | `compile_fail.rs` | trybuild |
 
-## 3. フェーズ 4: elements(`crates/react-egui-elements/src/`)
+## 3. フェーズ 4: elements(`crates/egui-react-elements/src/`)
 
 全要素は `#[component]` で書き、`style: ItemStyle` を `#[prop(default)]` で受ける。ウィジェットは `cx.leaf(&style, |ui| ..)` の中で egui を呼ぶ。コンテナ(egui-native のもの)は Taffy モードでは leaf として振る舞い、その中の子は Ui モードで描く。
 
@@ -374,24 +374,24 @@ pub fn Text(cx: &mut Cx, #[prop(default)] style: ItemStyle, size: Option<f32>, c
 | 4-4 | `snapshots.rs`(feature `snapshot`) | `layout` example の各セクションと `Text` の wrap を `harness.snapshot("..")`。`SnapshotOptions::threshold` は OS ごとの既定を使う |
 | 4-5 | `multi_pass.rs`(core 側、置き換え) | spike の taffy 版テストを `<View>` + `<Button>` + `<Text>` で書き直し、2 パス目でハンドラが 1 回だけ発火することを引き続き確認する |
 
-スナップショットの CI は 4.5 参照。画像は `crates/react-egui-elements/tests/snapshots/` にコミットする。
+スナップショットの CI は 4.5 参照。画像は `crates/egui-react-elements/tests/snapshots/` にコミットする。
 
 ## 4. フェーズ 5: ランナーと examples
 
-### 4.1 `react-egui-app::run`
+### 4.1 `egui-react-app::run`
 
 ```rust
 pub struct Options {
     pub title: String,
     pub max_passes: usize,               // 既定 3(8 章参照)
     pub persist: bool,                   // 既定 true。eframe の Storage を使う
-    pub canvas_id: String,               // wasm。既定 "react_egui_canvas"
+    pub canvas_id: String,               // wasm。既定 "egui_react_canvas"
     pub native: eframe::NativeOptions,
 }   // impl Default
 pub fn run<V: View>(options: Options, root: impl FnMut(&mut Cx<'_, '_>) -> V + 'static) -> eframe::Result;
 ```
 
-- native: `eframe::run_native`。`App::ui` で `CentralPanel::default().show(ui, ..)` の中で `store.begin_pass` → `cx.container(root_id, column + reserve_available_space, |cx| root(cx).show(cx))` → `store.end_pass`。`App::save` で `store.save_persisted()` を `storage.set_string("react_egui", ..)` に書く。`CreationContext` の `storage` から `load_persisted` する。
+- native: `eframe::run_native`。`App::ui` で `CentralPanel::default().show(ui, ..)` の中で `store.begin_pass` → `cx.container(root_id, column + reserve_available_space, |cx| root(cx).show(cx))` → `store.end_pass`。`App::save` で `store.save_persisted()` を `storage.set_string("egui_react", ..)` に書く。`CreationContext` の `storage` から `load_persisted` する。
 - wasm: `cfg(target_arch = "wasm32")` で `wasm_bindgen_futures::spawn_local(eframe::WebRunner::new().start(canvas, WebOptions::default(), Box::new(..)))`。canvas は `web_sys::window().document().get_element_by_id(canvas_id)`。`run` の戻り値は `Ok(())`。
 - `root` は毎フレーム呼ばれる。`root` の中で hooks を使い、その state を借りる `rsx!` を返すと「ローカルを借用した値を返せない」エラーになる。ルートは `|cx| rsx!{ <App/> }` の形にして hooks はコンポーネントに置くことを doc comment と README に書く。`#[component]` の本体末尾は 2.1 の書き換えで同じ問題を回避している。
 - `Options::max_passes` を `ctx.options_mut` で設定する。
@@ -403,7 +403,7 @@ pub fn run<V: View>(options: Options, root: impl FnMut(&mut Cx<'_, '_>) -> V + '
 pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<'s, '_>, key: &str, init: impl FnOnce() -> T) -> State<'s, T>;
 ```
 
-- Id は `Id::new(("react_egui_persisted", key))`。スコープには依存しない。
+- Id は `Id::new(("egui_react_persisted", key))`。スコープには依存しない。
 - `Store` に `persisted: RefCell<HashMap<String, String>>`(キー → JSON 文字列)を持つ。`load_persisted(&mut self, json: &str)` で一括読み込み、`save_persisted(&self) -> String` で生きているスロットを直列化して map に上書きしてから全体を JSON にする。
 - `Slot` に `persist: Option<(String, fn(&dyn Any) -> Option<String>)>` を足す。初回訪問時は map にキーがあれば deserialize、失敗か無しなら `init`。
 - sweep で persist 付きスロットを落とすときは、先に直列化して map に書く(unmount した状態も次回起動で残る)。
@@ -411,7 +411,7 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 
 ### 4.3 examples
 
-各 example は `src/main.rs` 1 つと `index.html` / `Trunk.toml`。`main` は native / wasm 共通で `react_egui_app::run(Options { title, ..Default::default() }, |cx| rsx!{ <App/> })`。
+各 example は `src/main.rs` 1 つと `index.html` / `Trunk.toml`。`main` は native / wasm 共通で `egui_react_app::run(Options { title, ..Default::default() }, |cx| rsx!{ <App/> })`。
 
 | example | 内容 |
 |---|---|
@@ -429,7 +429,7 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 
 `ci.yml` に足すステップ。
 
-1. `cargo check --workspace --target wasm32-unknown-unknown`(`-p react-egui` から `--workspace` に広げる。examples も wasm でコンパイルできること)
+1. `cargo check --workspace --target wasm32-unknown-unknown`(`-p egui-react` から `--workspace` に広げる。examples も wasm でコンパイルできること)
 2. trunk: `jetli/trunk-action@v0.5` で `trunk` を入れ、`trunk build --release examples/counter/index.html`
 3. スナップショットは CI で回さない。コミット済みの画像は macOS のレンダラで生成したもので、Linux のソフトウェアレンダラとは一致しないため。ローカルでの回し方を README の Testing 節に書く
 
@@ -438,7 +438,7 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 ## 5. 手順
 
 1. フェーズ 2: `view.rs` → `layout.rs` → `Cx` の `Surface`(`cx.ui()` への追従で spike のテストと examples を直す)→ `use_memo` → `dispatch.rs` / `use_reducer` → 遅延キュー → オーバーレイ。テスト 2-1 〜 2-7。ARCHITECTURE.md 3.1 / 3.2 / 3.7 / 4 / 5.5 / 6 を更新。コミット。
-2. フェーズ 3: `react-egui-macros` の依存を足し、`#[hook]` → `#[component]` → `rsx!`(パース → 属性 → 展開 → 制御構文)の順。`react-egui` に `__private`(typed_builder、`Component` / `Props` trait、`props_builder`)と re-export を足す。`tests/common` をマクロ版に置換して spike のテストを通す。テスト 3-2 〜 3-7。ARCHITECTURE.md 3.2 / 3.3 / 3.6 を更新。コミット。
+2. フェーズ 3: `egui-react-macros` の依存を足し、`#[hook]` → `#[component]` → `rsx!`(パース → 属性 → 展開 → 制御構文)の順。`egui-react` に `__private`(typed_builder、`Component` / `Props` trait、`props_builder`)と re-export を足す。`tests/common` をマクロ版に置換して spike のテストを通す。テスト 3-2 〜 3-7。ARCHITECTURE.md 3.2 / 3.3 / 3.6 を更新。コミット。
 3. フェーズ 4: `View` / `Text` → ウィジェット → コンテナ。テスト 4-1 〜 4-3、`multi_pass` の置き換え(4-5)。スナップショット(4-4)は feature の裏で書き、ローカルで画像を生成してコミット。ARCHITECTURE.md 6 を更新。コミット。
 4. フェーズ 5: `use_persisted`(core)→ `run`(native)→ examples 3 つ → wasm ランナー → `index.html` / `Trunk.toml` → README → CI。`examples/spike` を削除。`cargo run` 3 つと `trunk serve` を目視。コミット。
 5. CI が全ステップ緑であることを確認する。スナップショットのステップが不安定なら 4.5 のとおり外す。
@@ -453,7 +453,7 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 - **Ui モード直下の `View` のサイズ**(1.7)。`reserve_available_width()` で `Window` の中に置いたときに崩れる場合は `View` に `fill: bool` prop を足して切り替える。
 - **`Surface::Taffy` での `cx.ui()`**。`egui_ui_mut()` に描いた結果がテストで明らかに壊れて見えるなら、Taffy モードの `ui()` は `leaf(default)` を自動で挟む代わりに panic ではなく `log::warn!` で 1 回だけ警告する。
 - **スナップショットの CI**(4.5)。
-- **wasm の `cargo check --workspace`**。`react-egui-app` の wasm 依存で check が通らない場合、`eframe` の `wasm-bindgen` 系 feature を見直す。examples 単体で通るまでは `-p react-egui -p react-egui-elements -p react-egui-app` に絞ってもよい。
+- **wasm の `cargo check --workspace`**。`egui-react-app` の wasm 依存で check が通らない場合、`eframe` の `wasm-bindgen` 系 feature を見直す。examples 単体で通るまでは `-p egui-react -p egui-react-elements -p egui-react-app` に絞ってもよい。
 
 ## 7. ARCHITECTURE.md に反映する変更(着手時点で判明しているもの)
 
@@ -465,7 +465,7 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 - 4: `use_reducer` のメッセージは次の訪問時に適用。`use_persisted` はキーのみで識別し、eframe `Storage` の 1 キーに JSON でまとめる。
 - 5.5: 遅延キューの適用は sweep の前、`Dispatch` は含まない。
 - 6: レイアウト属性の一覧、`Length` の単位、`View` の props、egui-native コンテナが Taffy モードでは leaf になること。
-- 7: `react-egui` が `egui_taffy` に依存する。`run(Options, |cx| rsx!{ <App/> })` の形。
+- 7: `egui-react` が `egui_taffy` に依存する。`run(Options, |cx| rsx!{ <App/> })` の形。
 
 ## 8. 実装で判明した差分
 
@@ -473,7 +473,7 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 
 - **1.1** `impl View for &str` / `String` / `Option` / `Vec` / 配列と `FnOnce` の blanket impl は coherence で衝突せず、そのまま共存した。`view(|cx| ..)` の型推論も注釈なしで通る(テスト `view::every_view_impl_draws`)。
 - **1.2** `elsa::FrozenVec<Box<dyn Any>>` の `push_get` は素直に `&'s dyn Any` を返すので、6 章の代替案(`Memo` guard)には落とさずに `&'s T` を実現できた。`Slot` に `memo_last` / `memo_push` / `prune_memo` を足し、`prune_memo` は sweep の中で生存スロットに対して呼ぶ(`end_pass` の別ループにはしていない)。deps のハッシュ計算は `hooks::deps_hash` として `use_effect` と共用した。
-- **1.3** スロットの値は `(S, Arc<Mutex<Vec<M>>>)` のタプルにせず、state 用スロット(素の `S`)とキュー用スロット(`id.with("__react_egui_reducer_queue")`、`Arc<Mutex<Vec<M>>>`)の 2 つに分けた。タプルにすると `State` / `update_later` が `Box<dyn Any>` から `S` へ downcast できず、スロット値への射影関数を `State` に持たせる必要が出るため。2 スロットとも同じパスで訪問されるので sweep の挙動は変わらない。
+- **1.3** スロットの値は `(S, Arc<Mutex<Vec<M>>>)` のタプルにせず、state 用スロット(素の `S`)とキュー用スロット(`id.with("__egui_react_reducer_queue")`、`Arc<Mutex<Vec<M>>>`)の 2 つに分けた。タプルにすると `State` / `update_later` が `Box<dyn Any>` から `S` へ downcast できず、スロット値への射影関数を `State` に持たせる必要が出るため。2 スロットとも同じパスで訪問されるので sweep の挙動は変わらない。
 - **1.4** `update_later` は `State` / `Handle` の両方に生えるが、実装は `state.rs` の `queue_update` 1 つに寄せた。`State` と `Handle` は `ctx: &'s egui::Context` の代わりに `store: &'s Store` を持つように変え(`ctx` は `store.ctx()` から取る)、`State::new` / `Handle::new` のシグネチャが `(store, slot, location)` / `(store, slot)` になった。
 - **1.4** 遅延キューの適用は sweep より前なので、公開 API の範囲では「スロットが既に無い」経路には到達しない(そのパスで unmount されるスロットもまだ生きている)。`slot_by_id` が `None` の場合に黙って捨てる分岐は防御的なもので、テスト `deferred::update_later_on_a_slot_that_unmounts_in_the_same_pass_is_dropped` は「同じパスで unmount される state への `update_later` が panic しない」ことまでを確認する。
 - **1.6** オーバーレイの文言は `Collision::location` ごとに `BTreeSet` で重複を落とす。kittest からは `query_by_label_contains` で読める。
@@ -482,13 +482,13 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 - **1.8** 等幅カラムは `taffy::style_helpers::evenly_sized_tracks(cols)` を使う。プランの `vec![fr(1.0); cols]` と等価だが、taffy 0.9 ではこれは `repeat(cols, 1fr)` 1 要素の `Vec` になる。
 - **1.8** `Length::Percent` は taffy に合わせて 0.0〜1.0 の割合を持つ。`"50%"` は `Percent(0.5)` になる。
 - **1.9** プランの表に無い `tests/layout.rs`(`Length` とレイアウト enum のパース、`m` / `p` 短縮形の優先順位、`to_taffy` / `merge` の写り方)を足した。テスト 2-7 の「`cx.scope` が Taffy モードでも Id を分ける」は、hooks 側(`use_state`)と egui 側(`ui.collapsing`)の 2 本に分けて確認している。
-- **その他** `Store::end_pass` を `run_deferred` → `sweep` → `show_collision_overlay` の 3 つに分割した。`react-egui` は `egui_taffy::taffy` を `react_egui::taffy` として re-export する。
+- **その他** `Store::end_pass` を `run_deferred` → `sweep` → `show_collision_overlay` の 3 つに分割した。`egui-react` は `egui_taffy::taffy` を `egui_react::taffy` として re-export する。
 
 ### フェーズ 3(手順 2)
 
 - **0 依存表** `syn` は 2 ではなく **3.0**。rstml 0.13 が syn 3 に依存しており、`Node` / `KeyedAttribute` が syn 3 の型を埋め込んでいるので選択の余地がない。feature は `full` / `extra-traits`(`Node<C>` の `Debug` 導出に必要)/ `visit` / `visit-mut` / `parsing` / `printing` / `proc-macro`。`typed-builder` は 0.23、`trybuild` は 1.0。
-- **2.1** `#[builder(crate_module_path = ::react_egui::__private::typed_builder)]` は再エクスポート経由でそのまま動いた。6 章の「自前 builder を生成する」代替案は不要。
-- **2.3** `props_builder(&Name)` の推論も `'e` + generic `C` を持つ props で通った。6 章の「関数と同名の braced struct を生成する」代替案は不要。`Props` trait と `props_builder` は `react_egui::__private` に置き、`props_builder` だけクレート直下にも再エクスポートしている。
+- **2.1** `#[builder(crate_module_path = ::egui_react::__private::typed_builder)]` は再エクスポート経由でそのまま動いた。6 章の「自前 builder を生成する」代替案は不要。
+- **2.3** `props_builder(&Name)` の推論も `'e` + generic `C` を持つ props で通った。6 章の「関数と同名の braced struct を生成する」代替案は不要。`Props` trait と `props_builder` は `egui_react::__private` に置き、`props_builder` だけクレート直下にも再エクスポートしている。
 - **2.1** `#[event]` の引数は Props のフィールドにはならない(`Emitter` になるだけ)。イベント enum は、ペイロード型が実際に使うジェネリクスだけを引き継ぐ(`#[event] on_rename: &str` なら `NameEvent<'e>`)。使わないパラメータを enum に宣言できないため。
 - **2.1** `events` フィールドは `#[builder(default, setter(strip_option))]`。`Option<&mut dyn FnMut(E)>` をそのまま setter に渡させるのは煩雑なので、`rsx!` は `.events(&mut |ev| ..)` と書ける。`events=` escape hatch も `&mut (expr)` で包んで渡す。
 - **2.1** 本体末尾式の書き換えは `Stmt::Expr(_, None)` だけでなく `Stmt::Macro`(セミコロン無し)も対象にする。`rsx! { .. }` を本体の末尾に書くと syn は文マクロとしてパースするため。
@@ -512,23 +512,23 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 
 #### 実装
 
-- **3.1** `Gap`(`From<f32>` / `From<i32>` / `From<(f32, f32)>`)は `react_egui::layout` に置いた。`ContainerStyle::gap` の隣にあるべき型で、`ContainerStyle::gap()` setter も `impl Into<Gap>` を取るようにした。`ItemStyle` には `col_span` / `row_span` を足し、`rsx!` のレイアウト属性一覧にも加えた。
+- **3.1** `Gap`(`From<f32>` / `From<i32>` / `From<(f32, f32)>`)は `egui_react::layout` に置いた。`ContainerStyle::gap` の隣にあるべき型で、`ContainerStyle::gap()` setter も `impl Into<Gap>` を取るようにした。`ItemStyle` には `col_span` / `row_span` を足し、`rsx!` のレイアウト属性一覧にも加えた。
 - **3.1** `View` の `align_content` は `Option<Justify>`(フェーズ 2 の型どおり)。`display` / `direction` / `justify` / `align` / `gap` / `side` は `#[prop(default, into)]` で、文字列リテラルをそのまま受ける。
 - **3.2** `ComboBox` の `options` は `&[impl AsRef<str>]` ではなく generic `S: AsRef<str>` の `&[S]`。`#[component]` は引数型のトップレベルの `impl Trait` しか脱糖しないため。
 - **3.2 / 5.6** `bind` を `&mut *state` で渡すと `DerefMut` が毎フレーム dirty を立て、アプリがアイドルにならない(kittest が `ExceededMaxSteps` で落ちる)。`State::bind(&mut self) -> &mut T` を core に足した。dirty を立てずに `&mut T` を貸すだけで、値が変わるのは入力があった時だけなので repaint は egui 側が出す。ARCHITECTURE.md 5.6 に追記した。
-- **3.3** egui 0.36 には `SidePanel` / `TopBottomPanel` が無く、`Panel::left/right/top/bottom` に統合されている。要素も `Panel`(`side="left"|"right"|"top"|"bottom"`)1 つ + `CentralPanel` にした。`Side` enum は `react-egui-elements` に置く。
+- **3.3** egui 0.36 には `SidePanel` / `TopBottomPanel` が無く、`Panel::left/right/top/bottom` に統合されている。要素も `Panel`(`side="left"|"right"|"top"|"bottom"`)1 つ + `CentralPanel` にした。`Side` enum は `egui-react-elements` に置く。
 - **3.3** `Grid` の行区切りは `<Row/>` 要素ではなく `row()` という `impl View` を返す関数にし、`{row()}` と書く。`rsx!` は要素ごとに `cx.scope` → `Ui::push_id` で子 `Ui` を作るので、`<Row/>` の中の `ui.end_row()` は grid の `Ui` に届かない。`{expr}` ノードはスコープされないので届く。
 - **3.3** 同じ理由で、`<Panel>` と `<CentralPanel>` を兄弟要素として並べてもドッキングしない(それぞれが自分の子 `Ui` から場所を切り取り、親のカーソルはその下に進む)。スコープを挟まずに同じ `Ui` へ描けば期待どおり並ぶことをテスト `containers::panels_dock_when_they_share_one_ui` で固定した。パネルはランナーのルートで使う想定。ARCHITECTURE.md 6 に明記した。
 - **3.4 テスト 4-3** `grow` と `justify="space-between"` は余白の分配なので、`<View>` に `w` が無いと差が出ない(Ui モードの `container` は `reserve_available_width()` で親の幅を確保するが、taffy ノード自身の `size.width` は `auto` のまま)。テストでは `w={300.0}` を付けた。
-- **3.4 テスト 4-5** core の `multi_pass.rs` はそのまま残し、`react-egui-elements/tests/multi_pass.rs` に `<View>` + `<Button>` + `<Text>` 版を足した(core が elements に依存しないため)。taffy の再計算は「同じパスの中でノードの内容が変わった」時に起きるので、幅の変わる `<Text>` はハンドラより**後**に書く必要がある。
+- **3.4 テスト 4-5** core の `multi_pass.rs` はそのまま残し、`egui-react-elements/tests/multi_pass.rs` に `<View>` + `<Button>` + `<Text>` 版を足した(core が elements に依存しないため)。taffy の再計算は「同じパスの中でノードの内容が変わった」時に起きるので、幅の変わる `<Text>` はハンドラより**後**に書く必要がある。
 - **3.4 テスト 4-4** スナップショットは feature `snapshot`(`egui_kittest/snapshot` + `egui_kittest/wgpu`)の裏。このマシンでは wgpu が動いたので 5 枚の PNG を生成してコミットした(`row` / `column_justify` / `grid` / `text_wrap` / `widgets`)。
-- **その他** `View` 要素(関数、値の名前空間)と `View` trait(型の名前空間)は共存できるので、`react_egui::prelude` と `react_egui_elements::prelude` を両方 glob import しても衝突しない。
+- **その他** `View` 要素(関数、値の名前空間)と `View` trait(型の名前空間)は共存できるので、`egui_react::prelude` と `egui_react_elements::prelude` を両方 glob import しても衝突しない。
 
 ### フェーズ 5(手順 4)
 
 #### コーディネータの指示で入れた変更
 
-- **`#[component(shares_ui)]`** を追加した。`Props` に `const SHARES_UI: bool`(既定 `false`)を足し、`rsx!` は要素の呼び出しを `::react_egui::__private::enter_scope(cx, source, props, Name)` に通す。`enter_scope` は `P::SHARES_UI` で `cx.scope` と新しい `cx.scope_sharing_ui`(hook スコープだけ深くする)を選ぶ。`Panel` / `CentralPanel` / `Row` がこれを使い、`<Panel side="left"/>` + `<CentralPanel/>` を兄弟要素として並べるとドッキングする(テスト `containers::panels_written_as_siblings_dock`)。
+- **`#[component(shares_ui)]`** を追加した。`Props` に `const SHARES_UI: bool`(既定 `false`)を足し、`rsx!` は要素の呼び出しを `::egui_react::__private::enter_scope(cx, source, props, Name)` に通す。`enter_scope` は `P::SHARES_UI` で `cx.scope` と新しい `cx.scope_sharing_ui`(hook スコープだけ深くする)を選ぶ。`Panel` / `CentralPanel` / `Row` がこれを使い、`<Panel side="left"/>` + `<CentralPanel/>` を兄弟要素として並べるとドッキングする(テスト `containers::panels_written_as_siblings_dock`)。
 - `enter_scope` の型引数 `P` は、`props_builder` のような `Fn` 境界からの推論ではなく **props の値そのもの**から決まる。同じ式の中で `&Name` を 2 回書くと 2 つの独立した推論変数になり generic なコンポーネントで曖昧になるため。props は `enter_scope` の引数として組み立てるので、融合閉包の `&mut |ev| ..` の一時値は文の終わりまで生きる。
 - `row()` は削除し、`#[component(shares_ui)] Row { children }` に置き換えた。`<Grid cols={2}><Row><A/><B/></Row></Grid>` と書ける。
 - この変更で trybuild の `.stderr` が 3 本変わった(エラーのスパンが `rsx!` 全体を指すようになった)。再生成してコミット済み。
@@ -549,7 +549,7 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 ### 目視確認で見つかった不具合(手順 5)
 
 - **3.3 `ScrollArea`** `examples/layout` で最初のセクションしか見えなかった。原因は `cx.leaf`。egui_taffy の有限 leaf は「描いた内容の大きさ」を最小かつ最大サイズとして報告するが、`ScrollArea` は与えられた矩形を埋めてその大きさを返すので、最初のフレームの矩形に固定されて `grow` も効かない。`Cx::leaf_fill` を足した。内容サイズを報告せず(`min_size = 0`、`infinite = true`)、サイズ決定を taffy に任せる leaf で、`ScrollArea` はこれを使う。`<View>` の中の `ScrollArea` は `grow` / `h` / 残り空間で大きさが決まる。ARCHITECTURE.md 3.1 の表と 6 章に追記。
-- **4.1 `max_passes`** ウィンドウをリサイズすると `ScrollArea` の中の `<View>` が古い幅のまま残った。内側の `<View>` は別の egui_taffy ツリーで、外側が 2 パス目で決めた幅を知って `request_discard` するのが 2 パス目の末尾、つまり 3 パス目が要る。egui は上限を超えた discard を黙って捨て repaint もしないので、次の入力まで崩れたまま止まる。ランナーの `max_passes` 既定を 3 にし、さらに `end_pass` の後で「discard が要求されたが却下された」なら `request_repaint` して次フレームで収束させる。テストは `react-egui-elements/tests/scroll_fill.rs`。ARCHITECTURE.md 5.3 と 7 を更新。
+- **4.1 `max_passes`** ウィンドウをリサイズすると `ScrollArea` の中の `<View>` が古い幅のまま残った。内側の `<View>` は別の egui_taffy ツリーで、外側が 2 パス目で決めた幅を知って `request_discard` するのが 2 パス目の末尾、つまり 3 パス目が要る。egui は上限を超えた discard を黙って捨て repaint もしないので、次の入力まで崩れたまま止まる。ランナーの `max_passes` 既定を 3 にし、さらに `end_pass` の後で「discard が要求されたが却下された」なら `request_repaint` して次フレームで収束させる。テストは `egui-react-elements/tests/scroll_fill.rs`。ARCHITECTURE.md 5.3 と 7 を更新。
 
 ### 後続 PR への持ち越し
 
@@ -565,8 +565,8 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 |---|---|
 | 2(core hooks) | `View` trait と `view()`、`layout`(`Length` / `ItemStyle` / `ContainerStyle` / 各 enum の `From<&str>`)、`Cx` の `Surface`(Ui / Taffy)と `ui()` / `leaf` / `container` / `defer`、`use_memo`(`&'s T`)、`dispatch.rs` と `use_reducer`、遅延キュー(`defer` / `update_later`)、Id 衝突のオーバーレイ。テスト 2-1 〜 2-7 + `layout.rs`。 |
 | 3(マクロ) | `#[hook]`、`#[component]`(Props 構造体 + typed-builder、イベント enum、`Emitter`、末尾式の `View::show` 書き換え)、`rsx!`(rstml + `if` / `for` / `match` のカスタムノード、属性の振り分け、融合イベント閉包)、`__private`(`Props` / `props_builder`)、trybuild 9 本。spike の 10 本をマクロ版で通した。 |
-| 4(elements) | `react-egui-elements`: `View` / `Text`、ウィジェット 8 種、コンテナ 10 種、`prelude`。テスト 4-1 〜 4-5 とスナップショット 5 枚。`#[component(shares_ui)]`(フェーズ 5 で追加)で `Panel` / `CentralPanel` / `Row` を親の `Ui` に描く。 |
-| 5(ランナー) | `use_persisted` と `Store` の永続化、`react-egui-app::run(Options, root)`(native / wasm)、examples `counter` / `todo` / `layout`(`index.html` + `Trunk.toml`)、README の使い方と Testing、CI の wasm 全体 check と trunk ビルド。`examples/spike` を削除。 |
+| 4(elements) | `egui-react-elements`: `View` / `Text`、ウィジェット 8 種、コンテナ 10 種、`prelude`。テスト 4-1 〜 4-5 とスナップショット 5 枚。`#[component(shares_ui)]`(フェーズ 5 で追加)で `Panel` / `CentralPanel` / `Row` を親の `Ui` に描く。 |
+| 5(ランナー) | `use_persisted` と `Store` の永続化、`egui-react-app::run(Options, root)`(native / wasm)、examples `counter` / `todo` / `layout`(`index.html` + `Trunk.toml`)、README の使い方と Testing、CI の wasm 全体 check と trunk ビルド。`examples/spike` を削除。 |
 
 ### ARCHITECTURE.md の変更点
 
@@ -580,7 +580,7 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 - **5.4 / 5.5** パス末の順序を「遅延キュー → sweep → オーバーレイ」に。`Dispatch` は遅延キューに入らない。
 - **5.6** `State::bind()` は dirty を立てない(bind 系ウィジェットが毎フレーム repaint を要求しないため)。
 - **6** `leaf` / `container` の挙動、レイアウト属性一覧(`Length` の単位、`ItemStyle` / `ContainerStyle`、enum の `From<&str>`、`style=` と短縮属性のマージ)、要素一覧の表、egui-native コンテナが Taffy モードでは leaf になること、パネルと `Row` が `shares_ui` である理由。
-- **7** `react-egui` が `egui_taffy` / `typed-builder` / `serde` に依存する。`run(Options, |_cx| rsx!{ <App/> })` の 1 フレームの流れと `Options` の中身。
+- **7** `egui-react` が `egui_taffy` / `typed-builder` / `serde` に依存する。`run(Options, |_cx| rsx!{ <App/> })` の 1 フレームの流れと `Options` の中身。
 
 ### 落としたもの
 

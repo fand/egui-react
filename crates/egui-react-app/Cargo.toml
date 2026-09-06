@@ -1,0 +1,45 @@
+[package]
+name = "egui-react-app"
+description = "Runner for egui-react apps: native and wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "egui_react_app"
+path = "src/lib.rs"
+
+# eframe 0.36's own default features include `wgpu` and not `glow`, so this
+# renders with wgpu already; glow is the opt-in one now. There is no feature
+# here to choose between them, because there is nothing to choose.
+#
+# The WebGL fallback comes for free with it: `eframe/wgpu` pulls
+# `egui-wgpu/default`, whose defaults include `wgpu/webgl`, so a browser
+# without WebGPU still gets a canvas. No direct `wgpu` dependency is needed.
+[dependencies]
+eframe = { workspace = true, features = ["persistence"] }
+egui.workspace = true
+log.workspace = true
+egui-react.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true
+egui-react-elements.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# The DOM mirror of the AccessKit tree. wasm only: on every other target
+# `a11y::WebA11y` is an empty plugin. `accesskit` itself comes from
+# `egui::accesskit`, so the `TreeUpdate` types cannot drift apart.
+accesskit-web.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = [
+    "Document",
+    "DomRect",
+    "Element",
+    "HtmlCanvasElement",
+    "Location",
+    "Window",
+] }

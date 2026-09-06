@@ -7,7 +7,7 @@
 
 /// Everything the plain version keeps between frames.
 ///
-/// The react-egui version has no such type: `use_state(cx, || 0i32)` is the
+/// The egui-react version has no such type: `use_state(cx, || 0i32)` is the
 /// whole of it, and the value lives in the store under the component's scope.
 #[derive(Default)]
 pub struct PlainState {

@@ -20,8 +20,8 @@ use std::time::Duration;
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT as _, Queryable as _};
 use patch::App;
-use react_egui::prelude::*;
-use react_egui_app::{root_id, root_style};
+use egui_react::prelude::*;
+use egui_react_app::{root_id, root_style};
 
 /// Wide enough for the three columns, tall enough for the whole preset.
 ///

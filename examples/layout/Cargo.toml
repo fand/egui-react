@@ -1,6 +1,6 @@
 [package]
 name = "layout"
-description = "react-egui example: layout"
+description = "egui-react example: layout"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,9 +23,9 @@ path = "src/plain_main.rs"
 [dependencies]
 eframe.workspace = true
 egui.workspace = true
-react-egui.workspace = true
-react-egui-app.workspace = true
-react-egui-elements.workspace = true
+egui-react.workspace = true
+egui-react-app.workspace = true
+egui-react-elements.workspace = true
 example-meta.workspace = true
 
 [dev-dependencies]

@@ -1,8 +1,8 @@
 //! A tour of `<View>`'s flex and grid attributes.
 
 use example_meta::Meta;
-use react_egui::prelude::*;
-use react_egui_elements::prelude::*;
+use egui_react::prelude::*;
+use egui_react_elements::prelude::*;
 
 pub mod plain;
 

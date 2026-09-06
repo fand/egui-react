@@ -26,8 +26,8 @@
 //! also freezes `time` at the value the last frame saw.
 
 use example_meta::Meta;
-use react_egui::prelude::*;
-use react_egui_elements::prelude::*;
+use egui_react::prelude::*;
+use egui_react_elements::prelude::*;
 
 pub mod gpu;
 

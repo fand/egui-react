@@ -1,6 +1,6 @@
 [package]
 name = "shell"
-description = "react-egui example: shell"
+description = "egui-react example: shell"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -25,9 +25,9 @@ snapshot = ["egui_kittest/snapshot", "egui_kittest/wgpu"]
 [dependencies]
 eframe.workspace = true
 egui.workspace = true
-react-egui.workspace = true
-react-egui-app.workspace = true
-react-egui-elements.workspace = true
+egui-react.workspace = true
+egui-react-app.workspace = true
+egui-react-elements.workspace = true
 example-meta.workspace = true
 
 [dev-dependencies]

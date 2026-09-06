@@ -18,7 +18,7 @@ PR2 で `Dispatch` を `Send + 'static` にしてある。本 PR はその上に
   - 返り値は `use_memo` と同じ `&'s Poll<T>`。`State` の guard と同時に生きる。
   - 同一フレームの 2 パス目で二重起動しない。unmount 後に届いた結果で panic しない。
   - `Pending` を返すとき、`Store` の suspense カウンタ(最も近い `<Suspense>` のもの)を +1 する。
-- `react_egui::spawn(future)`: core の `task::spawn` を公開する。`Dispatch` と組み合わせて「命令的に起動して結果を送る」(mutation、optimistic update)を書けるようにする。
+- `egui_react::spawn(future)`: core の `task::spawn` を公開する。`Dispatch` と組み合わせて「命令的に起動して結果を送る」(mutation、optimistic update)を書けるようにする。
 - native / wasm の実行機構の差を `SpawnFuture<T>` trait(bound の cfg 切り替え)と `task::spawn` に閉じ込める。
 - `Store` の suspense カウンタのスタック(`provide_context` のスタックと同じ形)。
 - `<Suspense fallback={..}>children</Suspense>`(elements、`suspense.rs`)。
@@ -40,7 +40,7 @@ PR2 で `Dispatch` を `Send + 'static` にしてある。本 PR はその上に
 - `use_query`(key 付きキャッシュ、コンポーネント間共有、stale-while-revalidate)、`use_action`(命令的起動 + pending)、`use_debounced`、`use_stream`。次の PR(async-2)。`use_future` の中身を `AsyncSlot` として切り出すのもその時。
 - `Poll` 以外の状態表現(`Loading` / `Error` の enum など)。エラーは `T = Result<..>` で表す。
 - Error boundary。エラーは値なので子で `match` する。
-- `Suspense` の suspended 中に子の `use_effect` を止めること(React は commit しないので走らない)。react-egui では走る。ドキュメントに書く。
+- `Suspense` の suspended 中に子の `use_effect` を止めること(React は commit しないので走らない)。egui-react では走る。ドキュメントに書く。
 - `SuspenseList`、`useTransition` 相当。
 - `Spinner` 要素。fetch example は `cx.ui().spinner()` を閉包で呼ぶ。
 - PR2 からの持ち越し(`use_persisted_reducer`、`use_persisted` の wasm 自動テスト、`App::save` の dirty フラグ)。別 PR。
@@ -48,9 +48,9 @@ PR2 で `Dispatch` を `Send + 'static` にしてある。本 PR はその上に
 
 ## 成果物
 
-- `crates/react-egui/src/future.rs`(`use_future`、`SpawnFuture`、`spawn`)、`store.rs` の suspense カウンタ、`lib.rs` / `prelude` の再エクスポート(`use_future`、`spawn`、`std::task::Poll`)。
-- `crates/react-egui/tests/future.rs`(kittest)。
-- `crates/react-egui-elements/src/suspense.rs`(`Suspense`)と `prelude` への追加、`crates/react-egui-elements/tests/suspense.rs`。
+- `crates/egui-react/src/future.rs`(`use_future`、`SpawnFuture`、`spawn`)、`store.rs` の suspense カウンタ、`lib.rs` / `prelude` の再エクスポート(`use_future`、`spawn`、`std::task::Poll`)。
+- `crates/egui-react/tests/future.rs`(kittest)。
+- `crates/egui-react-elements/src/suspense.rs`(`Suspense`)と `prelude` への追加、`crates/egui-react-elements/tests/suspense.rs`。
 - `examples/fetch`(`Cargo.toml` / `src/main.rs` / `index.html` / `Trunk.toml`)。
 - `.github/workflows/ci.yml` に fetch の trunk ビルドを追加。
 - README の examples の一文を更新。

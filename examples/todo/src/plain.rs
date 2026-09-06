@@ -14,7 +14,7 @@ use crate::Todo;
 
 /// Everything the plain version keeps between frames.
 ///
-/// The react-egui version has no such type. `saved`, `draft` and the reducer's
+/// The egui-react version has no such type. `saved`, `draft` and the reducer's
 /// list are three hooks, each owned by the component that reads it.
 #[derive(Default, Serialize, Deserialize)]
 pub struct PlainState {
@@ -68,7 +68,7 @@ pub fn ui(ui: &mut egui::Ui, state: &mut PlainState) {
         ui.separator();
 
         // The loop borrows the list, so it cannot remove from it. The index
-        // is carried out here and applied below; the react-egui version
+        // is carried out here and applied below; the egui-react version
         // sends `Msg::Remove(i)` and never sees this.
         let mut remove = None;
         for (i, todo) in state

@@ -21,12 +21,12 @@ spike の手書き展開形はすべてマクロ版に置き換え、spike の�
   - `rsx!`: rstml でパース。要素、式埋め込み、文字列リテラル、`if` / `else` / `for` / `match`、`key`、`on_*` の融合、`events=` escape hatch、共通レイアウト属性の抽出。
   - trybuild でコンパイルエラーの文面を固定する。
 - フェーズ 4(elements とレイアウト)
-  - `react-egui-elements`: `<View>` / `<Text>` を egui_taffy 上に実装し、レイアウト属性を taffy style に変換する。
+  - `egui-react-elements`: `<View>` / `<Text>` を egui_taffy 上に実装し、レイアウト属性を taffy style に変換する。
   - ウィジェット: `Button` / `Label` / `TextEdit`(`bind`)/ `Checkbox` / `Slider` / `ComboBox` / `Image` / `Separator`。
   - コンテナ: `ScrollArea` / `Collapsing` / `Frame` / `Window` / `SidePanel` / `TopBottomPanel` / `CentralPanel`。egui-native の `Vertical` / `Horizontal` / `Grid`。
   - kittest の操作テストと、レイアウトのスナップショットテスト。
 - フェーズ 5(ランナーと examples)
-  - `react-egui-app::run(Options, |cx| rsx!{..})`。native と wasm を同じ関数で吸収する。`Options::max_passes` の明示設定(既定 3。理由は plan.md 8 章)。
+  - `egui-react-app::run(Options, |cx| rsx!{..})`。native と wasm を同じ関数で吸収する。`Options::max_passes` の明示設定(既定 3。理由は plan.md 8 章)。
   - `use_persisted`(eframe の `Storage` に保存)。
   - examples: `counter`、`todo`(`use_reducer`)、`layout`。`examples/spike` は削除する。
   - CI に wasm の `cargo check --workspace` と trunk ビルドを足す。
@@ -43,11 +43,11 @@ spike の手書き展開形はすべてマクロ版に置き換え、spike の�
 
 ## 成果物
 
-- `crates/react-egui`: `view.rs`(`View`)、`hooks.rs` の追加分、`dispatch.rs`、`layout.rs`(`ItemStyle` / `ContainerStyle` / `Length`)、`Cx` の拡張、`Store` の遅延キューと永続化、衝突オーバーレイ。
-- `crates/react-egui-macros`: `component.rs` / `hook.rs` / `rsx/`(パーサ、カスタムノード、展開)。
-- `crates/react-egui/tests/ui/`(trybuild)と `crates/react-egui/tests/` の追加テスト。spike のテストと `tests/common` はマクロ版に置き換える。
-- `crates/react-egui-elements`: 各要素と `tests/`、スナップショット画像。
-- `crates/react-egui-app`: `run` / `Options`、eframe の `App` 実装、wasm ランナー。
+- `crates/egui-react`: `view.rs`(`View`)、`hooks.rs` の追加分、`dispatch.rs`、`layout.rs`(`ItemStyle` / `ContainerStyle` / `Length`)、`Cx` の拡張、`Store` の遅延キューと永続化、衝突オーバーレイ。
+- `crates/egui-react-macros`: `component.rs` / `hook.rs` / `rsx/`(パーサ、カスタムノード、展開)。
+- `crates/egui-react/tests/ui/`(trybuild)と `crates/egui-react/tests/` の追加テスト。spike のテストと `tests/common` はマクロ版に置き換える。
+- `crates/egui-react-elements`: 各要素と `tests/`、スナップショット画像。
+- `crates/egui-react-app`: `run` / `Options`、eframe の `App` 実装、wasm ランナー。
 - `examples/counter` / `examples/todo` / `examples/layout`(それぞれ `index.html` と `Trunk.toml` を含む)。
 - `.github/workflows/ci.yml` の更新。
 - `docs/ARCHITECTURE.md` の更新(着手時点で判明している変更点は [plan.md](plan.md) 7 章、実装中に判明したものはその都度)。
@@ -65,12 +65,12 @@ spike の手書き展開形はすべてマクロ版に置き換え、spike の�
 ## 決めごと(着手時点での前提)
 
 - 4 フェーズを 1 PR にまとめるが、コミットはフェーズ単位(最低 4 つ)に分け、各フェーズの終わりで CI が緑になっていること。フェーズをまたいで壊れた状態のコミットを積まない。
-- `react-egui`(core)は `egui_taffy` に依存する。`Cx` がレイアウトコンテキストを持つ以上、core が `Tui` を知る必要があるため。wasm の `cargo check` は引き続き通すこと。
-- Props の builder は `typed-builder` crate を使い、`react-egui` から `__private` で再エクスポートする(`#[builder(crate_module_path = ..)]`)。自前生成に切り替えるのは、再エクスポート経由で動かない場合だけ。
-- `#[component]` の Props 構造体は `<Name>Props`。`rsx!` は `::react_egui::props_builder(&Name)` で関数の型から builder を引く(ユーザーは `Name` だけを `use` すればよい)。lifetime 付き props で推論が通らなければ [plan.md](plan.md) 6 章の代替案に切り替える。
-- スナップショットテストは egui_kittest の `snapshot` + `wgpu` feature が要る。`react-egui-elements` の cargo feature `snapshot` の裏に置く。コミット済みの画像は macOS のレンダラで生成したもので Linux のソフトウェアレンダラとは一致しないので、CI では回さずローカル実行にとどめる。回し方は README の Testing 節に書く。
+- `egui-react`(core)は `egui_taffy` に依存する。`Cx` がレイアウトコンテキストを持つ以上、core が `Tui` を知る必要があるため。wasm の `cargo check` は引き続き通すこと。
+- Props の builder は `typed-builder` crate を使い、`egui-react` から `__private` で再エクスポートする(`#[builder(crate_module_path = ..)]`)。自前生成に切り替えるのは、再エクスポート経由で動かない場合だけ。
+- `#[component]` の Props 構造体は `<Name>Props`。`rsx!` は `::egui_react::props_builder(&Name)` で関数の型から builder を引く(ユーザーは `Name` だけを `use` すればよい)。lifetime 付き props で推論が通らなければ [plan.md](plan.md) 6 章の代替案に切り替える。
+- スナップショットテストは egui_kittest の `snapshot` + `wgpu` feature が要る。`egui-react-elements` の cargo feature `snapshot` の裏に置く。コミット済みの画像は macOS のレンダラで生成したもので Linux のソフトウェアレンダラとは一致しないので、CI では回さずローカル実行にとどめる。回し方は README の Testing 節に書く。
 - egui 0.36 の `Options::max_passes` の既定値は 2 である。ランナーは 3 を明示設定する(入れ子の egui_taffy ツリーがもう 1 パス必要なため。plan.md 8 章)。
 - `update_later` / `defer` に渡す閉包は `'static`(`move` が必要)。パス末まで生きるキューに入るため。借用したい場合は `Dispatch` か値の clone を使う。
 - `use_reducer` のメッセージは「パス末」ではなく「次に hook を訪問した時」に適用する(理由は plan.md 1.3)。
-- `use_persisted` の Id はスコープではなく文字列キーだけから導出する。同じキーを 2 か所で使えば同じ状態を共有する。保存形式は JSON、eframe の `Storage` には `"react_egui"` の 1 キーにまとめて書く。
+- `use_persisted` の Id はスコープではなく文字列キーだけから導出する。同じキーを 2 か所で使えば同じ状態を共有する。保存形式は JSON、eframe の `Storage` には `"egui_react"` の 1 キーにまとめて書く。
 - 依存の追加: `syn` 2 / `quote` / `proc-macro2` / `typed-builder` / `trybuild` / `serde` / `serde_json` / `wasm-bindgen-futures` / `web-sys`。バージョンは着手時の最新を `[workspace.dependencies]` に pin する。

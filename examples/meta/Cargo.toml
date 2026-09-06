@@ -1,6 +1,6 @@
 [package]
 name = "example-meta"
-description = "Shared metadata type for the react-egui examples"
+description = "Shared metadata type for the egui-react examples"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

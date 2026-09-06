@@ -14,7 +14,7 @@
 
 ## 含まない
 
-- core / `react-egui-elements` の変更(必要なら plan.md 9 章に記録して別 PR)。
+- core / `egui-react-elements` の変更(必要なら plan.md 9 章に記録して別 PR)。
 - アニメーション、複数ボード、ラベル編集 UI。
 
 ## 終了条件

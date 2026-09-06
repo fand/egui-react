@@ -1,6 +1,6 @@
 //! Four ways out of `rsx!` and back into plain egui.
 //!
-//! react-egui wraps a useful subset of egui, not all of it, and it never has
+//! egui-react wraps a useful subset of egui, not all of it, and it never has
 //! to. Everything below is `&mut egui::Ui` in the end, so anything egui can do
 //! is one call away. Which hatch to use:
 //!
@@ -17,7 +17,7 @@
 //! widget outside the layout, at the tree's top-left corner. `cx.leaf` adds a
 //! taffy node and hands you the `Ui` for that node instead.
 //!
-//! None of these is a workaround. The elements in `react-egui-elements` are
+//! None of these is a workaround. The elements in `egui-react-elements` are
 //! written with exactly the same calls; there is no private door.
 //!
 //! The painter section is the one to revisit later: `<Canvas>` will do the
@@ -25,8 +25,8 @@
 //! and will be the way to reach wgpu.
 
 use example_meta::Meta;
-use react_egui::prelude::*;
-use react_egui_elements::prelude::*;
+use egui_react::prelude::*;
+use egui_react_elements::prelude::*;
 
 pub const META: Meta = Meta {
     name: "escape-hatch",
@@ -153,7 +153,7 @@ pub fn App(cx: &mut Cx) {
 /// Draw `values` as a polyline, filling whatever rectangle the leaf was given.
 ///
 /// This is what `<Canvas>` will wrap: allocate, then paint. Nothing here needs
-/// react-egui at all — it takes a `&mut egui::Ui` and no more.
+/// egui-react at all — it takes a `&mut egui::Ui` and no more.
 fn sparkline(ui: &mut egui::Ui, values: &[f32]) {
     let (rect, _response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::hover());
     let painter = ui.painter();
@@ -189,9 +189,9 @@ fn sparkline(ui: &mut egui::Ui, values: &[f32]) {
     ));
 }
 
-/// An egui container drawn by hand, with react-egui hooks inside it.
+/// An egui container drawn by hand, with egui-react hooks inside it.
 ///
-/// This is how every container element in `react-egui-elements` is written:
+/// This is how every container element in `egui-react-elements` is written:
 /// copy `store` and the scope id out of the `Cx`, call the egui container, and
 /// build a new `Cx` around the `Ui` it hands back. `cx.scope` keys the inner
 /// hooks so they do not collide with the outer ones.

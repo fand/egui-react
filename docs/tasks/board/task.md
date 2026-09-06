@@ -13,7 +13,7 @@
 
 同じ PR の後半([patch](../patch/task.md))は、この example が作る DnD まわりの custom hook をそのまま使う。**board を仕上げてから patch に入る**。ここは「利点を 1 つずつ証明する場」、patch は「それが規模の大きい画面でも崩れないことを見せる場」という分担にする。
 
-core(`react-egui`、`react-egui-macros`)には手を入れない。`react-egui-elements` への追加は必要最小限に留める(判断は [plan.md](plan.md) 4 章)。
+core(`egui-react`、`egui-react-macros`)には手を入れない。`egui-react-elements` への追加は必要最小限に留める(判断は [plan.md](plan.md) 4 章)。
 
 ## スコープ
 
@@ -37,7 +37,7 @@ core(`react-egui`、`react-egui-macros`)には手を入れない。`react-egui-e
 
 ### 含まない
 
-- core(`react-egui` / `react-egui-macros`)の変更。必要が出たら plan.md 8 章に書き、別 PR で扱う。
+- core(`egui-react` / `egui-react-macros`)の変更。必要が出たら plan.md 8 章に書き、別 PR で扱う。
 - DnD のアニメーション(ゴーストの補間、並べ替えのイージング)。位置は即時入れ替えでよい。
 - 複数ボード、ラベルの編集 UI、期日、添付、担当者、検索のハイライト。
 - サーバ同期、実データ、ファイル入出力。`use_persisted` の 1 キーだけ。
@@ -48,7 +48,7 @@ core(`react-egui`、`react-egui-macros`)には手を入れない。`react-egui-e
 - `examples/board/`(`src/lib.rs` / `src/board.rs` / `src/hooks.rs` / `src/plain.rs` / `src/main.rs` / `src/plain_main.rs` / `Trunk.toml` / `index.html` / `tests/board.rs`)。
 - `examples/gallery` への登録(`EXAMPLES`、`match name` の 2 箇所)、gallery の snapshot。
 - README の examples 表に 1 行。
-- 必要なら `crates/react-egui-elements` への最小の追加と `docs/ARCHITECTURE.md` 6 章の更新。
+- 必要なら `crates/egui-react-elements` への最小の追加と `docs/ARCHITECTURE.md` 6 章の更新。
 - plan.md 8 章(実装で判明した差分と、ライブラリ側の宿題)。
 
 ## 終了条件
@@ -56,7 +56,7 @@ core(`react-egui`、`react-egui-macros`)には手を入れない。`react-egui-e
 - kittest が緑。目玉は次の 2 つ(plan.md 6 章 B-2 / B-3)。
   - 編集中のカードを別の列へ移しても、下書きと展開状態がそのカードに付いて回る。
   - 列内で並べ替えても、隣のカードの状態と入れ替わらない。
-- react-egui 版と生 egui 版に同じ操作を流して同じ結果になる(`todo` / `form` と同じ方式)。gallery の snapshot が 1 枚で一致する。
+- egui-react 版と生 egui 版に同じ操作を流して同じ結果になる(`todo` / `form` と同じ方式)。gallery の snapshot が 1 枚で一致する。
 - `cargo run -p board` と `cargo run -p board --bin board-plain` が動く。`trunk serve` でブラウザでも動く(目視)。
 - gallery に `board` が載り、`#board` で直リンクでき、生 egui 版へ切り替えられる。
 - `cargo fmt --check` / `cargo clippy --workspace --all-targets -- -D warnings` / `cargo test --workspace` / `cargo check --workspace --target wasm32-unknown-unknown` / trunk ループが CI で緑。

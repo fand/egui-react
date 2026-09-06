@@ -1,0 +1,5 @@
+error: egui-react: a #[hook] function must take a `&mut Cx` argument; that is the context whose scope the hook is entered under
+ --> tests/ui/hook_without_cx.rs:4:1
+  |
+4 | fn use_nothing() -> i32 {
+  | ^^

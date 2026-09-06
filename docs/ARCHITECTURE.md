@@ -1,4 +1,4 @@
-# react-egui アーキテクチャ
+# egui-react アーキテクチャ
 
 React 風の書き方(JSX、関数コンポーネント、hooks)で egui アプリを書くための Rust ライブラリ。本書は設計上の決定事項を記録する。実装がここから逸れる場合は本書を先に更新する。
 
@@ -77,7 +77,7 @@ egui のコンテナ閉包(`ui.vertical(|ui| ..)` など)に入るときは、�
 
 `IntoIterator<Item = V>` への blanket impl は `FnOnce` の blanket impl とも `Option<V>` とも coherence で衝突するので採らず、`Vec` と配列の個別 impl にした。`rsx!` の中の繰り返しは `for` で書けるので実用上の差はない。
 
-`rsx!` は常に `::react_egui::view(|cx| { .. })` を emit する。`pub fn view<F: FnOnce(&mut Cx<'_, '_>)>(f: F) -> impl View` は閉包の引数型を固定するためだけの補助関数で、`impl View` の位置に裸の閉包を書くと `cx` の型が推論されないことがある。ユーザーが escape hatch を書くときも `view(|cx| ..)` を使う。
+`rsx!` は常に `::egui_react::view(|cx| { .. })` を emit する。`pub fn view<F: FnOnce(&mut Cx<'_, '_>)>(f: F) -> impl View` は閉包の引数型を固定するためだけの補助関数で、`impl View` の位置に裸の閉包を書くと `cx` の型が推論されないことがある。ユーザーが escape hatch を書くときも `view(|cx| ..)` を使う。
 
 `rsx!` の閉包は非 `move` で、ローカルを借用する。閉包は生成された文の中で即座に消費されるので借用は短命である。
 
@@ -108,19 +108,19 @@ fn Counter(cx: &mut Cx, initial: i32, label: Option<&str>, #[event] on_change: i
 - `#[event]` 引数からイベント enum `CounterEvent` と `events` フィールド(3.6 参照)。
 - `Props` trait の実装。`rsx!` が `props_builder(&Counter)` から builder を引くために使う。
 
-本体の末尾式は `::react_egui::View::show(tail, cx)` に書き換わる。本体全体を `View::show({ body }, cx)` で包む形は、ブロック内のローカルを guard が借用したまま返すことになり通らないので、必ず末尾式だけを差し替える。`if` / `match` の腕ごとに別々の `rsx!` を返す本体は閉包の型が一致しないので、`rsx!{ if .. }` の形で書く。
+本体の末尾式は `::egui_react::View::show(tail, cx)` に書き換わる。本体全体を `View::show({ body }, cx)` で包む形は、ブロック内のローカルを guard が借用したまま返すことになり通らないので、必ず末尾式だけを差し替える。`if` / `match` の腕ごとに別々の `rsx!` を返す本体は閉包の型が一致しないので、`rsx!{ if .. }` の形で書く。
 
 `<Counter initial={0} />` は次のように展開される。
 
 ```rust
 cx.scope((file!(), line!(), column!(), 3usize, key), |cx| {
-    Counter(cx, ::react_egui::props_builder(&Counter).initial(0).children(()).build());
+    Counter(cx, ::egui_react::props_builder(&Counter).initial(0).children(()).build());
 });
 ```
 
 `scope` は `cx.scope` を一段深くし、同時に `ui.push_id`(Taffy モードでは `tui.with_auto_id_prefix`)を呼ぶ。これにより hooks の Id と egui 側のウィジェット Id の両方がコンポーネントインスタンスごとに安定する。Id の材料は `rsx!` 呼び出し位置と、その `rsx!` 内での要素の通し番号、そして `key` である。関数アイテムの型は名指しできないので、Props の型は `props_builder<P: Props, F: Fn(&mut Cx, P)>(_: &F) -> P::Builder` の `Fn` 境界から推論する。ユーザーが `use` するのは `Counter` だけでよい。
 
-要素ごとに子 `Ui` を作ると、親の `Ui` から場所を切り取る egui のコンテナ(ドッキングされたパネル)や、親の `Ui` を書き換えるもの(`Grid` の `Ui::end_row`)が動かない。そこで `#[component(shares_ui)]` を用意する。これを付けたコンポーネントは hook のスコープは通常どおり深くなるが、`Ui::push_id` を通らず親の `Ui` にそのまま描く。実装は `Props` の `const SHARES_UI: bool`(既定 `false`、`#[component(shares_ui)]` が `true` にする)で、`rsx!` は要素の呼び出しを `::react_egui::__private::enter_scope(cx, source, props, Name)` に通す。`enter_scope` は `P::SHARES_UI` を見て `cx.scope` か `cx.scope_sharing_ui` を選ぶ。`Panel` / `CentralPanel` / `Row` がこれを使う。
+要素ごとに子 `Ui` を作ると、親の `Ui` から場所を切り取る egui のコンテナ(ドッキングされたパネル)や、親の `Ui` を書き換えるもの(`Grid` の `Ui::end_row`)が動かない。そこで `#[component(shares_ui)]` を用意する。これを付けたコンポーネントは hook のスコープは通常どおり深くなるが、`Ui::push_id` を通らず親の `Ui` にそのまま描く。実装は `Props` の `const SHARES_UI: bool`(既定 `false`、`#[component(shares_ui)]` が `true` にする)で、`rsx!` は要素の呼び出しを `::egui_react::__private::enter_scope(cx, source, props, Name)` に通す。`enter_scope` は `P::SHARES_UI` を見て `cx.scope` か `cx.scope_sharing_ui` を選ぶ。`Panel` / `CentralPanel` / `Row` がこれを使う。
 
 インスタンスの同一性は以下の挙動になる(React と一致する)。
 
@@ -135,7 +135,7 @@ hook の Id は `scope.with(Location::caller())` で導出する。`use_state` �
 
 カスタム hook は `#[hook]` を付ける。`#[hook]` は関数に `#[track_caller]` を付け、本体を `cx.hook_scope(Location::caller(), |cx| { .. })` で包む。これによりネストした hook の Id は「スコープ → カスタム hook の呼び出し位置 → 内側の hook の呼び出し位置」という呼び出し位置のスタックになり、何段でも一意になる。合成可能性はこれで担保する。
 
-同一パス内で同じ Id が 2 回要求されたら衝突である(訪問済みマークで検出できる)。1 回目の guard がまだ生きている場合は同じ `RefCell` の二重借用になるので、原因と対処(`#[hook]` の付け忘れ、`for` 内の `key` 忘れ)を示すメッセージで panic する。素の `RefCell` の panic にはしない。1 回目の guard が既に落ちている場合は 2 回目が同じスロットを黙って再利用する(`for i in 0..3 { use_state(cx, || i) }` は 3 回とも 0 を返す)。これがまさに避けたい「静かなバグ」なので、記録と `log::warn!` に加えて、debug ビルドでは egui の Id 衝突警告と同じ UX で画面上に警告を出す。オーバーレイの主目的はこの後者のケースである。実装は `Store::end_pass` の最後で、`warn_on_collision`(既定 `cfg!(debug_assertions)`、`set_warn_on_collision` で切り替え)が有効かつ衝突があれば、`Order::Debug` の `egui::Area` を左上に置き、`react-egui: hook id collision at {file}:{line}:{column}. Wrap custom hooks in #[hook], or add key= inside loops.` を赤字で出す。同じ呼び出し位置は 1 パスに 1 行にまとめる。
+同一パス内で同じ Id が 2 回要求されたら衝突である(訪問済みマークで検出できる)。1 回目の guard がまだ生きている場合は同じ `RefCell` の二重借用になるので、原因と対処(`#[hook]` の付け忘れ、`for` 内の `key` 忘れ)を示すメッセージで panic する。素の `RefCell` の panic にはしない。1 回目の guard が既に落ちている場合は 2 回目が同じスロットを黙って再利用する(`for i in 0..3 { use_state(cx, || i) }` は 3 回とも 0 を返す)。これがまさに避けたい「静かなバグ」なので、記録と `log::warn!` に加えて、debug ビルドでは egui の Id 衝突警告と同じ UX で画面上に警告を出す。オーバーレイの主目的はこの後者のケースである。実装は `Store::end_pass` の最後で、`warn_on_collision`(既定 `cfg!(debug_assertions)`、`set_warn_on_collision` で切り替え)が有効かつ衝突があれば、`Order::Debug` の `egui::Area` を左上に置き、`egui-react: hook id collision at {file}:{line}:{column}. Wrap custom hooks in #[hook], or add key= inside loops.` を赤字で出す。同じ呼び出し位置は 1 パスに 1 行にまとめる。
 
 却下した代替案: Id に「同一位置の出現回数」を混ぜて衝突を無くす案。衝突は消えるが、構造が変わった時に状態が別インスタンスへ静かに移る(React の rules-of-hooks 違反と同じ現象)。ループで出現回数が変わることを正当な利用として許すため検出もできない。「うるさいエラー」を「静かなバグ」と交換する設計なので採らない。
 
@@ -169,7 +169,7 @@ Dialog(cx, DialogProps {
 ```
 
 - `rsx!` は要素名 `Dialog` と属性名 `on_ok` から `DialogEvent::Ok` を文字列的に組み立てる(`on_` を外して PascalCase)。型情報は不要。存在しないイベント名は variant が無いのでコンパイルエラーになる。
-- `Handler<A, Marker>` は `FnOnce() -> R` と `FnOnce(A) -> R` の両方を受ける trait。2 つの blanket impl は coherence で衝突するので、マーカー型引数 `(Arity0, R)` / `(Arity1, R)` で区別する。マーカーは常に推論され、`on_ok={|| ..}`、`on_change={|v| ..}`(引数型の注釈なしでも可)、ペイロードを捨てる `|| ..`、非 `()` を返す本体のいずれも `::react_egui::Handler::call(closure, a)` の一形式で呼べる(spike で確認済み)。マクロは常にこの完全修飾パスを emit する。
+- `Handler<A, Marker>` は `FnOnce() -> R` と `FnOnce(A) -> R` の両方を受ける trait。2 つの blanket impl は coherence で衝突するので、マーカー型引数 `(Arity0, R)` / `(Arity1, R)` で区別する。マーカーは常に推論され、`on_ok={|| ..}`、`on_change={|v| ..}`(引数型の注釈なしでも可)、ペイロードを捨てる `|| ..`、非 `()` を返す本体のいずれも `::egui_react::Handler::call(closure, a)` の一形式で呼べる(spike で確認済み)。マクロは常にこの完全修飾パスを emit する。
 - 閉包リテラルは `match` の腕の中で生成・即時呼び出しされる。`open` を `&mut` で捕まえるのは外側の融合閉包 1 つだけ。
 - コンポーネント側では `#[event] on_ok: ()` が `Emitter` になり、`on_ok.emit(())` で発火する。`Emitter<'a, 'e, E, A>` は共有された `EventSink<'e, E> = RefCell<&'e mut dyn FnMut(E)>` への `&'a` 参照と、ペイロード `A` を variant に包む関数 `fn(A) -> E` を持つ。子の中で複数同時に生きられる(`RefCell` は不変なので lifetime は 2 つ必要)。再入的な emit は明確なメッセージで panic する。
 - Props の `events` フィールドは `Option<&'e mut dyn FnMut(E)>` で、`#[builder(default, setter(strip_option))]` が付く。`rsx!` は融合閉包を `&mut` で渡し、`on_*` が 1 つも無ければ渡さない。渡されなかった場合、コンポーネント本体は `match` の腕でローカルの no-op 閉包に落とすので `emit` は何もしない。
@@ -222,10 +222,10 @@ Dialog(cx, DialogProps {
 
 ### `use_persisted` の詳細
 
-- スロットの Id はスコープではなく `Id::new(("react_egui_persisted", key))` で、呼び出し位置に依存しない。行を足しても保存データが読めなくなることが無い代わりに、同じキーを 2 か所で使えば同じ 1 つの値を共有し、同じパスで 2 回訪問すれば通常どおり衝突として記録される。
+- スロットの Id はスコープではなく `Id::new(("egui_react_persisted", key))` で、呼び出し位置に依存しない。行を足しても保存データが読めなくなることが無い代わりに、同じキーを 2 か所で使えば同じ 1 つの値を共有し、同じパスで 2 回訪問すれば通常どおり衝突として記録される。
 - `Store` は「キー → JSON 文字列」の `HashMap` を持つ。`load_persisted(&mut self, json)` が丸ごと読み込み、`save_persisted(&self) -> String` が生きているスロットを直列化して map に上書きしてから全体を JSON にする。読めない JSON は `log::warn!` して無視し、値は `init` に落ちる。
 - `Slot` は `persist: Option<(key, fn(&dyn Any) -> Option<String>)>` を持つ。sweep で persist 付きスロットを落とす時は、先に直列化して map に書く。unmount した後でも次回起動には残る。
-- 保存形式は JSON、eframe の `Storage` には `"react_egui"` の 1 キーにまとめて書く。ランナーの `App::save` が呼ぶ(eframe が `auto_save_interval` と終了時に呼ぶ)。
+- 保存形式は JSON、eframe の `Storage` には `"egui_react"` の 1 キーにまとめて書く。ランナーの `App::save` が呼ぶ(eframe が `auto_save_interval` と終了時に呼ぶ)。
 
 ### `use_reducer` の詳細
 
@@ -289,7 +289,7 @@ egui_taffy はレイアウト変化時に `request_discard` を呼び、同一�
 
 ### 5.8 Suspense
 
-`<Suspense fallback={..}>children</Suspense>`(6 章、`react-egui-elements`)は、中の `use_future` が 1 つでも `Pending` なら children の代わりに `fallback` を描く。React の throw に当たるものが Rust には無いので、子は `let Poll::Ready(x) = use_future(..) else { return };` で抜け、`Pending` の数を `Store` のカウンタで数える。
+`<Suspense fallback={..}>children</Suspense>`(6 章、`egui-react-elements`)は、中の `use_future` が 1 つでも `Pending` なら children の代わりに `fallback` を描く。React の throw に当たるものが Rust には無いので、子は `let Poll::Ready(x) = use_future(..) else { return };` で抜け、`Pending` の数を `Store` のカウンタで数える。
 
 - **カウンタのスタック** `Store` は `provide_context` と同じ形で `RefCell<Vec<usize>>` を持つ。`begin_suspense` が 0 を積み、`end_suspense` が積んだ数(= 中で `Pending` だった `use_future` の数)を返し、`note_pending` が最も近い(= 一番内側の)カウンタを +1 する。入れ子は内側が自分の分を消費するので、外側には数えられない。スタックは `begin_pass` で clear する。core に足すのはこの 3 メソッドだけで、境界そのものは elements にある(`Collapsing` と同じ「子を包む要素」)。
 - **初期状態は suspended** 初回はオフスクリーンに描いてから、`Pending` が無ければ可視に切り替える。`max_passes` を使い切って `request_discard` が却下された時に、描きかけの children ではなく `fallback` が見える側に倒すためである。
@@ -317,9 +317,9 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 - `<Text>` と `<Label>` は共に `wrap` 属性で egui 既定の折り返しに切り替えられる。折り返すには幅が要るので、`w` か(幅の決まったコンテナの中の)`grow` と併せて使う。両者の違いは `Text` が `size` / `color` / `strong` を持つことだけである。
 - ルートパネルは既定で `direction="column"` の `<View>` で包む。
 
-### 要素一覧(`react-egui-elements`)
+### 要素一覧(`egui-react-elements`)
 
-全要素が `#[component]` で書かれ、`#[prop(default)] style: ItemStyle` を受け取る。`rsx!` はレイアウト属性をまとめて `style` に詰める。イベント enum も含めて `react_egui_elements::prelude` から re-export する(3.6 のとおり、`on_*` を使う場所には enum 名が必要なため)。
+全要素が `#[component]` で書かれ、`#[prop(default)] style: ItemStyle` を受け取る。`rsx!` はレイアウト属性をまとめて `style` に詰める。イベント enum も含めて `egui_react_elements::prelude` から re-export する(3.6 のとおり、`on_*` を使う場所には enum 名が必要なため)。
 
 | 種類 | 要素 |
 |---|---|
@@ -347,7 +347,7 @@ context の provider には `<Provide value={handle}>` のような汎用要素�
 
 ### レイアウト属性
 
-`react_egui::layout` に置く。taffy の型は `egui_taffy::taffy` を `react_egui::taffy` として re-export したものを使う。
+`egui_react::layout` に置く。taffy の型は `egui_taffy::taffy` を `egui_react::taffy` として re-export したものを使う。
 
 - `Length`: `Px(f32)` / `Percent(f32)`(taffy と同じく 0.0〜1.0 の割合)/ `Auto`。`From<f32>` と `From<i32>` は `Px`、`From<&str>` は `"auto"` / `"50%"` / `"12px"` / `"12"` をパースし、それ以外は panic する。
 - `ItemStyle`: 全要素が共通で受け付ける item 側の属性。`w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl col_span row_span`。setter は `impl Into<Length>` を取るので `rsx!` は数値リテラルも文字列リテラルもそのまま渡せる。`m` / `p` の短縮形は「全体 → `x` / `y` → 各辺」の順で、より具体的な指定が勝つ。`to_taffy()` で `taffy::Style` になる。
@@ -360,30 +360,30 @@ context の provider には `<Provide value={handle}>` のような汎用要素�
 ## 7. クレート構成
 
 ```
-react-egui/            core: View, Cx, Store, State, Handle, Dispatch, hooks, sweep, 遅延キュー, 永続化
-react-egui-macros/     rsx! (rstml 0.13 ベース), #[component], #[hook]
-react-egui-elements/   egui ウィジェット / コンテナのラッパー。View / Text は taffy 上に
-react-egui-app/        run(Options, |_cx| rsx!{ <App/> })。eframe を包み native / wasm / Android を吸収。iOS ランナーもここ
+egui-react/            core: View, Cx, Store, State, Handle, Dispatch, hooks, sweep, 遅延キュー, 永続化
+egui-react-macros/     rsx! (rstml 0.13 ベース), #[component], #[hook]
+egui-react-elements/   egui ウィジェット / コンテナのラッパー。View / Text は taffy 上に
+egui-react-app/        run(Options, |_cx| rsx!{ <App/> })。eframe を包み native / wasm / Android を吸収。iOS ランナーもここ
 examples/              counter, todo (use_reducer + use_persisted), layout, fetch (use_future + Suspense + ehttp), 後に mobile
 ```
 
-`react_egui_app::run(Options, root)` が 1 フレームでやることは以下。
+`egui_react_app::run(Options, root)` が 1 フレームでやることは以下。
 
 1. `CentralPanel` で包む(eframe が渡すルート `Ui` には余白も背景も無く、ライトモードで文字が読めないため)。
 2. `store.begin_pass(ctx)`。
-3. ルートの `Cx` を作り、`root(cx)` が返した `View` を `cx.root_container(..)`(`direction: column`、`w` は `100%`、`min_h` は `100%`、`reserve_available_space`)の中で `show` する。ネストしたコンテナは幅だけを確保するので、ルートだけが高さも取る。この id とスタイルは `react_egui_app::root_id()` / `root_style()` として公開し、テストや自作ランナーが同じ枠を再現できるようにする。
+3. ルートの `Cx` を作り、`root(cx)` が返した `View` を `cx.root_container(..)`(`direction: column`、`w` は `100%`、`min_h` は `100%`、`reserve_available_space`)の中で `show` する。ネストしたコンテナは幅だけを確保するので、ルートだけが高さも取る。この id とスタイルは `egui_react_app::root_id()` / `root_style()` として公開し、テストや自作ランナーが同じ枠を再現できるようにする。
 4. `store.end_pass()`。
 
-`Options` は `title` / `max_passes`(既定 3、`ctx.options_mut` で明示設定。5.3 参照)/ `persist` / `canvas_id`(wasm)/ `native`(native のみ)/ `setup` を持つ。`setup: Option<Box<dyn FnOnce(&eframe::CreationContext)>>` は eframe が窓と描画バックエンドを用意した直後に 1 回だけ呼ぶ穴で、`ReactApp::new` の先頭で実行する。wgpu の pipeline を作って `cc.wgpu_render_state` の `renderer.write().callback_resources` に置く場所である(egui 公式 demo の `custom3d_wgpu` と同じ形)。hook や context 経由で `RenderState` を配る案は採らない。wgpu の型は hook API のどこにも出さず、wgpu を使わないアプリは一生見ない、という線を引くためである。native と wasm の両方にある。`App::save` が `store.save_persisted()` を `Storage` の `"react_egui"` キーに書き、`CreationContext::storage` から `load_persisted` する。wasm では `cfg(target_arch = "wasm32")` で `WebRunner` を `wasm_bindgen_futures::spawn_local` に載せ、canvas は `canvas_id` で引く。
+`Options` は `title` / `max_passes`(既定 3、`ctx.options_mut` で明示設定。5.3 参照)/ `persist` / `canvas_id`(wasm)/ `native`(native のみ)/ `setup` を持つ。`setup: Option<Box<dyn FnOnce(&eframe::CreationContext)>>` は eframe が窓と描画バックエンドを用意した直後に 1 回だけ呼ぶ穴で、`ReactApp::new` の先頭で実行する。wgpu の pipeline を作って `cc.wgpu_render_state` の `renderer.write().callback_resources` に置く場所である(egui 公式 demo の `custom3d_wgpu` と同じ形)。hook や context 経由で `RenderState` を配る案は採らない。wgpu の型は hook API のどこにも出さず、wgpu を使わないアプリは一生見ない、という線を引くためである。native と wasm の両方にある。`App::save` が `store.save_persisted()` を `Storage` の `"egui_react"` キーに書き、`CreationContext::storage` から `load_persisted` する。wasm では `cfg(target_arch = "wasm32")` で `WebRunner` を `wasm_bindgen_futures::spawn_local` に載せ、canvas は `canvas_id` で引く。
 
 `root` は毎パス呼ばれ、返す `View` は `root` の中で作ったものを借用できない(hook の guard を借りた `rsx!` はローカルを借用した値を返すことになる)。hooks はコンポーネントに置き、ルートは `|_cx| rsx!{ <App/> }` の形にする。
 
-egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut Ui` を受け取るので、ランナーはそれをそのまま `Cx` に包む。`react-egui`(core)は `egui_taffy` を通常依存に持つ。`Cx` の `Surface` が `Tui` を知る必要があるためで、wasm ターゲットでもそのままビルドできる。加えて future の実行機構として、native では `pollster`(`cfg(not(target_arch = "wasm32"))`)、wasm では `wasm-bindgen-futures`(`cfg(target_arch = "wasm32")`)を持つ。
+egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut Ui` を受け取るので、ランナーはそれをそのまま `Cx` に包む。`egui-react`(core)は `egui_taffy` を通常依存に持つ。`Cx` の `Surface` が `Tui` を知る必要があるためで、wasm ターゲットでもそのままビルドできる。加えて future の実行機構として、native では `pollster`(`cfg(not(target_arch = "wasm32"))`)、wasm では `wasm-bindgen-futures`(`cfg(target_arch = "wasm32")`)を持つ。
 
 ## 8. プラットフォーム
 
 - native / wasm / Android: eframe。wasm は trunk でビルドする。描画バックエンドは wgpu。**eframe 0.36 の既定 feature には `wgpu` が入っていて `glow` は入っていない**(0.35 までとは逆)ので、何もしなくても wgpu で描かれる。glow の方が opt-in になったため、選択のための feature は置かない。web は WebGPU 非対応のブラウザのために WebGL へ落ちる。`eframe/wgpu` → `egui-wgpu/default` → `wgpu/webgl` と伝播するので、こちらで `wgpu` を直接依存に取る必要は無い。
-- iOS: eframe は未対応(emilk/egui#3117 が open)。`egui-winit` + `egui-wgpu` の薄いランナーを `react-egui-app` 内に書く。ビルドは cargo-mobile2。
+- iOS: eframe は未対応(emilk/egui#3117 が open)。`egui-winit` + `egui-wgpu` の薄いランナーを `egui-react-app` 内に書く。ビルドは cargo-mobile2。
 - アクセシビリティ: native は eframe(egui-winit)が `Context::enable_accesskit` を呼び、ウィジェットツリーが OS のアクセシビリティ API に届く。**web では届かない。** eframe の web ランナーは毎フレームの `TreeUpdate` を `accesskit_update: _, // not currently implemented`(`eframe/src/web/app_runner.rs`)と捨てており、canvas の中身を DOM に映す adapter も上流に無い。方針と試作は `docs/tasks/a11y/`。
 - ライブラリ本体は `&mut egui::Ui` しか触らないので、プラットフォーム対応はランナー層とタッチ / IME の調整に閉じる。
 - 非同期の実行機構は core の `task::spawn` に閉じる(4 章「`use_future` の詳細」)。iOS / Android は native と同じスレッド経路を使う。
@@ -393,13 +393,13 @@ egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut 
 - `egui_kittest` でコンポーネントの操作テストとスナップショットテスト。
 - `trybuild` でマクロのコンパイルエラー(イベント名の誤り、`key` 忘れ等)の文面を固定する。
 - examples も lib なので kittest を持つ。生 egui 版がある example は、同じ操作を両方に対して流して同じ結果になることを確かめる。
-- 見た目の一致は `examples/gallery` の `snapshot` feature で撮る。react-egui 版と生 egui 版を同じ大きさで描き、**同じ画像 1 枚**と比べる。残る差は文字の縁だけなので `SnapshotOptions::max_failed_pixels` で吸収する(値は tasks/examples/plan.md 7 章)。
+- 見た目の一致は `examples/gallery` の `snapshot` feature で撮る。egui-react 版と生 egui 版を同じ大きさで描き、**同じ画像 1 枚**と比べる。残る差は文字の縁だけなので `SnapshotOptions::max_failed_pixels` で吸収する(値は tasks/examples/plan.md 7 章)。
 - feature の裏にある snapshot テストは CI で回らないので、その feature が触る変更をしたら手で撮り直す。
 - スパイク段階から kittest を使い、多重パスでハンドラが 1 回だけ発火することをテストで固定する。
 
 ## 10. スパイクで検証した項目
 
-マクロ抜きの手書き展開で以下を確認した(PR1、`crates/react-egui/tests/`)。全項目にテストがあり緑。前提が崩れた箇所は本書の該当節に反映済み。
+マクロ抜きの手書き展開で以下を確認した(PR1、`crates/egui-react/tests/`)。全項目にテストがあり緑。前提が崩れた箇所は本書の該当節に反映済み。
 
 - `State` の guard がコンポーネント本体の間だけ生き、兄弟要素のハンドラが同じ state を順に `&mut` 借用できる。
 - `#[hook]` 越しに guard を返せる(lifetime `'s` が `&mut Cx` と独立である)。

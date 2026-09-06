@@ -252,7 +252,7 @@ kittest は headless(GPU 無し)で回す。`<Canvas>` に積む wgpu callback �
 
 ## 8. 実装で判明した差分
 
-core(`react-egui` / `react-egui-macros`)にも `react-egui-elements` にも手を入れていない。以下は「書けなかったこと / どう回避したか / 足すとしたら何か」。board 8 章と重なるものは、重なったという事実の方が情報なので明示する。
+core(`egui-react` / `egui-react-macros`)にも `egui-react-elements` にも手を入れていない。以下は「書けなかったこと / どう回避したか / 足すとしたら何か」。board 8 章と重なるものは、重なったという事実の方が情報なので明示する。
 
 ### 8.1 絶対配置は escape hatch で足りた。`ItemStyle` に `position` は要らない
 
