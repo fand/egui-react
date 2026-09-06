@@ -42,7 +42,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::board::{Board, CardId, ColumnId, DropTarget, Msg, reduce, visible};
-use crate::look::{PLACEHOLDER_H, Theme, ghost, placeholder};
+use crate::look::{PLACEHOLDER_H, Theme, gap_amount, ghost, placeholder};
 
 /// The key the standalone binary stores the board under.
 pub const STORAGE_KEY: &str = "board_plain";
@@ -517,14 +517,20 @@ fn drop_gap(
     target: DropTarget,
     open: bool,
 ) {
-    let extra = if open { PLACEHOLDER_H } else { 0.0 };
+    // Animated, so the cards below slide rather than jump; the same numbers
+    // and the same egui animation as the other version.
+    let anim = egui::Id::new(("board_plain/gap", target));
+    let amount = gap_amount(ui.ctx(), anim, open, state.carrying.is_some());
+    let extra = amount * PLACEHOLDER_H;
     let size = egui::vec2(ui.available_width(), CARD_GAP + extra);
     let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
+    if extra > 0.5 {
+        // The spacing stays spacing: the card is drawn in what is new.
+        placeholder(ui.painter(), rect.with_min_y(rect.bottom() - extra), theme);
+    }
     if !open {
         return;
     }
-    // The spacing stays spacing: the card is drawn in what is new.
-    placeholder(ui.painter(), rect.with_min_y(rect.bottom() - extra), theme);
     // Painted, not a widget, so the name has to be said out loud; the test asks
     // for it to know whether a gap is open.
     response.widget_info(|| {

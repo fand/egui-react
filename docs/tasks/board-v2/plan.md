@@ -236,3 +236,11 @@ elements に足したくなったもの(足さない。記録だけ):
 `ui.interact(rect, id, Sense::drag())` は focusable なノードを作るので、名無しだと `a11y.rs` に `board: Unknown` が 12 個出る(v1 では sense 付きの title Label が `board: Label` ×12 として同じ位置に出ていた)。`accesskit_node_builder` で **`"card: <title>"`** と名前を付けた。title そのものにしないのは、隣の Label と同じ名前のノードが 2 つ並ぶと読み上げでも kittest でも区別が付かないため。
 
 `KNOWN_UNNAMED` は board / patch が入った時点から更新されておらず、この作業の前から赤だった。名前を付けられなかったものだけ理由付きで足した: `board: TextInput`(検索の `<TextEdit>`。要素に name prop が無い)と patch の 5 つ(溢れた `<ScrollArea>` の `GenericContainer`、`MultilineTextInput` ×2、`ComboBox` ×2)。
+
+### 11.8 gap の高さをアニメーションする(追加要望)
+
+placeholder が常に木にある(11.1)ので、高さを `ctx.animate_bool_with_time_and_easing` で `CARD_GAP` ⇄ `CARD_GAP + PLACEHOLDER_H` に滑らかに変えるだけで下の card が滑る。`look::gap_amount` に両版で共有(`GAP_TIME` = 0.12s、quadratic_out)。id は `("board/gap", target)` / `("board_plain/gap", target)`。
+
+- slot 登録と "drop here" の名前は `open`(target が自分)で決め、描画だけ `extra > 0.5` で出す。閉じかけの gap も絵は残るが drop 先にはならない。
+- **何も掴んでいないフレームは時間 0 で即閉じる。** drop の次フレームで card が実体として現れるので、閉じかけの gap と重なって 2 枚に見えるのを防ぐ。
+- kittest: 初回の `animate_bool` は target に即決まるので閉じた gap は 0 から始まる。B-11 は hold 後 2 フレームで「下の card が下がった」を見るだけなので、途中の高さでも通る。

@@ -56,7 +56,7 @@ use board::{
     visible,
 };
 use hooks::{Dnd, Undoable, use_debounced, use_dnd, use_identity, use_undoable};
-use look::{PLACEHOLDER_H, Theme, ghost, placeholder};
+use look::{PLACEHOLDER_H, Theme, gap_amount, ghost, placeholder};
 
 pub const META: Meta = Meta {
     name: "board",
@@ -749,7 +749,14 @@ fn Placeholder(
 ) {
     let theme = use_theme(cx);
     let dnd = use_drag(cx);
-    let extra = if open { PLACEHOLDER_H } else { 0.0 };
+    // The height is animated, and a node whose height changes is still a node
+    // taffy has laid out, so the cards below slide instead of jumping. The
+    // animation is egui's, keyed by the target, and it is what makes always
+    // being in the tree pay off: a gap that is here at `0.0` has somewhere to
+    // open from.
+    let anim = egui::Id::new(("board/gap", target));
+    let amount = gap_amount(cx.ctx(), anim, open, dnd.carrying().is_some());
+    let extra = amount * PLACEHOLDER_H;
 
     // `leaf_fill`, not `leaf`: a content-measured leaf is measured in a
     // zero-width `Ui` on its first frame and taffy keeps it that way
@@ -758,9 +765,11 @@ fn Placeholder(
     let rect = cx.leaf_fill(&style.w("100%").h(CARD_GAP + extra), |ui| {
         let rect = ui.max_rect();
         let response = ui.allocate_rect(rect, egui::Sense::hover());
-        if open {
+        if extra > 0.5 {
             // The spacing stays spacing: the card is drawn in what is new.
             placeholder(ui.painter(), rect.with_min_y(rect.bottom() - extra), theme);
+        }
+        if open {
             // Painted, not a widget, so the name has to be said out loud; the
             // test asks for it to know whether a gap is open.
             response.widget_info(|| {

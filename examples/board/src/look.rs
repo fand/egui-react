@@ -10,6 +10,22 @@
 /// hand will take up.
 pub const PLACEHOLDER_H: f32 = 30.0;
 
+/// How long a gap takes to open or close. Long enough to read as movement,
+/// short enough that the card in hand never waits for it.
+pub const GAP_TIME: f32 = 0.12;
+
+/// How open a gap is, from `0.0` to `1.0`, on its way to `open`.
+///
+/// egui's animation runs on the gap's id, so a gap that is always in the
+/// tree (closed at `0.0`) slides open from where it is and slides shut again
+/// when the pointer moves on. With nothing in hand the answer is immediate:
+/// the frame a card is dropped, the gap it fills is gone and the card is
+/// there, and a gap that was still closing under it would show two cards.
+pub fn gap_amount(ctx: &egui::Context, id: egui::Id, open: bool, carrying: bool) -> f32 {
+    let time = if carrying { GAP_TIME } else { 0.0 };
+    ctx.animate_bool_with_time_and_easing(id, open, time, egui::emath::easing::quadratic_out)
+}
+
 /// Provided to the whole tree; every level that draws something reads it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Theme {
