@@ -42,7 +42,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 
 use crate::board::{Board, CardId, ColumnId, DropTarget, Msg, reduce, visible};
-use crate::look::{PLACEHOLDER_H, Theme, gap_amount, ghost, placeholder};
+use crate::look::{PLACEHOLDER_H, Theme, gap_amount, ghost, lifted, placeholder};
 
 /// The key the standalone binary stores the board under.
 pub const STORAGE_KEY: &str = "board_plain";
@@ -435,12 +435,26 @@ fn column(
         // sits between them. See [`drop_gap`].
         ui.spacing_mut().item_spacing.y = 0.0;
 
+        // The gaps are animated in the picture, not in the layout, for the
+        // same reason as the other version (a relayout per frame would cost a
+        // second pass per frame): each card below a gap is drawn shifted by
+        // however far its gap still has to go. `lift` adds those up.
+        let carrying = state.carrying.is_some();
+        let mut lift = 0.0;
         for (i, card) in shown.iter().enumerate() {
             let target = DropTarget {
                 column: id,
                 before: Some(*card),
             };
-            drop_gap(ui, state, theme, target, gap == Some(Some(*card)));
+            let open = gap == Some(Some(*card));
+            let amount = gap_amount(
+                ui.ctx(),
+                egui::Id::new(("board_plain/gap", target)),
+                open,
+                carrying,
+            );
+            drop_gap(ui, state, theme, target, open, amount, lift);
+            lift += (amount - f32::from(u8::from(open))) * PLACEHOLDER_H;
             self::card(
                 ui,
                 state,
@@ -448,6 +462,7 @@ fn column(
                 id,
                 *card,
                 shown.get(i + 1).copied(),
+                lift,
                 pending,
             );
         }
@@ -487,7 +502,15 @@ fn column(
             column: id,
             before: None,
         };
-        drop_gap(ui, state, theme, end, gap == Some(None));
+        let open = gap == Some(None);
+        let amount = gap_amount(
+            ui.ctx(),
+            egui::Id::new(("board_plain/gap", end)),
+            open,
+            carrying,
+        );
+        drop_gap(ui, state, theme, end, open, amount, lift);
+        lift += (amount - f32::from(u8::from(open))) * PLACEHOLDER_H;
 
         let rect =
             egui::Rect::from_min_size(ui.cursor().min, egui::vec2(ui.available_width(), FOOTER_H));
@@ -495,7 +518,10 @@ fn column(
             state.slots.push((rect, end));
         }
         let button = egui::Button::new("+ card").wrap_mode(egui::TextWrapMode::Extend);
-        if ui.put(rect, button).clicked() {
+        let clicked = ui
+            .with_visual_transform(lifted(lift), |ui| ui.put(rect, button).clicked())
+            .inner;
+        if clicked {
             state.adding = Some((id, String::new()));
             state.fresh = Some(egui::Id::new(("board_plain/new", id)));
         }
@@ -516,17 +542,21 @@ fn drop_gap(
     theme: Theme,
     target: DropTarget,
     open: bool,
+    // How open the picture of the gap is, and how far the picture of the card
+    // above it has been shifted; the same numbers as the other version.
+    amount: f32,
+    lift: f32,
 ) {
-    // Animated, so the cards below slide rather than jump; the same numbers
-    // and the same egui animation as the other version.
-    let anim = egui::Id::new(("board_plain/gap", target));
-    let amount = gap_amount(ui.ctx(), anim, open, state.carrying.is_some());
-    let extra = amount * PLACEHOLDER_H;
+    let extra = if open { PLACEHOLDER_H } else { 0.0 };
     let size = egui::vec2(ui.available_width(), CARD_GAP + extra);
     let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
-    if extra > 0.5 {
-        // The spacing stays spacing: the card is drawn in what is new.
-        placeholder(ui.painter(), rect.with_min_y(rect.bottom() - extra), theme);
+    let shown = amount * PLACEHOLDER_H;
+    if shown > 0.5 {
+        // The spacing stays spacing: the card is drawn in what is new — below
+        // the card above, wherever its picture is at the moment.
+        let top = egui::pos2(rect.left(), rect.top() + lift + CARD_GAP);
+        let seen = egui::Rect::from_min_size(top, egui::vec2(rect.width(), shown));
+        placeholder(ui.painter(), seen, theme);
     }
     if !open {
         return;
@@ -539,6 +569,7 @@ fn drop_gap(
     state.slots.push((rect, target));
 }
 
+#[allow(clippy::too_many_arguments)]
 fn card(
     ui: &mut egui::Ui,
     state: &mut PlainState,
@@ -546,6 +577,9 @@ fn card(
     column: ColumnId,
     id: CardId,
     next: Option<CardId>,
+    // How far the picture of this card is from where it was laid out, while a
+    // gap above it is still opening or closing.
+    lift: f32,
     pending: &mut Vec<Msg>,
 ) {
     let Some(card) = state.board.card(id).cloned() else {
@@ -591,71 +625,80 @@ fn card(
         }
     }
 
-    let drawn = egui::Frame::new()
-        .fill(theme.card())
-        .corner_radius(4.0)
-        .inner_margin(6.0)
-        .show(ui, |ui| {
-            ui.set_min_width(ui.available_width());
-            ui.horizontal(|ui| {
-                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
-                ui.spacing_mut().item_spacing.x = 6.0;
+    // The shift is visual only: the drag surface and the slots are where the
+    // card will be, which is where the pointer is aiming.
+    let drawn = ui
+        .with_visual_transform(lifted(lift), |ui| {
+            egui::Frame::new()
+                .fill(theme.card())
+                .corner_radius(4.0)
+                .inner_margin(6.0)
+                .show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+                    ui.horizontal(|ui| {
+                        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
+                        ui.spacing_mut().item_spacing.x = 6.0;
 
-                // `done` is read out of the board, so the box is drawn against
-                // a copy and what comes back is a message, not a write.
-                let mut done = card.done;
-                let box_ = ui.add(egui::Checkbox::without_text(&mut done));
-                // A card is found by this name — by a screen reader, and by the
-                // test, which needs a hold on a card whose title has become an
-                // editor.
-                ui.ctx().accesskit_node_builder(box_.id, |node| {
-                    node.set_label(format!("done: {}", card.title));
-                });
-                if box_.changed() {
-                    pending.push(Msg::SetDone {
-                        card: id,
-                        done: !card.done,
-                    });
-                }
-
-                // The buttons are pinned to the right and the title fills what
-                // is left, which is `grow={1.0}` on the other side.
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if icon_button(ui, "×", Some("remove"), true) {
-                        pending.push(Msg::RemoveCard { card: id });
-                    }
-                    if icon_button(ui, "✎", Some("edit"), true) {
-                        // Opening takes a fresh copy of the saved title, so
-                        // closing the editor and opening it again starts from
-                        // what was saved rather than from an old draft.
-                        let entry = state.card_ui(id);
-                        entry.draft_title = card.title.clone();
-                        entry.editing = true;
-                        state.fresh = Some(field);
-                    }
-                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                        if ui_state.editing {
-                            title(ui, state, id, field, pending);
-                        } else {
-                            let mut text = egui::RichText::new(&card.title);
-                            if card.done {
-                                text = text.weak().strikethrough();
-                            }
-                            if carried {
-                                text = text.weak();
-                            }
-                            // Not selectable, and it senses nothing. A label
-                            // that senses a drag still starts a text selection
-                            // on the press, and egui then runs that selection
-                            // across every label the pointer passes over on its
-                            // way. The card is dragged by the background above.
-                            ui.add(egui::Label::new(text).truncate().selectable(false));
+                        // `done` is read out of the board, so the box is drawn against
+                        // a copy and what comes back is a message, not a write.
+                        let mut done = card.done;
+                        let box_ = ui.add(egui::Checkbox::without_text(&mut done));
+                        // A card is found by this name — by a screen reader, and by the
+                        // test, which needs a hold on a card whose title has become an
+                        // editor.
+                        ui.ctx().accesskit_node_builder(box_.id, |node| {
+                            node.set_label(format!("done: {}", card.title));
+                        });
+                        if box_.changed() {
+                            pending.push(Msg::SetDone {
+                                card: id,
+                                done: !card.done,
+                            });
                         }
+
+                        // The buttons are pinned to the right and the title fills what
+                        // is left, which is `grow={1.0}` on the other side.
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            if icon_button(ui, "×", Some("remove"), true) {
+                                pending.push(Msg::RemoveCard { card: id });
+                            }
+                            if icon_button(ui, "✎", Some("edit"), true) {
+                                // Opening takes a fresh copy of the saved title, so
+                                // closing the editor and opening it again starts from
+                                // what was saved rather than from an old draft.
+                                let entry = state.card_ui(id);
+                                entry.draft_title = card.title.clone();
+                                entry.editing = true;
+                                state.fresh = Some(field);
+                            }
+                            ui.with_layout(
+                                egui::Layout::left_to_right(egui::Align::Center),
+                                |ui| {
+                                    if ui_state.editing {
+                                        title(ui, state, id, field, pending);
+                                    } else {
+                                        let mut text = egui::RichText::new(&card.title);
+                                        if card.done {
+                                            text = text.weak().strikethrough();
+                                        }
+                                        if carried {
+                                            text = text.weak();
+                                        }
+                                        // Not selectable, and it senses nothing. A label
+                                        // that senses a drag still starts a text selection
+                                        // on the press, and egui then runs that selection
+                                        // across every label the pointer passes over on its
+                                        // way. The card is dragged by the background above.
+                                        ui.add(egui::Label::new(text).truncate().selectable(false));
+                                    }
+                                },
+                            );
+                        });
                     });
-                });
-            });
+                })
+                .response
         })
-        .response;
+        .inner;
 
     state.card_ui(id).rect = Some(drawn.rect);
     // The whole card split in two: the top half means "in front of me", the

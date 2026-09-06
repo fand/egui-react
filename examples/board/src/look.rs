@@ -14,7 +14,9 @@ pub const PLACEHOLDER_H: f32 = 30.0;
 /// short enough that the card in hand never waits for it.
 pub const GAP_TIME: f32 = 0.12;
 
-/// How open a gap is, from `0.0` to `1.0`, on its way to `open`.
+/// How open the *picture* of a gap is, from `0.0` to `1.0`, on its way to
+/// `open`. The layout itself opens and shuts at once; both versions draw the
+/// cards below a gap shifted by the difference, so that they slide.
 ///
 /// egui's animation runs on the gap's id, so a gap that is always in the
 /// tree (closed at `0.0`) slides open from where it is and slides shut again
@@ -24,6 +26,13 @@ pub const GAP_TIME: f32 = 0.12;
 pub fn gap_amount(ctx: &egui::Context, id: egui::Id, open: bool, carrying: bool) -> f32 {
     let time = if carrying { GAP_TIME } else { 0.0 };
     ctx.animate_bool_with_time_and_easing(id, open, time, egui::emath::easing::quadratic_out)
+}
+
+/// The transform that draws something `lift` points below where it was laid
+/// out, for `Ui::with_visual_transform`. Zero is the identity, and the common
+/// case.
+pub fn lifted(lift: f32) -> egui::emath::TSTransform {
+    egui::emath::TSTransform::from_translation(egui::vec2(0.0, lift))
 }
 
 /// Provided to the whole tree; every level that draws something reads it.

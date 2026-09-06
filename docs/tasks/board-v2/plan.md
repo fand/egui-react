@@ -237,10 +237,17 @@ elements に足したくなったもの(足さない。記録だけ):
 
 `KNOWN_UNNAMED` は board / patch が入った時点から更新されておらず、この作業の前から赤だった。名前を付けられなかったものだけ理由付きで足した: `board: TextInput`(検索の `<TextEdit>`。要素に name prop が無い)と patch の 5 つ(溢れた `<ScrollArea>` の `GenericContainer`、`MultilineTextInput` ×2、`ComboBox` ×2)。
 
-### 11.8 gap の高さをアニメーションする(追加要望)
+### 11.8 gap のアニメーション(追加要望)
 
-placeholder が常に木にある(11.1)ので、高さを `ctx.animate_bool_with_time_and_easing` で `CARD_GAP` ⇄ `CARD_GAP + PLACEHOLDER_H` に滑らかに変えるだけで下の card が滑る。`look::gap_amount` に両版で共有(`GAP_TIME` = 0.12s、quadratic_out)。id は `("board/gap", target)` / `("board_plain/gap", target)`。
+placeholder が常に木にある(11.1)ので、高さを `animate_bool_with_time` で滑らかに変えれば下の card が滑る — と最初は書いたが、**taffy ノードの高さを毎フレーム変えると egui_taffy が毎フレーム再レイアウトして `request_discard` を呼び**、egui が画面に "PERF WARNING: request_discard has been called N frames in a row" を出す。egui_taffy は style が前フレームと違えば dirty → 末尾で再計算 → discard(`egui_taffy/src/lib.rs` の `recalculate`)。
 
-- slot 登録と "drop here" の名前は `open`(target が自分)で決め、描画だけ `extra > 0.5` で出す。閉じかけの gap も絵は残るが drop 先にはならない。
-- **何も掴んでいないフレームは時間 0 で即閉じる。** drop の次フレームで card が実体として現れるので、閉じかけの gap と重なって 2 枚に見えるのを防ぐ。
-- kittest: 初回の `animate_bool` は target に即決まるので閉じた gap は 0 から始まる。B-11 は hold 後 2 フレームで「下の card が下がった」を見るだけなので、途中の高さでも通る。
+直し: **レイアウトは即時、絵だけ動かす。**
+
+- `look::gap_amount(ctx, id, open, carrying)`: gap の「絵の開き具合」0..1(`GAP_TIME` = 0.12s、quadratic_out)。掴んでいない時は時間 0 で即決(drop の次フレームに card が実体で現れるので、閉じかけの gap と重ならないように)。
+- `<Column>` が gap ごとに `amount` を求め、`lift += (amount - open) * PLACEHOLDER_H` を上から積む。placeholder には `Gap { open, amount, lift }`、card には `lift` を渡す。
+- `<Card>` / footer は `ui.with_visual_transform(look::lifted(lift), ..)` で `lift` だけ下にずらして描く。**入力は動かない**(egui の仕様)ので、drag 面と slot はレイアウト位置 = 着地位置のまま。120ms なので実害なし。
+- placeholder の絵は `rect.top() + lift + CARD_GAP` から高さ `amount * H`。閉じる時はレイアウト矩形をはみ出すが、clip は ScrollArea のもの。
+- 新規 card の枠(`<Frame>` 要素)と "nothing here" は動かさない。前者は「入力中に drag を始めた時だけ」ずれる。後者は上に gap が無いので `lift` = 0。
+- plain 版は `column()` のループで同じ積算、`drop_gap` に `amount` / `lift`、`card` に `lift`、同じ `with_visual_transform`。
+
+テスト B-13: 60fps の harness(`with_step_dt(1/60)`)で時計を手で進めながら `step()` し、gap が開いている間の各フレームの `output().platform_output.num_completed_passes` が 1 であることを見る。kittest の既定 step(0.25s)だと egui が predicted_dt を経過済みに数えるので 120ms のアニメが 1 フレームで終わり、旧実装でも通ってしまう。旧実装では B-13 が落ちることを確認済み。

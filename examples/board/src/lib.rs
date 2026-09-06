@@ -56,7 +56,7 @@ use board::{
     visible,
 };
 use hooks::{Dnd, Undoable, use_debounced, use_dnd, use_identity, use_undoable};
-use look::{PLACEHOLDER_H, Theme, gap_amount, ghost, placeholder};
+use look::{PLACEHOLDER_H, Theme, gap_amount, ghost, lifted, placeholder};
 
 pub const META: Meta = Meta {
     name: "board",
@@ -368,6 +368,38 @@ fn Column(
         });
     let gap = preview.map(|target| target.before);
 
+    // The gaps are animated, but not in the layout: a taffy node whose height
+    // changed makes egui_taffy lay the column out again and ask egui for a
+    // second pass, every frame, for as long as the animation runs. So the
+    // layout jumps to where it will end up, and what slides is the picture —
+    // each card below a gap is drawn shifted by however far its gap still has
+    // to go. `lift` adds those up on the way down the column.
+    let carrying = carried.is_some();
+    let ctx = cx.ctx().clone();
+    let mut lift = 0.0;
+    // Each gap, and the lift of whatever comes right after it.
+    let mut animate = |target: DropTarget, open: bool| -> (Gap, f32) {
+        let amount = gap_amount(&ctx, egui::Id::new(("board/gap", target)), open, carrying);
+        let gap = Gap { open, amount, lift };
+        lift += (amount - f32::from(u8::from(open))) * PLACEHOLDER_H;
+        (gap, lift)
+    };
+    let (gaps, lifts): (Vec<Gap>, Vec<f32>) = cards
+        .iter()
+        .map(|card| {
+            let target = DropTarget {
+                column: column.id,
+                before: Some(card.id),
+            };
+            animate(target, gap == Some(Some(card.id)))
+        })
+        .unzip();
+    let end = DropTarget {
+        column: column.id,
+        before: None,
+    };
+    let (end_gap, footer_lift) = animate(end, gap == Some(None));
+
     let renaming_now = *renaming;
     let adding_now = *adding;
 
@@ -408,7 +440,7 @@ fn Column(
                     for (i, card) in cards.iter().enumerate() {
                         <Placeholder
                             key={(card.id, "gap")}
-                            open={gap == Some(Some(card.id))}
+                            gap={gaps[i]}
                             target={DropTarget { column: column.id, before: Some(card.id) }}
                         />
                         // The key is the card's id. It is what tells two cards
@@ -420,6 +452,7 @@ fn Column(
                             card={card}
                             column={column.id}
                             next={&after[i]}
+                            lift={lifts[i]}
                             on_title={|title: String| {
                                 send(&actions, Msg::SetTitle { card: card.id, title });
                             }}
@@ -458,8 +491,11 @@ fn Column(
                         </Frame>
                     }
 
+                    // The new card's frame above sits before this gap, so it
+                    // is only ever lifted by the gaps between the cards, and
+                    // that is a drag started while typing: not worth a leaf.
                     <Placeholder
-                        open={gap == Some(None)}
+                        gap={end_gap}
                         target={DropTarget { column: column.id, before: None }}
                     />
 
@@ -474,7 +510,12 @@ fn Column(
                                 let rect = ui.max_rect();
                                 let button = egui::Button::new("+ card")
                                     .wrap_mode(egui::TextWrapMode::Extend);
-                                (rect, ui.add_sized(rect.size(), button).clicked())
+                                let clicked = ui
+                                    .with_visual_transform(lifted(footer_lift), |ui| {
+                                        ui.add_sized(rect.size(), button).clicked()
+                                    })
+                                    .inner;
+                                (rect, clicked)
                             },
                         );
                         dnd.slot(rect, DropTarget { column: column.id, before: None });
@@ -510,6 +551,9 @@ fn Card(
     column: ColumnId,
     // The card below this one; `None` at the end of the column.
     next: &Option<CardId>,
+    // How far the picture of this card is from where the layout put it, while
+    // a gap above it is still opening or closing. See `<Column>`.
+    #[prop(default)] lift: f32,
     #[event] on_title: String,
     #[event] on_done: bool,
     #[event] on_remove: (),
@@ -583,7 +627,10 @@ fn Card(
             },
         );
 
-        egui::Frame::default()
+        // The shift is visual only: the drag surface above and the slots are
+        // where the card will be, which is where the pointer is aiming.
+        ui.with_visual_transform(lifted(lift), move |ui| {
+            egui::Frame::default()
             .fill(theme.card())
             .inner_margin(6i8)
             .corner_radius(4u8)
@@ -665,7 +712,18 @@ fn Card(
                 };
                 row.show(&mut cx);
             });
+        });
     });
+}
+
+/// A gap's visual state for one frame, worked out by the column: whether it
+/// is open in the layout, how open the picture of it is, and how far the
+/// picture of everything above it has already been shifted.
+#[derive(Clone, Copy, Debug, PartialEq)]
+struct Gap {
+    open: bool,
+    amount: f32,
+    lift: f32,
 }
 
 /// A one-line editor that opens with its text selected: the card's title, the
@@ -741,22 +799,13 @@ fn TitleEdit(
 /// which is the other half of the same argument: the pointer ends up over the
 /// gap, so the gap has to be an answer to "what is under the pointer".
 #[component]
-fn Placeholder(
-    cx: &mut Cx,
-    #[prop(default)] style: ItemStyle,
-    #[prop(default)] open: bool,
-    target: DropTarget,
-) {
+fn Placeholder(cx: &mut Cx, #[prop(default)] style: ItemStyle, gap: Gap, target: DropTarget) {
     let theme = use_theme(cx);
     let dnd = use_drag(cx);
-    // The height is animated, and a node whose height changes is still a node
-    // taffy has laid out, so the cards below slide instead of jumping. The
-    // animation is egui's, keyed by the target, and it is what makes always
-    // being in the tree pay off: a gap that is here at `0.0` has somewhere to
-    // open from.
-    let anim = egui::Id::new(("board/gap", target));
-    let amount = gap_amount(cx.ctx(), anim, open, dnd.carrying().is_some());
-    let extra = amount * PLACEHOLDER_H;
+    let Gap { open, amount, lift } = gap;
+    // The layout opens all at once; the picture catches up. See `<Column>`.
+    let extra = if open { PLACEHOLDER_H } else { 0.0 };
+    let shown = amount * PLACEHOLDER_H;
 
     // `leaf_fill`, not `leaf`: a content-measured leaf is measured in a
     // zero-width `Ui` on its first frame and taffy keeps it that way
@@ -765,9 +814,12 @@ fn Placeholder(
     let rect = cx.leaf_fill(&style.w("100%").h(CARD_GAP + extra), |ui| {
         let rect = ui.max_rect();
         let response = ui.allocate_rect(rect, egui::Sense::hover());
-        if extra > 0.5 {
-            // The spacing stays spacing: the card is drawn in what is new.
-            placeholder(ui.painter(), rect.with_min_y(rect.bottom() - extra), theme);
+        if shown > 0.5 {
+            // The spacing stays spacing: the card is drawn in what is new —
+            // below the card above, wherever its picture is at the moment.
+            let top = egui::pos2(rect.left(), rect.top() + lift + CARD_GAP);
+            let seen = egui::Rect::from_min_size(top, egui::vec2(rect.width(), shown));
+            placeholder(ui.painter(), seen, theme);
         }
         if open {
             // Painted, not a widget, so the name has to be said out loud; the

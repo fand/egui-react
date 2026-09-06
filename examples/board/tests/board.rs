@@ -1,4 +1,4 @@
-//! Plan tests B-1 .. B-12: what a card carries with it when it moves.
+//! Plan tests B-1 .. B-13: what a card carries with it when it moves.
 //!
 //! B-2 and B-3 are the two the example exists for, and both are driven through
 //! the UI — pointer down on a card, pointer over another column, pointer up —
@@ -55,6 +55,33 @@ fn react_from<'a>(json: &str) -> Harness<'a, Store> {
 
 fn plain<'a>() -> Harness<'a, PlainState> {
     plain_from(PlainState::default())
+}
+
+/// A frame every sixtieth of a second, for the one test that watches an
+/// animation. kittest's default step is a quarter of a second, and egui's
+/// animations count the predicted frame time as already elapsed, so at that
+/// rate a gap is fully open on the frame it starts opening.
+const FRAME: f32 = 1.0 / 60.0;
+
+fn react_at_60fps<'a>() -> Harness<'a, Store> {
+    steady(
+        Harness::builder()
+            .with_size(SIZE)
+            .with_step_dt(FRAME)
+            .build_ui_state(run_app, Store::new()),
+    )
+}
+
+fn plain_at_60fps<'a>() -> Harness<'a, PlainState> {
+    steady(
+        Harness::builder()
+            .with_size(SIZE)
+            .with_step_dt(FRAME)
+            .build_ui_state(
+                |ui, state: &mut PlainState| plain::ui(ui, state),
+                PlainState::default(),
+            ),
+    )
 }
 
 fn plain_from<'a>(state: PlainState) -> Harness<'a, PlainState> {
@@ -557,6 +584,57 @@ fn dragging_selects_no_text<S>(harness: &mut Harness<'_, S>) {
     );
 }
 
+/// B-13: the gap slides open without the column being laid out twice a frame.
+///
+/// The animation is in the picture, not in the layout: a taffy node whose
+/// height moved would make egui_taffy relayout and ask egui for a second pass,
+/// every frame the gap was moving, which egui flags as a performance bug on
+/// screen. So while the gap is opening, each frame is one pass — except the
+/// frame the layout itself changes, which is one relayout and is allowed.
+///
+/// Driven a frame at a time on a pinned clock, on a harness that steps at
+/// sixty frames a second: `Harness::run` would stop when the animation stops
+/// asking for frames, which is after it is over.
+fn a_gap_opens_in_one_pass<S>(harness: &mut Harness<'_, S>) {
+    let mut now = 0.0;
+    let mut frame = |harness: &mut Harness<'_, S>| {
+        now += f64::from(FRAME);
+        harness.input_mut().time = Some(now);
+        harness.step();
+        harness.output().platform_output.num_completed_passes
+    };
+
+    let from = harness.get_by_label(&box_of("buy milk")).rect().center();
+    let to = half_of(harness, "wire the drag", Half::Below);
+    harness.hover_at(from);
+    frame(harness);
+    harness.drag_at(from);
+    frame(harness);
+    // The first move is the one egui decides is a drag, the second offers the
+    // slot, the third is the frame the gap opens in the layout.
+    for _ in 0..3 {
+        harness.hover_at(to);
+        frame(harness);
+    }
+    assert!(harness.query_by_label("drop here").is_some());
+
+    // The rest of the opening, and some frames after it, one pass each.
+    let second_passes = (0..12)
+        .filter(|_| {
+            harness.hover_at(to);
+            frame(harness) > 1
+        })
+        .count();
+    assert_eq!(
+        second_passes, 0,
+        "frames took a second pass while the gap was sliding open"
+    );
+
+    harness.drop_at(to);
+    settle(harness);
+    assert_eq!(column_of(harness, "buy milk"), 1);
+}
+
 #[test]
 fn b1_react_adds_a_card() {
     let mut harness = react();
@@ -655,6 +733,13 @@ fn b12_react_selects_no_text_while_dragging() {
     dragging_selects_no_text(&mut harness);
 }
 
+#[test]
+fn b13_react_opens_a_gap_in_one_pass() {
+    let mut harness = react_at_60fps();
+    harness.run();
+    a_gap_opens_in_one_pass(&mut harness);
+}
+
 /// B-7: the plain egui version answers every one of them the same way.
 ///
 /// A fresh harness per script, because each starts from the demo board.
@@ -700,6 +785,10 @@ fn b7_plain_does_all_of_it_the_same_way() {
     let mut harness = plain();
     harness.run();
     dragging_selects_no_text(&mut harness);
+
+    let mut harness = plain_at_60fps();
+    harness.run();
+    a_gap_opens_in_one_pass(&mut harness);
 
     // B-6 for this side: the board is a `Board` either way, so a restart is
     // the same round trip through the same JSON.
