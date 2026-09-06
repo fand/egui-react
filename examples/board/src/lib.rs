@@ -546,6 +546,12 @@ fn Card(
             egui::Id::new(("board/card", card.id)),
             egui::Sense::drag(),
         );
+        // A drag handle is a control, so it says what it is a handle for. Not
+        // the bare title: that is already the label beside it, and two nodes
+        // with one name is the thing a screen reader cannot tell apart.
+        ui.ctx().accesskit_node_builder(bg.id, |node| {
+            node.set_label(format!("card: {}", card.title));
+        });
         if bg.drag_started() {
             dnd.pick_up(card.id);
         }
