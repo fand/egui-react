@@ -27,6 +27,12 @@ wgpu = "30.0"
 # The same version eframe 0.36.1 pulls in, with the same (default) features, so
 # `Callback::new_paint_callback` speaks to the renderer eframe set up.
 egui-wgpu = "0.36.1"
+# The version wgpu 30 uses, with the WGSL front end: the `patch` example runs
+# the shader it generated through naga's parser and validator on the CPU,
+# inside a `use_memo`, before any GPU sees it. `wgpu::naga` re-exports the same
+# crate, but only when wgpu was built with a backend that needs it, which is
+# not the case on every target the examples build for.
+naga = { version = "30.0", features = ["wgsl-in"] }
 # For `#[derive(Pod, Zeroable)]` on the shader example's uniform block.
 bytemuck = { version = "1.25", features = ["derive"] }
 # Only the gallery uses it, for `syntax_highlighting::code_view_ui`. No

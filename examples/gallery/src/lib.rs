@@ -20,6 +20,7 @@ use fetch::App as FetchApp;
 use form::App as FormApp;
 use layout::App as LayoutApp;
 use list_10k::App as ListApp;
+use patch::App as PatchApp;
 use shader::App as ShaderApp;
 use showcase::App as ShowcaseApp;
 use theme::App as ThemeApp;
@@ -34,6 +35,7 @@ use todo::App as TodoApp;
 pub const EXAMPLES: &[Meta] = &[
     showcase::META,
     board::META,
+    patch::META,
     counter::META,
     todo::META,
     form::META,
@@ -220,6 +222,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
         } else {
             match name {
                 "board" => { <BoardApp/> }
+                "patch" => { <PatchApp/> }
                 "counter" => { <CounterApp/> }
                 "todo" => { <TodoApp/> }
                 "form" => { <FormApp/> }

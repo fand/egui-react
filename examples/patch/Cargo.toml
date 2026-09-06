@@ -1,0 +1,39 @@
+[package]
+name = "patch"
+description = "react-egui example: a node editor that generates the shader it previews"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "patch"
+path = "src/lib.rs"
+
+[[bin]]
+name = "patch"
+path = "src/main.rs"
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+egui-wgpu.workspace = true
+wgpu.workspace = true
+naga.workspace = true
+bytemuck.workspace = true
+log.workspace = true
+react-egui.workspace = true
+react-egui-app.workspace = true
+react-egui-elements.workspace = true
+example-meta.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+
+# The drag session and the undo history are `board`'s, unchanged: one hook, two
+# examples. See docs/tasks/patch/plan.md section 5.
+board = { path = "../board" }
+
+[dev-dependencies]
+egui_kittest.workspace = true
