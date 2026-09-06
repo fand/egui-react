@@ -1,24 +1,24 @@
-# タスク: board 改修(v2)
+# Task: board rework (v2)
 
-[board](../board/task.md) の example を、要望に沿って簡素で Trello に近い操作感に直す。詳細は [plan.md](plan.md)。
+Rework the [board](../board/task.md) example per the request: simpler, and closer to how Trello feels. Details in [plan.md](plan.md).
 
-## 要望(原文の要約)
+## Request (summary of the original)
 
-- card は title だけ。body は消す。
-- "edit" はペンのアイコン。押すと title がその場で input になり、自動 focus + 全選択。Enter で確定、Esc でキャンセル。従来の編集画面(title / body / save / cancel)は消す。
-- "+ card" を押すと、新規 card が edit 状態(title 空)で足される。
-- card の左端の色ラベルをやめ、Done の checkbox にする。
-- card に hover したら `cursor: pointer`。
-- drag 中に、動かした範囲の背面のテキストが選択されるバグを直す。
-- drag 中の挿入位置は青い線ではなく、挿入先に空の card を preview として出す。
+- A card has only a title. Drop the body.
+- "edit" is a pen icon. Pressing it turns the title into an input in place, with auto focus + select all. Enter commits, Esc cancels. Drop the old edit screen (title / body / save / cancel).
+- Pressing "+ card" adds a new card in edit state (empty title).
+- Drop the color label at the left edge of the card. Use a Done checkbox instead.
+- `cursor: pointer` when hovering a card.
+- Fix the bug where text behind the dragged range gets selected during a drag.
+- During a drag, show the insert position as an empty card preview at the target, not as a blue line.
 
-## 含まない
+## Out of scope
 
-- core / `egui-react-elements` の変更(必要なら plan.md 9 章に記録して別 PR)。
-- アニメーション、複数ボード、ラベル編集 UI。
+- Changes to core / `egui-react-elements` (if needed, record in plan.md section 9 and do a separate PR).
+- Animation, multiple boards, label editing UI.
 
-## 終了条件
+## Done when
 
-- react 版と plain 版の両方が同じ操作で同じ結果(plan.md 8 章のテストが両方緑)。
-- `cargo fmt --check` / `clippy --workspace --all-targets -- -D warnings` / `test --workspace` / `check --target wasm32-unknown-unknown` が緑。gallery の a11y テストも緑。
-- `lib.rs` / `plain.rs` の冒頭コメント、`docs/tasks/board/task.md`、README の表が新しい仕様と一致している。
+- The react version and the plain version give the same result for the same operations (the tests in plan.md section 8 are green for both).
+- `cargo fmt --check` / `clippy --workspace --all-targets -- -D warnings` / `test --workspace` / `check --target wasm32-unknown-unknown` are green. The gallery a11y test is green too.
+- The header comments of `lib.rs` / `plain.rs`, `docs/tasks/board/task.md`, and the README table match the new spec.

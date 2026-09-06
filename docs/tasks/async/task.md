@@ -1,79 +1,79 @@
-# タスク: async(PR3 = フェーズ 6)
+# Task: async (PR3 = Phase 6)
 
-## 目的
+## Goal
 
-core(PR2)の上に非同期の土台を足す。hook `use_future` で「フレームをまたぐ処理」をコンポーネント本体から `async` ブロック 1 つで書けるようにし、結果が届いたら勝手に再描画されるようにする。加えて React の `<Suspense>` に相当する `<Suspense fallback=..>` 要素を足し、境界の中の pending をまとめて 1 つの fallback に置き換えられるようにする。native と wasm で同じコードが動くこと(実行機構の違いは core の中に閉じ込める)を確認するため、両方で動く `fetch` example を足す。
+Add the async base on top of core (PR2). The `use_future` hook lets you write "work that spans frames" as one `async` block inside the component body, and the UI repaints on its own when the result arrives. Also add a `<Suspense fallback=..>` element, the counterpart of React's `<Suspense>`, so all pending work inside a boundary is replaced by one fallback. Add a `fetch` example that runs on both native and wasm, to confirm the same code works on both (the difference in the run mechanism stays inside core).
 
-PR2 で `Dispatch` を `Send + 'static` にしてある。本 PR はその上に「完了時に結果をスロットへ書き戻して `request_repaint` する」経路と、`Store` の suspense カウンタを足す。`Cx` / マクロには手を入れない。
+PR2 made `Dispatch` `Send + 'static`. This PR adds, on top of that, a path that "writes the result back to a slot on completion and calls `request_repaint`", plus a suspense counter in `Store`. `Cx` and the macros are not touched.
 
-## スコープ
+## Scope
 
-### 含む
+### In scope
 
-- `use_future(cx, deps, || async { .. }) -> &Poll<T>`(core、`future.rs`)。
-  - deps のハッシュが変わるたびに future を作り直して起動する。比較は `use_effect` / `use_memo` と同じ Hash。
-  - 起動した future は native ではスレッド 1 本で `pollster::block_on`、wasm では `wasm_bindgen_futures::spawn_local`。
-  - 完了時に結果をスロットの共有セルに書き、`request_repaint` する。hook は次の訪問でセルを読み `Poll::Ready(T)` に切り替える。
-  - deps が変わった後に届いた古い結果は捨てる(世代番号)。走っている future は止めない(止められない)。
-  - 返り値は `use_memo` と同じ `&'s Poll<T>`。`State` の guard と同時に生きる。
-  - 同一フレームの 2 パス目で二重起動しない。unmount 後に届いた結果で panic しない。
-  - `Pending` を返すとき、`Store` の suspense カウンタ(最も近い `<Suspense>` のもの)を +1 する。
-- `egui_react::spawn(future)`: core の `task::spawn` を公開する。`Dispatch` と組み合わせて「命令的に起動して結果を送る」(mutation、optimistic update)を書けるようにする。
-- native / wasm の実行機構の差を `SpawnFuture<T>` trait(bound の cfg 切り替え)と `task::spawn` に閉じ込める。
-- `Store` の suspense カウンタのスタック(`provide_context` のスタックと同じ形)。
-- `<Suspense fallback={..}>children</Suspense>`(elements、`suspense.rs`)。
-  - 境界の中で 1 つでも `use_future` が `Pending` なら children の代わりに `fallback` を描く。全部 `Ready` になったら children を描く。
-  - 切り替えは `request_discard` で同一フレーム内に行い、children の描きかけが見えない。
-  - suspended の間も children はオフスクリーンの不可視 `Ui` に描き続ける(hooks が走り、future が起動・完了する)。
-  - 入れ子は最も近い境界が拾う。
-  - `fallback` は `impl View`(`rsx!{..}` / 閉包 / `&str`)。
-- 子コンポーネントの書き方は `let Poll::Ready(x) = use_future(..) else { return };`。React の throw の代わり。
-- `examples/fetch`: `ehttp::fetch_async` で URL を GET する。`<Suspense>` の中の `Response` コンポーネントが let-else で待ち、fallback はスピナー。完了後にステータスと本文の先頭を表示する。native と trunk の両方で動く。「再取得」ボタンは deps に混ぜたカウンタを増やす。
-- kittest テスト(plan.md の表)。
-- CI: `trunk build` に fetch を足す(wasm の `spawn_local` 経路が実際にリンクできることの確認)。
-- README の examples 一覧に fetch を足す。ARCHITECTURE.md の 4 章(`use_future` の行と「詳細」節)、5 章(Suspense の節)、6 章(要素一覧)、7 章、8 章、11 章(決定ログ)を更新。
+- `use_future(cx, deps, || async { .. }) -> &Poll<T>` (core, `future.rs`).
+  - Each time the deps hash changes, rebuild and start the future. The comparison uses the same Hash as `use_effect` / `use_memo`.
+  - A started future runs on one thread with `pollster::block_on` on native, and with `wasm_bindgen_futures::spawn_local` on wasm.
+  - On completion, write the result into the slot's shared cell and call `request_repaint`. On the next visit the hook reads the cell and switches to `Poll::Ready(T)`.
+  - Drop stale results that arrive after deps changed (generation number). Do not stop a running future (we cannot).
+  - The return value is `&'s Poll<T>`, same as `use_memo`. It lives alongside a `State` guard.
+  - Do not start twice on the second pass of the same frame. Do not panic on a result that arrives after unmount.
+  - When returning `Pending`, add 1 to the suspense counter in `Store` (the one of the nearest `<Suspense>`).
+- `egui_react::spawn(future)`: expose core's `task::spawn`. Combined with `Dispatch`, this lets you write "start imperatively and send the result" (mutation, optimistic update).
+- Keep the native / wasm run mechanism difference inside the `SpawnFuture<T>` trait (cfg-switched bound) and `task::spawn`.
+- A stack of suspense counters in `Store` (same shape as the `provide_context` stack).
+- `<Suspense fallback={..}>children</Suspense>` (elements, `suspense.rs`).
+  - If even one `use_future` inside the boundary is `Pending`, draw `fallback` instead of children. Once all are `Ready`, draw children.
+  - The switch happens within the same frame via `request_discard`, so half-drawn children are never visible.
+  - While suspended, children keep drawing into an offscreen invisible `Ui` (hooks run, futures start and finish).
+  - With nesting, the nearest boundary catches it.
+  - `fallback` is `impl View` (`rsx!{..}` / closure / `&str`).
+- Child components are written as `let Poll::Ready(x) = use_future(..) else { return };`. This replaces React's throw.
+- `examples/fetch`: GET a URL with `ehttp::fetch_async`. A `Response` component inside `<Suspense>` waits with let-else, and the fallback is a spinner. After completion it shows the status and the start of the body. Runs on both native and trunk. A "refetch" button bumps a counter mixed into deps.
+- kittest tests (table in plan.md).
+- CI: add fetch to `trunk build` (confirms the wasm `spawn_local` path actually links).
+- Add fetch to the examples list in README. Update ARCHITECTURE.md section 4 (the `use_future` row and the "details" section), section 5 (Suspense section), section 6 (element list), section 7, section 8, and section 11 (decision log).
 
-### 含まない
+### Out of scope
 
-- tokio 連携。native の既定はスレッド + `pollster` で、tokio を使いたいアプリは future の中で `Handle::current().spawn(..).await` する。executor の差し替え口(`Store::set_spawner` のようなもの)は要望が出てから足す。
-- future のキャンセル(`AbortHandle` 相当)。deps 変更と unmount では結果を捨てるだけで、走っている処理は完走させる。
-- `use_query`(key 付きキャッシュ、コンポーネント間共有、stale-while-revalidate)、`use_action`(命令的起動 + pending)、`use_debounced`、`use_stream`。次の PR(async-2)。`use_future` の中身を `AsyncSlot` として切り出すのもその時。
-- `Poll` 以外の状態表現(`Loading` / `Error` の enum など)。エラーは `T = Result<..>` で表す。
-- Error boundary。エラーは値なので子で `match` する。
-- `Suspense` の suspended 中に子の `use_effect` を止めること(React は commit しないので走らない)。egui-react では走る。ドキュメントに書く。
-- `SuspenseList`、`useTransition` 相当。
-- `Spinner` 要素。fetch example は `cx.ui().spinner()` を閉包で呼ぶ。
-- PR2 からの持ち越し(`use_persisted_reducer`、`use_persisted` の wasm 自動テスト、`App::save` の dirty フラグ)。別 PR。
-- Android / iOS(PR4)。英語ドキュメント、API の見直し、crates.io 公開(フェーズ 8)。
+- tokio integration. The native default is thread + `pollster`; apps that want tokio call `Handle::current().spawn(..).await` inside the future. An executor override hook (something like `Store::set_spawner`) will be added when someone asks for it.
+- Future cancellation (an `AbortHandle` equivalent). On deps change and unmount we only drop the result; the running work runs to completion.
+- `use_query` (keyed cache, sharing across components, stale-while-revalidate), `use_action` (imperative start + pending), `use_debounced`, `use_stream`. Next PR (async-2). Extracting the inside of `use_future` as `AsyncSlot` also happens then.
+- State representations other than `Poll` (an enum like `Loading` / `Error`). Errors are expressed as `T = Result<..>`.
+- Error boundary. Errors are values, so the child does `match`.
+- Stopping the children's `use_effect` while `Suspense` is suspended (React does not commit, so they do not run). In egui-react they run. Write this in the docs.
+- `SuspenseList`, `useTransition` equivalents.
+- A `Spinner` element. The fetch example calls `cx.ui().spinner()` in a closure.
+- Carry-overs from PR2 (`use_persisted_reducer`, wasm automated tests for `use_persisted`, the dirty flag for `App::save`). Separate PR.
+- Android / iOS (PR4). English docs, API review, crates.io publish (Phase 8).
 
-## 成果物
+## Deliverables
 
-- `crates/egui-react/src/future.rs`(`use_future`、`SpawnFuture`、`spawn`)、`store.rs` の suspense カウンタ、`lib.rs` / `prelude` の再エクスポート(`use_future`、`spawn`、`std::task::Poll`)。
-- `crates/egui-react/tests/future.rs`(kittest)。
-- `crates/egui-react-elements/src/suspense.rs`(`Suspense`)と `prelude` への追加、`crates/egui-react-elements/tests/suspense.rs`。
-- `examples/fetch`(`Cargo.toml` / `src/main.rs` / `index.html` / `Trunk.toml`)。
-- `.github/workflows/ci.yml` に fetch の trunk ビルドを追加。
-- README の examples の一文を更新。
-- `docs/ARCHITECTURE.md` の更新(着手時点で判明している変更点は [plan.md](plan.md) 6 章、実装中に判明したものはその都度)。
+- `crates/egui-react/src/future.rs` (`use_future`, `SpawnFuture`, `spawn`), the suspense counter in `store.rs`, re-exports in `lib.rs` / `prelude` (`use_future`, `spawn`, `std::task::Poll`).
+- `crates/egui-react/tests/future.rs` (kittest).
+- `crates/egui-react-elements/src/suspense.rs` (`Suspense`) and its addition to `prelude`, `crates/egui-react-elements/tests/suspense.rs`.
+- `examples/fetch` (`Cargo.toml` / `src/main.rs` / `index.html` / `Trunk.toml`).
+- Add the trunk build of fetch to `.github/workflows/ci.yml`.
+- Update the examples sentence in README.
+- Update `docs/ARCHITECTURE.md` (changes known at the start are in [plan.md](plan.md) section 6; changes found during implementation are added as they come up).
 
-## 終了条件
+## Done criteria
 
-- [plan.md](plan.md) のテスト表がすべて緑。PR2 までのテストがすべてそのまま通る。
-- `cargo fmt --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo test --workspace`、`cargo check --workspace --target wasm32-unknown-unknown`、`trunk build`(counter と fetch)が CI で通る。
-- `cargo run -p fetch` で URL を取得でき、取得中はスピナーだけが見え(描きかけの本文が一瞬も見えない)、UI が固まらず、完了後にマウスを動かさなくても画面が更新される(目視)。
-- `trunk serve --config examples/fetch/Trunk.toml` でブラウザでも同じ挙動(目視)。
-- ARCHITECTURE.md が実装と一致している。変更点は PR 本文に列挙する。
+- All tests in the [plan.md](plan.md) test table are green. All tests up to PR2 still pass as-is.
+- `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `cargo check --workspace --target wasm32-unknown-unknown`, `trunk build` (counter and fetch) pass in CI.
+- `cargo run -p fetch` fetches the URL. While fetching, only the spinner is visible (a half-drawn body never shows even for a moment), the UI does not freeze, and after completion the screen updates without moving the mouse (visual check).
+- `trunk serve --config examples/fetch/Trunk.toml` shows the same behavior in the browser (visual check).
+- ARCHITECTURE.md matches the implementation. List the changes in the PR body.
 
-## 決めごと(着手時点での前提)
+## Decisions (assumptions at the start)
 
-- native の executor はスレッド 1 本 + `pollster::block_on`。future 1 つにつきスレッド 1 本で、プールは作らない。理由: 依存が最小で、`ehttp` / ファイル IO のような「待つだけ」の future に十分。CPU を食う処理は future の中で自分でスレッドを分ける。
-- future の bound は native で `Future<Output = T> + Send + 'static`、wasm で `Future<Output = T> + 'static`。`T` は両方で `Send + 'static`(wasm で `JsValue` を返したい場合は future の中で `Send` な型に変換する)。この差は `SpawnFuture<T>` trait に閉じ込め、ユーザーの書く型には出さない。
-- 結果の受け渡しは `Arc<Mutex<Option<(u64, T)>>>`(世代付き)。`Dispatch` のキューと同じ形で、poison は無視する。
-- 返り値は `&'s Poll<T>`。値は `use_memo` と同じ `FrozenVec` に積む(`Pending` を 1 つ、届いたら `Ready` を 1 つ)。同じパスで先に配った参照が古い値を指していてもよいよう、パス末の sweep で最新の 1 つを残す(既存の `prune_memo`)。
-- deps を変えて future を作り直すのは訪問時。走っている古い future は完走するが結果は世代不一致で捨てる。unmount ではスロットが消えるので、届いた結果は誰も読まず `request_repaint` が 1 回余分に飛ぶだけ。
-- `Suspense` は elements に置く(`Collapsing` と同じ「子を包む要素」)。core に足すのは suspense カウンタの 3 メソッドだけ。
-- `Suspense` の初期状態は suspended(初回はオフスクリーンに描いてから、pending が無ければ discard して可視に切り替える)。理由: `max_passes` を使い切って discard が却下された時に、描きかけの children ではなく fallback が見える側に倒す。
-- オフスクリーン描画は `egui::Ui::new(ctx, id, UiBuilder::new().max_rect(画面外の大きな矩形).invisible().sizing_pass())`。`invisible()` は描画と操作の両方を無効にする(egui 0.36 で確認)。親の `Ui` から場所を取らない。
-- suspended / 可視のどちらでも children は同じスコープ Id(`Suspense` 自身の `scope_id()`)で描く。hook のスロットが両経路で共有されることが、切り替えで state と future が保たれる根拠。
-- example の HTTP クライアントは `ehttp`(native は ureq、wasm は fetch API。`fetch_async` が future を返す。native は feature `native-async` が要る)。`reqwest` は tokio が要るので使わない。
-- 依存の追加: `pollster`(core、native のみ)、`ehttp`(examples/fetch)。バージョンは着手時の最新を `[workspace.dependencies]` に pin する。
+- The native executor is one thread + `pollster::block_on`. One thread per future, no pool. Reason: minimal dependencies, and enough for "just waiting" futures like `ehttp` / file IO. CPU-heavy work spawns its own thread inside the future.
+- The future bound is `Future<Output = T> + Send + 'static` on native and `Future<Output = T> + 'static` on wasm. `T` is `Send + 'static` on both (to return a `JsValue` on wasm, convert it to a `Send` type inside the future). This difference stays inside the `SpawnFuture<T>` trait and does not show up in user-written types.
+- Results are passed via `Arc<Mutex<Option<(u64, T)>>>` (with generation). Same shape as the `Dispatch` queue; poison is ignored.
+- The return value is `&'s Poll<T>`. Values go on the same `FrozenVec` as `use_memo` (one `Pending`, then one `Ready` when it arrives). So a reference handed out earlier in the same pass may point at an old value, the sweep at the end of the pass keeps only the latest one (the existing `prune_memo`).
+- Rebuilding the future after a deps change happens at visit time. The old running future runs to completion, but its result is dropped due to a generation mismatch. On unmount the slot disappears, so nobody reads the arriving result and only one extra `request_repaint` fires.
+- `Suspense` lives in elements (a "wraps children" element like `Collapsing`). Core only gets the three suspense counter methods.
+- The initial state of `Suspense` is suspended (on first draw, render offscreen first; if nothing is pending, discard and switch to visible). Reason: when `max_passes` is used up and the discard is refused, we fall on the side of showing the fallback rather than half-drawn children.
+- Offscreen drawing uses `egui::Ui::new(ctx, id, UiBuilder::new().max_rect(a large rect off screen).invisible().sizing_pass())`. `invisible()` disables both drawing and interaction (checked with egui 0.36). It takes no space from the parent `Ui`.
+- In both the suspended and visible paths, children draw under the same scope Id (`Suspense`'s own `scope_id()`). Hook slots are shared by both paths, and that is why state and futures survive the switch.
+- The example's HTTP client is `ehttp` (ureq on native, the fetch API on wasm. `fetch_async` returns a future. Native needs the `native-async` feature). `reqwest` needs tokio, so it is not used.
+- Added dependencies: `pollster` (core, native only), `ehttp` (examples/fetch). Pin the latest version at the start in `[workspace.dependencies]`.

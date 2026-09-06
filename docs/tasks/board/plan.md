@@ -1,27 +1,27 @@
-# プラン: board
+# Plan: board
 
-> v2 で改修した。差分は [board-v2/plan.md](../board-v2/plan.md)。以下は当時の記録なので書き換えない。
+> Reworked in v2. The diff is in [board-v2/plan.md](../board-v2/plan.md). The text below is the record from that time, so do not rewrite it.
 
-タスク定義は [task.md](task.md)。設計の根拠は [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)。実装中にここから外れる判断をした場合は本書を更新し、設計上の意味があれば ARCHITECTURE.md も更新する。
+The task definition is in [task.md](task.md). The design rationale is in [docs/ARCHITECTURE.md](../../ARCHITECTURE.md). If you decide to depart from this during implementation, update this document, and update ARCHITECTURE.md too if it matters for the design.
 
-## 0. 全体
+## 0. Overview
 
-1 PR。触るのは `examples/board`(新規)、`examples/gallery`(登録)、README、必要なら `crates/egui-react-elements` と ARCHITECTURE 6 章。core は無変更。
+One PR. Touches `examples/board` (new), `examples/gallery` (registration), README, and if needed `crates/egui-react-elements` and ARCHITECTURE section 6. core is unchanged.
 
 ```
 examples/board/src/
-  lib.rs        App と画面のコンポーネント(gallery が読むのはこれ)
-  board.rs      データモデル、Msg、reduce、絞り込み(純関数、ユニットテスト付き)
+  lib.rs        App and the screen components (this is what the gallery reads)
+  board.rs      data model, Msg, reduce, filtering (pure functions, with unit tests)
   hooks.rs      use_undoable / use_debounced / use_dnd / use_identity
-  look.rs       両版が使う色とゴーストの描画(8.6)
-  plain.rs      同じ UI の生 egui 版
-  main.rs       run(..) の bin
-  plain_main.rs 生 egui 版の bin
+  look.rs       colors and ghost drawing used by both versions (8.6)
+  plain.rs      plain egui version of the same UI
+  main.rs       bin for run(..)
+  plain_main.rs bin for the plain egui version
 ```
 
-`board.rs` と `hooks.rs` を分けるのは `custom-hook` / `showcase` と同じ形。gallery が `include_str!("lib.rs")` で見せるのは `lib.rs` だけなので、**画面の組み立ては全部 `lib.rs` に置く**。読者が 1 ファイルで「React の書き方で UI を組む」を追えることを優先する。
+Splitting `board.rs` and `hooks.rs` follows the same shape as `custom-hook` / `showcase`. The gallery shows only `lib.rs` via `include_str!("lib.rs")`, so **put all of the screen assembly in `lib.rs`**. Priority goes to letting the reader follow "building UI the React way" in one file.
 
-## 1. データモデルと reducer(`board.rs`)
+## 1. Data model and reducer (`board.rs`)
 
 ```rust
 pub type CardId = u64;
@@ -31,7 +31,7 @@ pub type ColumnId = u64;
 pub struct Board {
     pub columns: Vec<Column>,
     next_id: u64,
-    /// `use_memo` の deps に混ぜる版数。`reduce` が中身を変えた時だけ +1 する。
+    /// Revision number mixed into `use_memo` deps. Bumped by 1 only when `reduce` changed the contents.
     pub rev: u64,
 }
 
@@ -44,39 +44,39 @@ pub enum Msg {
     EditCard { card: CardId, title: String, body: String },
     SetLabel { card: CardId, label: Label },
     RemoveCard { card: CardId },
-    /// 列間の移動と列内の並べ替えを 1 つで扱う。`to_index` は移動先の列から
-    /// 自分を取り除いた後の添字。
+    /// Handles both moving between columns and reordering within a column. `to_index` is
+    /// the index in the target column after removing the card itself.
     MoveCard { card: CardId, to_column: ColumnId, to_index: usize },
     RenameColumn { column: ColumnId, name: String },
 }
 
 pub fn reduce(board: &mut Board, msg: Msg);
-/// 検索語とラベルで絞った、その列に見えるカードの id。
+/// Ids of the cards visible in that column, filtered by search term and label.
 pub fn visible(column: &Column, search: &str, label: Option<Label>) -> Vec<CardId>;
 ```
 
-`MoveCard` を 1 メッセージにするのが要点。「列から抜いて別の列の位置に挿す」が 1 手なら undo も 1 手になり、DnD の途中状態を reducer に持たせずに済む。
+The key point is making `MoveCard` one message. If "pull from a column and insert at a position in another column" is one step, undo is one step too, and the reducer does not need to hold the in-progress DnD state.
 
-**実装での追加(添字ではなく identity)**: ドロップ先は `DropTarget { column: ColumnId, before: Option<CardId> }`(「このカードの前」「`None` なら列の末尾」)で表し、`Board::drop_index(card, target) -> usize` が `MoveCard` の `to_index`(自分を取り除いた後の添字)に直す。UI 側が添字を作ると、(a) 掴んだカードが列から抜けた瞬間に添字がずれる、(b) 検索で隠れているカードがあると画面上の順番と `Vec` の添字が一致しない、の 2 つを呼び出し側で吸収することになる。`drop_index` は `board.rs` の純関数なのでユニットテストが書け、生 egui 版とも共有できる。
+**Added during implementation (identity, not index)**: The drop target is `DropTarget { column: ColumnId, before: Option<CardId> }` ("before this card", or "end of the column" if `None`). `Board::drop_index(card, target) -> usize` converts it into `MoveCard`'s `to_index` (the index after removing the card itself). If the UI built the index, the caller would have to absorb two things: (a) the index shifts the moment the grabbed card leaves the column, (b) when search hides some cards, the on-screen order does not match the `Vec` index. `drop_index` is a pure function in `board.rs`, so it can be unit tested and shared with the plain egui version.
 
-初期データは 4 列 12 枚程度をハードコードした `Board::demo()`。gallery で開いた直後に何か見えている必要がある。
+The initial data is `Board::demo()`, hardcoded with 4 columns and about 12 cards. Something must be visible right after opening it in the gallery.
 
-## 2. コンポーネント構成(`lib.rs`)
+## 2. Component structure (`lib.rs`)
 
 ```
 App
-└ BoardProvider            テーマと Dispatch を provide_context する(theme example と同じ形)
+└ BoardProvider            provide_context for the theme and Dispatch (same shape as the theme example)
   └ View column
-    ├ Toolbar              検索 TextEdit / ラベル絞り込み / undo / redo / dark
-    └ View row grow        列を横に並べる
-      └ Column (key=id)    名前のインライン編集、件数、"+ card"、ScrollArea
-        └ Card (key=id)    ★ ローカル state を持つ本体
-          ├ Chip           ラベル色の小片(style を受け取るだけの葉)
-          └ IconButton     × と ▸(children と on_click を持つ最小の自作要素)
+    ├ Toolbar              search TextEdit / label filter / undo / redo / dark
+    └ View row grow        columns side by side
+      └ Column (key=id)    inline rename, count, "+ card", ScrollArea
+        └ Card (key=id)    ★ the body that holds local state
+          ├ Chip           small piece of label color (a leaf that only takes style)
+          └ IconButton     × and ▸ (the smallest own element with children and on_click)
 ```
 
-- **データは props で下ろし、`Dispatch` とテーマは context で配る。** `use_reducer` が返す `State<'s, Board>` は `'s` を持つので `Handle<T>` には入れられない(ARCHITECTURE 6 章)。一方 `Dispatch` は `Clone + Send + 'static` なので `use_handle(cx, || ctx)` に入れて配れる。結果として React で普通に採る形(state は props、更新関数は context)にそのままなる。この理由は `lib.rs` のコメントに書く。
-- `<Card>` が持つローカル state はこの example の主張そのものなので、必ずカード自身の `use_state` に置く。
+- **Data goes down via props. `Dispatch` and the theme go out via context.** The `State<'s, Board>` returned by `use_reducer` carries `'s`, so it cannot go into a `Handle<T>` (ARCHITECTURE section 6). `Dispatch`, on the other hand, is `Clone + Send + 'static`, so it can be put in `use_handle(cx, || ctx)` and handed out. The result is exactly the usual React shape (state via props, update function via context). Write this reason in a comment in `lib.rs`.
+- The local state `<Card>` holds is the very claim of this example, so it must live in the card's own `use_state`.
 
 ```rust
 #[component]
@@ -89,70 +89,70 @@ fn Card(cx: &mut Cx, card: &Card, #[prop(default)] style: ItemStyle, #[event] on
 }
 ```
 
-- `for` の中の `<Card key={card.id} .. />` / `<Column key={column.id} .. />` は key 必須(ARCHITECTURE 3.2)。
-- **訂正(実装で判明)**: key だけでは B-2 は通らない。hook のスロット Id は「スコープの連鎖 + 呼び出し位置」で、`key` は *同じ親の下の兄弟* を区別するだけである。カードは列の内側に描かれるので、`doing` の `<Card key={7}/>` と `review` の `<Card key={7}/>` は別スロットになり、列をまたいで動かすと下書きは元の列に置き去りになる。そこでカード自身の state は `hooks::use_identity(cx, (card.id, "draft"), ..)` に置く。これは `Cx::new(store, cx.ui(), Id::new(("board/identity", key)))` でスコープをカードの identity に張り直してから `use_state` を呼ぶ 3 行の hook で、core には手を入れていない(8 章)。**B-2 / B-3 が通る理由はこの hook であり、`key` はあくまで「同じ列の中で 2 枚のカードを取り違えないこと」を保証する。**
-- **props で下ろすもの / context で配るもの**: 「そのコンポーネントに起きたこと」は `#[event]` で 1 段上へ返す(`<Card>` は編集・削除・ラベル変更を `<Column>` へ、`<Column>` は「カードを 1 枚足したい」を `<BoardView>` へ)。「木全体で共有するもの」は context で配る(テーマ、ドラッグ session、`Dispatch`)。`<Column>` は自分が受けたカードのイベントを、context から取った `Dispatch` でメッセージに変えてしまう。列の id を知っている一番内側がそこであり、`<Column>` を 4 つ並べる `for` にコールバックを 4 本持たせずに済む。
-- `bind` を持つ要素(`TextEdit bind={draft_title.bind()}`)に同じ state を触る `on_change` を渡すと E0502 になる(ARCHITECTURE 6 章)。編集確定は `on_submit` かボタン側で `dispatch.send(Msg::EditCard { .. })` する。
-- 列は `<View grow={1.0} w={0.0}>` で等幅に分配し、中のカードリストは `<ScrollArea grow={1.0}>`(`leaf_fill` なので高さを与える)。
-- `use_memo(cx, (column.id, board.rev, &*search, label), || visible(..))` で列ごとの表示カードを作る。deps に `board.rev` を入れるのは `Board` 全体をハッシュしないため。
+- `<Card key={card.id} .. />` / `<Column key={column.id} .. />` inside `for` need a key (ARCHITECTURE 3.2).
+- **Correction (found during implementation)**: key alone does not pass B-2. A hook's slot Id is "the scope chain + the call site", and `key` only tells *siblings under the same parent* apart. Cards are drawn inside columns, so `<Card key={7}/>` in `doing` and `<Card key={7}/>` in `review` are different slots. Move across columns and the draft stays behind in the old column. So the card's own state goes in `hooks::use_identity(cx, (card.id, "draft"), ..)`. This is a 3-line hook that re-roots the scope on the card's identity with `Cx::new(store, cx.ui(), Id::new(("board/identity", key)))` and then calls `use_state`. core is untouched (section 8). **This hook is why B-2 / B-3 pass. `key` only guarantees "two cards in the same column are not mixed up".**
+- **What goes down via props / what goes out via context**: "What happened to this component" goes one level up via `#[event]` (`<Card>` sends edit / remove / label change to `<Column>`, `<Column>` sends "want to add one card" to `<BoardView>`). "What the whole tree shares" goes via context (theme, drag session, `Dispatch`). `<Column>` turns the card events it receives into messages using the `Dispatch` it took from context. That is the innermost place that knows the column id, and it saves the `for` that lays out 4 `<Column>`s from carrying 4 callbacks.
+- Passing an `on_change` that touches the same state to an element with `bind` (`TextEdit bind={draft_title.bind()}`) gives E0502 (ARCHITECTURE section 6). Commit the edit with `on_submit` or from the button side with `dispatch.send(Msg::EditCard { .. })`.
+- Columns share width equally with `<View grow={1.0} w={0.0}>`. The card list inside is `<ScrollArea grow={1.0}>` (it is `leaf_fill`, so give it a height).
+- Build the visible cards per column with `use_memo(cx, (column.id, board.rev, &*search, label), || visible(..))`. `board.rev` goes in the deps so we do not hash the whole `Board`.
 
-## 3. ドラッグ & ドロップ
+## 3. Drag and drop
 
-最初に試す形(A):
+The shape to try first (A):
 
-- カードは `<View>`(taffy)で組み、**ヘッダ行を掴む場所**にする。ヘッダは `cx.leaf` の中に落ちるので `&mut egui::Ui` があり、`ui.dnd_drag_source(id, CardId, ..)` がそのまま使える。ゴーストの描画も egui が持っている。
-- ドロップ先の判定は自前。各カードのヘッダの `Response::rect` と列の rect を、そのフレームのあいだだけ `use_dnd` が返すハンドルに登録する(`dnd.slot(rect, DropTarget { column, index })`)。ポインタが離れたフレームで、ポインタ位置を含む slot を選び `on_move` を発火する。
-- 挿入位置のインジケータ(カードとカードの間の細い線)は、ドラッグ中に選ばれている slot の rect から `cx.ui().painter()` で引く。
+- Build the card from `<View>` (taffy) and make **the header row the grab area**. The header lands inside `cx.leaf`, so there is a `&mut egui::Ui` and `ui.dnd_drag_source(id, CardId, ..)` works as-is. egui also draws the ghost.
+- Drop target detection is our own. Register each card header's `Response::rect` and the column rect, for that frame only, on the handle `use_dnd` returns (`dnd.slot(rect, DropTarget { column, index })`). On the frame the pointer is released, pick the slot that contains the pointer position and fire `on_move`.
+- The insert position indicator (a thin line between cards) is drawn with `cx.ui().painter()` from the rect of the slot selected during the drag.
 
-`dnd_drag_source` が taffy の leaf の中で素直に動かない場合(B):
+If `dnd_drag_source` does not work cleanly inside a taffy leaf (B):
 
-- `DragAndDrop::set_payload` + `ui.interact(rect, id, Sense::drag())` に落とし、ゴーストは `egui::Area` を 1 つ開いて自分で描く。判定側(slot)は A と同じなので影響は局所。
+- Fall back to `DragAndDrop::set_payload` + `ui.interact(rect, id, Sense::drag())`, and draw the ghost ourselves in one `egui::Area`. The detection side (slot) is the same as A, so the impact is local.
 
-どちらでも DnD は **example の中の custom hook + 自作コンポーネントとして書け、ライブラリに手を入れない**。ここが崩れる(= `<View>` の rect が取れないと成立しない等)場合だけ、elements か `Cx::container` への最小の追加を検討し、8 章に記録して別途判断する。
+Either way, DnD is **written as a custom hook + own components inside the example, without touching the library**. Only if this breaks (e.g. it cannot work without the `<View>` rect) consider a minimal addition to elements or `Cx::container`, record it in section 8, and decide separately.
 
-**実装は (B) 寄りの形に落ち着いた。**
+**The implementation settled close to (B).**
 
-- 掴む場所はカードのタイトルで、`cx.leaf` の中の `egui::Label::new(..).sense(Sense::click_and_drag())` 1 つ。`dnd_drag_source` は使わない。あれはドラッグ中に中身を `Order::Tooltip` の layer へ描き直すので、taffy の leaf の中では「測られる中身」と「描かれる中身」がフレームごとに入れ替わることになる。掴む・落とす・線を引くのに要るのは矩形だけなので、`Response` を 1 つ持てば足りる。
-- ゴーストは `Area` ではなく `ctx.layer_painter(LayerId::new(Order::Tooltip, ..))` に直接描く。ウィジェットを置くと同じタイトルが accessibility ツリーに 2 つ現れ、スクリーンリーダーからも kittest からも「同じラベルが 2 個」に見えてしまう。
-- slot はカードのタイトル行の矩形を上下に割って 2 つ(「自分の前」「次のカードの前」)、加えて列の footer(`+ card`)が「末尾」の 1 つ。`<View>` は `Response` を返さないので、矩形が要るものは leaf にする必要がある(8 章)。
-- `Dnd<P, T>` は payload と drop 先で型を分ける(`Dnd<CardId, DropTarget>`)。中身は `Rc<RefCell<..>>` で、`Handle::with`(repaint を要求しない)から書き換える。`Handle::set` / `update` は必ず `request_repaint` するので、毎フレーム slot を登録すると **アプリがアイドルにならず、`egui_kittest::Harness::run` が `ExceededMaxSteps` で落ちる**(ARCHITECTURE 5.6)。8 章。
+- The grab area is the card title: one `egui::Label::new(..).sense(Sense::click_and_drag())` inside `cx.leaf`. `dnd_drag_source` is not used. It redraws the contents on the `Order::Tooltip` layer during a drag, so inside a taffy leaf "the measured contents" and "the drawn contents" would swap every frame. Grabbing, dropping, and drawing the line only need rectangles, so holding one `Response` is enough.
+- The ghost is drawn directly on `ctx.layer_painter(LayerId::new(Order::Tooltip, ..))`, not in an `Area`. Placing a widget would put the same title in the accessibility tree twice, and both screen readers and kittest would see "two of the same label".
+- Slots: split the rect of the card's title row top and bottom into two ("before me", "before the next card"), plus one for the column footer (`+ card`) as "the end". `<View>` does not return a `Response`, so anything that needs a rect has to be a leaf (section 8).
+- `Dnd<P, T>` separates the payload and drop target types (`Dnd<CardId, DropTarget>`). Inside is `Rc<RefCell<..>>`, written through `Handle::with` (which does not request a repaint). `Handle::set` / `update` always `request_repaint`, so registering slots every frame would mean **the app never goes idle and `egui_kittest::Harness::run` fails with `ExceededMaxSteps`** (ARCHITECTURE 5.6). Section 8.
 
-`use_dnd` の形:
+The shape of `use_dnd`:
 
 ```rust
-/// 掴んでいるものと、そのフレームに登録されたドロップ先。`Handle` なので
-/// context に載せられ、列とカードが同じものを見る。
+/// What is being carried, and the drop targets registered this frame. It is a `Handle`, so
+/// it can go on context and columns and cards see the same one.
 pub struct Dnd<T> { dragging: Option<T>, slots: Vec<(egui::Rect, T)>, .. }
 #[hook] pub fn use_dnd<T: 'static>(cx: &mut Cx) -> Handle<'_, Dnd<T>>;
 ```
 
-## 4. custom hooks(`hooks.rs`)
+## 4. custom hooks (`hooks.rs`)
 
 ```rust
-/// `use_reducer` を履歴で包む。`Undoable::Do(msg)` は past に present を積み、
-/// future を捨てる。Undo / Redo は 3 つのスタックを回すだけ。
+/// Wraps `use_reducer` with history. `Undoable::Do(msg)` pushes present onto past and
+/// drops future. Undo / Redo just rotate the three stacks.
 pub enum Undoable<M> { Do(M), Undo, Redo }
 #[hook] pub fn use_undoable<S: Clone + 'static, M: 'static>(
     cx: &mut Cx, reduce: impl Fn(&mut S, M), init: impl FnOnce() -> S,
 ) -> (State<'_, History<S>>, Dispatch<Undoable<M>>);
 
-/// 入力が `delay` 秒静まってから値を返す。`ctx.input(|i| i.time)` と
-/// `request_repaint_after` だけで書く(wasm があるので `Instant` は使わない)。
+/// Returns the value once the input has been quiet for `delay` seconds. Written with only
+/// `ctx.input(|i| i.time)` and `request_repaint_after` (no `Instant`, because of wasm).
 #[hook] pub fn use_debounced(cx: &mut Cx, value: &str, delay: f64) -> String;
 ```
 
-`use_undoable` が `use_reducer` の上に素直に乗ることが「undo をライブラリ機能にしなくてよい」の根拠になる。
+That `use_undoable` sits cleanly on top of `use_reducer` is the basis for "undo does not need to be a library feature".
 
-**実装での差**: 境界は `S: Clone + PartialEq`(`M: Send + 'static` は `use_reducer` の要求)。`PartialEq` は「何も変えなかったメッセージを履歴に積まない」ために使う。これが無いと、値の変わらない `EditCard` のあとに undo を 2 回押す羽目になる。`History<S>` は `Serialize` にしない。`showcase` と同じく `use_persisted` のスロットに `present` を毎フレーム鏡写しするだけにしてあり、履歴は保存されない。名前は `use_debounced`。
+**Difference in implementation**: The bounds are `S: Clone + PartialEq` (`M: Send + 'static` is what `use_reducer` requires). `PartialEq` is used so that "a message that changed nothing is not pushed onto history". Without it, you would have to press undo twice after an `EditCard` that did not change the value. `History<S>` is not `Serialize`. As in `showcase`, `present` is only mirrored into the `use_persisted` slot every frame, and history is not saved. The name is `use_debounced`.
 
-`use_reducer` のメッセージ適用は「次に hook を訪問した時」(ARCHITECTURE 4 章)なので、`send` の直後に `*state` を読んでも古い。ハンドラの中で読み直さない書き方にする。
+`use_reducer` applies messages "on the next visit to the hook" (ARCHITECTURE section 4), so reading `*state` right after `send` gives the old value. Write handlers so they do not read it back.
 
-## 5. 生 egui 版(`plain.rs`)
+## 5. Plain egui version (`plain.rs`)
 
 ```rust
 pub struct PlainState {
-    board: Board,                       // 同じ board.rs を使う
-    ui: HashMap<CardId, CardUi>,        // ← 差はここ
+    board: Board,                       // uses the same board.rs
+    ui: HashMap<CardId, CardUi>,        // <- the difference is here
     history: Vec<Board>, future: Vec<Board>,
     search: String, search_debounce: Option<f64>, label: Option<Label>,
     drag: Option<(CardId, egui::Vec2)>, slots: Vec<(egui::Rect, DropTarget)>,
@@ -162,82 +162,82 @@ struct CardUi { editing: bool, draft_title: String, draft_body: String, expanded
 pub fn ui(ui: &mut egui::Ui, state: &mut PlainState);
 ```
 
-- 公平に書く。添字ではなく `CardId` をキーにし、**カードが消えた時に `ui` から掃除する**行も書く(これを書かないとリークする、というのが egui-react 版で sweep が担うもの)。
-- レイアウトは `ui.columns(4, ..)` + `ScrollArea` で taffy 版と同じ絵にする(`layout` example の plain 版と同じ方針)。
-- DnD と undo は react 版と同じ挙動にする。ロジックは `board.rs` を共有するので、差は「状態をどこに置くか」だけになる。これがこの example の見せ場なので、`plain.rs` の冒頭コメントに「共有しているもの / していないもの」を書く。
-- **実装での差**: 列名の編集中の下書きは `renaming: Option<(ColumnId, String)>`(同時に 1 列だけ)にした。react 版は `<Column>` ごとの `use_state` なので 2 列同時に開ける。map をもう 1 つ持てば揃えられるが、掃除する対象が 1 つ増えるだけで誰も頼んでいない機能なので、`plain.rs` のコメントに理由を書いて 1 列に留めてある。「部品の state を全体が持つと、こういう選択を呼び出し側が迫られる」こと自体が差である。
-- 掃除は `state.ui.retain(|id, _| board.card(*id).is_some())` の 1 行。なお react 版の sweep はこれより厳しく、検索で隠れたカードは unmount されるので下書きも消える。plain 版は「盤にまだ在る」ことを基準にしているのでその場合は残る。どちらも筋は通るが、同じにしたければ plain 版に規則をもう 1 つ書くことになる。
+- Write it fairly. Key by `CardId`, not by index, and also write the line that **cleans `ui` when a card is gone** (without this line it leaks; that is what sweep takes care of in the egui-react version).
+- Layout: `ui.columns(4, ..)` + `ScrollArea`, to get the same picture as the taffy version (same policy as the plain version of the `layout` example).
+- DnD and undo behave the same as the react version. The logic is shared via `board.rs`, so the only difference is "where the state lives". That is the showpiece of this example, so write "what is shared / what is not" in the header comment of `plain.rs`.
+- **Difference in implementation**: The draft for an in-progress column rename is `renaming: Option<(ColumnId, String)>` (only one column at a time). The react version uses `use_state` per `<Column>`, so two columns can be open at once. Holding one more map would match it, but that is one more thing to clean up for a feature nobody asked for, so it stays at one column, with the reason written in a comment in `plain.rs`. That "when the whole holds the parts' state, the caller is forced into choices like this" is itself the difference.
+- Cleanup is the one line `state.ui.retain(|id, _| board.card(*id).is_some())`. Note that the react version's sweep is stricter than this: a card hidden by search is unmounted, so its draft is gone too. The plain version uses "still on the board" as the criterion, so in that case it stays. Both are consistent, but to make them the same you would write one more rule in the plain version.
 
-## 6. テスト(`tests/board.rs`)
+## 6. Tests (`tests/board.rs`)
 
-`todo` / `form` と同じく react 版と plain 版の 2 つの harness を組み、同じヘルパで両方を叩く。
+As in `todo` / `form`, build two harnesses, react and plain, and drive both with the same helpers.
 
-- **B-1** カードを追加すると、その列の件数が増える。
-- **B-2(目玉)** カードの編集を開いて下書きを打ち、そのカードを別の列へ動かす。移動後もそのカードが編集中で、下書きが残っている。動かした先の隣のカードは編集中になっていない。
-- **B-3(目玉)** 列内で 2 枚目を先頭へ動かす。展開していたカードだけが展開されたままで、位置ではなくカードに状態が付いていることを確認する。
-- **B-4** undo / redo。追加 → 移動 → undo ×2 → redo で元に戻る。
-- **B-5** 検索。debounce の待ち時間はハーネスで時間を進めて越える。絞り込みが列をまたいで効く。
-- **B-6** 永続化。`Store::save_persisted` → 新しい `Store` に `load_persisted` → 同じボードが出る(`showcase` のテストに倣う)。
-- **B-7** react / plain に同じ操作を流して同じ結果になる。**実装では plain 版も `CardUi` を直接読まず、B-1 〜 B-5 / B-8 をそのまま UI から流している**(位置は画面座標で見るので、ヘルパは両版で同じものが使える)。これで「plain でも正しく書けば同じことはできる」は UI の側から示せる。差は掃除を自分で書くかどうかであって、できる / できないではない。
-- **B-8(追加)** 列名のインライン編集。`rename` → 打つ → Enter で名前が変わり、それも履歴 1 手なので undo で戻る。react / plain の両方に流す。
-- `board.rs` のユニットテスト: `reduce` の `MoveCard`(同一列内の前方 / 後方移動、列間移動、末尾)と `visible`、`drop_index`、ラベルの巡回。
+- **B-1** Adding a card increases that column's count.
+- **B-2 (highlight)** Open a card's editor, type a draft, and move that card to another column. After the move that card is still being edited and the draft is still there. The neighbor card at the destination is not in edit mode.
+- **B-3 (highlight)** Move the second card to the top within a column. Only the card that was expanded stays expanded. Confirm the state is attached to the card, not the position.
+- **B-4** undo / redo. Add -> move -> undo x2 -> redo returns to the original.
+- **B-5** Search. Pass the debounce wait by advancing time in the harness. The filter works across columns.
+- **B-6** Persistence. `Store::save_persisted` -> `load_persisted` into a new `Store` -> the same board appears (following the `showcase` test).
+- **B-7** Run the same operations on react / plain and get the same result. **In the implementation the plain version does not read `CardUi` directly either. B-1 to B-5 / B-8 run through the UI as-is** (positions are checked in screen coordinates, so the same helpers work for both versions). This shows from the UI side that "plain can do the same if written correctly". The difference is whether you write the cleanup yourself, not can / cannot.
+- **B-8 (added)** Inline column rename. `rename` -> type -> Enter changes the name, and that too is one history step, so undo reverts it. Run on both react / plain.
+- Unit tests in `board.rs`: `reduce`'s `MoveCard` (forward / backward within the same column, between columns, to the end), `visible`, `drop_index`, and label cycling.
 
-DnD をどう叩くか: **kittest のポインタ操作で足りた。** `harness.hover_at` → `drag_at`(押す)→ `hover_at` ×2 → `drop_at`(離す)で、egui はこれをクリックではなくドラッグと判定する(`drag_started` は「`dragged` が今フレーム立った」ことなので、押したフレームと動かしたフレームが分かれていてよい)。フォールバック(`input_mut().events` に直接積む / UI に別の移動手段を足す)はどれも要らなかった。
+How to drive DnD: **kittest pointer operations were enough.** `harness.hover_at` -> `drag_at` (press) -> `hover_at` x2 -> `drop_at` (release), and egui treats this as a drag, not a click (`drag_started` means "`dragged` became true this frame", so the press frame and the move frame may be separate). None of the fallbacks (pushing directly into `input_mut().events` / adding another way to move in the UI) were needed.
 
-どの列に居るかは **画面上の x 座標**(4 等分のどこか)で、列内の順序は y で確かめる。両版とも 4 列を等幅に並べるので、同じヘルパがそのまま両方に効き、「reducer がどうなったか」ではなく「見えている位置」を見ることになる。
+Which column a card is in is checked by **the x coordinate on screen** (which quarter), and the order within a column by y. Both versions lay out 4 equal-width columns, so the same helpers work on both as-is, and we look at "the visible position" rather than "what the reducer did".
 
-B-3 は上半分に落として前へ、下半分に落として後ろへ、の 2 回動かして、どちらでも展開状態が同じカードに付いていることまで見る。
+B-3 moves twice, dropping on the top half to go before and on the bottom half to go after, and checks that the expanded state stays with the same card either way.
 
 ## 7. gallery / README / CI
 
-- `examples/gallery/Cargo.toml` に依存を足し、`EXAMPLES` に `board::META` を(`showcase` の次に)入れ、`Running` の `match` を 2 つとも足す(react 版と plain 版)。
-- `Meta`: `name: "board"`、`hooks: [.. + "#[hook]"]`(自作 hook が 4 つあるので `custom-hook` と同じタグを足した)、`elements: ["View", "Text", "TextEdit", "Button", "ScrollArea", "Frame", "Separator"]`、`plain: Some(include_str!("plain.rs"))`。
-- snapshot: `examples/gallery/tests/snapshots.rs` に react / plain の対を足す。**1 枚では一致させられないので `list_10k` と同じく 2 枚にした。** 列は react 版が taffy の `gap`、plain 版が `ui.columns` と `ui.horizontal` の item_spacing で並ぶので、描くものは同じでも位置が数ポイント単位で食い違う。揃えるには `plain.rs` を「読むため」ではなく「taffy の計算を再現するため」に書くことになり、それは 5 章が引いた線の向こう側である。なお snapshot は GPU が要るのでこの環境では 1 枚も生成していない(8 章)。
-- README の表に 1 行。`Trunk.toml` と `index.html` は既存 example からコピーし、CI の trunk ループは `examples/*` を舐めているので追加設定は不要(要確認)。
+- Add the dependency to `examples/gallery/Cargo.toml`, put `board::META` in `EXAMPLES` (after `showcase`), and add both `Running` `match` arms (react and plain).
+- `Meta`: `name: "board"`, `hooks: [.. + "#[hook]"]` (there are 4 own hooks, so the same tag as `custom-hook` was added), `elements: ["View", "Text", "TextEdit", "Button", "ScrollArea", "Frame", "Separator"]`, `plain: Some(include_str!("plain.rs"))`.
+- snapshot: add a react / plain pair to `examples/gallery/tests/snapshots.rs`. **They cannot be made to match in one image, so it is two images like `list_10k`.** Columns are laid out by taffy's `gap` in the react version and by `ui.columns` and `ui.horizontal` item_spacing in the plain version, so even though the same things are drawn, positions differ by a few points. Matching them would mean writing `plain.rs` "to reproduce taffy's math" rather than "to be read", and that is on the far side of the line section 5 drew. Note that snapshots need a GPU, so none were generated in this environment (section 8).
+- One row in the README table. Copy `Trunk.toml` and `index.html` from an existing example. The CI trunk loop walks `examples/*`, so no extra config is needed (to be confirmed).
 
-## 8. 実装で判明した差分
+## 8. Differences found during implementation
 
-core(`egui-react` / `egui-react-macros`)にも `egui-react-elements` にも手を入れていない。以下は「書けなかったこと / どう回避したか / 足すとしたら何か」。
+Neither core (`egui-react` / `egui-react-macros`) nor `egui-react-elements` was touched. Below is "what could not be written / how it was worked around / what to add if anything".
 
-### 8.1 state は木の中の位置に付いていて、identity には付かない(この example の主題そのもの)
+### 8.1 State is attached to a position in the tree, not to identity (the very theme of this example)
 
-**何が書けなかったか**: `<Card key={card.id}/>` の中の `use_state` は、カードを別の列へ動かすと別スロットになる。hook の Id は「スコープの連鎖 + 呼び出し位置」で、`key` は同じ親の下の兄弟を区別するだけだからである(ARCHITECTURE 3.2 / 3.4)。React も同じで、親が変われば unmount して mount し直す。しかし本 example が示したいのは「カードに付いて回る state」なので、これでは B-2 が成立しない。
+**What could not be written**: `use_state` inside `<Card key={card.id}/>` becomes a different slot when the card moves to another column. A hook's Id is "the scope chain + the call site", and `key` only tells siblings under the same parent apart (ARCHITECTURE 3.2 / 3.4). React is the same: when the parent changes, it unmounts and mounts again. But what this example wants to show is "state that follows the card", so B-2 does not hold this way.
 
-**どう回避したか**: `hooks::use_identity(cx, key, init)`。`Cx::new(store, cx.ui(), Id::new(("board/identity", key)))` でスコープを identity に張り直し、その `Cx` で `use_state` を呼ぶ。返る guard はストア(`'s`)を借りているだけなので、この 1 行の `Cx` が落ちても生き残り、呼び出し側は普段どおり描き続けられる。sweep も衝突検出もそのまま効く。ただし内側の `use_state` の呼び出し位置は 1 か所なので、key に「誰の」だけでなく「何の」も混ぜる必要がある(`(card.id, "draft")`)。
+**How it was worked around**: `hooks::use_identity(cx, key, init)`. Re-root the scope on the identity with `Cx::new(store, cx.ui(), Id::new(("board/identity", key)))` and call `use_state` on that `Cx`. The returned guard only borrows the store (`'s`), so it survives even after this one-line `Cx` is dropped, and the caller keeps drawing as usual. Sweep and collision detection still work. But the inner `use_state` has one call site, so the key must include not only "whose" but also "what" (`(card.id, "draft")`).
 
-**足すとしたら**: `use_keyed(cx, key, init) -> State<T>`(`use_persisted` の位置非依存キーから永続化を抜いたもの)。`Store::slot` が `pub(crate)` なので、今ユーザー land から任意 Id のスロットを作る道は「`Cx::new` で張り直す」か「`use_persisted` に文字列キーを渡す」しかない。後者は eframe の storage に書き込み、sweep 時にも直列化されて map に残るので、編集途中の下書きのような一時的な値には使えない。core に足すのは `Store::keyed_slot` と `use_keyed` の 2 つで済み、`use_persisted` はそれを使う形に書き直せる。
+**What to add**: `use_keyed(cx, key, init) -> State<T>` (the position-independent key of `use_persisted`, minus the persistence). `Store::slot` is `pub(crate)`, so the only ways to create a slot with an arbitrary Id from user land today are "re-root with `Cx::new`" or "pass a string key to `use_persisted`". The latter writes to eframe's storage and is serialized and kept in the map at sweep time, so it cannot be used for a temporary value like a draft being edited. Adding to core would be just two things, `Store::keyed_slot` and `use_keyed`, and `use_persisted` could be rewritten on top of them.
 
-### 8.2 `Handle` に「dirty にしない書き込み」が無い
+### 8.2 `Handle` has no "write without marking dirty"
 
-**何が書けなかったか**: DnD の slot は毎フレーム登録し直す。`Handle::set` / `update` / `update_later` はどれも `request_repaint` するので、毎フレーム呼ぶとアプリがアイドルにならない(ARCHITECTURE 5.6)。gallery でも CPU を焼き続け、`egui_kittest::Harness::run` は `ExceededMaxSteps` で落ちる。
+**What could not be written**: DnD slots are re-registered every frame. `Handle::set` / `update` / `update_later` all `request_repaint`, so calling them every frame means the app never goes idle (ARCHITECTURE 5.6). It keeps burning CPU in the gallery too, and `egui_kittest::Harness::run` fails with `ExceededMaxSteps`.
 
-**どう回避したか**: 値の側に `Rc<RefCell<..>>` を持たせ、`Handle::with`(`&T` を渡すだけで repaint しない)から書き換えた。`Dnd` が `Clone` で中身を共有するのはこのためで、装飾ではない。
+**How it was worked around**: Put `Rc<RefCell<..>>` on the value side and write through `Handle::with` (which only passes `&T` and does not repaint). This is why `Dnd` is `Clone` and shares its contents. It is not decoration.
 
-**足すとしたら**: `State::bind()` の `Handle` 版(`Handle::with_mut` / `peek_mut`)。「ウィジェットや毎フレームの記録が直接書き込む、入力が無ければ値は変わらない」という `bind` と同じ意味論で、内部可変性をユーザー land に押し出さずに済む。
+**What to add**: A `Handle` version of `State::bind()` (`Handle::with_mut` / `peek_mut`). Same semantics as `bind`: "a widget or per-frame record writes directly, and the value does not change without input". That would avoid pushing interior mutability out to user land.
 
-### 8.3 `leaf_fill` は「残り」ではなく「全部」を測る
+### 8.3 `leaf_fill` measures "everything", not "the remainder"
 
-**何が起きたか**: `<ScrollArea grow={1.0}>` は `leaf_fill` なので、taffy への max-content の申告が **ルート矩形の高さそのもの**になる(`egui_taffy` の measure が `infinite` を root_rect のサイズに読み替える)。ランナーのルート item style は `min_h: 100%` で高さは auto なので、`<View column>` の中に「ツールバー + ScrollArea」を並べると、列の高さは(ツールバー + 窓の高さ)になり、窓からはみ出す。`grow` も `basis={0}` も効かない。flex の伸縮は親の高さが確定している時の話で、ここは連鎖のどこにも確定した高さが無いためである。`h="100%"` も、親が auto なら auto に落ちる。
+**What happened**: `<ScrollArea grow={1.0}>` is `leaf_fill`, so the max-content it reports to taffy is **the height of the root rect itself** (`egui_taffy`'s measure reads `infinite` as the root_rect size). The runner's root item style is `min_h: 100%` with auto height, so putting "toolbar + ScrollArea" in a `<View column>` makes the column height (toolbar + window height), and it overflows the window. Neither `grow` nor `basis={0}` helps. Flex grow / shrink only applies when the parent height is fixed, and nowhere in this chain is there a fixed height. `h="100%"` also falls to auto when the parent is auto.
 
-**どう回避したか**: 列の footer(`+ card` と「末尾に落とす」ゾーン)を `ScrollArea` の外ではなく **中の最後**に置いた。はみ出すのは列の下端の余白だけになり、押せるもの・落とせるものは全部見える位置に残る。UI としてもこの方が Trello に近い。
+**How it was worked around**: The column footer (`+ card` and the "drop at the end" zone) was put **at the end inside** the `ScrollArea`, not outside. Only the margin at the bottom of the column overflows, and everything that can be pressed or dropped on stays visible. As UI this is also closer to Trello.
 
-**足すとしたら**: ランナーのルートに「窓の高さそのもの」を与える道。`root_style()` の `min_h: 100%` は「中身が高ければ伸ばす」ためだが、そのせいで「窓を埋めて、余りを ScrollArea に配る」が書けない。`Options` に「ルートを窓の高さに固定する」切り替えを足すか、`ScrollArea` に「残りの高さを取る」意味の item style を用意するか。`showcase` の sidebar と gallery の左列も同じ形なので、この 2 つも今は少しだけ窓からはみ出しているはずである。
+**What to add**: A way to give the runner root "the window height itself". `root_style()`'s `min_h: 100%` exists to "stretch when the contents are tall", but because of it you cannot write "fill the window and give the rest to the ScrollArea". Either add a switch to `Options` to "pin the root to the window height", or give `ScrollArea` an item style meaning "take the remaining height". The `showcase` sidebar and the gallery's left column have the same shape, so those two probably also overflow the window slightly right now.
 
-### 8.4 `<View>` は矩形を返さない
+### 8.4 `<View>` does not return a rect
 
-掴む場所・落とす場所・挿入線は、どれも矩形が要る。`<View>` は `Response` を返さないので、カードのタイトルと列の footer は `cx.leaf` / `cx.leaf_fill` で書いた(この example では escape hatch を見せる意味もあるので損はしていない)。カード全体を drop 先にするには「カードを描き終えた後の矩形」が要り、それは今は取れない。結果として、開いているカードの本文の上は drop 先ではない。足すとしたら `<View>` の `#[event] on_rect: egui::Rect`(`Canvas` の `paint` と同じ性格のもの)。
+The grab area, the drop area, and the insert line all need a rect. `<View>` does not return a `Response`, so the card title and the column footer were written with `cx.leaf` / `cx.leaf_fill` (this example also wants to show the escape hatch, so nothing is lost). Making the whole card a drop target needs "the rect after the card has been drawn", and that cannot be obtained today. As a result, the area above the body of an open card is not a drop target. What to add: `#[event] on_rect: egui::Rect` on `<View>` (same nature as `Canvas`'s `paint`).
 
-### 8.5 細かいもの
+### 8.5 Small things
 
-- `Option<T>` 型の引数は「省略可能な prop」なので、本当に `Option` を渡したい prop は `&Option<T>` にする必要がある(`showcase` の `selected` と同じ)。`next: &Option<CardId>`、`label: &Option<Label>` がそれ。
-- `<Toolbar label={&*label} on_label={|..| *label = ..}/>` は E0502(ARCHITECTURE 3.7 の 2 つ目)。値を先にコピーして `label={&filter}` にした。props が借用のままなのは設計どおりなので、これは注意書きが 1 行要るという話。
-- `egui::Id::new` は `Hash + Debug` を要求する(`AsId`)ので、`use_identity` の key も `Hash + Debug`。`rsx!` の `key=` と同じ条件なので揃っている。
-- snapshot(`cargo test -p gallery --features snapshot`)はこのコンテナでは動かない(GPU も software Vulkan も無い)。`board_react` / `board_plain` の画像は未生成で、最初に GPU のある機械で `UPDATE_SNAPSHOTS=1` を回した人が入れることになる。
+- An argument of type `Option<T>` is "an optional prop", so a prop that really wants to receive an `Option` must be `&Option<T>` (same as `selected` in `showcase`). That is `next: &Option<CardId>` and `label: &Option<Label>`.
+- `<Toolbar label={&*label} on_label={|..| *label = ..}/>` is E0502 (the second one in ARCHITECTURE 3.7). Copy the value first and use `label={&filter}`. Props staying as borrows is by design, so this only calls for a one-line note.
+- `egui::Id::new` requires `Hash + Debug` (`AsId`), so the `use_identity` key is also `Hash + Debug`. Same condition as `rsx!`'s `key=`, so they line up.
+- snapshot (`cargo test -p gallery --features snapshot`) does not run in this container (no GPU and no software Vulkan). The `board_react` / `board_plain` images are not generated. The first person to run `UPDATE_SNAPSHOTS=1` on a machine with a GPU will add them.
 
-### 8.6 行数は思ったほど差が付かない
+### 8.6 Line counts do not differ as much as expected
 
-公平に書いた生 egui 版は、行数ではほとんど負けない。コメントと空行を除くと **react 版 435 行 / plain 版 460 行**、ファイル全体(gallery が表示するのはこちら)では **631 / 582 で react 版の方が長い**(散文が多いのは example の仕事なのでそれ自体は良い)。`todo` も 143 / 143(コードのみ 112 / 104)なので、この repo では前からそうだったことになる。
+A fairly written plain egui version hardly loses on line count. Excluding comments and blank lines, **react 435 lines / plain 460 lines**. For whole files (which is what the gallery shows), **631 / 582, so the react version is longer** (more prose is the example's job, so that itself is fine). `todo` is also 143 / 143 (code only 112 / 104), so this has been the case in this repo from before.
 
-差が出ないのは、生 egui 版が「毎フレーム全部描く」だけで済む代わりに、react 版は 6 つのコンポーネントの `#[component]` 署名(props とイベント)を書くからである。**この example の主張を「行数が減る」に置くのは無理で、「どの行が何をしているか」に置くべきである。** すなわち生 egui 版にあって react 版に無い行は `ui: HashMap<CardId, CardUi>` とその `retain`、`card_ui(id)` 経由の読み書き、`renaming: Option<(ColumnId, String)>` の妥協であり、これらは全部「部品の state を全体が持つ」ことから出てくる。逆に react 版にあって生版に無いのは props とイベントの宣言で、こちらはコンポーネントを他所でも使えるようにする代金である。task.md の「行数で見せる」はそのままには成立しなかったので、gallery の行数表示は「同じ画面で、同じくらいの量のコードで、置き場所が違う」を見せるものとして読む。
+There is no difference because the plain egui version only has to "draw everything every frame", while the react version writes the `#[component]` signatures (props and events) for 6 components. **This example cannot base its claim on "fewer lines". It should base it on "which lines do what".** That is, the lines the plain egui version has and the react version does not are `ui: HashMap<CardId, CardUi>` and its `retain`, reads and writes via `card_ui(id)`, and the `renaming: Option<(ColumnId, String)>` compromise. All of these come from "the whole holds the parts' state". Conversely, what the react version has and the plain one does not are the prop and event declarations, and those are the price for making components usable elsewhere. task.md's "show it in line counts" did not hold as written, so read the gallery's line count display as showing "same screen, about the same amount of code, different places".
 
-なお `Theme` と ゴーストの描画は両版が使うので `look.rs`(plan 0 章のファイル一覧に対する追加)に出した。`lib.rs` に置いたままだと、共有しているものが react 版の行数にだけ乗って比較が歪む。
+Note that `Theme` and ghost drawing are used by both versions, so they were moved out to `look.rs` (an addition to the file list in plan section 0). Left in `lib.rs`, the shared parts would count only toward the react version's lines and skew the comparison.

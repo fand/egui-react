@@ -1,77 +1,77 @@
-# タスク: patch(PR8 = フェーズ 6.6 の後半。[board](../board/task.md) と 1 つの PR)
+# Task: patch (PR8 = second half of Phase 6.6. One PR together with [board](../board/task.md))
 
-## 目的
+## Goal
 
-TouchDesigner 風のノードエディタで、**複雑な UI がそのまま egui-react で組める**ことを示す。[board](../board/task.md) が 1 つずつ証明した性質(ローカル state、key、自作コンポーネント、custom hook、context)が、3 ペイン + ノードグラフ + GPU プレビューという規模の画面でも崩れないことを見せるのが役目である。
+Show that **complex UI can be built as-is with egui-react**, using a TouchDesigner-style node editor. [board](../board/task.md) proved each property one at a time (local state, keys, custom components, custom hooks, context). The job here is to show those properties still hold on a screen the size of three panes + a node graph + a GPU preview.
 
-本格的な VJ アプリを作ることは目的ではない。ノードは「シェーダを書けるノード + 定番のエフェクト 5 つ」に絞る。
+Building a full VJ app is not the goal. Nodes are limited to "a node where you can write a shader + five standard effects".
 
-技術的な芯は **グラフ → WGSL の生成 → 1 本の fragment shader** である。オフスクリーンの合成パスを持たないので実装が軽く、しかも egui-react の主張と噛み合う。
+The technical core is **graph -> WGSL generation -> one fragment shader**. There is no offscreen compositing pass, so the implementation is light, and it fits the claim egui-react makes.
 
-- グラフの形が変わった時だけ `use_memo` が WGSL を作り直し、それが変わった時だけ pipeline を作り直す。
-- スライダを動かしただけならシェーダは再生成されず、値が uniform に流れるだけ。
-- 「state が変わると絵が変わる」経路が 2 段階あり、どちらも派生(memo)としてコードに現れる。
+- `use_memo` rebuilds the WGSL only when the graph shape changes, and the pipeline is rebuilt only when the WGSL changes.
+- Moving a slider does not regenerate the shader. The value just flows into a uniform.
+- There are two stages on the "state changes, so the picture changes" path, and both show up in code as derived values (memo).
 
-board が作る `use_dnd` をノードの移動とポートの結線に再利用する。これが board を先にする理由でもある。
+The `use_dnd` that board builds is reused for moving nodes and wiring ports. This is also why board comes first.
 
-core(`egui-react`、`egui-react-macros`)には手を入れない。
+Do not touch core (`egui-react`, `egui-react-macros`).
 
-## スコープ
+## Scope
 
-### 含む
+### In scope
 
-- `examples/patch`(lib + bin、生 egui 版なし)。
-- 画面: 左にノードパレット、中央にパッチキャンバス(パン、ノードのドラッグ、結線)、右に出力プレビューとインスペクタ(縦積み)。
-- ノード種(いずれも入力 0〜2、出力 1):
-  - `Shader`: WGSL の式を直接書ける。ソースにもなる。パラメータ 3 つを式から参照できる。
-  - `Level`: brightness / contrast / gamma。
-  - `Mix`: 2 入力。ブレンド方法(mix / add / multiply / screen / difference)と amount。
-  - `HSV`: 色相 / 彩度 / 明度。
-  - `Transform`: UV 側にかかる平行移動 / 回転 / 拡大。
-  - `Grayscale`: luma / average / max。
-  - `Output`: 終端。1 つだけ。
-- ノードのローカル state(折りたたみ、名前のインライン編集、ドラッグ中のオフセット、ポートの hover)はノード自身の `use_state`。
-- ノード種による多態レンダリング。ノード本体もインスペクタも `match kind` で別コンポーネントに分かれる。
-- 派生の連鎖: グラフ → トポロジ順 → WGSL 生成 → naga での検証 → pipeline。`use_memo` を段ごとに置く。検証エラーはインスペクタに文言として出す。
-- 結線: ポートから引っぱって別のポートに落とす。board の `use_dnd` を payload 型だけ替えて使う。ワイヤは `<Canvas>` の painter で描く。
-- プレビュー: `<Canvas>` + `egui_wgpu::Callback`。`shader` example と同じく `callback_resources` に型で置く。
-- プリセットのパッチを 1 つ `use_future` で読み、`<Suspense>` でプレビューだけがスピナーになる(画面の一部だけが待つことの実演。この example で非同期を使うのはここだけ)。
-- グラフは `use_reducer` + `use_persisted`。undo / redo は board の `use_undoable` を再利用する。
-- gallery への登録、kittest、README の表、ARCHITECTURE の更新(必要なら)。
+- `examples/patch` (lib + bin, no raw egui version).
+- Screen: node palette on the left, patch canvas in the center (pan, node drag, wiring), output preview and inspector on the right (stacked vertically).
+- Node kinds (each has 0 to 2 inputs and 1 output):
+  - `Shader`: write a WGSL expression directly. Also acts as a source. Three parameters can be referenced from the expression.
+  - `Level`: brightness / contrast / gamma.
+  - `Mix`: 2 inputs. Blend mode (mix / add / multiply / screen / difference) and amount.
+  - `HSV`: hue / saturation / value.
+  - `Transform`: translate / rotate / scale applied on the UV side.
+  - `Grayscale`: luma / average / max.
+  - `Output`: the terminal. Only one.
+- Node-local state (collapsed, inline name edit, drag offset, port hover) lives in the node's own `use_state`.
+- Polymorphic rendering by node kind. Both the node body and the inspector split into separate components via `match kind`.
+- Chain of derived values: graph -> topological order -> WGSL generation -> validation with naga -> pipeline. Put a `use_memo` at each stage. Validation errors show as text in the inspector.
+- Wiring: drag from a port and drop on another port. Use board's `use_dnd` with only the payload type swapped. Draw wires with the `<Canvas>` painter.
+- Preview: `<Canvas>` + `egui_wgpu::Callback`. Store by type in `callback_resources`, same as the `shader` example.
+- Load one preset patch with `use_future`, and only the preview shows a spinner via `<Suspense>` (a demo of only part of the screen waiting. This is the only place this example uses async).
+- The graph uses `use_reducer` + `use_persisted`. Undo / redo reuses board's `use_undoable`.
+- Register in gallery, kittest, README table, update ARCHITECTURE (if needed).
 
-### 含まない
+### Out of scope
 
-- 生 egui 版。この規模で同じものを 2 度書く価値は無く、差を見せる役目は board が持つ。
-- オフスクリーンのレンダーターゲット、複数パス、フィードバック、テクスチャ / 動画 / カメラ入力。ソースは `Shader` ノードだけ。
-- ノードのコピー & ペースト、グループ化、コメント、自動整列、ミニマップ、複数選択のボックス選択。
-- 保存フォーマットの互換性、ファイルの読み書き、OSC / MIDI。
-- 実行時のホットリロード、シェーダのエラー箇所のハイライト(文言を出すところまで)。
-- core の変更。必要が出たら plan.md に書き、別 PR に切る。
+- Raw egui version. Writing the same thing twice at this scale is not worth it; board has the job of showing the difference.
+- Offscreen render targets, multiple passes, feedback, texture / video / camera input. The only source is the `Shader` node.
+- Node copy & paste, grouping, comments, auto-layout, minimap, box selection of multiple nodes.
+- Save format compatibility, file read/write, OSC / MIDI.
+- Hot reload at runtime, highlighting the error location in the shader (we stop at showing the message).
+- Changes to core. If a need comes up, write it in plan.md and split it into a separate PR.
 
-## 成果物
+## Deliverables
 
-- `examples/patch/`(`src/lib.rs` / `graph.rs` / `codegen.rs` / `gpu.rs` / `main.rs` / `tests/patch.rs` ほか)。
-- `examples/gallery` への登録(`EXAMPLES`、`Running` の `match`、`setup` への追加)。
-- README の表に 1 行。plan.md の「実装で判明した差分」。
+- `examples/patch/` (`src/lib.rs` / `graph.rs` / `codegen.rs` / `gpu.rs` / `main.rs` / `tests/patch.rs` and others).
+- Registration in `examples/gallery` (`EXAMPLES`, the `Running` `match`, addition to `setup`).
+- One row in the README table. The "Differences found during implementation" section in plan.md.
 
-## 終了条件
+## Done criteria
 
-- kittest: ノードを追加 → 結線 → パラメータ変更で、生成された WGSL が期待どおりに変わる(文字列として検証する)。循環を作ると検証エラーになり、直前の pipeline のまま落ちない。ノードを並べ替え / 削除しても、残ったノードの折りたたみ状態と名前の下書きが付いて回る(board B-2 と同じ性質を、より深いツリーで)。
-- `codegen` のユニットテスト: 各ノード種 1 つずつ、Transform の入れ子、DAG の共有、循環の検出。
-- `cargo run -p patch` でプレビューが動き、スライダで絵が変わり、`Shader` ノードの式を書き換えると再コンパイルされる(目視)。`trunk serve` でブラウザでも同じ(目視。WebGPU 非対応ブラウザは WebGL fallback で確認する)。
-- gallery に `patch` が載り、`shader` と同居して `callback_resources` が衝突しない。
-- CI(fmt / clippy / test / wasm check / trunk ループ)が緑。
+- kittest: add a node -> wire it -> change a parameter, and the generated WGSL changes as expected (verify as a string). Creating a cycle gives a validation error, and the previous pipeline stays without crashing. Reordering / deleting nodes keeps the collapsed state and name draft attached to the remaining nodes (same property as board B-2, in a deeper tree).
+- `codegen` unit tests: one per node kind, nested Transform, shared DAG, cycle detection.
+- `cargo run -p patch` shows the preview, sliders change the picture, and editing the `Shader` node's expression recompiles (visual check). Same in the browser with `trunk serve` (visual check. For browsers without WebGPU, check with the WebGL fallback).
+- `patch` appears in gallery, and lives with `shader` without `callback_resources` clashing.
+- CI (fmt / clippy / test / wasm check / trunk loop) is green.
 
-## 決めごと(着手時点での前提)
+## Decisions (assumptions at the start)
 
-- **ノードは `fn n<id>(uv: vec2<f32>) -> vec4<f32>` として生成し、`Output` から辿って呼ぶ。** `Transform` は uv を変換してから入力を呼ぶので、共通部分式の巻き上げはしない(uv が違えば結果も違う)。同じ出力が 2 箇所へ繋がっていれば 2 回呼ばれるが、正しさは変わらない。
-- **パラメータは uniform、トポロジは再コンパイル。** uniform は `array<vec4<f32>, 32>` の固定長で、各ノードのスロット番号を codegen 時に焼き込む。ブレンド方法や Grayscale の方法は式が変わるので再コンパイル側。
-- pipeline は `Options::setup` では作らない(グラフが決まっていない)。`setup` は空の `PatchResources` を置くだけにし、`CallbackTrait::prepare` で WGSL のハッシュが変わった時に作り直す。作れなかった場合は直前の pipeline で描き続ける。
-- WGSL の検証は pipeline を作る前に naga で行い、通った時だけ `create_shader_module` する。ユーザーが書いた式でパイプライン生成が落ちるのを避け、エラーは UI の文言にする。
-- ノードの配置は絶対座標で、`ItemStyle` に `position: absolute` は無い。パッチキャンバスは escape hatch(ノードごとに `max_rect` を与えた子 `Ui` を作り、その中で `Cx` を作り直す)で置き、**ノードの内部は普通に `<View>` で組む**(ARCHITECTURE 3.1 と `escape-hatch` example の形)。`ItemStyle` への絶対配置の追加は、書けないと分かった時に初めて検討する。
-- ズームは入れるなら `Context::set_transform_layer` に寄せる。手が要るようなら省き、パンだけにする。
-- gallery に載せるので `Panel` / `CentralPanel` を使わず、渡された領域を埋める。`std::time::Instant` は使わない。`use_persisted` のキーは `"patch/..."`。
+- **Generate each node as `fn n<id>(uv: vec2<f32>) -> vec4<f32>`, and call them by walking from `Output`.** `Transform` transforms uv and then calls its input, so we do not hoist common subexpressions (a different uv gives a different result). If the same output connects to two places it is called twice, but correctness does not change.
+- **Parameters are uniforms, topology means recompile.** The uniform is a fixed-length `array<vec4<f32>, 32>`, and each node's slot number is baked in at codegen time. Blend mode and Grayscale mode change the expression, so they are on the recompile side.
+- Do not create the pipeline in `Options::setup` (the graph is not known yet). `setup` only places an empty `PatchResources`, and `CallbackTrait::prepare` rebuilds when the WGSL hash changes. If it cannot be built, keep drawing with the previous pipeline.
+- Validate WGSL with naga before creating the pipeline, and only call `create_shader_module` when it passes. This avoids pipeline creation crashing on user-written expressions, and errors become UI text.
+- Node placement uses absolute coordinates, and `ItemStyle` has no `position: absolute`. The patch canvas uses the escape hatch (create a child `Ui` with `max_rect` per node, and recreate `Cx` inside it), and **the inside of a node is built with `<View>` as usual** (the shape in ARCHITECTURE 3.1 and the `escape-hatch` example). Consider adding absolute positioning to `ItemStyle` only once we find we cannot write it this way.
+- If zoom goes in, lean on `Context::set_transform_layer`. If it needs real work, drop it and keep only pan.
+- Since it goes into gallery, do not use `Panel` / `CentralPanel`; fill the given area. Do not use `std::time::Instant`. `use_persisted` keys are `"patch/..."`.
 
-## 手順
+## Steps
 
-board と 1 つの PR にまとめる。board を終了条件まで仕上げてから patch に入る。`use_dnd` と自作コンポーネントの形は board で確定するので、[plan.md](plan.md) の 5 章はその時点の実物に合わせて更新する。
+Bundle into one PR with board. Finish board to its done criteria before starting patch. The shape of `use_dnd` and the custom components is settled in board, so update section 5 of [plan.md](plan.md) to match the real thing at that point.

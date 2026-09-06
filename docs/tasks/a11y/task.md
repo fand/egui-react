@@ -1,70 +1,70 @@
-# タスク: a11y(web のアクセシビリティ、時期未定)
+# Task: a11y (web accessibility, timing undecided)
 
-## 目的
+## Goal
 
-web(wasm)で動く egui-react アプリを、スクリーンリーダーとキーボード操作の支援技術から使えるようにする。native では egui が AccessKit 経由で OS のアクセシビリティ API にウィジェットツリーを渡しているが、web ではそのツリーが捨てられている。描画は canvas のまま、アクセシビリティツリーだけを DOM に鏡写しにする(Flutter web の semantics 層と同じ方式)。
+Make egui-react apps that run on the web (wasm) usable from assistive technology: screen readers and keyboard navigation. On native, egui passes the widget tree to the OS accessibility API through AccessKit. On the web, that tree is thrown away. Keep drawing on the canvas, and mirror only the accessibility tree into the DOM (the same approach as the semantics layer in Flutter web).
 
-これは egui-react 固有の問題ではなく egui / AccessKit / eframe の未完成部分なので、成果は上流(AccessKit の web adapter、eframe の差し込み口)に出すことを前提にする。egui-react は「上流に入れば自動で恩恵を受ける」位置にあり、本タスクは試作でその形を確かめ、上流に持ち込むところまでを範囲とする。
+This is not an egui-react specific problem. It is an unfinished part of egui / AccessKit / eframe. So we assume the result goes upstream (an AccessKit web adapter, a hook in eframe). egui-react is in a position where "once it lands upstream, we get the benefit for free". This task builds a prototype to confirm the shape, and takes it as far as bringing it upstream.
 
-## 背景(2026-09 時点、egui / eframe 0.36)
+## Background (as of 2026-09, egui / eframe 0.36)
 
-| 層 | 状態 |
+| Layer | State |
 |---|---|
-| egui → AccessKit ツリー | ある。`Context::enable_accesskit()` を呼ぶと毎フレーム `PlatformOutput.accesskit_update: Option<TreeUpdate>` に差分が出る。web でも動く |
-| AccessKit → OS(native) | ある。macOS / Windows / Unix(AT-SPI)/ Android。egui-winit が `enable_accesskit` を呼び、adapter に渡す |
-| AccessKit → DOM(web) | **リリース版は無い**。crates.io に `accesskit_web` は無く、`web-basics` ブランチに 2024-07 で止まった試作が 1 本あるだけ(plan.md 1.1)|
-| eframe web でツリーを受け取る口 | eframe には**無い**。`eframe/src/web/app_runner.rs` が `accesskit_update: _, // not currently implemented` と捨てており、`App` からは `FullOutput` に触れない。ただし **egui 0.36 の `Plugin::output_hook(&Context, &mut FullOutput)` から拾える**(plan.md 1.2)|
-| web の代替 | `web_screen_reader` feature(既定 on)。`Options.screen_reader = true` のときだけ、起きたイベントの説明文を `speechSynthesis` で読み上げる。ツリーもフォーカス移動も無い |
-| ツリーの保持 | `accesskit_consumer` が `TreeUpdate` を適用して歩ける(`Tree::new` / `update_and_process_changes`、`Node::role() / label() / value() / bounding_box() / is_focused()`)。kittest が同じ経路を使っている |
-| 逆方向 | 支援技術からの操作は `accesskit::ActionRequest`(Click / Focus / SetValue など)。egui は `Event::AccessKitActionRequest` として受け取って処理する |
+| egui → AccessKit tree | Exists. Call `Context::enable_accesskit()` and every frame a diff comes out in `PlatformOutput.accesskit_update: Option<TreeUpdate>`. Works on the web too |
+| AccessKit → OS (native) | Exists. macOS / Windows / Unix (AT-SPI) / Android. egui-winit calls `enable_accesskit` and hands it to the adapter |
+| AccessKit → DOM (web) | **No released version.** There is no `accesskit_web` on crates.io. There is only one prototype on the `web-basics` branch that stopped in 2024-07 (plan.md 1.1) |
+| A hook in eframe web to receive the tree | eframe has **none**. `eframe/src/web/app_runner.rs` discards it with `accesskit_update: _, // not currently implemented`, and `App` cannot touch `FullOutput`. But **you can pick it up from `Plugin::output_hook(&Context, &mut FullOutput)` in egui 0.36** (plan.md 1.2) |
+| Web fallback | The `web_screen_reader` feature (on by default). Only when `Options.screen_reader = true`, it reads out a description of events that happened via `speechSynthesis`. No tree, no focus movement |
+| Keeping the tree | `accesskit_consumer` can apply a `TreeUpdate` and walk it (`Tree::new` / `update_and_process_changes`, `Node::role() / label() / value() / bounding_box() / is_focused()`). kittest uses the same path |
+| Reverse direction | Actions from assistive technology are `accesskit::ActionRequest` (Click / Focus / SetValue, etc.). egui receives and handles them as `Event::AccessKitActionRequest` |
 
-egui-react の要素は egui の widget をそのまま使っているので、native の対応はそのまま享受している(kittest がラベルで要素を探せているのがその証拠)。
+egui-react elements use egui widgets as-is, so they get the native support for free (kittest finding elements by label is the proof).
 
-## スコープ
+## Scope
 
-### 含む
+### In scope
 
-- **調査**: AccessKit に web adapter の議論 / 実装が無いかの確認(issue、ブランチ、他プロジェクトの試み)。Flutter web の semantics 層の構造(要素の種類、フォーカス同期、イベントの戻し方、既知の弱点)を読む。
-- **試作(egui-react 内で閉じる)**:
-  - eframe を fork するか自前の web ランナーを書き、`accesskit_update` を受け取る。
-  - `TreeUpdate` を `accesskit_consumer` で保持し、canvas の上に透明な DOM 要素(`role` / `aria-label` / `aria-valuenow` / 絶対座標)として並べる。
-  - フォーカスの同期(egui → DOM の `focus()`、DOM → egui の `ActionRequest::Focus`)。
-  - DOM の click / keydown / input を `ActionRequest` に変換して egui に戻す。
-  - 対象ウィジェット: Button / Checkbox / Label / TextEdit / Slider / ComboBox(egui-react-elements の全ウィジェット)。
-  - gallery で VoiceOver(macOS Safari / Chrome)から操作できることを目視。
-- **上流化**: 試作で確かめた形を、AccessKit の web adapter(新 crate)と eframe の差し込み口(`WebOptions` へのコールバック等)として PR に切り出す。
-- **egui-react 側の整備**(上流と独立に今できること):
-  - 要素の `label` を必須に近づける(`Image` の代替テキスト、アイコンだけの `Button` の `aria-label` 相当)。
-  - ARCHITECTURE.md 1 章の非ゴールに「web の a11y は egui / AccessKit の web 対応に依存する」と明記し、README の gallery の説明に一文を足す。
+- **Research**: check whether AccessKit has any discussion / implementation of a web adapter (issues, branches, attempts by other projects). Read the structure of the Flutter web semantics layer (element kinds, focus sync, how events go back, known weak points).
+- **Prototype (closed inside egui-react)**:
+  - Fork eframe or write our own web runner, and receive `accesskit_update`.
+  - Keep the `TreeUpdate` with `accesskit_consumer`, and lay out transparent DOM elements over the canvas (`role` / `aria-label` / `aria-valuenow` / absolute coordinates).
+  - Focus sync (egui → DOM `focus()`, DOM → egui `ActionRequest::Focus`).
+  - Convert DOM click / keydown / input into `ActionRequest` and send it back to egui.
+  - Target widgets: Button / Checkbox / Label / TextEdit / Slider / ComboBox (all widgets in egui-react-elements).
+  - Check by eye that the gallery can be operated from VoiceOver (macOS Safari / Chrome).
+- **Upstreaming**: split the shape confirmed by the prototype into PRs: an AccessKit web adapter (new crate) and a hook in eframe (a callback on `WebOptions`, etc.).
+- **Work on the egui-react side** (what we can do now, independent of upstream):
+  - Make element `label`s close to required (alt text for `Image`, an `aria-label` equivalent for icon-only `Button`s).
+  - State in the non-goals of ARCHITECTURE.md section 1 that "web a11y depends on web support in egui / AccessKit", and add one sentence to the gallery description in the README.
 
-### 含まない
+### Out of scope
 
-- **DOM で描画し直す backend**(egui を web では使わない)。reconciler を持たない設計(ARCHITECTURE 2.1)、ハンドラがその場で `&mut` を借りる設計、生 egui への出口のすべてと衝突する。それをやるなら Dioxus を使う。
-- テキスト選択、ページ内検索、翻訳、SEO。canvas 描画の限界で、Flutter web も解決していない。
-- native 側の改善(egui / AccessKit の範囲)。
-- IME の改善(別問題)。
+- **A backend that redraws in the DOM** (not using egui on the web). It conflicts with everything: the design without a reconciler (ARCHITECTURE 2.1), the design where handlers borrow `&mut` on the spot, and the escape hatch to raw egui. If you want that, use Dioxus.
+- Text selection, find in page, translation, SEO. These are limits of canvas drawing, and Flutter web has not solved them either.
+- Improvements on the native side (the domain of egui / AccessKit).
+- IME improvements (a separate problem).
 
-## 成果物
+## Deliverables
 
-- `docs/tasks/a11y/plan.md`(調査結果を反映した詳細プラン。着手時に書く)。
-- 試作コード(fork した eframe か自前ランナー、adapter の原型)。egui-react の main には入れず、ブランチか別リポジトリに置く。
-- 上流への issue / PR(AccessKit、eframe)。
-- ARCHITECTURE.md / README の一文。
+- `docs/tasks/a11y/plan.md` (a detailed plan that reflects the research results. Written when work starts).
+- Prototype code (a forked eframe or our own runner, and a prototype adapter). Not merged into egui-react main; kept on a branch or in a separate repository.
+- Upstream issues / PRs (AccessKit, eframe).
+- One sentence each in ARCHITECTURE.md / README.
 
-## 終了条件
+## Done criteria
 
-- gallery(web)の counter / todo / form を、VoiceOver でボタン名・チェック状態・テキスト欄の値が読み上げられ、Tab で移動し、Enter / Space で操作できる(目視)。
-- ~~上流に web adapter と eframe の差し込み口の提案が出ている(マージは条件にしない)。~~ 2026-09-05 に取り下げ。上流には出さず、`accesskit-web` と `WebA11y` を egui-react の中で持ち続ける。
-- ARCHITECTURE.md に web の a11y の現状と方針が書かれている。
+- In the gallery (web), counter / todo / form: VoiceOver reads button names, check state, and text field values; Tab moves focus; Enter / Space operates the widget (checked by eye).
+- ~~A proposal for a web adapter and an eframe hook is submitted upstream (merging is not a condition).~~ Withdrawn on 2026-09-05. We do not submit upstream. We keep `accesskit-web` and `WebA11y` inside egui-react.
+- ARCHITECTURE.md describes the current state and policy for web a11y.
 
-## 決めごと(着手時点での前提)
+## Decisions (assumptions at the start)
 
-- 方式は「canvas 描画 + DOM の鏡写し」。描画の置き換えはしない。
-- adapter は egui 非依存(AccessKit の `TreeUpdate` だけを見る)で書き、AccessKit の他の adapter と同じ形にする。egui / egui-react 固有のものは入れない。
-- 試作は egui-react-app の wasm ランナーで閉じて行い、動いたら上流に切り出す。egui-react の main に fork した eframe を依存として入れない。
-- 優先度はフェーズ 8(公開準備)の後。それまでは README に制約を書くだけにする。
+- The approach is "canvas drawing + DOM mirror". We do not replace drawing.
+- Write the adapter independent of egui (it looks only at AccessKit's `TreeUpdate`), in the same shape as the other AccessKit adapters. Nothing specific to egui / egui-react goes in.
+- Do the prototype closed inside the egui-react-app wasm runner. Once it works, split it out upstream. Do not add a forked eframe as a dependency of egui-react main.
+- Priority is after Phase 8 (release prep). Until then, only write the limitation in the README.
 
-## 見積り
+## Estimate
 
-- adapter の試作(Button / Checkbox / Label / TextEdit、フォーカスとクリックの往復): 数百行、数日。
-- 実用(Slider / ComboBox / リスト / live region / スクロール / IME との整合): Flutter web の semantics 層が数千行なのが目安。上流での作業。
+- Adapter prototype (Button / Checkbox / Label / TextEdit, focus and click round trip): a few hundred lines, a few days.
+- Production quality (Slider / ComboBox / lists / live regions / scrolling / consistency with IME): the Flutter web semantics layer is several thousand lines, which is the yardstick. This is upstream work.

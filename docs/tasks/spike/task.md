@@ -1,44 +1,44 @@
-# タスク: spike(PR1 = フェーズ 0 + 1)
+# Task: spike (PR1 = Phase 0 + 1)
 
-## 目的
+## Goal
 
-[docs/ARCHITECTURE.md](../../ARCHITECTURE.md) の設計が Rust の借用規則と egui の実行モデルの上で成立することを、マクロ抜きの手書きコードとテストで確認する。ここで前提が崩れた項目があれば、実装を進める前に ARCHITECTURE.md を修正する。同時に、以降の PR が乗る Cargo workspace と CI を用意する。
+Confirm, with hand-written code and tests and no macros, that the design in [docs/ARCHITECTURE.md](../../ARCHITECTURE.md) holds up on Rust's borrow rules and egui's execution model. If any assumption breaks here, fix ARCHITECTURE.md before moving on with implementation. At the same time, set up the Cargo workspace and CI that later PRs build on.
 
-## スコープ
+## Scope
 
-### 含む
+### In scope
 
-- Cargo workspace(4 クレート + examples)、`rust-toolchain.toml`、CI、LICENSE、README の骨組み。
-- `egui-react` core の最小実装: `Store`、`Cx`、`State`、`Handle`、`use_state`、`use_handle`、`use_effect`、`hook_scope`、Id 衝突検出、sweep、repaint ポリシー。
-- `provide_context` / `use_context` の最小実装(検証項目のために必要な範囲のみ)。
-- マクロが生成するはずのコードを手書きした Counter と Dialog(2 つの callback props、`Handler` trait、`Emitter`)。
-- ARCHITECTURE.md 10 章の検証項目すべてを egui_kittest のテストとして固定する。
-- 目視確認用の eframe 実行例 1 つ。
+- Cargo workspace (4 crates + examples), `rust-toolchain.toml`, CI, LICENSE, README skeleton.
+- Minimal `egui-react` core: `Store`, `Cx`, `State`, `Handle`, `use_state`, `use_handle`, `use_effect`, `hook_scope`, Id collision detection, sweep, repaint policy.
+- Minimal `provide_context` / `use_context` (only what the verification items need).
+- Counter and Dialog, hand-written as the code the macros should generate (2 callback props, `Handler` trait, `Emitter`).
+- Pin down all verification items in ARCHITECTURE.md section 10 as egui_kittest tests.
+- One eframe example for visual checks.
 
-### 含まない
+### Out of scope
 
-- `rsx!` / `#[component]` / `#[hook]` マクロ(フェーズ 3)。`egui-react-macros` は空クレートとして置くだけ。
-- `use_memo` / `use_reducer` / `Dispatch` / `defer` / `update_later` / `use_persisted` / `use_future`(フェーズ 2 以降)。
-- elements(`View` / `Text` / ウィジェットラッパー)とレイアウト属性(フェーズ 4)。egui_taffy は多重パスの検証にのみ使う。
-- 衝突検出の画面オーバーレイ(フェーズ 2)。spike ではストアに記録して `log::warn!` するまで。
-- wasm の実行確認。CI では `cargo check --target wasm32-unknown-unknown` まで。
+- `rsx!` / `#[component]` / `#[hook]` macros (Phase 3). `egui-react-macros` is only placed as an empty crate.
+- `use_memo` / `use_reducer` / `Dispatch` / `defer` / `update_later` / `use_persisted` / `use_future` (Phase 2 and later).
+- elements (`View` / `Text` / widget wrappers) and layout attributes (Phase 4). egui_taffy is used only to verify multi-pass.
+- On-screen overlay for collision detection (Phase 2). In spike, we only record in the store and `log::warn!`.
+- Running on wasm. CI goes as far as `cargo check --target wasm32-unknown-unknown`.
 
-## 成果物
+## Deliverables
 
-- `Cargo.toml`(workspace)、`crates/egui-react`、`crates/egui-react-macros`、`crates/egui-react-elements`、`crates/egui-react-app`、`examples/spike`。
-- `.github/workflows/ci.yml`。
-- `crates/egui-react/tests/` 配下の kittest テスト群(検証項目ごとに 1 ファイル)。
-- ARCHITECTURE.md の更新(前提が崩れた場合のみ)。
+- `Cargo.toml` (workspace), `crates/egui-react`, `crates/egui-react-macros`, `crates/egui-react-elements`, `crates/egui-react-app`, `examples/spike`.
+- `.github/workflows/ci.yml`.
+- kittest tests under `crates/egui-react/tests/` (one file per verification item).
+- Update to ARCHITECTURE.md (only if an assumption broke).
 
-## 終了条件
+## Done criteria
 
-- ARCHITECTURE.md 10 章の検証項目が全て kittest テストで緑。項目とテストの対応は [plan.md](plan.md) の表を参照。
-- `cargo fmt --check`、`cargo clippy --all-targets -- -D warnings`、`cargo test --workspace`、`cargo check -p egui-react --target wasm32-unknown-unknown` が CI で通る。
-- `cargo run -p spike` で Counter と Dialog が動く。
-- 検証中に発覚した設計の修正点が ARCHITECTURE.md に反映されている。修正が無ければ「修正なし」と PR 本文に書く。
+- All verification items in ARCHITECTURE.md section 10 are green as kittest tests. See the table in [plan.md](plan.md) for the mapping from item to test.
+- `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test --workspace`, `cargo check -p egui-react --target wasm32-unknown-unknown` pass in CI.
+- `cargo run -p spike` runs Counter and Dialog.
+- Design fixes found during verification are reflected in ARCHITECTURE.md. If there are none, write "no changes" in the PR body.
 
-## 決めごと(着手時点での前提)
+## Decisions (assumptions at the start)
 
-- ライセンスは `MIT OR Apache-2.0`(egui と同じ)。変更する場合は着手前に指示する。
-- Rust toolchain は stable。`rust-toolchain.toml` の channel は egui_taffy 0.14 の MSRV 以上にする(README では 1.95 と記載)。
-- スロットの安定アドレスには `elsa::FrozenMap` を使う。使いにくければ代替を選んでよいが、`State` の guard が生きている間に別スロットを挿入できることが条件。
+- License is `MIT OR Apache-2.0` (same as egui). If it changes, say so before starting.
+- Rust toolchain is stable. The channel in `rust-toolchain.toml` must be at or above the MSRV of egui_taffy 0.14 (README says 1.95).
+- Use `elsa::FrozenMap` for stable slot addresses. You may pick another option if it is awkward, but it must allow inserting another slot while a `State` guard is alive.

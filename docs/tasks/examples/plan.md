@@ -1,52 +1,52 @@
-# プラン: examples
+# Plan: examples
 
-examples の拡充と、ブラウザで全 example を試せる gallery ページの計画。設計の根拠は [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)。本書は実装手順と確認方法を定める。実装中にここから外れる判断をした場合は本書を更新し、設計上の意味があれば ARCHITECTURE.md も更新する。
+The plan for expanding the examples and for a gallery page where you can try every example in the browser. The design rationale is in [docs/ARCHITECTURE.md](../../ARCHITECTURE.md). This document sets the implementation steps and how to verify them. If a decision during implementation departs from this document, update it, and update ARCHITECTURE.md too if the change matters for the design.
 
-## 0. 全体
+## 0. Overview
 
-狙いは 2 つ。
+Two aims.
 
-1. egui.rs と同じく、live example をブラウザで見られるまとめページ(gallery)を持つ。
-2. gallery で example と実装コードを並べ、生 egui との差を見せる。「同じ UI を生 egui で書いた版」を並べて、状態管理とレイアウトの差をコードと行数で示す。
+1. Like egui.rs, have a summary page (gallery) where you can see live examples in the browser.
+2. In the gallery, show each example next to its source code, and show the difference from plain egui. Put "the same UI written in plain egui" next to it, so the difference in state management and layout shows in code and line counts.
 
-3 PR に分ける。順に積む。
+Split into 3 PRs. Stack them in order.
 
-| PR | 内容 | 触る場所 |
+| PR | Content | Where it touches |
 |---|---|---|
-| A: gallery | example の lib / bin 分割、gallery、生 egui 版(counter / todo / layout)、snapshot 一致テスト、GitHub Pages | `examples/*`、`examples/gallery`、CI、README |
-| B: examples | form / theme / clock / custom-hook / escape-hatch / list-10k / shell / showcase | `examples/*`、gallery への登録 |
-| C: canvas | `egui-react-app` の `wgpu` feature と `Options.setup`、`<Canvas>` 要素、shader example | `egui-react-app`、`egui-react-elements`、`examples/shader`、gallery |
+| A: gallery | Split examples into lib / bin, gallery, plain egui versions (counter / todo / layout), snapshot match tests, GitHub Pages | `examples/*`, `examples/gallery`, CI, README |
+| B: examples | form / theme / clock / custom-hook / escape-hatch / list-10k / shell / showcase | `examples/*`, registration in the gallery |
+| C: canvas | The `wgpu` feature and `Options.setup` on `egui-react-app`, the `<Canvas>` element, the shader example | `egui-react-app`, `egui-react-elements`, `examples/shader`, gallery |
 
-core(`egui-react`、macros)には手を入れない。入れる必要が出たら 7 章に書く。
+Do not touch core (`egui-react`, macros). If it turns out to be needed, write it in section 7.
 
-追加する依存(`[workspace.dependencies]` に pin する)。
+Dependencies to add (pin them in `[workspace.dependencies]`).
 
-| crate | 用途 | 場所 |
+| crate | Purpose | Where |
 |---|---|---|
-| egui_extras(feature なし) | gallery のコード表示(`syntax_highlighting::code_view_ui`)。`syntect` は wasm が太るので使わない。組み込みの簡易ハイライタで足りる | examples/gallery |
-| eframe `wgpu` feature | paint callback | egui-react-app(feature `wgpu` の裏) |
-| wgpu(eframe 経由、web は `webgl` feature も) | shader example の pipeline | examples/shader |
-| bytemuck | uniform の `Pod` | examples/shader |
+| egui_extras (no features) | Code view in the gallery (`syntax_highlighting::code_view_ui`). Do not use `syntect`; it makes the wasm large. The built-in simple highlighter is enough | examples/gallery |
+| eframe `wgpu` feature | Paint callback | egui-react-app (behind feature `wgpu`) |
+| wgpu (through eframe, plus the `webgl` feature on web) | The shader example's pipeline | examples/shader |
+| bytemuck | `Pod` for the uniform | examples/shader |
 
 ## 1. PR A: gallery
 
-### 1.1 example の lib / bin 分割
+### 1.1 Splitting examples into lib / bin
 
-各 example を `lib.rs` + 薄い `main.rs` にする。gallery が lib を依存に取り、`cargo run -p counter` は今まで通り動く。
+Make each example `lib.rs` + a thin `main.rs`. The gallery takes the lib as a dependency, and `cargo run -p counter` keeps working as before.
 
 ```
 examples/counter/
-  Cargo.toml        [lib] + [[bin]] counter (+ [[bin]] counter-plain、1.3)
-  src/lib.rs        pub fn App(cx) と pub const META
+  Cargo.toml        [lib] + [[bin]] counter (+ [[bin]] counter-plain, 1.3)
+  src/lib.rs        pub fn App(cx) and pub const META
   src/main.rs       run(Options{..}, |_cx| rsx!{ <App/> })
-  src/plain.rs      生 egui 版(1.3)
+  src/plain.rs      plain egui version (1.3)
   index.html / Trunk.toml
 ```
 
 ```rust
 pub struct Meta {
     pub name: &'static str,     // "counter"
-    pub summary: &'static str,  // 1 行
+    pub summary: &'static str,  // one line
     pub hooks: &'static [&'static str],
     pub elements: &'static [&'static str],
     pub source: &'static str,   // include_str!("lib.rs")
@@ -54,154 +54,154 @@ pub struct Meta {
 }
 ```
 
-gallery に埋め込む example の約束。
+Rules for examples embedded in the gallery.
 
-- `App` は渡された領域を埋めるコンポーネント。ルートは `<View grow={1.0}>`。
-- `Panel` / `CentralPanel` を使わない(親から場所を切り取るため。ARCHITECTURE 6 章)。
-- `use_persisted` のキーは `"<example>/<key>"`。gallery では全 example が同じ `STORAGE_KEY` を共有するので衝突を避ける。todo の `"todos"` は `"todo/todos"` に改める。
-- `std::time::Instant` を使わない(wasm で panic)。時刻は `ui.input(|i| i.time)`。
+- `App` is a component that fills the area it is given. The root is `<View grow={1.0}>`.
+- Do not use `Panel` / `CentralPanel` (they cut space out of the parent. ARCHITECTURE section 6).
+- `use_persisted` keys are `"<example>/<key>"`. In the gallery, all examples share the same `STORAGE_KEY`, so avoid collisions. Change todo's `"todos"` to `"todo/todos"`.
+- Do not use `std::time::Instant` (panics on wasm). Get time from `ui.input(|i| i.time)`.
 
-fetch は既に main にある(PR3)。同じ形に分割して gallery に載せる。
+fetch is already on main (PR3). Split it the same way and put it in the gallery.
 
-### 1.2 gallery(`examples/gallery`)
+### 1.2 gallery (`examples/gallery`)
 
-1 つの wasm。example ごとに別ページを出すより、一覧 / 実行 / コードを 1 バイナリに置いた方が切替が速く、Pages へのデプロイも 1 つで済む。
+One wasm. Putting list / run / code in one binary switches faster than a separate page per example, and deploying to Pages needs only one build.
 
-画面は flex 3 列。`Panel` は使わない(埋め込む example と同じ制約に gallery 自身も従う)。
+The screen is three flex columns. No `Panel` (the gallery follows the same rule as the examples it embeds).
 
 ```
 +----------+----------------------+-------------------------+
-| 一覧     | 実行中の example     | コード                  |
+| list     | running example      | code                    |
 | (w=200)  | (grow)               | (w=480, ScrollArea)     |
-| タグで   | <View key={name}     | [egui-react | 生 egui]  |
-| 絞り込み |   grow={1.0}>        | N 行 / M 行             |
-|          |   {App}              | GitHub へのリンク       |
+| filter   | <View key={name}     | [egui-react | plain]    |
+| by tag   |   grow={1.0}>        | N lines / M lines       |
+|          |   {App}              | link to GitHub          |
 +----------+----------------------+-------------------------+
 ```
 
-- 一覧は `Meta` から作る。hooks / elements のタグをクリックすると絞り込む。
-- `key={name}` で example を切り替えると前の example の hook は sweep で消える。状態のリセットはこれで足りる。
-- コードは `egui_extras::syntax_highlighting::code_view_ui`。`cx.leaf_fill` で描く。
-- 生 egui 版がある example はトグルを出し、コードも切り替える。両方の行数を並べる(`source.lines().count()`)。
-- wasm では `location.hash` で直リンク(`#todo`)。native は第 1 引数。`web_sys` の `Location` feature を gallery の wasm 依存に足す。
-- 生 egui 版の実行は `use_state(cx, PlainState::default)` に状態を持ち、`cx.leaf_fill(.., |ui| plain::ui(ui, &mut *state))` で描く。
+- Build the list from `Meta`. Clicking a hooks / elements tag filters the list.
+- Switching the example through `key={name}` lets the sweep drop the previous example's hooks. That is enough to reset state.
+- Code uses `egui_extras::syntax_highlighting::code_view_ui`. Draw it with `cx.leaf_fill`.
+- Examples that have a plain egui version show a toggle, and the code switches too. Show both line counts side by side (`source.lines().count()`).
+- On wasm, direct links via `location.hash` (`#todo`). On native, the first argument. Add the `Location` feature of `web_sys` to the gallery's wasm dependencies.
+- Running the plain egui version keeps state in `use_state(cx, PlainState::default)` and draws it with `cx.leaf_fill(.., |ui| plain::ui(ui, &mut *state))`.
 
-gallery の `Options.setup` は PR C で shader の pipeline 登録に使う(3.2)。
+The gallery's `Options.setup` is used in PR C to register the shader pipeline (3.2).
 
-### 1.3 生 egui 版(`plain.rs`)
+### 1.3 Plain egui versions (`plain.rs`)
 
-egui-react 版と同じ見た目を egui だけで書く。差が出る場所を残す。
+Write the same look as the egui-react version in egui alone. Leave the places where the difference shows.
 
-| example | 生 egui 版で見える差 |
+| example | Difference visible in the plain egui version |
 |---|---|
-| counter | ほぼ同じ。`ui.horizontal` + `ui.centered_and_justified` で中央寄せに手間がかかる程度。「小さい例では差が小さい」と正直に見せる |
-| todo | 状態の持ち方(`struct` の field を全部 `&mut self` で回す)、削除をループ中でできないので index を持ち越す、永続化を `eframe::App::save` に手で書く |
-| layout | `justify="space-between"` / `grow` / `wrap` / grid を `ui.horizontal` + `allocate_space` + 手計算で書く。ここが最も長くなる |
+| counter | Almost the same. Centering with `ui.horizontal` + `ui.centered_and_justified` takes a bit of work, and that is all. Show honestly that "the difference is small in a small example" |
+| todo | How state is held (pass every field of a `struct` around as `&mut self`), deletion cannot happen inside the loop so the index is carried over, persistence is written by hand in `eframe::App::save` |
+| layout | Write `justify="space-between"` / `grow` / `wrap` / grid with `ui.horizontal` + `allocate_space` + manual math. This one becomes the longest |
 
-形は `pub struct PlainState` + `pub fn ui(ui: &mut egui::Ui, state: &mut PlainState)`。単体でも動くよう `[[bin]] counter-plain` を足し、`eframe::App` を実装した薄い `main` から呼ぶ。trunk は egui-react 版だけ。
+The shape is `pub struct PlainState` + `pub fn ui(ui: &mut egui::Ui, state: &mut PlainState)`. So it also runs standalone, add `[[bin]] counter-plain` and call it from a thin `main` that implements `eframe::App`. trunk builds only the egui-react version.
 
-### 1.4 テスト
+### 1.4 Tests
 
-example が lib になるので kittest を置ける。`cargo test --workspace` で回る。
+Since examples become libs, kittest can live there. They run under `cargo test --workspace`.
 
-| # | 場所 | 内容 |
+| # | Where | Content |
 |---|---|---|
-| A-1 | `examples/counter/tests/` | `+` を押すと表示が 1 増える。生 egui 版でも同じ操作で同じ結果 |
-| A-2 | `examples/todo/tests/` | 追加 / toggle / 削除 / clear done。生 egui 版も同じ |
-| A-3 | `examples/gallery/tests/snapshots.rs`(feature `snapshot`) | 各 example の egui-react 版と生 egui 版を同じサイズで描き、**同じ snapshot 名**で比較する。1 つの画像に両方が一致すれば「見た目が同じでコードだけ違う」が主張になる |
-| A-4 | `examples/gallery/tests/` | 一覧から example を選ぶと `App` が出る。タグの絞り込み |
+| A-1 | `examples/counter/tests/` | Pressing `+` increases the display by 1. The plain egui version gives the same result for the same action |
+| A-2 | `examples/todo/tests/` | Add / toggle / delete / clear done. Same for the plain egui version |
+| A-3 | `examples/gallery/tests/snapshots.rs` (feature `snapshot`) | Draw the egui-react version and the plain egui version of each example at the same size, and compare them under the **same snapshot name**. If both match one image, that backs the claim "same look, only the code differs" |
+| A-4 | `examples/gallery/tests/` | Choosing an example from the list shows its `App`. Tag filtering |
 
-snapshot は既存と同じく CI では回さない(README の Testing 節に gallery を足す)。
+Snapshots do not run in CI, same as the existing ones (add the gallery to the Testing section of the README).
 
-### 1.5 CI と Pages
+### 1.5 CI and Pages
 
-- `ci.yml`: trunk build を counter / fetch の 2 ステップから、`examples/*/Trunk.toml` のループに変える。gallery も含む。
-- `pages.yml`(新規): `main` への push で `trunk build --release --public-url /egui-react/ --config examples/gallery/Trunk.toml`、`actions/upload-pages-artifact` + `actions/deploy-pages`。URL は `https://fand.github.io/egui-react/`。
-- リポジトリ設定で Pages の source を GitHub Actions にする(手作業、1 回)。
+- `ci.yml`: change the trunk build from the 2 steps for counter / fetch into a loop over `examples/*/Trunk.toml`. Includes the gallery.
+- `pages.yml` (new): on push to `main`, run `trunk build --release --public-url /egui-react/ --config examples/gallery/Trunk.toml`, then `actions/upload-pages-artifact` + `actions/deploy-pages`. The URL is `https://fand.github.io/egui-react/`.
+- In the repository settings, set the Pages source to GitHub Actions (by hand, once).
 
 ### 1.6 README
 
-examples 節を表にする。
+Turn the examples section into a table.
 
-| 列 | 内容 |
+| Column | Content |
 |---|---|
 | name | `counter` |
-| what | `Meta.summary` と同じ 1 行 |
-| live | gallery の直リンク(`#counter`) |
+| what | The same one line as `Meta.summary` |
+| live | Direct link into the gallery (`#counter`) |
 | source | `examples/counter/src/lib.rs` |
 
-先頭に gallery のリンクとスクリーンショット 1 枚(gallery で todo を開いた状態。snapshot の画像は小さすぎるので手で撮る)。
+At the top, a link to the gallery and one screenshot (the gallery with todo open. The snapshot images are too small, so take it by hand).
 
-## 2. PR B: 追加 examples
+## 2. PR B: More examples
 
-今ある機能で書けるもの。優先順。
+Things that can be written with the features we have now. In priority order.
 
-| example | 見せるもの | 使う hooks / elements | 生 egui 版 | gallery |
+| example | What it shows | hooks / elements used | Plain egui version | gallery |
 |---|---|---|---|---|
-| `form` | 設定フォーム。全ウィジェットの `bind`。`on_change` は変更ログ(`Vec<String>`)に積む。`use_persisted("form/settings")` で保存、reset ボタン | `use_state` `use_persisted`、`TextEdit` `Checkbox` `Slider` `ComboBox` `Collapsing` | あり | ○ |
-| `theme` | `provide_context` で dark / light と言語(ja / en)を配る。3 段ネストした子が `use_context` で読む。切替は `ctx.set_visuals` | `use_handle` `provide_context` `use_context` | なし | ○ |
-| `clock` | 時計 + ストップウォッチ。`ctx.request_repaint_after(1s)` で秒更新、動作中は毎フレーム。ラップ一覧を `for` + `key`。子を toggle で出し入れし、`use_effect` の cleanup がログに出る | `use_state` `use_effect`(cleanup) `use_memo` | なし | ○ |
-| `custom-hook` | `#[hook]` で `use_debounce(cx, value, ms)`、`use_previous(cx, value)`、`use_window_size(cx)` を切り出し、2 つのコンポーネントから使う | `#[hook]` `use_state` `use_effect` | なし | ○ |
-| `escape-hatch` | rsx の中で生 egui を使う 3 通り。`view(\|cx\| ..)` 閉包、`cx.leaf` で未ラップの widget(`ProgressBar` / `Hyperlink` / `color_edit_button`)、`cx.ui().painter()` で線を引く。`Cx::new` で入れ子の `Ui` に hook を置く(`nested_ui` テストの形) | `view` `Cx::leaf` `Cx::ui` | なし | ○ |
-| `list-10k` | `for` + `key` で 10k 行を `ScrollArea` に出す。件数 Slider、絞り込み TextEdit、FPS(`stable_dt`)表示。immediate mode + taffy のコストを正直に見せる。生 egui 版は `ScrollArea::show_rows` で仮想化した版で、差を数字で出す | `use_state` `use_memo`、`ScrollArea` | あり | ○ |
-| `shell` | IDE 風の枠。左 `Panel` にツリー(`Collapsing`)、中央エディタ(`TextEdit multiline`)、下 `Panel` にログ、浮いた `Window` にインスペクタ | `Panel` `Window` `Collapsing` `Frame` | なし | ×(単体 bin。`Panel` を使うため。5 章) |
-| `showcase` | 小さい実アプリ: ノート。左に一覧 + 検索、右に `TextEdit multiline`。`use_reducer` で追加 / 削除 / 更新、`use_persisted` で保存、`use_memo` で検索結果、`Window` で設定、`use_context` でテーマ。全部を組み合わせた「使える」例 | ほぼ全部 | なし | ○ |
+| `form` | A settings form. `bind` on every widget. `on_change` pushes to a change log (`Vec<String>`). Saved with `use_persisted("form/settings")`, reset button | `use_state` `use_persisted`, `TextEdit` `Checkbox` `Slider` `ComboBox` `Collapsing` | Yes | Yes |
+| `theme` | `provide_context` hands out dark / light and a language (ja / en). Children nested 3 levels down read it with `use_context`. Switching uses `ctx.set_visuals` | `use_handle` `provide_context` `use_context` | No | Yes |
+| `clock` | Clock + stopwatch. `ctx.request_repaint_after(1s)` updates every second, every frame while running. Lap list with `for` + `key`. A child is toggled in and out, and the `use_effect` cleanup shows in the log | `use_state` `use_effect` (cleanup) `use_memo` | No | Yes |
+| `custom-hook` | Extract `use_debounce(cx, value, ms)`, `use_previous(cx, value)`, `use_window_size(cx)` with `#[hook]`, and use them from 2 components | `#[hook]` `use_state` `use_effect` | No | Yes |
+| `escape-hatch` | Three ways to use plain egui inside rsx. A `view(\|cx\| ..)` closure, unwrapped widgets via `cx.leaf` (`ProgressBar` / `Hyperlink` / `color_edit_button`), drawing lines with `cx.ui().painter()`. Put hooks in a nested `Ui` with `Cx::new` (the shape of the `nested_ui` test) | `view` `Cx::leaf` `Cx::ui` | No | Yes |
+| `list-10k` | Show 10k rows in a `ScrollArea` with `for` + `key`. Count Slider, filter TextEdit, FPS (`stable_dt`) display. Show the cost of immediate mode + taffy honestly. The plain egui version is virtualized with `ScrollArea::show_rows`, so the difference shows in numbers | `use_state` `use_memo`, `ScrollArea` | Yes | Yes |
+| `shell` | An IDE-like frame. A tree (`Collapsing`) in the left `Panel`, an editor (`TextEdit multiline`) in the center, a log in the bottom `Panel`, an inspector in a floating `Window` | `Panel` `Window` `Collapsing` `Frame` | No | No (standalone bin, because it uses `Panel`. Section 5) |
+| `showcase` | A small real app: notes. A list + search on the left, `TextEdit multiline` on the right. Add / delete / update with `use_reducer`, save with `use_persisted`, search results with `use_memo`, settings in a `Window`, theme via `use_context`. A "usable" example that combines everything | Almost all | No | Yes |
 
-各 example に kittest を 1 ファイル置く(主要操作 1〜3 本)。生 egui 版がある form / list-10k は A-3 の snapshot 一致に加える(list-10k は件数を 100 に固定して撮る)。
+Put one kittest file in each example (1 to 3 main actions). Add form / list-10k, which have plain egui versions, to the A-3 snapshot match (take list-10k with the count fixed at 100).
 
-`examples/template`(新規アプリの雛形)はフェーズ 8(公開準備)に送る。
+`examples/template` (a starter for a new app) goes to Phase 8 (release prep).
 
-## 3. PR C: canvas(wgpu)
+## 3. PR C: canvas (wgpu)
 
-**PR C は [docs/tasks/canvas/](../canvas/task.md) に切り出した。** 以下は切り出し時点の記録として残す。
+**PR C has been split out to [docs/tasks/canvas/](../canvas/task.md).** What follows stays as the record from the time of the split.
 
-コンポーネントの中で wgpu の shader アニメーションを描く。core は無変更で済む。ランナー、elements、example の 3 段。
+Draw a wgpu shader animation inside a component. Core stays unchanged. Three layers: runner, elements, example.
 
-### 3.1 `egui-react-app` の `wgpu` feature
+### 3.1 The `wgpu` feature of `egui-react-app`
 
-- eframe は default(glow)のまま。`egui-react-app` に feature `wgpu = ["eframe/wgpu"]` を足す。
-- `wgpu` feature が on のとき `Options::default()` の `native.renderer` を `eframe::Renderer::Wgpu` にする。glow は残す(両方コンパイルされる。feature は workspace で unify されるので `--workspace` では全 example が wgpu で動く。害はない)。
-- wasm: WebGPU 非対応ブラウザのため `wgpu` の `webgl` feature を on にする。`trunk build` で確認。
-- `Cargo.toml` の「`wgpu` は意図的に外す」は kittest の話で、headless テストには影響しない。
+- eframe stays at default (glow). Add feature `wgpu = ["eframe/wgpu"]` to `egui-react-app`.
+- When the `wgpu` feature is on, `Options::default()` sets `native.renderer` to `eframe::Renderer::Wgpu`. glow stays (both get compiled. Features unify across the workspace, so with `--workspace` every example runs on wgpu. No harm).
+- wasm: turn on the `webgl` feature of `wgpu` for browsers without WebGPU. Check with `trunk build`.
+- The note "`wgpu` is left out on purpose" in `Cargo.toml` is about kittest and does not affect headless tests.
 
 ### 3.2 `Options.setup`
 
 ```rust
 pub struct Options {
     ..
-    /// eframe が起動した直後に 1 回呼ぶ。wgpu の pipeline を作って
-    /// `render_state.renderer.write().callback_resources` に置く場所。
+    /// Called once right after eframe starts. The place to build the wgpu
+    /// pipeline and put it in `render_state.renderer.write().callback_resources`.
     pub setup: Option<Box<dyn FnOnce(&eframe::CreationContext<'_>)>>,
 }
 ```
 
-`ReactApp::new` の先頭で呼ぶ。egui 公式 demo(`custom3d_wgpu`)と同じ形。`use_context` で `RenderState` を配る案は slot を作る手間に対して得るものが少ないので採らない。hook にも context にも wgpu の型は出ない。
+Call it at the top of `ReactApp::new`. Same shape as the official egui demo (`custom3d_wgpu`). The idea of handing out `RenderState` via `use_context` is not taken: it gains little for the work of creating a slot. No wgpu types appear in hooks or context.
 
-### 3.3 `<Canvas>` 要素(`egui-react-elements`)
+### 3.3 The `<Canvas>` element (`egui-react-elements`)
 
 ```rust
 #[component]
 pub fn Canvas(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
-    #[prop(default)] sense: egui::Sense,          // 既定 hover
+    #[prop(default)] sense: egui::Sense,          // default hover
     on_paint: impl FnOnce(&mut egui::Ui, egui::Rect),
     #[event] on_drag: egui::Vec2,                  // drag_delta
-    #[event] on_hover: egui::Pos2,                 // 矩形内のポインタ位置
+    #[event] on_hover: egui::Pos2,                 // pointer position inside the rect
 )
 ```
 
-- `cx.leaf_fill(&style, |ui| { let (rect, resp) = ui.allocate_exact_size(ui.available_size(), sense); on_paint(ui, rect); resp })`。`leaf_fill` なので大きさは taffy が決める(`w h` / `grow`)。
-- elements は egui-wgpu に依存しない。callback を `ui.painter().add(..)` するのは example 側。`egui::Painter` で線を引くだけの用途(plot 等)にも使える。
-- テスト(kittest、headless): `on_paint` に渡る `rect` が `w h` で指定した大きさになる。`grow={1.0}` で残り全部になる。drag で `on_drag` が発火する。
+- `cx.leaf_fill(&style, |ui| { let (rect, resp) = ui.allocate_exact_size(ui.available_size(), sense); on_paint(ui, rect); resp })`. Because it is `leaf_fill`, taffy decides the size (`w h` / `grow`).
+- elements does not depend on egui-wgpu. Adding the callback with `ui.painter().add(..)` is the example's job. It also works for drawing lines with `egui::Painter` alone (plots, etc.).
+- Tests (kittest, headless): the `rect` passed to `on_paint` has the size given by `w h`. With `grow={1.0}` it takes all remaining space. Dragging fires `on_drag`.
 
 ### 3.4 `examples/shader`
 
 ```
 examples/shader/src/
-  lib.rs      App: <Canvas grow> + Slider(speed) + Checkbox(pause) + ComboBox(shader 選択)
-  gpu.rs      setup(cc)、ShaderResources、ShaderCallback: CallbackTrait
-  shader.wgsl fullscreen triangle + fragment。uniform { time, resolution, mouse, speed }
+  lib.rs      App: <Canvas grow> + Slider(speed) + Checkbox(pause) + ComboBox(shader choice)
+  gpu.rs      setup(cc), ShaderResources, ShaderCallback: CallbackTrait
+  shader.wgsl fullscreen triangle + fragment. uniform { time, resolution, mouse, speed }
   main.rs     run(Options { setup: Some(Box::new(gpu::setup)), .. }, ..)
 ```
 
@@ -236,268 +236,268 @@ fn App(cx: &mut Cx) {
 }
 ```
 
-- `ShaderCallback::prepare` で `queue.write_buffer` に uniform を書き、`paint` で 3 頂点を描く。viewport / scissor は egui-wgpu が `rect` に合わせる。
-- `state` がそのまま uniform に流れるのが見せ所。`Slider` の `bind` → `speed` → uniform。
-- `ShaderResources` は `callback_resources`(`TypeMap`)に型で置く。gallery で他の example と同居しても型が違えば衝突しない。
-- 多重パス: 捨てられたパスの shape は egui が破棄する。callback が二重に走ることはない。
-- gallery は `egui-react-app/wgpu` を on にし、`setup` で `shader::gpu::setup(cc)` を呼ぶ。
-- 生 egui 版は作らない(wgpu 部分は同じコードになり、差が出ない)。
+- `ShaderCallback::prepare` writes the uniform with `queue.write_buffer`, and `paint` draws 3 vertices. egui-wgpu sets the viewport / scissor to `rect`.
+- The point to show is that `state` flows straight into the uniform. `Slider`'s `bind` -> `speed` -> uniform.
+- `ShaderResources` is stored by type in `callback_resources` (`TypeMap`). Even when it lives next to other examples in the gallery, different types do not collide.
+- Multiple passes: egui discards the shapes of a dropped pass. The callback never runs twice.
+- The gallery turns on `egui-react-app/wgpu` and calls `shader::gpu::setup(cc)` in `setup`.
+- No plain egui version (the wgpu part would be the same code, so there is no difference).
 
-### 3.5 テスト
+### 3.5 Tests
 
-| # | 内容 |
+| # | Content |
 |---|---|
-| C-1 | `Canvas` の `rect` と `on_drag`(3.3、headless) |
-| C-2 | shader: Slider を動かすと `speed` が変わり、pause で `request_repaint` が止まる(`harness` の repaint 要求を見る) |
-| C-3 | snapshot(feature `snapshot`、ローカルのみ): time を 0 に固定して 1 枚。kittest の `WgpuTestRenderer` の render state に `setup` 相当を流し込めるかは 5 章 |
+| C-1 | `Canvas`'s `rect` and `on_drag` (3.3, headless) |
+| C-2 | shader: moving the Slider changes `speed`, and pause stops `request_repaint` (look at the `harness`'s repaint requests) |
+| C-3 | Snapshot (feature `snapshot`, local only): one image with time fixed at 0. Whether the equivalent of `setup` can be fed into the render state of kittest's `WgpuTestRenderer` is in section 5 |
 
-## 4. 手順
+## 4. Steps
 
-1. PR A-1: example 4 つ(counter / todo / layout / fetch)を lib / bin に分割、`Meta` を足す。`use_persisted` のキーに prefix。`cargo run` と `trunk serve` を目視。コミット。
-2. PR A-2: gallery(一覧 / 実行 / コード、hash 直リンク)。3 例で動くこと。コミット。
-3. PR A-3: 生 egui 版 3 つ + トグル + 行数。A-1〜A-4 のテスト。snapshot をローカルで生成してコミット。コミット。
-4. PR A-4: CI の trunk ループ、`pages.yml`、README。Pages の source 設定(手作業)。デプロイ後に URL を目視。PR。
-5. PR B: form → theme → clock → custom-hook → escape-hatch → list-10k → shell → showcase。1 example 1 コミット。それぞれ gallery に登録し、テストを足す。README の表に追加。PR。
-6. PR C-1: `wgpu` feature + `Options.setup`。counter を `--features wgpu` で動かして wgpu で描かれることを確認(`RUST_LOG=eframe=info`)。コミット。
-7. PR C-2: `<Canvas>` + C-1 のテスト。コミット。
-8. PR C-3: shader example(native → trunk)。gallery に登録。C-2 / C-3。ARCHITECTURE.md 反映。PR。
-9. 各 PR の本文に、変更点、ARCHITECTURE.md の変更、落としたものを書く。`plan-overview.md` の PR 表に A / B / C を足す(PR4 mobile の前後は問わない)。
+1. PR A-1: split the 4 examples (counter / todo / layout / fetch) into lib / bin, add `Meta`. Prefix the `use_persisted` keys. Check `cargo run` and `trunk serve` by eye. Commit.
+2. PR A-2: gallery (list / run / code, hash direct links). Must work with 3 examples. Commit.
+3. PR A-3: 3 plain egui versions + toggle + line counts. Tests A-1 to A-4. Generate snapshots locally and commit them. Commit.
+4. PR A-4: the CI trunk loop, `pages.yml`, README. Set the Pages source (by hand). Check the URL by eye after deploy. PR.
+5. PR B: form -> theme -> clock -> custom-hook -> escape-hatch -> list-10k -> shell -> showcase. One commit per example. Register each in the gallery and add tests. Add to the README table. PR.
+6. PR C-1: `wgpu` feature + `Options.setup`. Run counter with `--features wgpu` and confirm it draws with wgpu (`RUST_LOG=eframe=info`). Commit.
+7. PR C-2: `<Canvas>` + the C-1 test. Commit.
+8. PR C-3: the shader example (native -> trunk). Register in the gallery. C-2 / C-3. Update ARCHITECTURE.md. PR.
+9. In each PR body, write the changes, the ARCHITECTURE.md changes, and what was dropped. Add A / B / C to the PR table in `plan-overview.md` (before or after PR4 mobile, either is fine).
 
-## 5. 判断が必要になりそうな点
+## 5. Points that may need a decision
 
-- **egui-react 版と生 egui 版の snapshot 一致(A-3)**。taffy と egui の丸めで 1px ずれる可能性がある。ずれたら閾値(`SnapshotOptions::threshold`)を緩めるか、諦めて別名の snapshot にして「並べて見せる」だけにする。layout で最初に試す。
-- **`impl FnOnce` の prop(3.3)**。`#[component]` の typed-builder が閉包 prop で推論に失敗する場合は `&mut dyn FnMut(&mut egui::Ui, egui::Rect)` に落とす。
-- **`Panel` を gallery に埋め込めるか(shell)**。`SidePanel::show_inside` は子 `Ui` から場所を切り取るので、gallery の中央列の中でなら見た目は成立するかもしれない。試して成立すれば shell も gallery に載せる。
-- **kittest で shader の snapshot(C-3)**。`WgpuTestRenderer` の `RenderState` に `callback_resources` を差し込む口が無ければ、C-3 は落として目視だけにする。
-- **wgpu を唯一の backend にするか**。gallery が wgpu を要求するなら glow を残す理由は薄い。ただし今は eframe default のままにして、フェーズ 8 で決める。
-- **list-10k の `ScrollArea`**。要素は `show_rows` の仮想化を持たない。生 egui 版との差が大きすぎるなら `ScrollArea` に `rows={(count, row_h)}` prop を足す(elements の変更。別 PR でもよい)。
-- **gallery の wasm サイズ**。全 example + wgpu で数 MB になる。`wasm-opt = "z"` は既に入れている。重ければ shader だけ別 wasm に分ける。
-- **fetch の gallery 上での動作**。Pages は https なので `http://` の URL は混在コンテンツで落ちる。既定 URL を https にしてある(現状 `https://httpbin.org/get`)。CORS で落ちる URL は注記する。
+- **Snapshot match between the egui-react version and the plain egui version (A-3)**. Rounding in taffy and egui may shift by 1px. If it shifts, loosen the threshold (`SnapshotOptions::threshold`), or give up and use a different snapshot name and only "show them side by side". Try layout first.
+- **`impl FnOnce` props (3.3)**. If the typed-builder of `#[component]` fails inference on a closure prop, fall back to `&mut dyn FnMut(&mut egui::Ui, egui::Rect)`.
+- **Can `Panel` be embedded in the gallery (shell)?** `SidePanel::show_inside` cuts space out of the child `Ui`, so inside the gallery's center column the look might hold. Try it, and if it works put shell in the gallery too.
+- **Shader snapshot with kittest (C-3)**. If `WgpuTestRenderer`'s `RenderState` has no way to inject `callback_resources`, drop C-3 and check by eye only.
+- **Should wgpu be the only backend?** If the gallery requires wgpu, there is little reason to keep glow. But for now stay on the eframe default and decide in Phase 8.
+- **`ScrollArea` in list-10k**. The element has no `show_rows` virtualization. If the gap to the plain egui version is too large, add a `rows={(count, row_h)}` prop to `ScrollArea` (a change in elements. A separate PR is fine).
+- **The gallery's wasm size**. All examples + wgpu comes to several MB. `wasm-opt = "z"` is already in. If it is too heavy, split only shader into a separate wasm.
+- **fetch running in the gallery**. Pages is https, so `http://` URLs fail as mixed content. The default URL is already https (currently `https://httpbin.org/get`). Note URLs that fail on CORS.
 
-## 6. ARCHITECTURE.md に反映する変更
+## 6. Changes to reflect in ARCHITECTURE.md
 
-- 6 章 要素一覧: コンテナに `Canvas`(`sense` / `on_paint`, `on_drag` / `on_hover`)。「egui-wgpu に依存しない。callback は利用側が `painter().add`」。
-- 7 章 クレート構成: `egui-react-app` の feature `wgpu`、`Options.setup`。examples は lib + bin で gallery が lib を依存に取る。
-- 8 章 プラットフォーム: wgpu backend、web は WebGL fallback。Pages の URL。
-- 9 章 テスト: examples に kittest。egui-react 版と生 egui 版の snapshot 一致(gallery の `snapshot` feature)。
-- 11 章 決定ログ: gallery を 1 wasm にした理由、生 egui 版を並べる理由、`Options.setup` を `use_context` より優先した理由、`Canvas` が egui-wgpu を持たない理由。
+- Section 6, element list: add `Canvas` to containers (`sense` / `on_paint`, `on_drag` / `on_hover`). "Does not depend on egui-wgpu. The caller adds the callback with `painter().add`".
+- Section 7, crate layout: the `wgpu` feature of `egui-react-app`, `Options.setup`. Examples are lib + bin and the gallery takes the lib as a dependency.
+- Section 8, platforms: wgpu backend, WebGL fallback on web. The Pages URL.
+- Section 9, tests: kittest in examples. Snapshot match between the egui-react version and the plain egui version (the gallery's `snapshot` feature).
+- Section 11, decision log: why the gallery is one wasm, why the plain egui version sits next to it, why `Options.setup` was chosen over `use_context`, why `Canvas` does not have egui-wgpu.
 
-## 7. 実装で判明した差分
+## 7. Differences found during implementation
 
-### 手順 1(A-1)
+### Step 1 (A-1)
 
-- `Meta` は `examples/meta`(package `example-meta`)に置き、全 example と gallery が共有する。`[workspace.dependencies]` に登録。`Copy` を derive(全 field が `&'static`)。
-- layout のルートは `<ScrollArea grow>` だったので `<View direction="column" grow={1.0}>` で包んだ(1.1 の約束に合わせる)。
-- `META` は各 `lib.rs` の `use` の直後に置いた。`source` はファイル全体なので gallery のコード欄の先頭に出る。邪魔なら末尾に移す。
-- todo の永続化キーは `"todo/todos"`。旧キー `"todos"` の移行は書かない。
-- README の「`examples/counter` verbatim」の一文が lib / bin 分割で古くなった。手順 4(README)で直す。
-- 目視(`cargo run` / `trunk serve`)は subagent が headless のため未実施。手順 4 のデプロイ確認と合わせて行う。
+- `Meta` lives in `examples/meta` (package `example-meta`), shared by every example and the gallery. Registered in `[workspace.dependencies]`. Derives `Copy` (every field is `&'static`).
+- layout's root was `<ScrollArea grow>`, so it was wrapped in `<View direction="column" grow={1.0}>` (to follow the rule in 1.1).
+- `META` was placed right after the `use` lines in each `lib.rs`. `source` is the whole file, so it shows at the top of the gallery's code column. Move it to the end if it gets in the way.
+- todo's persistence key is `"todo/todos"`. No migration from the old key `"todos"`.
+- The sentence "`examples/counter` verbatim" in the README went stale with the lib / bin split. Fix it in step 4 (README).
+- Checking by eye (`cargo run` / `trunk serve`) was not done because the subagent is headless. Do it together with the deploy check in step 4.
 
-### 手順 2.5(バグ修正)
+### Step 2.5 (bug fixes)
 
-gallery を目視して見つかった、core 以外の 2 つのバグ。計画には無かったので 1 コミット足す。`crates/egui-react`(core)とマクロは無変更。
+Two bugs outside core, found by looking at the gallery. They were not in the plan, so one commit is added. `crates/egui-react` (core) and the macros are unchanged.
 
-**バグ 1: taffy leaf の中でテキストが 1 文字ずつ縦に並ぶ。** `cargo run -p counter` の `reset` ボタンが 15x77(1 文字幅)になっていた。原因は egui_taffy の測り方で、leaf は「前回描いた時の `ui.min_size()`」だけを覚え(`ui_finite` が `min_size` と `max_size` に同じ値を入れる)、taffy にはそれを min-content としても max-content としても返す。最初の描画は幅 0 の `Ui` で起きるので、wrap する widget はそこで 1 文字幅を報告し、ノードはその細さで固定される。`grow` や `w` を持つ leaf は taffy が幅を決めるので無事で、そのため gallery の一覧ボタン(`grow={1.0}`)だけは正常に見えていた。修正は `egui-react-elements` で、テキストを持つ leaf を全て `TextWrapMode::Extend` にする(`Text` が既にやっていたこと)。`Button` / `Label` は widget の `wrap_mode` builder、`Checkbox` / `Slider` / `ComboBox` / `Collapsing` のヘッダは leaf の `Ui` の `style.wrap_mode`。`Label` には `wrap` 属性を足して egui 既定の折り返しに戻せるようにした(`Text` と同じ)。テストは `crates/egui-react-elements/tests/widgets.rs` の `a_label_in_a_taffy_leaf_stays_on_one_line`。
+**Bug 1: text inside a taffy leaf stacks vertically one character at a time.** The `reset` button of `cargo run -p counter` came out 15x77 (one character wide). The cause is how egui_taffy measures: a leaf remembers only "the `ui.min_size()` from the last draw" (`ui_finite` puts the same value into `min_size` and `max_size`) and reports it to taffy as both min-content and max-content. The first draw happens in a `Ui` of width 0, so a wrapping widget reports one character's width there, and the node gets pinned at that width. Leaves with `grow` or `w` are fine because taffy decides their width, which is why only the gallery's list buttons (`grow={1.0}`) looked right. The fix is in `egui-react-elements`: set every leaf that holds text to `TextWrapMode::Extend` (which `Text` already did). `Button` / `Label` use the widget's `wrap_mode` builder; `Checkbox` / `Slider` / `ComboBox` / the `Collapsing` header use `style.wrap_mode` on the leaf's `Ui`. `Label` got a `wrap` attribute so you can go back to egui's default wrapping (same as `Text`). The test is `a_label_in_a_taffy_leaf_stays_on_one_line` in `crates/egui-react-elements/tests/widgets.rs`.
 
-**バグ 2: ルートコンテナが窓を埋めない。** counter の `0` とボタンが中央ではなく左上に出ていた(gallery の中に埋めた同じ `App` は中央に出る)。`reserve_available_space()` は egui_taffy に available space を伝えて `ui.set_min_size` するだけで、ルートノード自身の `size` は `auto` のままなので、taffy はそのノードを中身の大きさにする。`<View grow={1.0} justify="center">` は広がる余地も中央寄せする先も持たない。修正は `egui-react-app` で、ルートの `ItemStyle` に `w("100%")` / `min_h("100%")` を入れる(縦だけ最小値にしたのは、中身が窓より高い時にそのまま伸ばすため)。ついでにルートの id とスタイルを `root_id()` / `root_style()` として公開し、テストが同じ枠を再現できるようにした(`crates/egui-react-app/tests/root_fill.rs`)。
+**Bug 2: the root container does not fill the window.** counter's `0` and buttons showed at the top left instead of the center (the same `App` embedded in the gallery shows in the center). `reserve_available_space()` only tells egui_taffy the available space and calls `ui.set_min_size`; the root node's own `size` stays `auto`, so taffy sizes that node to its content. `<View grow={1.0} justify="center">` then has no room to grow into and nothing to center against. The fix is in `egui-react-app`: put `w("100%")` / `min_h("100%")` into the root `ItemStyle` (only a minimum on the vertical axis, so content taller than the window can extend as is). While there, the root id and style were exposed as `root_id()` / `root_style()` so tests can rebuild the same frame (`crates/egui-react-app/tests/root_fill.rs`).
 
-- gallery の `Chip` は残す。`Button` は直ったが、タグは押された状態を見せたいのに elements にトグル要素が無く、`egui::SelectableLabel` には `wrap_mode` builder も無いため。leaf を手で書く側も `style.wrap_mode` を置く必要がある、という例になっている。
-- elements にトグル要素(`SelectableLabel` / `RadioButton`)が無いのは今後の候補。
+- The gallery's `Chip` stays. `Button` is fixed, but tags want to show a pressed state, elements has no toggle element, and `egui::SelectableLabel` has no `wrap_mode` builder. It serves as an example that hand-written leaves also need to set `style.wrap_mode`.
+- A toggle element in elements (`SelectableLabel` / `RadioButton`) is a future candidate.
 
-### 手順 2.6(gallery の 3 列がはみ出す)
+### Step 2.6 (the gallery's 3 columns overflow)
 
-バグ 2 と同じ原因の続き。gallery で layout を選ぶとコード列が画面外に出て、layout の `w="100%"` 行が 1600px 幅になっていた。
+A continuation of the same cause as bug 2. Choosing layout in the gallery pushed the code column off screen, and layout's `w="100%"` row was 1600px wide.
 
-原因は「ルートノードが中身のサイズになる」ことのもう半分である。`min_w("100%")` はルートに下限を与えるだけで `size` は `auto` のままなので、中身が窓より広ければルートはそれに合わせて広がる。overflow が発生しないということは `flex-shrink` の出番も無いということで、真ん中の列は `grow={1.0} min_w={0.0}` を持っているのに縮まず、行がそのまま窓の外へ伸びる。`min_w` が taffy に届いていない訳ではない(`Length::Px(0.0)` → `Dimension::length(0.0)`)。
+The cause is the other half of "the root node takes the size of its content". `min_w("100%")` only gives the root a lower bound; `size` stays `auto`, so if the content is wider than the window the root grows to match. No overflow means `flex-shrink` never gets a turn, so the middle column does not shrink even though it has `grow={1.0} min_w={0.0}`, and the row runs straight out of the window. It is not that `min_w` fails to reach taffy (`Length::Px(0.0)` -> `Dimension::length(0.0)`).
 
-修正はルートの `w` を `100%` にして幅を確定させること(`egui-react-app`)。窓の幅は固定なので確定値でよく、それより広いものは横 `ScrollArea` に入れる話になる。縦は `min_h("100%")` のまま。core(`layout.rs`)に `overflow` を足す必要は無かった。
+The fix is to set the root's `w` to `100%` so the width is fixed (`egui-react-app`). The window width is fixed, so a fixed value is right; anything wider belongs in a horizontal `ScrollArea`. Vertical stays `min_h("100%")`. There was no need to add `overflow` to core (`layout.rs`).
 
-- gallery 側はコード列を `shrink={0.0}` にした。幅を確定させただけだと、layout のように中身が大きい example の時にコード列が `min_w` の 360 まで削られる。`shrink={0}` なら overflow は全部真ん中の列(`min_w={0}`)へ行き、列幅が example によって動かない。
-- gallery のテストはランナーと同じ枠を使うよう `egui_react_app::root_id()` / `root_style()` に切り替えた。自前で組んだ枠のままでは、まさにこのバグをテストが見逃す。
+- On the gallery side, the code column got `shrink={0.0}`. With only the width fixed, an example with large content like layout squeezes the code column down to its `min_w` of 360. With `shrink={0}` all overflow goes to the middle column (`min_w={0}`), and the column width does not move between examples.
+- The gallery tests were switched to `egui_react_app::root_id()` / `root_style()` so they use the same frame as the runner. With a hand-built frame the tests would miss exactly this bug.
 
-### 手順 3(A-3)
+### Step 3 (A-3)
 
-生 egui 版 3 つ、gallery のトグル、A-1〜A-3 のテスト。
+3 plain egui versions, the gallery toggle, tests A-1 to A-3.
 
-行数(`source.lines().count()`、META と doc コメントを含むファイル全体)。
+Line counts (`source.lines().count()`, the whole file including META and doc comments).
 
-| example | egui-react | 生 egui |
+| example | egui-react | plain egui |
 |---|---|---|
 | counter | 32 | 84 |
 | todo | 143 | 143 |
 | layout | 144 | 278 |
 
-todo が同数になるのは、`lib.rs` 側に `META`(12 行)と reducer の定義が入っているため。中身の差(`Msg` + `use_reducer` 対「index を持ち越して後で適用」、`use_persisted` 対 `save`/`load`)は 1.3 のとおり出ている。counter と layout は素直に 2.6 倍と 1.9 倍。
+todo comes out equal because `lib.rs` holds `META` (12 lines) and the reducer definition. The difference in substance (`Msg` + `use_reducer` versus "carry the index over and apply later", `use_persisted` versus `save`/`load`) shows as in 1.3. counter and layout are a plain 2.6x and 1.9x.
 
-**snapshot の結果。** 3 つとも同じ名前で一致した。
+**Snapshot results.** All three matched under the same name.
 
-| example | 実測の差 | 許容 |
+| example | Measured difference | Allowed |
 |---|---|---|
 | counter | 124 px | 200 |
 | todo | 26 px | 100 |
 | layout | 750 px | 1000 |
 
-`threshold` は egui_kittest の既定(0.6)のまま。許容は `max_failed_pixels`(ピクセル数)にした。ずれているのは文字の縁だけで、taffy は float で位置を決め egui は point 単位に丸めるので、共有する辺が 0.数 pt ずれるとラスタライズが 1px 動く。本物のレイアウト崩れは桁が違う(下記の背景バグは 11 万 px、`nested` の作り間違いは 5001 px)ので、この許容でも落ちる時は落ちる。
+`threshold` stays at egui_kittest's default (0.6). The allowance uses `max_failed_pixels` (a pixel count). Only glyph edges differ: taffy places things in floats and egui rounds to points, so when a shared edge shifts by a fraction of a point the rasterization moves 1px. A real layout break is orders of magnitude larger (the background bug below was 110k px, the wrong `nested` construction was 5001 px), so with this allowance a broken test still fails.
 
-ここに来るまでに直したもの。
+Things fixed on the way here.
 
-1. **背景の塗り面積**(4 万〜11 万 px)。生 egui 側の harness で `ui.set_min_size(ui.available_size())` を呼び、egui-react のルートと同じだけ場所を取らせる。
-2. **`<TextEdit grow={1.0}>` がノードを埋めない**(todo、773 px)。taffy はノードを 321pt に広げるのに、`egui::TextEdit` は自分の既定 `desired_width`(280pt)で描くので中に 40pt の空きが残っていた。`egui-react-elements` の `TextEdit` を直した: `desired_width` が明示されておらず、かつ `cx.in_taffy()` なら `ui.available_width()` を渡す。Ui モードでは埋める相手が無いので egui の既定のまま。テストは `a_growing_text_edit_fills_its_node`(`w={400}` のノードで 400pt になる)。todo の差は 773 → 26 px になった。
-   - `Slider` と `ComboBox` は同じ問題を持つ(400pt のノードで両方 100pt のまま。`spacing.slider_width` / `spacing.combo_width` が既定)。`Button` も伸びない(28pt)。今回は直さず記録だけ。`Slider` には幅の builder が無いので `ui.spacing_mut().slider_width` を触ることになり、`ComboBox` は `.width()` がある。
-3. **生 egui 版の `nested` が 1 行になっていた**。`ui.allocate_ui` は親の左右レイアウトを引き継ぐので、列ごとに `allocate_ui_with_layout(.., Layout::top_down(..))` を使い、`ui.set_min_width` で幅を主張する(そうしないと確保が中身の幅まで縮む)。
-4. **`grow` の計算を flexbox と同じにした**。最初は幅全体を 1:2 に割っていたが、`grow` が配るのは *余り* である。各列の中身の幅を測り、残りを 1:2 で足す。これで `right top` の x が 218.0 対 217.9 になった。
-5. **justify セクションの縦の間隔**。`gap={4}` + 各行の `mb={4}` は「行間 8、最後の行のあとに 4」。egui は `add_space` の周りにも item_spacing を足すので、`item_spacing.y = 0` にして 8 と 4 を明示した。これで全セクションの y が完全に一致した。
+1. **The painted background area** (40k to 110k px). In the plain egui harness, call `ui.set_min_size(ui.available_size())` so it takes as much room as the egui-react root.
+2. **`<TextEdit grow={1.0}>` does not fill its node** (todo, 773 px). taffy widens the node to 321pt, but `egui::TextEdit` draws at its own default `desired_width` (280pt), leaving a 40pt gap inside. Fixed `TextEdit` in `egui-react-elements`: when `desired_width` is not set and `cx.in_taffy()`, pass `ui.available_width()`. In Ui mode there is nothing to fill, so egui's default stays. The test is `a_growing_text_edit_fills_its_node` (a `w={400}` node gives 400pt). todo's difference went from 773 to 26 px.
+   - `Slider` and `ComboBox` have the same problem (both stay at 100pt in a 400pt node. `spacing.slider_width` / `spacing.combo_width` are the defaults). `Button` does not stretch either (28pt). Not fixed this time, only recorded. `Slider` has no width builder, so it would mean touching `ui.spacing_mut().slider_width`; `ComboBox` has `.width()`.
+3. **The plain egui `nested` came out as one row**. `ui.allocate_ui` inherits the parent's horizontal layout, so use `allocate_ui_with_layout(.., Layout::top_down(..))` per column and claim the width with `ui.set_min_width` (otherwise the allocation shrinks to the content width).
+4. **Made the `grow` math match flexbox**. At first the whole width was split 1:2, but `grow` distributes the *remainder*. Measure each column's content width and add the rest at 1:2. That brought the x of `right top` to 218.0 versus 217.9.
+5. **Vertical spacing in the justify section**. `gap={4}` + `mb={4}` on each row means "8 between rows, 4 after the last row". egui also adds item_spacing around `add_space`, so set `item_spacing.y = 0` and write 8 and 4 explicitly. Then the y of every section matched exactly.
 
-`crates/egui-react-elements/tests/snapshots/` の 2 枚を撮り直した。`row.png` は手順 2.5 の wrap 修正のあと撮り直されておらず、`right` が 1 文字ずつ縦に並んだ**バグのままの絵**が commit されていた(snapshot は feature の裏なので、あの手順では回っていなかった)。`widgets.png` は上の `TextEdit` 修正でフィールドが広がったぶん。**feature 付きのテストは、その feature が触る変更のたびに手で回す必要がある。**
+The 2 images in `crates/egui-react-elements/tests/snapshots/` were retaken. `row.png` had not been retaken after the wrap fix in step 2.5, and the **still-buggy picture** with `right` stacked one character per line was committed (snapshots sit behind a feature, so they did not run in that step). `widgets.png` changed by the amount the field widened from the `TextEdit` fix above. **Tests behind a feature must be run by hand on every change that touches what that feature covers.**
 
-snapshot の生成は egui-react 側を先に撮る(`UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_react`)。同名の 2 テストを同時に update すると同じファイルを取り合う。
+Generate snapshots by taking the egui-react side first (`UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_react`). Updating both same-named tests at once makes them fight over the same file.
 
-todo の絵は空リストでは何も言えないので、撮る前に両方を同じ手順で動かす(`milk` / `eggs` を入れて 1 つ done にする)。`done (1)` は両方とも既定の閉じた状態。
+An empty list says nothing in the todo picture, so before taking it, drive both through the same steps (add `milk` / `eggs` and mark one done). `done (1)` is in the default collapsed state on both.
 
-**その他の判断。**
+**Other decisions.**
 
-- gallery の生 egui 版は `use_state(cx, PlainState::default)` + `cx.leaf_fill(.., |ui| plain::ui(ui, state.bind()))`。`&mut *state` だと毎フレーム dirty になって repaint を要求し続け、kittest の `run()` が `max_steps` で落ちる。`bind()` は bind 付きウィジェットと同じ理由でここでも正しい。
-- トグルはコード列に置き、両方の行数をその下に並べる(`"32 lines"` と `"84 lines plain"`)。example を選び直すと egui-react 版に戻る。
-- `PlainState` は example ごとに違う型なので、`Running` と同じく `match` で分岐する(マクロ 1 つで 3 つ生成)。
-- todo の永続化は `serde_json` で JSON を作る `save()` / `load()` にし、eframe の `Storage` は `plain_main.rs` が触る。`plain.rs` を egui + serde だけに保つため。
-- layout の生 egui 版の最後のセクション(`Grid` / `Vertical`)は両方ほぼ同じ長さになる。egui 自身のコンテナを両側で使っているので当然で、これも正直に見せる。
+- The gallery's plain egui version uses `use_state(cx, PlainState::default)` + `cx.leaf_fill(.., |ui| plain::ui(ui, state.bind()))`. With `&mut *state` it goes dirty every frame and keeps requesting repaints, and kittest's `run()` fails on `max_steps`. `bind()` is right here for the same reason it is right for bind widgets.
+- The toggle sits in the code column, with both line counts under it (`"32 lines"` and `"84 lines plain"`). Choosing an example again goes back to the egui-react version.
+- `PlainState` is a different type per example, so branch with `match` like `Running` (one macro generates all 3).
+- todo's persistence became `save()` / `load()` that build JSON with `serde_json`, and `plain_main.rs` touches eframe's `Storage`. This keeps `plain.rs` to egui + serde only.
+- The last section of the plain egui layout (`Grid` / `Vertical`) comes out about the same length on both sides. That is expected because both sides use egui's own containers, and it is shown honestly too.
 
-### 手順 4(A-4)
+### Step 4 (A-4)
 
-CI、Pages、README。
+CI, Pages, README.
 
-- `ci.yml`: counter / fetch の 2 ステップを `for config in examples/*/Trunk.toml` のループ 1 つにした。glob は 5 つ(counter / fetch / gallery / layout / todo)に当たる。`examples/meta` は Trunk.toml を持たないので入らない。Actions の `run:` は既定で `bash -e` なので、ループ中の失敗はその場で止まる(ローカルで確認済み)。`--config` を渡す理由のコメントと fetch のコメントはループの上にまとめた。末尾の snapshot に関するコメントに gallery の分を足した。
-- `pages.yml`(新規): `main` への push と `workflow_dispatch`。build ジョブが `trunk build --release --public-url /egui-react/ --config examples/gallery/Trunk.toml` して `upload-pages-artifact@v3` に `examples/gallery/dist` を渡し、deploy ジョブが `deploy-pages@v4`。`pages: write` / `id-token: write` は deploy ジョブだけに付け、トップレベルは `contents: read`。`concurrency: pages` は `cancel-in-progress: false`(公開されるのはビルドが完走したコミットであってほしいため)。
-  - `dist = "dist"` は Trunk.toml からの相対なので、出力は `examples/gallery/dist` で正しい。ローカルで確認。
-  - `--public-url` は生成される `index.html` の `<link href>` を `/egui-react/gallery-….js` に書き換えるだけである。`#todo` の直リンクは wasm の中で `location.hash` を読むので、`--public-url` とは無関係。両方ローカルで確認した。
-  - 依存の apt install は ci.yml と同じものを入れた。wasm だけのビルドには要らないはずだが、deploy で確かめる話ではない。
-  - **手作業が 1 回だけ残る**: リポジトリの Settings → Pages → Source を "GitHub Actions" にする。pages.yml の先頭コメントにも書いた。
-- `README.md`: 「`examples/counter` verbatim」を直した(手順 1 で挙げた宿題)。スニペットは lib.rs のコンポーネントと main.rs の `run(..)` を合わせたものだと明記し、中身は現在のファイルから写した。Examples 節を表(name / what / live / source / plain egui)にして gallery へリンクし、`cargo run -p <name>`、`--bin <name>-plain`、`trunk serve`、`cargo run -p gallery <name>` の走らせ方を並べた。Testing 節に `cargo test -p gallery --features snapshot` と、同名比較を先に egui-react 側で撮る手順を足した。行数は README には書いていない(手順 3 のとおり todo が同数で、説明抜きでは誤解を招くため)。
-- スクリーンショットは未挿入。`<!-- TODO: gallery screenshot -->` を置いてある。
+- `ci.yml`: the 2 steps for counter / fetch became one loop, `for config in examples/*/Trunk.toml`. The glob matches 5 (counter / fetch / gallery / layout / todo). `examples/meta` has no Trunk.toml, so it is not included. Actions' `run:` uses `bash -e` by default, so a failure inside the loop stops right there (checked locally). The comment on why `--config` is passed and the fetch comment were gathered above the loop. The gallery was added to the snapshot comment at the end.
+- `pages.yml` (new): on push to `main` and `workflow_dispatch`. The build job runs `trunk build --release --public-url /egui-react/ --config examples/gallery/Trunk.toml`, hands `examples/gallery/dist` to `upload-pages-artifact@v3`, and the deploy job runs `deploy-pages@v4`. `pages: write` / `id-token: write` are set only on the deploy job; the top level is `contents: read`. `concurrency: pages` uses `cancel-in-progress: false` (what gets published should be a commit whose build ran to the end).
+  - `dist = "dist"` is relative to Trunk.toml, so the output at `examples/gallery/dist` is correct. Checked locally.
+  - `--public-url` only rewrites the `<link href>` in the generated `index.html` to `/egui-react/gallery-….js`. The `#todo` direct link reads `location.hash` inside the wasm, so it has nothing to do with `--public-url`. Both checked locally.
+  - The apt install of dependencies is the same as in ci.yml. A wasm-only build should not need it, but the deploy is not the place to find out.
+  - **One manual step remains**: in the repository's Settings -> Pages -> Source, choose "GitHub Actions". This is also written in the comment at the top of pages.yml.
+- `README.md`: fixed "`examples/counter` verbatim" (the homework from step 1). Stated clearly that the snippet combines the component from lib.rs and the `run(..)` from main.rs, and copied the content from the current files. Turned the Examples section into a table (name / what / live / source / plain egui) linking to the gallery, and listed how to run: `cargo run -p <name>`, `--bin <name>-plain`, `trunk serve`, `cargo run -p gallery <name>`. Added `cargo test -p gallery --features snapshot` to the Testing section, with the step of taking the egui-react side first for same-name comparisons. Line counts are not in the README (as in step 3, todo is equal, which misleads without explanation).
+- The screenshot is not inserted yet. A `<!-- TODO: gallery screenshot -->` marker is in place.
 
-## 8. PR B の記録
+## 8. PR B record
 
-### 手順 5-1: form
+### Step 5-1: form
 
-設定フォーム。`Settings`(name / notify / autosave / volume / theme)を `use_persisted(cx, "form/settings", ..)` に置き、`TextEdit` `Checkbox` ×2 `Slider` `ComboBox` を全部 `bind` で繋ぐ。`on_change` は `use_state` の `Vec<String>` にログを積み、`Collapsing` で出す(直近 8 行、新しい順)。reset ボタンで既定値に戻す。要約行(`"anon, dark, volume 50"`)を出しているのでテストが読める。
+A settings form. `Settings` (name / notify / autosave / volume / theme) lives in `use_persisted(cx, "form/settings", ..)`, and `TextEdit`, `Checkbox` x2, `Slider`, `ComboBox` are all wired with `bind`. `on_change` pushes a log into a `use_state` `Vec<String>`, shown in a `Collapsing` (last 8 lines, newest first). The reset button restores the defaults. A summary line (`"anon, dark, volume 50"`) is shown so tests can read it.
 
-- **`on_change` が新しい値を読めない件**。`bind` の要素は widget が state の `&mut` を握っているので、同じ要素のハンドラから同じ state は触れない(6 章の約束)。だから log に積むのは widget が payload で渡せるものだけになる: `Checkbox` は新しい `bool`、`ComboBox` は新しい index、`TextEdit` と `Slider` は `()` なので「name edited」「volume changed」としか書けない。これは制約であって不便でもあるが、`bind` の意味がそのまま出ている場所なので、そのまま見せてコメントに書いた。
-- **`Slider` / `ComboBox` の幅は直さなかった**。手順 3 で見つけた「grow のノードでも 100pt のまま」は残っている。ただし設定フォームでは、ラベルの隣にウィジェットが自然な幅で並ぶのが普通で、横いっぱいに伸びた ComboBox はむしろ変である。だから form は `grow` を使わず、ラベル列に幅(90pt)を与えて揃える形にした。伸ばしたい example(list-10k あたり)が出てきたら、その時に `TextEdit` と同じやり方で直す。
-- **snapshot は完全一致**(diff 0 px、許容も 0)。counter / todo / layout と違って 1px も違わない。egui-react 側は `<Field>` がラベルに `w={90}` を与える行、生 egui 側は `egui::Grid::new(..).min_col_width(90)`。どちらも「ラベル列を作る」ことを 1 行で言っている。
-  - 最初は 503 px ずれた。生 egui 側で `ui.add_sized([200, interact_size.y], TextEdit)` と高さを固定していたためで、`TextEdit::singleline(..).desired_width(200.0)` にして egui に高さを決めさせたら 0 になった。
-- 行数は **egui-react 158 / 生 egui 123 で、egui-react の方が長い**。理由は 2 つあり、どちらも正直に見せる価値がある。(a) `Settings` と `THEMES` と `META` は `lib.rs` にあり、`plain.rs` は `use crate::Settings` で貰っている。共有する型のぶんだけ `lib.rs` が重い。(b) egui の `Grid` はラベル列の整列をやってくれるので、`<Field>` コンポーネントを書く egui-react 側の方が手数が多い。**フォームは egui が元々得意な領域で、ここで egui-react が勝つ話にはならない。** 差が出るのは state の持ち方(1 つの struct を `&mut` で回す)、ログを「行を描く前に集めておく」必要があること、永続化を手で書くことの 3 点で、それは 1.3 の todo と同じ種類の差である。
-- gallery 一覧では counter / todo の次(form / layout / fetch の前)に置いた。
+- **`on_change` cannot read the new value**. A `bind` element's widget holds the `&mut` of the state, so a handler on the same element cannot touch the same state (the rule in section 6). So the log can only hold what the widget passes as payload: `Checkbox` gives the new `bool`, `ComboBox` the new index, `TextEdit` and `Slider` give `()`, so they can only say "name edited" and "volume changed". This is a constraint and also an inconvenience, but it is where the meaning of `bind` shows plainly, so it is shown as is and noted in a comment.
+- **The width of `Slider` / `ComboBox` was not fixed**. The "stays at 100pt even in a grow node" from step 3 remains. But in a settings form it is normal for a widget to sit next to its label at a natural width, and a ComboBox stretched across the row would look odd. So form does not use `grow`; it gives the label column a width (90pt) to line things up. When an example that wants stretching comes along (list-10k or so), fix it then the same way as `TextEdit`.
+- **The snapshot matches exactly** (diff 0 px, allowance also 0). Unlike counter / todo / layout, not a single pixel differs. On the egui-react side it is the line where `<Field>` gives the label `w={90}`; on the plain egui side it is `egui::Grid::new(..).min_col_width(90)`. Both say "make a label column" in one line.
+  - At first it was off by 503 px. The plain egui side fixed the height with `ui.add_sized([200, interact_size.y], TextEdit)`; switching to `TextEdit::singleline(..).desired_width(200.0)` and letting egui choose the height brought it to 0.
+- Line counts are **egui-react 158 / plain egui 123, so egui-react is longer**. Two reasons, both worth showing honestly. (a) `Settings`, `THEMES`, and `META` live in `lib.rs`, and `plain.rs` gets them with `use crate::Settings`. `lib.rs` carries the weight of the shared types. (b) egui's `Grid` aligns the label column for you, so the egui-react side, which writes a `<Field>` component, has more to do. **Forms are an area where egui is already strong, and egui-react does not win here.** The differences are in how state is held (one struct passed around as `&mut`), the need to "collect the log before drawing the rows", and writing persistence by hand. Those are the same kind of difference as todo in 1.3.
+- In the gallery list it sits after counter / todo (before form / layout / fetch).
 
-### 手順 5-2: theme
+### Step 5-2: theme
 
-`provide_context` / `use_context`。`Themed` が `Theme { dark }` と `Locale` を `use_handle` で持って children に配り、`Page` → `Card` → `Greeting` / `ThemedButton` / `Swatch` の 3 段下で `use_context` が読む。間の `Page` と `Card` は props をひとつも取らない。provider の直下の `Toggles` は `use_context` で読んだ `Handle` に `set` して書き戻す(React の `useTheme()` が値と setter を返すのと同じ形)。`Themed` の外に置いた `Orphan` は `use_context` が `None` になり「outside: no theme provided」と出す。
+`provide_context` / `use_context`. `Themed` holds `Theme { dark }` and `Locale` in `use_handle` and hands them to children; `use_context` reads them 3 levels down in `Page` -> `Card` -> `Greeting` / `ThemedButton` / `Swatch`. `Page` and `Card` in between take no props at all. `Toggles`, right under the provider, calls `set` on the `Handle` it read with `use_context` to write back (the same shape as React's `useTheme()` returning a value and a setter). `Orphan`, placed outside `Themed`, gets `None` from `use_context` and shows "outside: no theme provided".
 
-- **`<Provide value={handle}>` は書けない**。これが今回いちばんの発見。`provide_context` が取る `Handle<'s, T>` はストアを借りているが、`props_builder` はコンポーネントに `for<'a, 's, 'u> Fn(&'a mut Cx<'s, 'u>, P)` を要求するので props の型は `'s` を名乗れない。実際に書くと `implementation of Fn is not general enough` で落ちる(elements に置いて確認し、消した)。同じ理由で `view(|cx| provide_context(cx, handle, ..))` も通らない(`View::show` も `'s` について higher-ranked で、外側の `Handle` と繋がらない)。
-  - 書ける形は「値を自分で作って自分で配る provider コンポーネント」。handle を内側の `cx` から作れば `'s` が一致するので、`#[component(shares_ui)] fn Themed(cx, children: impl View)` はそのまま通る。React でも provider が state を持つのが普通なので、実用上の不自由は無い。ARCHITECTURE 6 章に書いた。core を触れば直せる話ではあるが、今回は触らない。
-- **言語は ja / en ではなく en / fr にした**。egui の同梱フォントは Hack / Ubuntu-Light / NotoEmoji / emoji-icon-font で、CJK のグリフが無い(`epaint_default_fonts` の中身を確認した)。日本語を出すと豆腐になる。フォントを読み込む話は別の example の仕事なので、ラテン文字 2 つに替えた。plan 2 章からの意図的な逸脱。
-- **`ctx.set_visuals` は gallery 全体を塗り替える**。`set_visuals` は `egui::Context` 単位で、Context は 1 つしか無いため。plan 1.1 の埋め込みルールには反しないが(`Panel` でも `Instant` でもない)、gallery で theme を開いて light にすると gallery も light になる。egui の API がそうなっているだけなので、隠さずコメントに書いて受け入れた。
-- snapshot は生 egui 版が無いので 1 枚だけ。`single!` マクロを `same!` の隣に足した(既定の dark 状態で撮る)。
-- gallery 一覧では form の次、layout の前。
+- **`<Provide value={handle}>` cannot be written**. This is the main finding this time. The `Handle<'s, T>` that `provide_context` takes borrows the store, but `props_builder` requires the component to be `for<'a, 's, 'u> Fn(&'a mut Cx<'s, 'u>, P)`, so the props type cannot name `'s`. Writing it fails with `implementation of Fn is not general enough` (checked by putting it in elements, then removed). For the same reason `view(|cx| provide_context(cx, handle, ..))` does not compile either (`View::show` is also higher-ranked over `'s` and cannot connect to the outer `Handle`).
+  - The form that works is "a provider component that creates the value itself and hands it out itself". If the handle is created from the inner `cx`, `'s` matches, so `#[component(shares_ui)] fn Themed(cx, children: impl View)` compiles as is. In React too, the provider usually owns the state, so in practice there is no loss. Written in ARCHITECTURE section 6. It could be fixed by touching core, but not this time.
+- **The languages are en / fr, not ja / en**. egui's bundled fonts are Hack / Ubuntu-Light / NotoEmoji / emoji-icon-font, with no CJK glyphs (checked the contents of `epaint_default_fonts`). Japanese would render as tofu. Loading fonts is a job for a different example, so this uses two Latin-script languages. A deliberate departure from plan section 2.
+- **`ctx.set_visuals` repaints the whole gallery**. `set_visuals` is per `egui::Context`, and there is only one Context. It does not break the embedding rules in plan 1.1 (it is neither `Panel` nor `Instant`), but opening theme in the gallery and switching to light makes the gallery light too. That is just how the egui API works, so it is accepted and noted in a comment rather than hidden.
+- Only one snapshot, since there is no plain egui version. A `single!` macro was added next to `same!` (taken in the default dark state).
+- In the gallery list it sits after form, before layout.
 
-### 手順 5-3: clock
+### Step 5-3: clock
 
-時計 + ストップウォッチ + `use_effect` の cleanup。
+Clock + stopwatch + `use_effect` cleanup.
 
-- 時間は全部 `ui.input(|i| i.time)`(アプリ起動からの秒、f64)。`std::time::Instant` は使わない。
-- **壁時計は `web_time::SystemTime`**。`std::time::SystemTime::now()` は wasm32-unknown-unknown で panic する。`web-time = "1.1.0"` を `[workspace.dependencies]` に足した。タイムゾーンは持てない(タイムゾーンデータベースが要る)ので UTC と明記して出す。`HH:MM:SS` の整形は手書き、日付ライブラリは 1 行のために大きすぎる。
-- **repaint は明示**。走っている間は `ctx.request_repaint()`、止まっている間は `ctx.request_repaint_after(1s)`。kittest の `run()` は「遅延なしの repaint 要求」が無くなるまで回るので、`request_repaint_after` は `run()` を止める(遅延が 0 でないため)が、`request_repaint()` は止めない。走行中のテストは `step()` を使う。
-- **cleanup と `Dispatch`**。`show ticker` チェックボックスが `Ticker` を出し入れし、`Ticker` の `use_effect(cx, (), || { .. ; move || .. })` が返す閉包が cleanup になる。cleanup は保存されるので `'static` で、ログの state を借りられない。だから log は `use_reducer` に置き、`Dispatch<String>` を prop で渡す(`Dispatch` は `Clone + Send + 'static` なので prop にできる。`Handle` は 5-2 のとおりできない)。unmount のメッセージは sweep の中で送られ、次に reducer を訪れた時に適用されるので、「ticker unmounted」は 1 フレーム遅れて出る。
-- `use_memo` は lap の整形文字列に使った(deps は `laps.len()`)。60fps で毎フレーム整形するのは無駄で、増減した時だけ作り直せばよいので、わざとらしくない。
-- **snapshot を安定させた方法**。kittest には `harness.input_mut()` があり、`RawInput::time = Some(x)` を置けば egui の `i.time` は固定できる(`let time = new.time.unwrap_or(self.time + predicted_dt)`)。ただし固定できるのは egui の時計だけで、**壁時計の `SystemTime` には効かない**。そこで `App` に `now: Option<u64>`(UTC 深夜からの秒、`None` は実時計)を prop で持たせ、snapshot とテストが固定値を渡す。ストップウォッチは止まった状態で `00:00.00` なので何もしなくても安定していて、`i.time` の固定は結局不要だった。
-  - `single!` はプロパティを渡せないので、clock の snapshot だけマクロを使わず手で書いた。
-- テストは kittest の `Role::Label` のラベルが `Node::label()` ではなく `Node::value()` に入る(accesskit の仕様)ことに注意。ストップウォッチの表示を読むヘルパーで踏んだ。
-- gallery 一覧では theme の次、layout の前。
+- All time comes from `ui.input(|i| i.time)` (seconds since app start, f64). No `std::time::Instant`.
+- **The wall clock is `web_time::SystemTime`**. `std::time::SystemTime::now()` panics on wasm32-unknown-unknown. Added `web-time = "1.1.0"` to `[workspace.dependencies]`. No time zone is possible (it needs a time zone database), so it is shown clearly as UTC. The `HH:MM:SS` formatting is hand-written; a date library is too big for one line.
+- **Repaint is explicit**. `ctx.request_repaint()` while running, `ctx.request_repaint_after(1s)` while stopped. kittest's `run()` loops until no "repaint request without delay" remains, so `request_repaint_after` lets `run()` stop (its delay is not 0) but `request_repaint()` does not. Tests of the running state use `step()`.
+- **Cleanup and `Dispatch`**. The `show ticker` checkbox mounts and unmounts `Ticker`, and the closure returned by `Ticker`'s `use_effect(cx, (), || { .. ; move || .. })` is the cleanup. The cleanup is stored, so it is `'static` and cannot borrow the log state. So the log lives in `use_reducer`, and `Dispatch<String>` is passed as a prop (`Dispatch` is `Clone + Send + 'static`, so it can be a prop. `Handle` cannot, as in 5-2). The unmount message is sent inside the sweep and applied the next time the reducer is visited, so "ticker unmounted" shows one frame late.
+- `use_memo` is used for the formatted lap strings (deps is `laps.len()`). Formatting every frame at 60fps is waste; rebuilding only when the count changes is enough, so it does not feel forced.
+- **How the snapshot was made stable**. kittest has `harness.input_mut()`, and setting `RawInput::time = Some(x)` fixes egui's `i.time` (`let time = new.time.unwrap_or(self.time + predicted_dt)`). But that only fixes egui's clock; **it has no effect on the `SystemTime` wall clock**. So `App` takes a `now: Option<u64>` prop (seconds since UTC midnight, `None` means the real clock), and the snapshot and tests pass a fixed value. The stopwatch is stopped at `00:00.00`, so it is stable with no work, and fixing `i.time` turned out to be unnecessary.
+  - `single!` cannot pass props, so only the clock snapshot is written by hand without the macro.
+- Tests: note that in kittest, the label of a `Role::Label` goes into `Node::value()`, not `Node::label()` (accesskit's spec). Hit this in the helper that reads the stopwatch display.
+- In the gallery list it sits after theme, before layout.
 
-### 手順 5-4: custom-hook
+### Step 5-4: custom-hook
 
-`#[hook]` で書いた 3 つの hook を、それぞれ 2 つのコンポーネントから呼ぶ。パッケージ名 `custom-hook` / lib 名 `custom_hook`。
+Three hooks written with `#[hook]`, each called from 2 components. Package name `custom-hook` / lib name `custom_hook`.
 
-| hook | 中身 | 呼ぶ側 |
+| hook | Content | Callers |
 |---|---|---|
-| `use_debounce(cx, &str, f64) -> String` | `use_state` 3 つ(最新値 / 変わった時刻 / 落ち着いた値)。時刻は `i.time`。待っている間は誰も次のフレームを要求しないので、hook 自身が `request_repaint_after(残り)` する | `SearchBox` / `Mirror` |
-| `use_previous<T>(cx, T) -> Option<T>` | `use_state((現在, 直前))` の 3 行 | `SearchBox`(落ち着いたクエリの 1 つ前)/ `Counter` |
-| `use_window_size(cx) -> Vec2` | `cx.ctx().viewport_rect().size()`。state を持たない hook | `Responsive`(幅で row / column を切り替える)/ `SizeReadout` |
+| `use_debounce(cx, &str, f64) -> String` | 3 `use_state` (latest value / time of change / settled value). Time is `i.time`. While waiting, nobody asks for the next frame, so the hook itself calls `request_repaint_after(remaining)` | `SearchBox` / `Mirror` |
+| `use_previous<T>(cx, T) -> Option<T>` | 3 lines of `use_state((current, previous))` | `SearchBox` (the settled query one step back) / `Counter` |
+| `use_window_size(cx) -> Vec2` | `cx.ctx().viewport_rect().size()`. A hook with no state | `Responsive` (switches row / column by width) / `SizeReadout` |
 
-- **`#[hook]` の効き目がそのまま example になる**。`SearchBox` と `Mirror` は同じ `use_debounce` を呼ぶが、片方に打ち込んでももう片方の表示は動かない。`#[hook]` が `Location::caller()` で呼び出し位置ごとにスコープを切るためで、テストがそれを固定している。
-- `egui::Context` に `screen_rect()` は無い。`viewport_rect()` を使う。
-- **gallery に埋めると `use_window_size` は gallery の窓の大きさを返す**(中央の列ではなく)。hook の意味としては正しい(窓の大きさを聞いているので)が、埋め込みでは `layout: row` 側に倒れる。単体で動かすと窓を狭めて切り替わるのが見える。
-- state を持たない `use_window_size` に `#[hook]` を付けるかは迷ったが、付けた。hook は「`Cx` から読む再利用可能な関数」であって、state の有無は本質ではない。あとで state を足しても呼び出し側が変わらない。
-- snapshot の名前は lib 名に合わせて `custom_hook.png`(`single!` が `stringify!` するため)。example 名は `custom-hook`。
-- **テストで `use_debounce` の時間を止められる**。`harness.input_mut().time = Some(t)` は `RawInput::take()` が `time` を保つので次のフレームにも残る。0.1 秒では `settled` が動かず、5.0 秒にすると追いつくところまで固定した。
-- gallery 一覧では clock の次、layout の前。
+- **The effect of `#[hook]` is the example itself**. `SearchBox` and `Mirror` call the same `use_debounce`, but typing into one does not move the other's display. `#[hook]` uses `Location::caller()` to open a scope per call site, and a test pins that down.
+- `egui::Context` has no `screen_rect()`. Use `viewport_rect()`.
+- **Embedded in the gallery, `use_window_size` returns the size of the gallery window** (not the center column). That is correct for what the hook means (it asks for the window size), but when embedded it falls to the `layout: row` side. Run standalone, you can see it switch when you narrow the window.
+- Whether to put `#[hook]` on the stateless `use_window_size` was a question, but it got one. A hook is "a reusable function that reads from `Cx`", and having state is not the point. If state is added later, callers do not change.
+- The snapshot name follows the lib name, `custom_hook.png` (because `single!` uses `stringify!`). The example name is `custom-hook`.
+- **Tests can stop time for `use_debounce`**. `harness.input_mut().time = Some(t)` survives into the next frame because `RawInput::take()` keeps `time`. Fixed at 0.1 seconds `settled` does not move; at 5.0 seconds it catches up.
+- In the gallery list it sits after clock, before layout.
 
-### 手順 5-5: escape-hatch
+### Step 5-5: escape-hatch
 
-生 egui への出口を 4 通り、節ごとに並べる。パッケージ `escape-hatch` / lib `escape_hatch`。
+Four exits to plain egui, one per section. Package `escape-hatch` / lib `escape_hatch`.
 
-1. `{view(|cx| ..)}` — rsx の途中に置く普通のコード。hook も動く(スロットは行で keying される)。
-2. `cx.leaf(&style, |ui| ..)` — 要素が無いウィジェット(`egui::ProgressBar`、`ui.color_edit_button_srgba`)を taffy の item として置く。`ItemStyle::default().w(..)` がそのまま効く。
-3. painter — `allocate_exact_size` + `ui.painter()` でスパークラインを描く。値は `use_state(Vec<f32>)`、`sin(i * 0.7)` で決定的。
-4. 入れ子の `Cx` — `ui.group(..)` の中で `Cx::new(store, ui, scope)` を作り、`cx.scope("inner", ..)` の中で hook を使う。`Cx::new` / `cx.store` / `cx.scope_id()` / `cx.scope` はすべて公開 API で、prelude から届く。**4 節は書ける**。
+1. `{view(|cx| ..)}`: ordinary code placed in the middle of rsx. Hooks work too (slots are keyed by line).
+2. `cx.leaf(&style, |ui| ..)`: widgets that have no element (`egui::ProgressBar`, `ui.color_edit_button_srgba`) placed as a taffy item. `ItemStyle::default().w(..)` applies as is.
+3. painter: `allocate_exact_size` + `ui.painter()` draws a sparkline. The values are `use_state(Vec<f32>)`, deterministic via `sin(i * 0.7)`.
+4. Nested `Cx`: inside `ui.group(..)`, build `Cx::new(store, ui, scope)` and use hooks inside `cx.scope("inner", ..)`. `Cx::new` / `cx.store` / `cx.scope_id()` / `cx.scope` are all public API and reachable from the prelude. **Section 4 can be written**.
 
-実装で 3 つ踏んだ。どれも example そのものより価値がある。
+Hit 3 things during implementation. Each is worth more than the example itself.
 
-- **`cx.ui()` は `<View>` の中では「今いる場所」ではない**。taffy モードの `cx.ui()` は taffy ツリーを開始した `Ui` なので、そこに描くとレイアウトの外、ツリーの左上に出る(最初に書いた 1 節がまさにそうなり、見出しに重なった)。`Cx::ui` の doc に既に書いてあるとおり。読む(`visuals()`、`input()`)ぶんにはどこでも安全で、描くときは `cx.leaf` を使う。**これが `leaf` の存在理由そのもの**なので、1 節をその形に書き直し、module doc に罠として明記した。
-- **`leaf_fill` はサイズを与えなかった軸で窓全体を取る**。egui_taffy は `infinite` な leaf の max-content をルート矩形の大きさとして返すため。`w` だけ与えた ProgressBar の leaf が高さ方向に窓いっぱいになり、下の節が窓の高さぶん押し下げられて、テストのクリックがビューポート外に落ちていた(egui は範囲外のポインタを無視する)。`w` と `h` の両方を与えて解決。ARCHITECTURE 6 章の「`<View>` の中の `ScrollArea` には `grow` か `h` を与える」と同じ話が、`leaf_fill` 全般に当たる。
-- **`ui.spinner()` はテストと相性が悪い**。アニメーションするので毎フレーム repaint を要求し、`Harness::run()` が `max_steps` で落ちる。1 節から外してコメントに理由を書いた(`Suspense` の fallback で使うのは別で、あちらは待っている間だけである)。
-- `egui::ProgressBar` は accesskit に何も出さない(`ProgressIndicator` の label も value も `None`)。読めるように隣に `<Text>{format!("progress {:.2}", ..)}</Text>` を並べ、テストはそれを見る。
-- snapshot は `single!` に drive 関数を渡せる形(2 引数版が 3 引数版に展開される)を足し、「add sample」を 2 回押した状態で撮る。1 点だけではスパークラインが線にならない。
-- gallery 一覧では custom-hook の次、layout の前。
+- **`cx.ui()` inside a `<View>` is not "where you are now"**. In taffy mode, `cx.ui()` is the `Ui` that started the taffy tree, so drawing there lands outside the layout at the top left of the tree (the first draft of section 1 did exactly that and overlapped the heading). The doc of `Cx::ui` already says so. Reading (`visuals()`, `input()`) is safe anywhere; for drawing, use `cx.leaf`. **This is the very reason `leaf` exists**, so section 1 was rewritten in that form, and the module doc names it as a trap.
+- **`leaf_fill` takes the whole window on any axis you did not size**. egui_taffy reports the max-content of an `infinite` leaf as the size of the root rect. A ProgressBar leaf given only `w` grew to the full window height, the sections below were pushed down by a window's height, and the test's click landed outside the viewport (egui ignores pointers out of range). Fixed by giving both `w` and `h`. The same point as "give a `ScrollArea` inside a `<View>` either `grow` or `h`" in ARCHITECTURE section 6 applies to `leaf_fill` in general.
+- **`ui.spinner()` does not get along with tests**. It animates, so it requests a repaint every frame, and `Harness::run()` fails on `max_steps`. Removed from section 1 with a comment giving the reason (using it as the `Suspense` fallback is different; there it only runs while waiting).
+- `egui::ProgressBar` exposes nothing to accesskit (both label and value of `ProgressIndicator` are `None`). To make it readable, `<Text>{format!("progress {:.2}", ..)}</Text>` sits next to it, and the test looks at that.
+- The snapshot uses a form of `single!` that takes a drive function (the 2-argument form expands to the 3-argument form), taken after pressing "add sample" twice. With a single point the sparkline is not a line.
+- In the gallery list it sits after custom-hook, before layout.
 
-### 手順 5-6: list-10k
+### Step 5-6: list-10k
 
-長いリストの値段を正直に見せる。パッケージ `list-10k` / lib `list_10k`、生 egui 版あり。
+Show the price of a long list honestly. Package `list-10k` / lib `list_10k`, with a plain egui version.
 
-**測った数字**(`cargo test --release -p list-10k --test bench -- --ignored --nocapture`。`Harness::step` を 20 フレーム、600x800、GPU 無しなので「1 フレームの CPU 側」。M4 Max)。
+**Measured numbers** (`cargo test --release -p list-10k --test bench -- --ignored --nocapture`. `Harness::step` for 20 frames, 600x800, no GPU, so "CPU side of one frame". M4 Max).
 
-| 行数 | egui-react | 生 egui(`show_rows`) |
+| Rows | egui-react | plain egui (`show_rows`) |
 |---|---|---|
 | 100 | 0.84 ms | 0.18 ms |
 | 1,000 | 5.03 ms | 0.14 ms |
 | 10,000 | 86.82 ms | 0.17 ms |
 
-egui-react は全行を描く。`rsx!` の `for` は本物のループで、1 行が `<View>` + 子 3 つ、10k 行で taffy ノードが 4 万個になる。生 egui 版は `ScrollArea::show_rows` で見えている 15 行前後しか描かず、残りは高さの予約だけなので、行数を 100 倍にしても frame time が動かない。**この example は生 egui が勝つ。** 数字は README には書かない(ここと example の module doc にある)。
+egui-react draws every row. The `for` in `rsx!` is a real loop; one row is a `<View>` + 3 children, so 10k rows means 40k taffy nodes. The plain egui version uses `ScrollArea::show_rows` to draw only the roughly 15 visible rows and reserves height for the rest, so the frame time does not move when the row count grows 100x. **Plain egui wins this example.** The numbers are not in the README (they are here and in the example's module doc).
 
-- **`<ScrollArea>` の仮想化 prop は足さなかった**。plan 5 章の候補だが、`<ScrollArea>` は children を `impl View` という不透明な閉包で受け取るので、`for` ループの中身を切り出すことができない。`rows={(count, row_height)}` を意味あるものにするには「index を受け取って View を返す閉包」を prop に取る別の要素が要る。→ **手順 5-8 でその要素(`<VirtualList>`)を足した。** この節の「生 egui が勝つ」という結論はそこで更新される。
-- **既定の行数**。`DEFAULT_COUNT = 10_000`(名前どおり)。ただし gallery は `initial_count={1_000}` を渡す。10k だと 1 フレーム 85ms で gallery 全体が 12fps になり、「egui-react が遅い」と読まれてしまう。スライダーは 10k まで届くので、押したい人は押せる。生 egui 版も gallery では 1,000 に揃える(仮想化されているので 10k でも平気だが、トグルで行数が変わると比較にならない)。
-- **snapshot は別名**(`list_10k_react.png` / `list_10k_plain.png`)。同名で撮ると 9,373 px ずれる。中身は同じリストだが、片方は全行を描き、片方は見えている 12〜14 行を描いて残りを予約するので、行の中の 3px 程度のずれが行数ぶん繰り返される。詰めるには生 egui 版を taffy の計算に合わせて書くことになり、5 章の線を越える。form / counter / todo / layout と違ってここは構造が違う。
-- **kittest: `ScrollArea` の中のボタンは `click()` では押せない**。シミュレートしたポインタ押下がスクロール領域に吸われて widget に届かない。`click_accesskit()` なら効く。行の削除テストで踏んだ。
-- ベンチは `#[ignore]` のテストとして置いた(`tests/bench.rs`)。release でしか意味が無く、アサーションでもないため。
-- gallery 一覧では escape-hatch の次、layout の前。
+- **No virtualization prop was added to `<ScrollArea>`**. It was a candidate in plan section 5, but `<ScrollArea>` takes its children as an opaque `impl View` closure, so the body of the `for` loop cannot be pulled out. To make `rows={(count, row_height)}` mean anything, a separate element is needed that takes "a closure that receives an index and returns a View" as a prop. -> **Step 5-8 added that element (`<VirtualList>`).** The "plain egui wins" conclusion of this section is updated there.
+- **The default row count**. `DEFAULT_COUNT = 10_000` (as the name says). But the gallery passes `initial_count={1_000}`. At 10k one frame is 85ms and the whole gallery drops to 12fps, which reads as "egui-react is slow". The slider reaches 10k, so anyone who wants to can push it. The plain egui version is also set to 1,000 in the gallery (it is virtualized so 10k is fine, but if the row count changed with the toggle there would be no comparison).
+- **Snapshots use different names** (`list_10k_react.png` / `list_10k_plain.png`). Under the same name they differ by 9,373 px. The content is the same list, but one draws every row and the other draws the visible 12 to 14 rows and reserves the rest, so a shift of about 3px inside a row repeats for every row. Closing the gap would mean writing the plain egui version to match taffy's math, which crosses the line in section 5. Unlike form / counter / todo / layout, the structure differs here.
+- **kittest: a button inside a `ScrollArea` cannot be pressed with `click()`**. The simulated pointer press is absorbed by the scroll area and does not reach the widget. `click_accesskit()` works. Hit this in the row deletion test.
+- The bench is an `#[ignore]` test (`tests/bench.rs`). It only means anything in release, and it is not an assertion.
+- In the gallery list it sits after escape-hatch, before layout.
 
-### 手順 5-7: shell(と list-10k の索引列の手直し)
+### Step 5-7: shell (and a fix to the list-10k index column)
 
-**list-10k の手直し。** 生 egui 版の索引列が中身の幅になっていて、名前の開始位置が egui-react 版と揃っていなかった。`INDEX_W`(64pt)を lib に出し、両方がそれを使う。生 egui 側は `allocate_ui_with_layout` + `set_min_width`(`add_sized` だと中央寄せになり、最小幅を言わないと中身まで縮む)。snapshot を撮り直した。別名のままである。
+**The list-10k fix.** The index column of the plain egui version took the width of its content, so the start of the name did not line up with the egui-react version. `INDEX_W` (64pt) is exported from the lib and both use it. The plain egui side uses `allocate_ui_with_layout` + `set_min_width` (`add_sized` centers, and without a minimum width it shrinks to the content). Snapshots retaken. Still under different names.
 
-**shell.** IDE 風の枠。上 / 左 / 下の `<Panel>`、`<CentralPanel>` のエディタ、浮いた `<Window>` のインスペクタ、左のツリーは `<Collapsing>` + `selectable_label`。
+**shell.** An IDE-like frame. Top / left / bottom `<Panel>`, the editor in `<CentralPanel>`, the inspector in a floating `<Window>`, the tree on the left is `<Collapsing>` + `selectable_label`.
 
-**バグ: `<Panel>` がランナーの下で docking しなかった。elements で直した。**
+**Bug: `<Panel>` did not dock under the runner. Fixed in elements.**
 
-- 原因。`Panel` は `shares_ui` だが中身は `cx.leaf(&style, ..)` で、taffy モードではノードが 1 つ作られてその中を切り取る。ランナーは必ず `root_container` を開くので、4 つのパネルが 4 つの小さなノードを切り取り、全部が同じ左上に重なって描かれていた(実測: `save` / `files` / `log` が全部 (16,10) 付近)。ARCHITECTURE 6 章の「パネルはアプリのルートで使うことを想定する」が、ランナーの下では成立していなかった。
-- 修正(`egui-react-elements`)。**パネルが場所を切り取る先は「最も近い egui の `Ui`」= 今の taffy ツリーを開始した `Ui`** と決めた。taffy モードなら `cx.leaf` ではなく `cx.ui()` に対して `show_inside` する。ツリーの外(Ui モード)では今までどおり。`CentralPanel` も同じ。ランナーの下ではこの `Ui` は窓なので、「ルートで使う」が自動的に成り立つ。
-- 帰結として、`<View>` の奥に書いた `<Panel>` はその行の一部ではなく窓の端まで飛ぶ。docking の意味そのものなので、doc コメントに「不具合ではない」と明記した。テストは `a_panel_inside_a_view_docks_in_the_window`(`<View grow>` の中の左パネルが窓の左端に着き、残りと重ならない)。既存の `panels_written_as_siblings_dock` はそのまま通る。
-- **gallery には載せられない**(この規則の下でも変わらない)。gallery の中央列に置いても、パネルが切り取るのは gallery のツリーを開始した `Ui` = 窓全体だからである。実際に 1280x800 で試したとき、gallery 自身のラベルは `CentralPanel` に塗り潰されて消えた。plan 5 章の「試して成立すれば gallery に載せる」は **不成立**。standalone のままにする。
+- Cause. `Panel` is `shares_ui`, but its body is `cx.leaf(&style, ..)`, so in taffy mode one node is created and the panel cuts space out of that. The runner always opens `root_container`, so 4 panels cut out 4 small nodes and all of them drew stacked at the same top left (measured: `save` / `files` / `log` all near (16,10)). The "panels are meant for the app root" of ARCHITECTURE section 6 did not hold under the runner.
+- Fix (`egui-react-elements`). **A panel cuts space out of "the nearest egui `Ui`", which is the `Ui` that started the current taffy tree.** In taffy mode it calls `show_inside` on `cx.ui()` instead of `cx.leaf`. Outside a tree (Ui mode) it works as before. `CentralPanel` is the same. Under the runner this `Ui` is the window, so "use at the root" holds automatically.
+- As a result, a `<Panel>` written deep inside a `<View>` is not part of that row; it jumps to the window edge. That is what docking means, so the doc comment states "this is not a bug". The test is `a_panel_inside_a_view_docks_in_the_window` (a left panel inside `<View grow>` reaches the window's left edge and does not overlap the rest). The existing `panels_written_as_siblings_dock` still passes as is.
+- **It cannot go in the gallery** (this rule does not change that). Even placed in the gallery's center column, what the panel cuts from is the `Ui` that started the gallery's tree, which is the whole window. Tried at 1280x800: the gallery's own labels were painted over by `CentralPanel` and vanished. The "try it, and if it works put it in the gallery" of plan section 5 **did not work out**. It stays standalone.
 
-**ついでに塞いだ elements の穴 2 つ**(shell がどちらも要る)。
+**Two holes in elements plugged on the way** (shell needs both).
 
-- `<Window>` に `default_pos` と `default_size`(`egui::Window` の同名メソッド、最初のフレームだけ)。無いと egui の既定位置(左上)でツールバーとツリーを覆う。インスペクタは開いた状態で始め、右下寄りに置いた。
-- `<TextEdit>` に `rows`(→ `desired_rows`)。加えて taffy の中の `multiline` は `ui.add_sized(ui.available_size(), ..)` でノードを縦横とも埋める。最初は `desired_rows = available_height / row_height` にしたが、行単位でしか合わず端数がノードからはみ出したので `add_sized` にした。テストは `a_growing_multiline_text_edit_fills_its_node` と `an_explicit_row_count_wins`。
+- `default_pos` and `default_size` on `<Window>` (the same-named methods of `egui::Window`, first frame only). Without them egui's default position (top left) covers the toolbar and the tree. The inspector starts open and sits toward the bottom right.
+- `rows` on `<TextEdit>` (-> `desired_rows`). Also, `multiline` inside taffy fills its node on both axes with `ui.add_sized(ui.available_size(), ..)`. At first it was `desired_rows = available_height / row_height`, but that only matches in whole rows and the remainder spilled out of the node, so it became `add_sized`. Tests are `a_growing_multiline_text_edit_fills_its_node` and `an_explicit_row_count_wins`.
 
-**もう一度踏んだ「auto なノードは中身で測られる」**。エディタを入れた `<View grow={1.0}>` は `grow` だけでは中身のサイズになり、中の `TextEdit` は自分の中身で測られるので、両者が「2 文字ぶんの幅」で合意して固定された。`<View w="100%" h="100%">` と確定値を与えて解決。ランナーのルート(手順 2.6)と同じ話が 3 度目である。**`grow` は余りの分配であって、確定サイズの代わりにはならない。**
+**Hit "an auto node is measured by its content" once more**. The `<View grow={1.0}>` holding the editor takes the size of its content with `grow` alone, and the `TextEdit` inside is measured by its own content, so the two agreed on "two characters wide" and got stuck there. Fixed by giving fixed values, `<View w="100%" h="100%">`. Same point as the runner root (step 2.6), for the third time. **`grow` distributes the remainder; it is not a substitute for a fixed size.**
 
-- なお `h="100%"` はツリーのルート矩形に対する 100% で、`CentralPanel` の中身の高さよりわずかに大きい。エディタは数 pt はみ出すが egui が切るので見た目に問題は無い。テストはそれを踏まえて「log がエディタの上端より下」を見る。
-- snapshot は gallery ではなく `examples/shell/tests/snapshots.rs` に、shell 自身の `snapshot` feature で置いた。gallery に載らない example の絵のために gallery が shell に依存するのは筋が悪く、wasm も太る。`cargo test -p shell --features snapshot`。
-- `<Window open={..}>` には `inspector.bind()` を渡す。`&mut *inspector` だと毎フレーム dirty になって repaint が止まらない(`Checkbox` の `bind` と同じ理由)。
-- **kittest の続報**。`ScrollArea` の中(5-6)だけでなく、**入れ子の taffy ツリーの中の widget 全般**にシミュレートしたポインタのクリックが届かない。ここではパネルの中の `<View>` に入れたツールバーのボタンがそうだった。一方、同じパネルの中でも `cx.leaf` で素の `Ui` に直接描いたツリー項目は `click()` で押せる。**規則: `<View>` の内側は `click_accesskit()`**。
+- Note that `h="100%"` is 100% of the tree's root rect, slightly larger than the content height of `CentralPanel`. The editor overflows by a few pt but egui clips it, so it looks fine. The test allows for that and checks "log is below the top edge of the editor".
+- The snapshot lives in `examples/shell/tests/snapshots.rs` under shell's own `snapshot` feature, not in the gallery. Making the gallery depend on shell for the picture of an example it does not show is poor form, and it bloats the wasm. `cargo test -p shell --features snapshot`.
+- `<Window open={..}>` gets `inspector.bind()`. With `&mut *inspector` it goes dirty every frame and repaints never stop (same reason as `Checkbox`'s `bind`).
+- **More on kittest**. Not only inside a `ScrollArea` (5-6): **widgets inside a nested taffy tree in general** do not receive simulated pointer clicks. Here it was the toolbar buttons inside a `<View>` inside a panel. In the same panel, tree items drawn directly on a plain `Ui` via `cx.leaf` can be pressed with `click()`. **Rule: inside a `<View>`, use `click_accesskit()`**.
 
-### 手順 5-8: `<VirtualList>` と list-10k の 3 つ目
+### Step 5-8: `<VirtualList>` and the third list-10k
 
-`ScrollArea` + `for` が全行を描くのは事実だが、「だから生 egui が勝つ」で終わらせるのは正しくない。**egui-react でも仮想化はできる。`<ScrollArea>` 経由ではできないだけである。** 要素を足して、list-10k をその比較に作り替えた。
+It is true that `ScrollArea` + `for` draws every row, but ending with "so plain egui wins" is not right. **egui-react can virtualize too. It just cannot do it through `<ScrollArea>`.** An element was added, and list-10k was rebuilt around that comparison.
 
 **`crates/egui-react-elements/src/virtual_list.rs`**
 
@@ -512,55 +512,55 @@ pub fn VirtualList(
 )
 ```
 
-中身は escape-hatch 4 節そのもので、`cx.leaf_fill` の中で `egui::ScrollArea::show_rows` を呼び、返ってきた `Ui` に `Cx::new(store, ui, scope)` を組み直して、`cx.scope(i, |cx| render(cx, i))` を見えている行にだけ回す。行ごとに scope に入るので、`for` + `key={i}` と同じく行が hook を持てる。
+The body is exactly section 4 of escape-hatch: inside `cx.leaf_fill`, call `egui::ScrollArea::show_rows`, rebuild `Cx::new(store, ui, scope)` on the returned `Ui`, and run `cx.scope(i, |cx| render(cx, i))` only for the visible rows. Each row enters its own scope, so rows can hold hooks, same as `for` + `key={i}`.
 
-- **閉包 prop は書ける。ただし bound を明示すること**(3.3 の心配ごとへの答え)。`render: impl FnMut(&mut Cx, usize)` は通らない。`#[component]` の `ElideToPropLifetime` が prop の省略ライフタイムを props 構造体のものに書き換えるので、`impl Trait` の中に未宣言のライフタイムが現れて `use of undeclared lifetime name` になる。`impl for<'a, 's, 'u> FnMut(&'a mut Cx<'s, 'u>, usize)` と自分で書けば、書き換える対象が無いのでそのまま通る。`&mut dyn FnMut` に落とす必要は無かった。5-2 の `Handle` prop とは別の問題で、あちらは props の型が `'s` を名乗ってしまうのが原因だった。
-- 制約は「全行が同じ高さ」。`show_rows` が測らずに範囲を出せる条件で、要素側では検査できないので doc に明記した。
-- `leaf_fill` なので `grow` か `h` を与える(手順 5-5 の教訓)。
-- テスト(`crates/egui-react-elements/tests/virtual_list.rs`): 10,000 行を 300pt の harness に置くと木に載るのは 15 行前後だけ、`row 9999` は存在しない。スクロールすると先頭行が消えて後ろの行が入る。
+- **Closure props can be written. But state the bound explicitly** (the answer to the worry in 3.3). `render: impl FnMut(&mut Cx, usize)` does not compile. `#[component]`'s `ElideToPropLifetime` rewrites the prop's elided lifetimes to the props struct's, so an undeclared lifetime appears inside `impl Trait` and you get `use of undeclared lifetime name`. Write `impl for<'a, 's, 'u> FnMut(&'a mut Cx<'s, 'u>, usize)` yourself, and there is nothing to rewrite, so it compiles as is. No need to fall back to `&mut dyn FnMut`. This is a different problem from the `Handle` prop in 5-2; there the cause was the props type naming `'s`.
+- The constraint is "all rows have the same height". That is the condition under which `show_rows` can produce a range without measuring, and the element cannot check it, so the doc states it.
+- It is `leaf_fill`, so give it `grow` or `h` (the lesson from step 5-5).
+- Tests (`crates/egui-react-elements/tests/virtual_list.rs`): 10,000 rows in a 300pt harness put only about 15 rows in the tree, and `row 9999` does not exist. Scrolling removes the first row and brings in later rows.
 
-**list-10k の 3 つ目。** `Checkbox "virtualise"` で `<ScrollArea>` + `for` と `<VirtualList>` を切り替える。行は `<Row>` コンポーネント 1 つで、どちらの経路も同じものを描く。既定は off で、gallery が最初に見せるのは「全部描く値段」のまま。
+**The third list-10k.** A `Checkbox "virtualise"` switches between `<ScrollArea>` + `for` and `<VirtualList>`. A row is one `<Row>` component, and both paths draw the same thing. The default is off, so what the gallery shows first is still "the price of drawing everything".
 
-| 行数 | `<ScrollArea>` + `for` | `<VirtualList>` | 生 egui `show_rows` |
+| Rows | `<ScrollArea>` + `for` | `<VirtualList>` | plain egui `show_rows` |
 |---|---|---|---|
 | 100 | 0.88 ms | 0.36 ms | 0.16 ms |
 | 1,000 | 5.06 ms | 0.28 ms | 0.13 ms |
 | 10,000 | 78.04 ms | 0.27 ms | 0.17 ms |
 
-`<VirtualList>` は行数に対して平らである。生 egui との差(0.27 対 0.17)は、画面に出ている 15 行ぶんの taffy ノードの値段で、これは egui-react を使うことの値段そのものだから、そのまま見せる。**結論は「生 egui が勝つ」ではなく「`for` で 1 万行書くのが高い。長いリストには専用の要素がある」に変わった。**
+`<VirtualList>` is flat in the row count. The gap to plain egui (0.27 versus 0.17) is the price of the taffy nodes for the roughly 15 rows on screen, which is the price of using egui-react itself, so it is shown as is. **The conclusion changed from "plain egui wins" to "writing 10k rows with `for` is expensive. There is a dedicated element for long lists".**
 
-- テスト: 切り替えても filter と削除の挙動が変わらないこと、両方の経路が先頭 10 行に同じものを出すこと。
-- ARCHITECTURE 6 章の要素表に `VirtualList` を足し、`ScrollArea` が全部描くことと使い分けを書いた。README の list-10k の 1 行も差し替え。
+- Tests: switching does not change filter and delete behavior, and both paths show the same thing in the first 10 rows.
+- Added `VirtualList` to the element table in ARCHITECTURE section 6, noting that `ScrollArea` draws everything and when to use which. The list-10k line in the README was replaced too.
 
-### 手順 5-9: showcase(PR B 最後)
+### Step 5-9: showcase (last in PR B)
 
-ノートアプリ。他の example が 1 つずつ見せたものを、アプリらしい形で組み合わせる。model と reducer は `src/notes.rs`(egui を知らない平らな関数なので、`Ui` 抜きで読める)、UI は `src/lib.rs`。
+A notes app. It combines what the other examples showed one at a time, in the shape of an app. The model and reducer are in `src/notes.rs` (flat functions that know nothing about egui, so they can be read without `Ui`), the UI in `src/lib.rs`.
 
-- 永続化は todo と同じ「reducer が持ち、`use_persisted` が写す」形。reducer は他人のスロットに reduce できないので、2 行のミラーがその値段である。理由をコメントに書いた。
-- `use_memo` の deps は `(search, (len, next_id), updated の XOR)`。`next_id` が「追加された」、`len` が「消された」、`updated` の XOR が「本文が編集された(= 並び順が動いた)」を表す。
-- `provide_context` は theme と同じ `Themed` ラッパー。間の 2 つの列は何も持ち回らない。
-- 設定ウィンドウの「clear all」は 2 段確認。rsx の途中の `if` 1 つで書ける。
-- `Msg::Add` のあと `*selected = None` にして、新しいノートが自分で開くようにした(「選択が無ければ先頭を開く」規則が拾う)。
+- Persistence is the same shape as todo: "the reducer owns it, `use_persisted` mirrors it". A reducer cannot reduce into someone else's slot, so the two-line mirror is the price. The reason is in a comment.
+- The `use_memo` deps are `(search, (len, next_id), XOR of updated)`. `next_id` means "something was added", `len` means "something was deleted", the XOR of `updated` means "a body was edited (so the order moved)".
+- `provide_context` is the same `Themed` wrapper as theme. The two columns in between carry nothing around.
+- "clear all" in the settings window is a two-step confirm. One `if` in the middle of rsx is enough.
+- After `Msg::Add`, `*selected = None` so the new note opens itself (the "open the first one when nothing is selected" rule picks it up).
 
-**踏んだこと。**
+**Things hit.**
 
-- **`Option<T>` の prop は「省略可能な prop」であって「Option を渡す prop」ではない**。`#[component]` が `strip_option` を付けるので setter は `T` を取り、`selected={current}`(`Option<u64>`)は型が合わない。`&Option<u64>` にすれば参照型なので strip されず、そのまま渡せる。
-- **埋めるウィジェットの後ろに置いたものは画面外に出る**。`<TextEdit multiline grow>` は「あるだけの高さ」を自分の content として報告するので、同じ列でその後ろに置いた語数の行が窓の下に押し出された。`min_h={0}` でも直らない(押し出しているのは列の側)。語数の行をエディタの **前** に移して解決した。「埋める leaf は列の最後に置く」が実用上の規則である。
-- 途中でディスクが一杯になり(`ld: write() failed, errno=28`)、`target/debug/incremental`(6.9GB)を消して続けた。このセッションで target が 27GB まで育っている。
+- **An `Option<T>` prop is "an optional prop", not "a prop that takes an Option"**. `#[component]` adds `strip_option`, so the setter takes `T`, and `selected={current}` (`Option<u64>`) does not type check. With `&Option<u64>` it is a reference type, so it is not stripped and passes as is.
+- **Anything placed after a filling widget goes off screen**. `<TextEdit multiline grow>` reports "as much height as there is" as its content, so the word-count row placed after it in the same column was pushed below the window. `min_h={0}` does not fix it (the column is what does the pushing). Fixed by moving the word-count row **before** the editor. "Put a filling leaf last in its column" is the practical rule.
+- The disk filled up partway through (`ld: write() failed, errno=28`); deleted `target/debug/incremental` (6.9GB) and continued. target grew to 27GB in this session.
 
-**gallery の並び替え。** `showcase` を先頭にした(訪問者が最初に見るべきもの)。以下 counter / todo / form / theme / clock / custom-hook / escape-hatch / list-10k / layout / fetch。`Running` の `match` の既定は `<ShowcaseApp/>` に変え、`"counter"` の腕を明示した。gallery のテストが「最初は counter」を前提にしていたので直した(トグルのテストは、showcase に生 egui 版が無いので counter を選んでから確かめる)。README の表も同じ順にし、導入の一文に「まず showcase を見て、他は 1 つずつの話」と書いた。
+**Reordering the gallery.** `showcase` moved to the top (what a visitor should see first). Then counter / todo / form / theme / clock / custom-hook / escape-hatch / list-10k / layout / fetch. The default arm of the `match` in `Running` became `<ShowcaseApp/>`, and the `"counter"` arm is explicit. The gallery tests assumed "counter first", so they were fixed (the toggle test picks counter first, since showcase has no plain egui version). The README table uses the same order, and the intro sentence says "look at showcase first; the others are one topic each".
 
-## 9. PR C の記録
+## 9. PR C record
 
-### 手順 6: `Options.setup`(と `wgpu` feature を置かない判断)
+### Step 6: `Options.setup` (and the decision not to add a `wgpu` feature)
 
-**3.1 の前提が間違っていた。「eframe は default(glow)のまま」は eframe 0.36 では成り立たない。** eframe 0.36.1 の `default` feature は `["accesskit", "default_fonts", "links", "wayland", "web_screen_reader", "wgpu", "winit/default", "x11"]` で、**`glow` は入っていない**。`Renderer::Glow` は `glow` feature が無いと存在すらせず、`Renderer::default()` は `Wgpu` を返す。つまり **このリポジトリは最初から wgpu で描いていた**。0.35 までとは逆で、今は glow の方が opt-in である。
+**The assumption in 3.1 was wrong. "eframe stays at default (glow)" does not hold for eframe 0.36.** The `default` feature of eframe 0.36.1 is `["accesskit", "default_fonts", "links", "wayland", "web_screen_reader", "wgpu", "winit/default", "x11"]`, and **`glow` is not in it**. `Renderer::Glow` does not even exist without the `glow` feature, and `Renderer::default()` returns `Wgpu`. So **this repository has been drawing with wgpu from the start**. The reverse of 0.35 and earlier; now glow is the opt-in.
 
-そのため **`wgpu` feature は置かない**。一度は `wgpu = ["eframe/wgpu"]` を足したが、今日の eframe では何も変えない feature であり、API の雑音にしかならない。5 章の「wgpu を唯一の backend にするか」は、eframe 側が先に決めてくれた形になる。glow で動かしたい人は `eframe/glow` を明示する話で、それはこの crate の仕事ではない。判断の根拠は `crates/egui-react-app/Cargo.toml` のコメントと ARCHITECTURE 8 章に残した。
+So **no `wgpu` feature is added**. `wgpu = ["eframe/wgpu"]` was added once, but with today's eframe it is a feature that changes nothing and only adds noise to the API. The "should wgpu be the only backend" question of section 5 was settled by eframe first. Anyone who wants glow can set `eframe/glow` explicitly, and that is not this crate's job. The reasoning is kept in a comment in `crates/egui-react-app/Cargo.toml` and in ARCHITECTURE section 8.
 
-**WebGL fallback も何もしなくても入っている。** `eframe/wgpu` → `egui-wgpu/default` → `wgpu/webgl`。3.1 の「wasm は `wgpu` の `webgl` feature を on にする」は不要だった。`[workspace.dependencies]` には `wgpu = "30.0"`(eframe 0.36.1 が使う版)を pin だけしてある。shader example が pipeline を組むときに同じ wgpu へリンクするため。
+**The WebGL fallback is also in without doing anything.** `eframe/wgpu` -> `egui-wgpu/default` -> `wgpu/webgl`. The "turn on the `webgl` feature of `wgpu` on wasm" in 3.1 was unnecessary. `[workspace.dependencies]` only pins `wgpu = "30.0"` (the version eframe 0.36.1 uses), so the shader example links to the same wgpu when it builds its pipeline.
 
-**`Options.setup`** は 3.2 のとおり足した。型は `Option<Setup>`、`pub type Setup = Box<dyn FnOnce(&eframe::CreationContext<'_>)>`(clippy の `type_complexity` が生の型を蹴るので別名にした。API としてもこちらが読みやすい)。`ReactApp::new` の先頭で `take()` して呼ぶ。1 フレーム目に paint callback が追加されうるので、store を作るより前に走らせる。`ReactApp::new` の `options` 引数を `&Options` から `&mut Options` にし、native / wasm どちらの起動閉包も `options` を move で持って `take` する(閉包はどちらも 1 回しか呼ばれない)。
+**`Options.setup`** was added as in 3.2. The type is `Option<Setup>`, `pub type Setup = Box<dyn FnOnce(&eframe::CreationContext<'_>)>` (clippy's `type_complexity` rejects the raw type, so it got an alias. It also reads better as an API). `ReactApp::new` calls `take()` on it at the top. A paint callback may be added in the first frame, so it runs before the store is created. The `options` argument of `ReactApp::new` changed from `&Options` to `&mut Options`, and both the native and wasm startup closures move `options` in and `take` it (each closure is called only once).
 
-- テストは `crates/egui-react-app/src/lib.rs` の `#[cfg(test)] mod tests` に 1 つ、`setup` の既定が `None` であること。kittest は eframe を動かせないので、実際に wgpu で描かれることの確認は目視(`RUST_LOG=eframe=info`)に委ねる。
-- ARCHITECTURE 7 章(`Options` の一覧と `setup`)と 8 章(バックエンドと WebGL fallback)を更新。
+- One test in `#[cfg(test)] mod tests` in `crates/egui-react-app/src/lib.rs`: the default of `setup` is `None`. kittest cannot run eframe, so confirming that it really draws with wgpu is left to a check by eye (`RUST_LOG=eframe=info`).
+- Updated ARCHITECTURE section 7 (the `Options` list and `setup`) and section 8 (backend and WebGL fallback).

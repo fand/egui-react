@@ -1,49 +1,49 @@
-# タスク: canvas(PR7 = フェーズ 6.5 の残り、実装は停止中)
+# Task: canvas (PR7 = the rest of Phase 6.5, implementation paused)
 
-## 目的
+## Goal
 
-コンポーネントの中で wgpu の shader アニメーションを描けるようにする。そのために必要な最小の口を開ける: `<Canvas>` 要素(taffy から矩形をもらい `on_paint(ui, rect)` を呼ぶ leaf)と、`examples/shader`(fullscreen triangle + fragment shader、state が uniform に流れる)。ランナー側の口 `Options.setup`(起動時に 1 回、pipeline を作って `callback_resources` に置く場所)は済んでいる。
+Make it possible to draw wgpu shader animations inside a component. Open the smallest hooks needed for that: a `<Canvas>` element (a leaf that gets a rect from taffy and calls `on_paint(ui, rect)`) and `examples/shader` (fullscreen triangle + fragment shader, with state flowing into uniforms). The runner-side hook `Options.setup` (called once at startup; the place to build the pipeline and put it in `callback_resources`) is done.
 
-もとは [docs/tasks/examples/](../examples/task.md) の PR C だった。PR A(#4)/ PR B(#6 → #8)が先にマージされ、C は `Options.setup` だけ実装した時点で作業を止めたので、残りを独立タスクに切り出した。core(`egui-react`、`egui-react-macros`)には手を入れない。
+This was originally PR C in [docs/tasks/examples/](../examples/task.md). PR A (#4) / PR B (#6 -> #8) were merged first, and work on C stopped after only `Options.setup` was implemented, so the rest was split out as its own task. Core (`egui-react`, `egui-react-macros`) is not touched.
 
-## 現状
+## Current state
 
-- 済: `Options.setup: Option<Setup>`(`egui-react-app`)。`ReactApp::new` の先頭で呼ぶ。`wgpu = "30.0"` を workspace に pin。ARCHITECTURE 7 / 8 章更新。
-- 済(判断): `wgpu` feature は置かない。eframe 0.36 は既定が wgpu で glow が opt-in。WebGL fallback も `egui-wgpu/default` 経由で入っている。
-- 未: `<Canvas>` 要素、`examples/shader`、gallery への登録、テスト、README。
+- Done: `Options.setup: Option<Setup>` (`egui-react-app`). Called at the top of `ReactApp::new`. `wgpu = "30.0"` pinned in the workspace. ARCHITECTURE sections 7 / 8 updated.
+- Done (decision): no `wgpu` feature. eframe 0.36 defaults to wgpu and glow is opt-in. The WebGL fallback also comes in via `egui-wgpu/default`.
+- Not done: the `<Canvas>` element, `examples/shader`, gallery registration, tests, README.
 
-## スコープ
+## Scope
 
-### 含む
+### In scope
 
-- `<Canvas>`(`egui-react-elements`): `style` / `sense` / `on_paint` / `on_drag` / `on_hover`。`leaf_fill` で taffy がサイズを決める。egui-wgpu には依存しない。kittest 付き。
-- `examples/shader`: `lib.rs`(App)/ `gpu.rs`(`setup(cc)`、`ShaderResources`、`ShaderCallback: CallbackTrait`)/ `shader.wgsl` / `main.rs`。Slider(speed)、Checkbox(pause)、drag で uniform を動かす。native と trunk で動く。gallery に登録し、gallery の `setup` で pipeline を登録する。
-- escape-hatch example の painter 節を `<Canvas>` に置き換える(1 行で済むなら)。
-- README の表に shader を足す。ARCHITECTURE 6 章に `Canvas`。
+- `<Canvas>` (`egui-react-elements`): `style` / `sense` / `on_paint` / `on_drag` / `on_hover`. taffy decides the size via `leaf_fill`. No dependency on egui-wgpu. With kittest.
+- `examples/shader`: `lib.rs` (App) / `gpu.rs` (`setup(cc)`, `ShaderResources`, `ShaderCallback: CallbackTrait`) / `shader.wgsl` / `main.rs`. Slider (speed), Checkbox (pause), and drag drive the uniforms. Runs on native and trunk. Registered in the gallery, and the gallery's `setup` registers the pipeline.
+- Replace the painter section of the escape-hatch example with `<Canvas>` (if it fits in one line).
+- Add shader to the README table. `Canvas` in ARCHITECTURE section 6.
 
-### 含まない
+### Out of scope
 
-- shader の生 egui 版(差が出ない)。
-- wgpu 以外の描画 API、egui_glow の callback。
-- `Canvas` の可変 `Sense` 以上のイベント(ホイール、キー)。要望が出てから。
+- A raw egui version of shader (there would be no difference).
+- Drawing APIs other than wgpu, egui_glow callbacks.
+- Events beyond a variable `Sense` on `Canvas` (wheel, keys). When someone asks.
 
-## 成果物
+## Deliverables
 
-- `crates/egui-react-elements/src/canvas.rs` + `tests/canvas.rs`。
-- `examples/shader/`。
-- gallery / README / ARCHITECTURE の更新。plan.md 7 章に実装で判明した差分。
+- `crates/egui-react-elements/src/canvas.rs` + `tests/canvas.rs`.
+- `examples/shader/`.
+- Updates to gallery / README / ARCHITECTURE. Differences found during implementation go in plan.md section 7.
 
-## 終了条件
+## Done criteria
 
-- kittest: `Canvas` の `rect` が `w h` / `grow` に従う。`on_drag` / `on_hover` が発火する。shader の Slider が `speed` を変え、pause で `request_repaint` が止まる。
-- `cargo run -p shader` でアニメーションし、Slider で速度が変わる(目視)。`trunk serve` でブラウザでも同じ(目視、WebGPU 非対応ブラウザは WebGL fallback)。
-- gallery に shader が載り、他の example と同居して pipeline 登録が衝突しない。
-- CI(fmt / clippy / test / wasm check / trunk ループ)が緑。
+- kittest: the `rect` of `Canvas` follows `w h` / `grow`. `on_drag` / `on_hover` fire. The shader Slider changes `speed`, and pause stops `request_repaint`.
+- `cargo run -p shader` animates, and the Slider changes the speed (visual check). Same in the browser with `trunk serve` (visual check; browsers without WebGPU use the WebGL fallback).
+- shader appears in the gallery, and pipeline registration does not clash with the other examples living next to it.
+- CI (fmt / clippy / test / wasm check / trunk loop) is green.
 
-## 決めごと(着手時点での前提)
+## Decisions (assumptions at the start)
 
-- `Options.setup` で pipeline を作り、hook / context に wgpu の型を出さない(`use_context` で `RenderState` を配る案は採らない)。
-- `Canvas` は egui-wgpu を知らない。callback を `painter().add` するのは利用側。
-- 閉包 prop は `impl for<'a> FnOnce(&'a mut egui::Ui, egui::Rect)` と higher-ranked bound を明示する。`#[component]` は prop の省略された lifetime を props 構造体のものに書き換えるため、省略形はコンパイルできない(`VirtualList` で確認済み)。
-- `#[prop(default = ..)]` に式(`egui::Sense::hover()`)が通らなければ `Option<egui::Sense>` + `unwrap_or`。
-- snapshot(C-3)は kittest の `WgpuTestRenderer` に `callback_resources` を差し込めるかで決める。無理なら落として目視のみ。
+- Build the pipeline in `Options.setup`, and keep wgpu types out of hooks / context (the idea of handing out `RenderState` via `use_context` is not taken).
+- `Canvas` knows nothing about egui-wgpu. The user side does `painter().add` with the callback.
+- The closure prop spells out the higher-ranked bound: `impl for<'a> FnOnce(&'a mut egui::Ui, egui::Rect)`. `#[component]` rewrites elided lifetimes in props to the one of the props struct, so the elided form does not compile (confirmed with `VirtualList`).
+- If `#[prop(default = ..)]` does not accept an expression (`egui::Sense::hover()`), use `Option<egui::Sense>` + `unwrap_or`.
+- Snapshot (C-3) depends on whether `callback_resources` can be injected into kittest's `WgpuTestRenderer`. If not, drop it and rely on visual checks only.

@@ -1,64 +1,64 @@
-# タスク: examples(PR5 + PR6 + PR7 = フェーズ 6.5)
+# Task: examples (PR5 + PR6 + PR7 = Phase 6.5)
 
-## 目的
+## Goal
 
-examples を「動くサンプル 4 つ」から「ライブラリの売りを見せる場」にする。egui.rs と同じく全 example をブラウザで試せる gallery ページを持ち、そこで example と実装コードを並べる。同じ UI を生 egui で書いた版を隣に置き、状態管理とレイアウトの差をコードと行数で示す。足りない機能領域(フォーム、context、effect の cleanup、カスタム hook、生 egui への出口、大量要素、パネル構成、実アプリ)に example を 1 つずつ足す。最後に、コンポーネントの中で wgpu の shader を描く example を足し、そのために必要な最小の口(ランナーの `wgpu` feature、`Options.setup`、`<Canvas>` 要素)を開ける。
+Turn the examples from "four working samples" into "a place that shows what the library is good at". Like egui.rs, have a gallery page where you can try every example in the browser, and show each example next to its source code. Put a version of the same UI written in plain egui next to it, so the difference in state management and layout shows in code and line counts. Add one example for each feature area that is missing (forms, context, effect cleanup, custom hooks, the exit to plain egui, many elements, panel layout, a real app). Finally, add an example that draws a wgpu shader inside a component, and open the minimum entry points needed for it (the runner's `wgpu` feature, `Options.setup`, the `<Canvas>` element).
 
-core(`egui-react`、`egui-react-macros`)には手を入れない。
+Do not touch core (`egui-react`, `egui-react-macros`).
 
-## スコープ
+## Scope
 
-3 PR に分ける。詳細は [plan.md](plan.md)。
+Split into 3 PRs. Details in [plan.md](plan.md).
 
-### 含む
+### In scope
 
-- PR5(gallery)
-  - 既存 example 4 つ(counter / todo / layout / fetch)を lib + bin に分割し、`Meta`(名前、要約、hooks / elements タグ、ソース)を持たせる。
-  - `examples/gallery`: 1 wasm。一覧(タグで絞り込み)/ 実行中の example / コード表示の 3 列。egui-react 版と生 egui 版のトグルと行数。`location.hash` で直リンク。
-  - 生 egui 版(`plain.rs`): counter / todo / layout。
-  - テスト: 各 example の kittest、egui-react 版と生 egui 版の snapshot 一致(gallery の `snapshot` feature)。
-  - CI の trunk build を全 example のループにする。GitHub Pages へ gallery をデプロイする workflow。
-  - README の examples を表にし、gallery へリンクする。
-- PR6(examples)
-  - form / theme / clock / custom-hook / escape-hatch / list-10k / shell / showcase。それぞれ kittest 付きで gallery に登録(shell は `Panel` を使うため単体 bin)。
-  - form / list-10k は生 egui 版も書く。
-- PR7(canvas)
-  - `egui-react-app` に feature `wgpu`(eframe の wgpu backend)。on なら `Renderer::Wgpu` を既定にする。
-  - `Options.setup: Option<Box<dyn FnOnce(&CreationContext)>>`。pipeline を `callback_resources` に置く場所。
-  - `<Canvas>` 要素(`egui-react-elements`): taffy から矩形をもらい `on_paint(ui, rect)` を呼ぶ leaf。`on_drag` / `on_hover`。egui-wgpu には依存しない。
-  - `examples/shader`: fullscreen triangle + fragment shader。state(speed / pause / drag)が uniform に流れる。native と trunk で動く。gallery に登録。
+- PR5 (gallery)
+  - Split the 4 existing examples (counter / todo / layout / fetch) into lib + bin, and give each a `Meta` (name, summary, hooks / elements tags, source).
+  - `examples/gallery`: one wasm. Three columns: list (filter by tag) / running example / code view. Toggle between the egui-react version and the plain egui version, with line counts. Direct links via `location.hash`.
+  - Plain egui versions (`plain.rs`): counter / todo / layout.
+  - Tests: kittest for each example, snapshot match between the egui-react version and the plain egui version (the gallery's `snapshot` feature).
+  - Make the CI trunk build a loop over all examples. A workflow that deploys the gallery to GitHub Pages.
+  - Turn the examples section of the README into a table, and link to the gallery.
+- PR6 (examples)
+  - form / theme / clock / custom-hook / escape-hatch / list-10k / shell / showcase. Register each in the gallery with a kittest (shell is a standalone bin because it uses `Panel`).
+  - Also write plain egui versions of form / list-10k.
+- PR7 (canvas)
+  - Feature `wgpu` on `egui-react-app` (eframe's wgpu backend). When on, `Renderer::Wgpu` becomes the default.
+  - `Options.setup: Option<Box<dyn FnOnce(&CreationContext)>>`. The place to put the pipeline into `callback_resources`.
+  - `<Canvas>` element (`egui-react-elements`): a leaf that gets a rect from taffy and calls `on_paint(ui, rect)`. `on_drag` / `on_hover`. Does not depend on egui-wgpu.
+  - `examples/shader`: fullscreen triangle + fragment shader. State (speed / pause / drag) flows into the uniform. Runs on native and with trunk. Registered in the gallery.
 
-### 含まない
+### Out of scope
 
-- core の変更。必要が出たら plan.md 8 章に書き、別 PR で扱う。
-- `examples/template`(雛形)、`cargo generate`。フェーズ 8。
-- `ScrollArea` の仮想化(`show_rows`)。list-10k で差が大きすぎる場合の追加候補として plan.md 5 章に置く。
-- shader example の生 egui 版(差が出ない)。
-- gallery のデザイン調整(フォント、配色)。動くことと読めることまで。
-- 英語ドキュメント、API の見直し、crates.io 公開(フェーズ 8)。Android / iOS(PR4)。
+- Changes to core. If one turns out to be needed, write it in plan.md section 8 and handle it in a separate PR.
+- `examples/template` (a starter), `cargo generate`. Phase 8.
+- Virtualization of `ScrollArea` (`show_rows`). Listed in plan.md section 5 as a candidate to add if the gap in list-10k is too large.
+- A plain egui version of the shader example (there would be no difference).
+- Design tuning of the gallery (fonts, colors). Only as far as it works and is readable.
+- English docs, API review, crates.io release (Phase 8). Android / iOS (PR4).
 
-## 成果物
+## Deliverables
 
-- `examples/*/src/lib.rs` + `main.rs`(+ `plain.rs`)、`examples/gallery/`。
-- 新規 example 9 つ(`form` `theme` `clock` `custom-hook` `escape-hatch` `list-10k` `shell` `showcase` `shader`)。
-- `crates/egui-react-app`: feature `wgpu`、`Options.setup`。
-- `crates/egui-react-elements/src/canvas.rs`(`Canvas`)。
-- `.github/workflows/ci.yml`(trunk ループ)、`.github/workflows/pages.yml`。
-- README の examples 表。`docs/ARCHITECTURE.md` の更新(plan.md 6 章)。`plan-overview.md` の PR 表。
+- `examples/*/src/lib.rs` + `main.rs` (+ `plain.rs`), `examples/gallery/`.
+- 9 new examples (`form` `theme` `clock` `custom-hook` `escape-hatch` `list-10k` `shell` `showcase` `shader`).
+- `crates/egui-react-app`: feature `wgpu`, `Options.setup`.
+- `crates/egui-react-elements/src/canvas.rs` (`Canvas`).
+- `.github/workflows/ci.yml` (trunk loop), `.github/workflows/pages.yml`.
+- The examples table in the README. Updates to `docs/ARCHITECTURE.md` (plan.md section 6). The PR table in `plan-overview.md`.
 
-## 終了条件
+## Done criteria
 
-- plan.md のテスト(A-1〜A-4、各 example、C-1〜C-3)が緑。既存テストがすべてそのまま通る。
-- `cargo fmt --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo test --workspace`、`cargo check --workspace --target wasm32-unknown-unknown`、全 example と gallery の `trunk build` が CI で通る。
-- `https://fand.github.io/egui-react/` で gallery が開き、全 example(shell を除く)が動き、コードが読め、生 egui 版へ切り替えられる(目視)。
-- `cargo run -p <example>` が全 example で動く。`cargo run -p shader` で shader がアニメーションし、Slider で速度が変わる(目視)。`trunk serve` でブラウザでも同じ(目視)。
-- ARCHITECTURE.md が実装と一致している。変更点は各 PR 本文に列挙する。
+- The tests in plan.md (A-1 to A-4, each example, C-1 to C-3) are green. All existing tests still pass as they are.
+- `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `cargo check --workspace --target wasm32-unknown-unknown`, and `trunk build` for every example and the gallery pass in CI.
+- The gallery opens at `https://fand.github.io/egui-react/`, every example (except shell) runs, the code is readable, and you can switch to the plain egui version (checked by eye).
+- `cargo run -p <example>` works for every example. `cargo run -p shader` animates the shader and the Slider changes the speed (checked by eye). `trunk serve` shows the same in the browser (checked by eye).
+- ARCHITECTURE.md matches the implementation. List the changes in each PR body.
 
-## 決めごと(着手時点での前提)
+## Decisions (assumptions at the start)
 
-- gallery は 1 wasm。example ごとの別ページにはしない(切替の速さ、デプロイの単純さ)。
-- gallery に載る example は「渡された領域を埋めるコンポーネント」。`Panel` / `CentralPanel` を使わない。`use_persisted` のキーは `"<example>/<key>"`。`std::time::Instant` を使わない。
-- 生 egui 版は egui-react 版と同じ見た目を目指し、同じ snapshot 名で比較する。1px の丸め差が出たら閾値で吸収し、無理なら別名にする(plan.md 5 章)。
-- コード表示は `egui_extras::syntax_highlighting`(`syntect` なし)。
-- wgpu は eframe の `wgpu` feature 経由。glow は残す。`Options.setup` で pipeline を作り、hook / context に wgpu の型を出さない。`Canvas` は egui-wgpu を知らない。
-- web の wgpu は WebGL fallback を有効にする。
+- The gallery is one wasm. No separate page per example (faster switching, simpler deploy).
+- An example shown in the gallery is "a component that fills the area it is given". It does not use `Panel` / `CentralPanel`. `use_persisted` keys are `"<example>/<key>"`. It does not use `std::time::Instant`.
+- The plain egui version aims for the same look as the egui-react version, and is compared under the same snapshot name. If a 1px rounding difference appears, absorb it with a threshold; if that fails, use a different name (plan.md section 5).
+- The code view uses `egui_extras::syntax_highlighting` (without `syntect`).
+- wgpu comes through eframe's `wgpu` feature. glow stays. Build the pipeline in `Options.setup`; do not expose wgpu types in hooks / context. `Canvas` does not know about egui-wgpu.
+- Enable the WebGL fallback for wgpu on web.

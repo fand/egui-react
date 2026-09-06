@@ -1,76 +1,76 @@
-# タスク: core(PR2 = フェーズ 2 + 3 + 4 + 5)
+# Task: core (PR2 = Phase 2 + 3 + 4 + 5)
 
-## 目的
+## Goal
 
-spike(PR1)で検証済みの core の上に、ユーザーが実際に書く API を揃える。hooks の残り(`use_memo` / `use_reducer` / `defer` / `update_later` / `use_persisted`)、3 つのマクロ(`rsx!` / `#[component]` / `#[hook]`)、elements とレイアウト、ランナーである。終わった時点で examples が native と wasm で動き、以降の PR(非同期、モバイル)がランナー層と hook 1 つの追加だけで済む状態にする。
+Build the API that users actually write on top of the core that spike (PR1) verified. This means the rest of the hooks (`use_memo` / `use_reducer` / `defer` / `update_later` / `use_persisted`), the three macros (`rsx!` / `#[component]` / `#[hook]`), elements and layout, and the runner. When this is done, the examples run on native and wasm, and later PRs (async, mobile) only need to add a runner layer and one hook.
 
-spike の手書き展開形はすべてマクロ版に置き換え、spike のテストがそのまま通り続けることでマクロの展開形を固定する。
+Replace all of spike's hand-written expansions with the macro versions. Spike's tests keep passing as-is, which pins the macro expansions.
 
-## スコープ
+## Scope
 
-### 含む
+### In scope
 
-- フェーズ 2(core hooks)
-  - `View` trait と `rsx!` の戻り値になる closure View。
-  - `use_memo` / `use_reducer` + `Dispatch` / `cx.defer` + `update_later`。遅延キューの適用順。
-  - `Cx` にレイアウトコンテキスト(egui `Ui` か egui_taffy `Tui` か)を持たせ、`leaf` / `container` で描画先を切り替える。
-  - Id 衝突検出の画面オーバーレイ(debug ビルド)。
-- フェーズ 3(マクロ)
-  - `#[component]`: Props 構造体 + builder、`children`、`#[event]` からイベント enum と `Emitter`。
-  - `#[hook]`: `#[track_caller]` と `hook_scope`。
-  - `rsx!`: rstml でパース。要素、式埋め込み、文字列リテラル、`if` / `else` / `for` / `match`、`key`、`on_*` の融合、`events=` escape hatch、共通レイアウト属性の抽出。
-  - trybuild でコンパイルエラーの文面を固定する。
-- フェーズ 4(elements とレイアウト)
-  - `egui-react-elements`: `<View>` / `<Text>` を egui_taffy 上に実装し、レイアウト属性を taffy style に変換する。
-  - ウィジェット: `Button` / `Label` / `TextEdit`(`bind`)/ `Checkbox` / `Slider` / `ComboBox` / `Image` / `Separator`。
-  - コンテナ: `ScrollArea` / `Collapsing` / `Frame` / `Window` / `SidePanel` / `TopBottomPanel` / `CentralPanel`。egui-native の `Vertical` / `Horizontal` / `Grid`。
-  - kittest の操作テストと、レイアウトのスナップショットテスト。
-- フェーズ 5(ランナーと examples)
-  - `egui-react-app::run(Options, |cx| rsx!{..})`。native と wasm を同じ関数で吸収する。`Options::max_passes` の明示設定(既定 3。理由は plan.md 8 章)。
-  - `use_persisted`(eframe の `Storage` に保存)。
-  - examples: `counter`、`todo`(`use_reducer`)、`layout`。`examples/spike` は削除する。
-  - CI に wasm の `cargo check --workspace` と trunk ビルドを足す。
+- Phase 2 (core hooks)
+  - The `View` trait and the closure View that `rsx!` returns.
+  - `use_memo` / `use_reducer` + `Dispatch` / `cx.defer` + `update_later`. The order in which the deferred queue is applied.
+  - Give `Cx` a layout context (egui `Ui` or egui_taffy `Tui`), and switch the draw target with `leaf` / `container`.
+  - On-screen overlay for Id collision detection (debug builds).
+- Phase 3 (macros)
+  - `#[component]`: Props struct + builder, `children`, event enum and `Emitter` from `#[event]`.
+  - `#[hook]`: `#[track_caller]` and `hook_scope`.
+  - `rsx!`: parse with rstml. Elements, embedded expressions, string literals, `if` / `else` / `for` / `match`, `key`, fusing `on_*`, the `events=` escape hatch, extracting common layout attributes.
+  - Pin compile error messages with trybuild.
+- Phase 4 (elements and layout)
+  - `egui-react-elements`: implement `<View>` / `<Text>` on egui_taffy and convert layout attributes to taffy style.
+  - Widgets: `Button` / `Label` / `TextEdit` (`bind`) / `Checkbox` / `Slider` / `ComboBox` / `Image` / `Separator`.
+  - Containers: `ScrollArea` / `Collapsing` / `Frame` / `Window` / `SidePanel` / `TopBottomPanel` / `CentralPanel`. egui-native `Vertical` / `Horizontal` / `Grid`.
+  - kittest interaction tests and layout snapshot tests.
+- Phase 5 (runner and examples)
+  - `egui-react-app::run(Options, |cx| rsx!{..})`. One function covers both native and wasm. Set `Options::max_passes` explicitly (default 3; see plan.md section 8 for why).
+  - `use_persisted` (saved to eframe's `Storage`).
+  - examples: `counter`, `todo` (`use_reducer`), `layout`. Delete `examples/spike`.
+  - Add wasm `cargo check --workspace` and a trunk build to CI.
 
-### 含まない
+### Out of scope
 
-- `use_future`(PR3)。`Dispatch` が `Send + 'static` であることだけ本 PR で保証する。
-- Android / iOS(PR4)。英語ドキュメント、API の見直し、crates.io 公開(フェーズ 8)。
-- taffy Grid の詳細なトラック指定(`minmax`、`auto-fill`、名前付き領域)。`display="grid"` と等幅カラム、`col_span` / `row_span` までにとどめる。
-- `Image` のローダー登録(`egui_extras`)。`Image` は `egui::ImageSource` を受け取るだけで、ローダーはアプリ側の責務とする。
-- `use_persisted` の wasm 側(localStorage)の自動テスト。native の `Storage` 相当のモックでテストし、wasm は目視まで。
-- スナップショットテストを CI で回すこと。画像は生成した OS のレンダラに依存するので、feature の裏に置いてローカル実行にとどめる(下記「決めごと」)。
-- `rsx!` の IDE 補完やフォーマッタ対応。
+- `use_future` (PR3). This PR only guarantees that `Dispatch` is `Send + 'static`.
+- Android / iOS (PR4). English docs, API review, crates.io release (Phase 8).
+- Detailed taffy Grid track specs (`minmax`, `auto-fill`, named areas). Stop at `display="grid"` with equal-width columns and `col_span` / `row_span`.
+- `Image` loader registration (`egui_extras`). `Image` only takes an `egui::ImageSource`; loaders are the app's job.
+- Automated tests for the wasm side of `use_persisted` (localStorage). Test with a mock that stands in for native `Storage`; wasm is checked by eye only.
+- Running snapshot tests in CI. The images depend on the renderer of the OS that made them, so put them behind a feature and run them locally only (see "Decisions" below).
+- IDE completion or formatter support for `rsx!`.
 
-## 成果物
+## Deliverables
 
-- `crates/egui-react`: `view.rs`(`View`)、`hooks.rs` の追加分、`dispatch.rs`、`layout.rs`(`ItemStyle` / `ContainerStyle` / `Length`)、`Cx` の拡張、`Store` の遅延キューと永続化、衝突オーバーレイ。
-- `crates/egui-react-macros`: `component.rs` / `hook.rs` / `rsx/`(パーサ、カスタムノード、展開)。
-- `crates/egui-react/tests/ui/`(trybuild)と `crates/egui-react/tests/` の追加テスト。spike のテストと `tests/common` はマクロ版に置き換える。
-- `crates/egui-react-elements`: 各要素と `tests/`、スナップショット画像。
-- `crates/egui-react-app`: `run` / `Options`、eframe の `App` 実装、wasm ランナー。
-- `examples/counter` / `examples/todo` / `examples/layout`(それぞれ `index.html` と `Trunk.toml` を含む)。
-- `.github/workflows/ci.yml` の更新。
-- `docs/ARCHITECTURE.md` の更新(着手時点で判明している変更点は [plan.md](plan.md) 7 章、実装中に判明したものはその都度)。
-- README の使い方セクション(counter の例 1 つ)。
+- `crates/egui-react`: `view.rs` (`View`), additions to `hooks.rs`, `dispatch.rs`, `layout.rs` (`ItemStyle` / `ContainerStyle` / `Length`), `Cx` extensions, the deferred queue and persistence in `Store`, the collision overlay.
+- `crates/egui-react-macros`: `component.rs` / `hook.rs` / `rsx/` (parser, custom nodes, expansion).
+- `crates/egui-react/tests/ui/` (trybuild) and new tests in `crates/egui-react/tests/`. Replace spike's tests and `tests/common` with the macro versions.
+- `crates/egui-react-elements`: each element plus `tests/` and snapshot images.
+- `crates/egui-react-app`: `run` / `Options`, the eframe `App` impl, the wasm runner.
+- `examples/counter` / `examples/todo` / `examples/layout` (each with `index.html` and `Trunk.toml`).
+- Update `.github/workflows/ci.yml`.
+- Update `docs/ARCHITECTURE.md` (changes known at the start are in [plan.md](plan.md) section 7; add changes found during implementation as they come up).
+- A usage section in the README (one counter example).
 
-## 終了条件
+## Done criteria
 
-- [plan.md](plan.md) の各フェーズのテスト表がすべて緑。spike のテスト(`sibling_handlers` / `custom_hook` / `fused_events` / `context_handle` / `multi_pass` / `collision` / `unmount` / `nested_ui` / `repaint` / `effect_deps`)がマクロ版のコンポーネントで通る。
-- trybuild テストが緑で、`.stderr` がコミットされている。
-- `cargo fmt --check`、`cargo clippy --workspace --all-targets -- -D warnings`、`cargo test --workspace`、`cargo check --workspace --target wasm32-unknown-unknown`、`trunk build` が CI で通る。スナップショットは CI に含めない(上記)。
-- `cargo run -p counter` / `cargo run -p todo` / `cargo run -p layout` が native で動き、`trunk serve` で counter がブラウザで動く。
-- `todo` を終了して再起動すると `use_persisted` の内容が残っている(native、目視)。
-- ARCHITECTURE.md が実装と一致している。変更点は PR 本文に列挙する。
+- Every test table in each phase of [plan.md](plan.md) is green. Spike's tests (`sibling_handlers` / `custom_hook` / `fused_events` / `context_handle` / `multi_pass` / `collision` / `unmount` / `nested_ui` / `repaint` / `effect_deps`) pass with the macro-version components.
+- trybuild tests are green and the `.stderr` files are committed.
+- `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`, `cargo test --workspace`, `cargo check --workspace --target wasm32-unknown-unknown`, and `trunk build` pass in CI. Snapshots are not part of CI (see above).
+- `cargo run -p counter` / `cargo run -p todo` / `cargo run -p layout` run on native, and `trunk serve` runs counter in the browser.
+- Quit `todo` and restart it; the `use_persisted` content is still there (native, checked by eye).
+- ARCHITECTURE.md matches the implementation. List the changes in the PR body.
 
-## 決めごと(着手時点での前提)
+## Decisions (assumptions at the start)
 
-- 4 フェーズを 1 PR にまとめるが、コミットはフェーズ単位(最低 4 つ)に分け、各フェーズの終わりで CI が緑になっていること。フェーズをまたいで壊れた状態のコミットを積まない。
-- `egui-react`(core)は `egui_taffy` に依存する。`Cx` がレイアウトコンテキストを持つ以上、core が `Tui` を知る必要があるため。wasm の `cargo check` は引き続き通すこと。
-- Props の builder は `typed-builder` crate を使い、`egui-react` から `__private` で再エクスポートする(`#[builder(crate_module_path = ..)]`)。自前生成に切り替えるのは、再エクスポート経由で動かない場合だけ。
-- `#[component]` の Props 構造体は `<Name>Props`。`rsx!` は `::egui_react::props_builder(&Name)` で関数の型から builder を引く(ユーザーは `Name` だけを `use` すればよい)。lifetime 付き props で推論が通らなければ [plan.md](plan.md) 6 章の代替案に切り替える。
-- スナップショットテストは egui_kittest の `snapshot` + `wgpu` feature が要る。`egui-react-elements` の cargo feature `snapshot` の裏に置く。コミット済みの画像は macOS のレンダラで生成したもので Linux のソフトウェアレンダラとは一致しないので、CI では回さずローカル実行にとどめる。回し方は README の Testing 節に書く。
-- egui 0.36 の `Options::max_passes` の既定値は 2 である。ランナーは 3 を明示設定する(入れ子の egui_taffy ツリーがもう 1 パス必要なため。plan.md 8 章)。
-- `update_later` / `defer` に渡す閉包は `'static`(`move` が必要)。パス末まで生きるキューに入るため。借用したい場合は `Dispatch` か値の clone を使う。
-- `use_reducer` のメッセージは「パス末」ではなく「次に hook を訪問した時」に適用する(理由は plan.md 1.3)。
-- `use_persisted` の Id はスコープではなく文字列キーだけから導出する。同じキーを 2 か所で使えば同じ状態を共有する。保存形式は JSON、eframe の `Storage` には `"egui_react"` の 1 キーにまとめて書く。
-- 依存の追加: `syn` 2 / `quote` / `proc-macro2` / `typed-builder` / `trybuild` / `serde` / `serde_json` / `wasm-bindgen-futures` / `web-sys`。バージョンは着手時の最新を `[workspace.dependencies]` に pin する。
+- The 4 phases go in 1 PR, but split commits by phase (at least 4), and CI must be green at the end of each phase. Do not stack commits that are broken across phases.
+- `egui-react` (core) depends on `egui_taffy`. Since `Cx` holds the layout context, core has to know about `Tui`. The wasm `cargo check` must keep passing.
+- Use the `typed-builder` crate for the Props builder, re-exported from `egui-react` under `__private` (`#[builder(crate_module_path = ..)]`). Switch to our own generator only if it does not work through the re-export.
+- The `#[component]` Props struct is named `<Name>Props`. `rsx!` gets the builder from the function type with `::egui_react::props_builder(&Name)` (the user only needs to `use` `Name`). If inference fails with props that have lifetimes, switch to the fallback in [plan.md](plan.md) section 6.
+- Snapshot tests need egui_kittest's `snapshot` + `wgpu` features. Put them behind the `snapshot` cargo feature of `egui-react-elements`. The committed images were made with the macOS renderer and do not match Linux's software renderer, so do not run them in CI; run them locally only. Describe how in the README Testing section.
+- egui 0.36's default for `Options::max_passes` is 2. The runner sets 3 explicitly (nested egui_taffy trees need one more pass; plan.md section 8).
+- Closures passed to `update_later` / `defer` are `'static` (they need `move`). They go into a queue that lives until the end of the pass. To borrow, use `Dispatch` or clone the value.
+- `use_reducer` messages are applied "the next time the hook is visited", not "at the end of the pass" (see plan.md 1.3 for why).
+- The Id for `use_persisted` is derived from the string key only, not from the scope. Using the same key in 2 places shares the same state. The storage format is JSON, written to eframe's `Storage` under the single key `"egui_react"`.
+- New dependencies: `syn` 2 / `quote` / `proc-macro2` / `typed-builder` / `trybuild` / `serde` / `serde_json` / `wasm-bindgen-futures` / `web-sys`. Pin the latest versions at start time in `[workspace.dependencies]`.

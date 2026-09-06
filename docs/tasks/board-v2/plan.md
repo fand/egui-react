@@ -1,21 +1,21 @@
-# プラン: board 改修(v2)
+# Plan: board rework (v2)
 
-タスク定義は [task.md](task.md)。元の設計は [board/plan.md](../board/plan.md)(以下「v1 plan」)。本書は v1 からの差分だけを書く。実装中にここから外れたら本書を更新する。
+The task definition is in [task.md](task.md). The original design is in [board/plan.md](../board/plan.md) ("v1 plan" below). This document only writes the diff from v1. If the implementation departs from this, update this document.
 
-## 0. 全体
+## 0. Overview
 
-- 触るのは `examples/board/`(`board.rs` / `lib.rs` / `hooks.rs` / `look.rs` / `plain.rs` / `tests/board.rs`)、`examples/gallery/tests/a11y.rs`、docs、README の表。core と `egui-react-elements` は無変更。足りないものが出たら 9 章に書いて回避する。
-- react 版と plain 版は同じ挙動にし、同じテストで叩く(v1 の B-7 方式)。**両方を同じコミットで直す。**
-- example の主張(card のローカル state が card に付いて回る)は残す。body と `expanded` が消えるので、付いて回る state は **`editing` と `draft`** の 2 つになる。だから **編集中でも drag できる**ことが必須(3 章)。
-- 文体は既存に合わせる(コメントは英語、docs は日本語)。
+- Touches `examples/board/` (`board.rs` / `lib.rs` / `hooks.rs` / `look.rs` / `plain.rs` / `tests/board.rs`), `examples/gallery/tests/a11y.rs`, docs, and the README table. core and `egui-react-elements` are unchanged. If something is missing, write it in section 9 and work around it.
+- The react version and the plain version behave the same and are driven by the same tests (v1's B-7 method). **Fix both in the same commit.**
+- Keep the example's claim (a card's local state follows the card). body and `expanded` go away, so the state that follows the card becomes the two: **`editing` and `draft`**. So **dragging while editing** is a must (section 3).
+- Match the existing style (comments and docs in English).
 
-## 1. データモデル(`board.rs`)
+## 1. Data model (`board.rs`)
 
 ```rust
 pub struct Card { pub id: CardId, pub title: String, pub done: bool }
 
 pub enum Msg {
-    /// title 付きで足す。空 title の card はボードに入れない(4 章)。
+    /// Add with a title. A card with an empty title never enters the board (section 4).
     AddCard { column: ColumnId, title: String },
     SetTitle { card: CardId, title: String },
     SetDone { card: CardId, done: bool },
@@ -24,64 +24,64 @@ pub enum Msg {
     RenameColumn { column: ColumnId, name: String },
 }
 
-/// `done`: `None` なら全部、`Some(true)` なら完了だけ、`Some(false)` なら未完了だけ。
+/// `done`: `None` means all, `Some(true)` means only done, `Some(false)` means only open.
 pub fn visible(column: &Column, search: &str, done: Option<bool>) -> Vec<CardId>;
 ```
 
-- `Label` enum、`body`、`EditCard`、`SetLabel` は消す。`Theme::label` も消す。
-- `Board::demo()`: 同じ 12 枚を title だけで。"done" 列の 3 枚は `done: true`、他は `false`。
-- `SetTitle` は title が同じなら `changed = false`(履歴に積まない)。`AddCard` は呼び出し側が空 title を弾くが、reducer でも `title.trim().is_empty()` なら何もしない。
-- ユニットテストを新仕様に合わせる(`visible` は title だけ見る、`done` 絞り込み、`AddCard` の空 title)。
-- `use_persisted("board/board")` に旧形式(`body` / `label` 付き)の JSON が残っていると `serde_json::from_str` が失敗し `use_persisted` は `init` に落ちる(`hooks.rs` の `restored.unwrap_or_else(init)`)。それでよい。キーは変えない。plain 版の `STORAGE_KEY` も同じ。
+- Remove the `Label` enum, `body`, `EditCard`, and `SetLabel`. Remove `Theme::label` too.
+- `Board::demo()`: the same 12 cards, title only. The 3 in the "done" column are `done: true`, the rest `false`.
+- `SetTitle` sets `changed = false` (not pushed onto history) if the title is the same. The caller rejects an empty title for `AddCard`, but the reducer also does nothing if `title.trim().is_empty()`.
+- Update the unit tests to the new spec (`visible` looks only at title, `done` filter, empty title in `AddCard`).
+- If old-format JSON (with `body` / `label`) is left in `use_persisted("board/board")`, `serde_json::from_str` fails and `use_persisted` falls back to `init` (`restored.unwrap_or_else(init)` in `hooks.rs`). That is fine. Do not change the key. The plain version's `STORAGE_KEY` is the same.
 
-## 2. card の描画(`lib.rs` の `<Card>`)
+## 2. Drawing the card (`<Card>` in `lib.rs`)
 
-1 行だけの card にする: `[☐] title ........ [✎] [×]`。
+Make the card a single line: `[☐] title ........ [✎] [×]`.
 
 ```
 <Card key={id} card=.. column=.. next=.. on_title on_done on_remove/>
-  cx.leaf(..)                         ← card 全体が 1 つの leaf(矩形が要るため)
-    ui.interact(rect, id, Sense::drag())   背面。drag と cursor(2.2)
-    egui::Frame::show(..)                  角丸の枠(今の <Frame> と同じ見た目)
-      Cx::new(store, ui, scope) で rsx:
+  cx.leaf(..)                         <- the whole card is one leaf (because a rect is needed)
+    ui.interact(rect, id, Sense::drag())   background. drag and cursor (2.2)
+    egui::Frame::show(..)                  rounded frame (same look as the current <Frame>)
+      rsx via Cx::new(store, ui, scope):
         <View row align="center" gap={6}>
-          <Checkbox bind=.. />                 done(2.3)
-          if editing { TitleEdit } else { title の Label }   (3 章)
+          <Checkbox bind=.. />                 done (2.3)
+          if editing { TitleEdit } else { Label with the title }   (section 3)
           <IconButton name="edit">"✎"</IconButton>
           <IconButton name="remove">"×"</IconButton>
         </View>
 ```
 
-### 2.1 なぜ leaf 1 つにするか
+### 2.1 Why one leaf
 
-v1 plan §8.4 のとおり `<View>` / `<Frame>` は矩形を返さない。今回は「card 全体を掴む」「card 全体を drop 先にする」「card に hover で cursor を変える」の 3 つが card の矩形を要求する。`<Frame>` の実装(`containers.rs`)は `cx.leaf` の中で `egui::Frame::show` して子を `Cx::new(store, ui, scope)` で描いているので、同じことを `<Card>` の中で手書きすれば矩形が取れる。elements には手を入れない。
+As v1 plan §8.4 says, `<View>` / `<Frame>` do not return a rect. This time three things need the card's rect: "grab the whole card", "make the whole card a drop target", "change the cursor on hover over the card". The `<Frame>` implementation (`containers.rs`) calls `egui::Frame::show` inside `cx.leaf` and draws the children with `Cx::new(store, ui, scope)`, so writing the same thing by hand inside `<Card>` gets us the rect. elements are not touched.
 
-### 2.2 背面の drag 面
+### 2.2 The background drag surface
 
-- `let rect = ui.max_rect();` を **子を描く前に** `ui.interact(rect, ui.id().with("bg"), egui::Sense::drag())` に渡す。`max_rect` は taffy が leaf に与えた矩形で、初回フレームだけ高さが不正確だが 2 フレーム目から正しい(footer の `leaf_fill` と同じ扱い)。
-- **先に登録する理由**: egui の hit test は click 候補と drag 候補を別々に「一番上のもの」から選ぶ(`hit_test.rs`)。背面を先に置けば、Checkbox / IconButton(click だけ)は click を取り、TextEdit(click+drag)は自分の中の drag を取り、それ以外の場所の drag は背面に落ちる。押した後に動かせば click 候補は捨てられ drag になる(`interaction.rs`)ので、**checkbox の上で押して動かしても card が drag される**。テストはこれを使う(8 章)。
-- `bg.drag_started()` で `dnd.pick_up(card.id)`。title の Label からは `Sense` を外す(3 章)。
-- **cursor**: `bg.contains_pointer()` なら `ui.ctx().set_cursor_icon(CursorIcon::PointingHand)`。`hovered()` ではなく `contains_pointer()`: 子 widget の上でも card の上なので pointer にする。drag 中(`dnd.carrying().is_some()`)は `Grabbing`。
-- drop slot は **card 全体の矩形**を上下に割る(v1 の title 行 ± `SLOT_PAD` をやめる。`SLOT_PAD` は消す)。`dnd.slot(top, before: Some(card.id))`、`dnd.slot(bottom, before: *next)`。
-- 掴まれている card(`carried`)は今までどおりその場に薄く描く(消すと `use_identity` のスロットが sweep されて draft が消える。v1 plan §8.1)。
+- Pass `let rect = ui.max_rect();` to `ui.interact(rect, ui.id().with("bg"), egui::Sense::drag())` **before drawing the children**. `max_rect` is the rect taffy gave the leaf. Its height is off only on the first frame and correct from the second (same treatment as the footer's `leaf_fill`).
+- **Why register first**: egui's hit test picks click candidates and drag candidates separately, each "topmost first" (`hit_test.rs`). With the background placed first, Checkbox / IconButton (click only) take the click, TextEdit (click+drag) takes drags inside itself, and drags anywhere else fall to the background. If you move after pressing, the click candidate is dropped and it becomes a drag (`interaction.rs`), so **pressing on the checkbox and moving drags the card**. The tests use this (section 8).
+- On `bg.drag_started()` call `dnd.pick_up(card.id)`. Remove `Sense` from the title Label (section 3).
+- **cursor**: if `bg.contains_pointer()`, `ui.ctx().set_cursor_icon(CursorIcon::PointingHand)`. `contains_pointer()` rather than `hovered()`: being over a child widget is still being over the card, so show the pointer. While dragging (`dnd.carrying().is_some()`) use `Grabbing`.
+- Drop slots split **the whole card's rect** top and bottom (drop v1's title row ± `SLOT_PAD`. Remove `SLOT_PAD`). `dnd.slot(top, before: Some(card.id))`, `dnd.slot(bottom, before: *next)`.
+- The carried card (`carried`) is still drawn faintly in place as before (removing it would sweep the `use_identity` slot and lose the draft. v1 plan §8.1).
 
 ### 2.3 done checkbox
 
-- `<Checkbox bind={done.bind()} on_change=..>` は `bind` が `&mut bool` を要求する。card の `done` は props(`&CardData`)なので直接 bind できない。**`cx.leaf` で `egui::Checkbox::without_text(&mut local)` を描き、`changed()` なら `on_done.emit(!card.done)`** が一番短い(`local` はその場のコピー)。elements の `<Checkbox>` は使わない。
-- a11y: `ui.ctx().accesskit_node_builder(response.id, |n| n.set_label(format!("done: {}", card.title)))`。**テストは card をこの名前で探す**(8 章)。
-- done の card は title を `weak()` + `strikethrough()`。
+- `<Checkbox bind={done.bind()} on_change=..>` requires `&mut bool` for `bind`. The card's `done` is a prop (`&CardData`), so it cannot be bound directly. The shortest way is **draw `egui::Checkbox::without_text(&mut local)` in `cx.leaf`, and if `changed()` then `on_done.emit(!card.done)`** (`local` is a copy made on the spot). Do not use the elements `<Checkbox>`.
+- a11y: `ui.ctx().accesskit_node_builder(response.id, |n| n.set_label(format!("done: {}", card.title)))`. **The tests find the card by this name** (section 8).
+- A done card draws its title `weak()` + `strikethrough()`.
 
 ### 2.4 IconButton
 
-- `<IconButton name="edit">"✎"</IconButton>`: `name: Option<&str>` prop を足し、あれば `accesskit_node_builder` で label を上書きする。表示は絵、木の名前は言葉。テストは今までどおり `get_all_by_label("edit")` で探せる。"×" も `name="remove"`。
-- "✎"(U+270E)は egui 同梱の emoji-icon フォントにある。無ければ "✏" か "edit" の文字に戻す(実機で確認できないので最初のビルドで `egui::FontDefinitions` を疑う前に、まず gallery のスクリーンショット無しでもテストは通る。見た目は 10 章の手順で確認)。
+- `<IconButton name="edit">"✎"</IconButton>`: add a `name: Option<&str>` prop. If given, override the label with `accesskit_node_builder`. The display is a picture, the name in the tree is a word. Tests can still find it with `get_all_by_label("edit")` as before. "×" also gets `name="remove"`.
+- "✎" (U+270E) is in the emoji-icon font that ships with egui. If not, fall back to "✏" or the text "edit" (it cannot be checked on a real machine, so before suspecting `egui::FontDefinitions` on the first build, note that the tests pass even without a gallery screenshot. Check the look with the steps in section 10).
 
-## 3. インライン編集(`TitleEdit`)
+## 3. Inline editing (`TitleEdit`)
 
-card の title、column の rename、新規 card(4 章)の 3 か所で同じ部品を使う。`lib.rs` に `#[component] fn TitleEdit(cx, style, bind: &mut String, name: &str, #[event] on_commit: String, #[event] on_cancel: ())`。
+The same part is used in three places: the card title, the column rename, and the new card (section 4). In `lib.rs`: `#[component] fn TitleEdit(cx, style, bind: &mut String, name: &str, #[event] on_commit: String, #[event] on_cancel: ())`.
 
-- `cx.leaf` の中に `egui::TextEdit::singleline(bind)`。`desired_width(ui.available_width())`。
-- **自動 focus + 全選択**: mount 直後の 1 回だけ。`let mut fresh = use_state(cx, || true);` で、`*fresh` なら
+- `egui::TextEdit::singleline(bind)` inside `cx.leaf`. `desired_width(ui.available_width())`.
+- **Auto focus + select all**: only once, right after mount. `let mut fresh = use_state(cx, || true);` and if `*fresh`:
   ```rust
   response.request_focus();
   let mut state = egui::TextEdit::load_state(ui.ctx(), response.id).unwrap_or_default();
@@ -90,164 +90,164 @@ card の title、column の rename、新規 card(4 章)の 3 か所で同じ部�
   state.store(ui.ctx(), response.id);
   *fresh = false;
   ```
-  `TitleEdit` は編集を閉じると unmount されるので、次に開いた時はまた `fresh`。card が列をまたいで動くと remount されて再 focus + 再選択になる(draft は `use_identity` なので残る)。これは許容し、コメントに書く。
-- **Enter で確定**: `response.lost_focus() && input.key_pressed(Enter)` → `on_commit.emit(bind.clone())`。
-- **Esc でキャンセル**: `input.key_pressed(Escape)` かつこの field が focus を持っていた(egui は Esc で focus を手放す。`lost_focus() && key_pressed(Escape)`)→ `on_cancel.emit(())`。
-- **それ以外で focus を失った**(別の場所をクリック)→ **確定**(Trello と同じ)。ただし mount 直後の `request_focus` が効くフレームより前に `lost_focus` が立つことは無いので順序は気にしない。
-- a11y: `accesskit_node_builder` で `set_label(name)`(`"title"` / `"column name"` / `"new card"`)。gallery の a11y テストが無名 `TextInput` を数えるため。
+  `TitleEdit` is unmounted when the edit closes, so it is `fresh` again the next time it opens. When a card moves across columns it is remounted, so it re-focuses and re-selects (the draft stays because it is `use_identity`). Accept this and write it in a comment.
+- **Enter commits**: `response.lost_focus() && input.key_pressed(Enter)` -> `on_commit.emit(bind.clone())`.
+- **Esc cancels**: `input.key_pressed(Escape)` and this field had focus (egui gives up focus on Esc. `lost_focus() && key_pressed(Escape)`) -> `on_cancel.emit(())`.
+- **Lost focus any other way** (clicked somewhere else) -> **commit** (same as Trello). `lost_focus` never fires before the frame where the post-mount `request_focus` takes effect, so the order does not matter.
+- a11y: `set_label(name)` via `accesskit_node_builder` (`"title"` / `"column name"` / `"new card"`). The gallery a11y test counts unnamed `TextInput`s.
 
-呼び出し側:
+Callers:
 
-- **`<Card>`**: `editing` / `draft` は v1 と同じ `use_identity`。ペンで `*draft = card.title.clone(); *editing = true`。`on_commit`: `on_title.emit(title)` して `*editing = false`。空 title(`trim().is_empty()`)の確定は **キャンセル扱い**(title は変えない)。`on_cancel`: `*editing = false`。
-- **`<Column>` の rename**: `<TextEdit on_submit>` を `TitleEdit` に置き換える(Esc で戻せるようになる)。"rename" ボタンはそのまま。
-- v1 の `Draft` 構造体、`save` / `cancel` ボタン、`expanded`、本文の `<Text wrap>` は消す。
+- **`<Card>`**: `editing` / `draft` use `use_identity` as in v1. The pen does `*draft = card.title.clone(); *editing = true`. `on_commit`: `on_title.emit(title)` then `*editing = false`. Committing an empty title (`trim().is_empty()`) is **treated as cancel** (the title is not changed). `on_cancel`: `*editing = false`.
+- **`<Column>` rename**: replace `<TextEdit on_submit>` with `TitleEdit` (Esc can now revert). The "rename" button stays.
+- Remove v1's `Draft` struct, the `save` / `cancel` buttons, `expanded`, and the body `<Text wrap>`.
 
-## 4. 新規 card("+ card")
+## 4. New card ("+ card")
 
-**ボードには入れず、column のローカル state で編集する。** `AddCard { column, title }` は確定時に 1 回送る。
+**Do not put it on the board. Edit it in the column's local state.** Send `AddCard { column, title }` once on commit.
 
-- `let mut adding = use_state(cx, || false); let mut new_title = use_state(cx, String::new);` を `<Column>` に置く。
-- "+ card" で `*new_title = String::new(); *adding = true`。
-- `*adding` なら、card リストの末尾(footer の直前)に card と同じ枠(`Frame`、同じ余白)で `TitleEdit name="new card"` を描く。`on_commit`: title が空でなければ `send(AddCard { column, title })`、どちらでも `*adding = false`。`on_cancel`: `*adding = false`。
-- この形にする理由: 空 title の card をボードに入れてから消すと、履歴が「追加」「削除」の 2 手になり、`use_persisted` にも空 card が残りうる。column のローカル state なら undo は 1 手、保存されるのは確定した card だけ。`Column` の `on_add: ()` イベントは `on_add: String` に変わり、`BoardView` が `AddCard` を送る。
-- 新規 card の枠は drop slot を持たない(footer が「末尾」を担当したまま)。
+- Put `let mut adding = use_state(cx, || false); let mut new_title = use_state(cx, String::new);` in `<Column>`.
+- "+ card" does `*new_title = String::new(); *adding = true`.
+- If `*adding`, draw `TitleEdit name="new card"` at the end of the card list (right before the footer), in the same frame as a card (`Frame`, same padding). `on_commit`: if the title is not empty, `send(AddCard { column, title })`, and either way `*adding = false`. `on_cancel`: `*adding = false`.
+- Why this shape: putting an empty-title card on the board and then removing it makes history two steps, "add" and "remove", and an empty card could be left in `use_persisted`. With the column's local state, undo is one step and only committed cards are saved. `Column`'s `on_add: ()` event becomes `on_add: String`, and `BoardView` sends `AddCard`.
+- The new card frame has no drop slot (the footer keeps handling "the end").
 
-## 5. ドラッグ(`lib.rs` / `hooks.rs`)
+## 5. Drag (`lib.rs` / `hooks.rs`)
 
-### 5.1 テキスト選択のバグ
+### 5.1 The text selection bug
 
-原因: title の `egui::Label` に `Sense::click_and_drag` を付けても Label は `selectable_labels`(既定 true)のままなので、押した瞬間にその Label 上で文字選択が始まり、`LabelSelectionState` が drag 中に通った他の Label へ選択を伸ばす(`label_text_selection.rs`)。
+Cause: even with `Sense::click_and_drag` on the title `egui::Label`, the Label stays `selectable_labels` (default true), so text selection starts on that Label the moment you press, and `LabelSelectionState` extends the selection to other Labels the drag passes over (`label_text_selection.rs`).
 
-直し: title の Label を `.selectable(false)` にし、`Sense` を外す(掴むのは 2.2 の背面)。押下が Label で始まらなければ選択は始まらない。**同じ直しを plain 版にも入れる。** 直った確認は 8 章 B-12(`egui::text_selection::LabelSelectionState::load(ctx).has_selection()` が drag 後に false)。それでも選択が起きるなら、`BoardProvider` の `use_effect` で `ctx.style_mut(|s| s.interaction.selectable_labels = false)` にする(gallery の他の example にも効くので最後の手段)。
+Fix: make the title Label `.selectable(false)` and remove the `Sense` (grabbing is done by the background in 2.2). If the press does not start on a Label, no selection starts. **Put the same fix in the plain version.** Verify with B-12 in section 8 (`egui::text_selection::LabelSelectionState::load(ctx).has_selection()` is false after the drag). If selection still happens, set `ctx.style_mut(|s| s.interaction.selectable_labels = false)` in a `use_effect` in `BoardProvider` (last resort, since it affects the other gallery examples too).
 
-### 5.2 挿入先の preview
+### 5.2 Insert position preview
 
-青い線(`hline`)を **空 card の placeholder** に置き換える。`Card` の `before_me` / `Column` の `hovered_end` の `hline` は消す。
+Replace the blue line (`hline`) with **an empty card placeholder**. Remove the `hline` in `Card`'s `before_me` / `Column`'s `hovered_end`.
 
-- `Column` が描く。`let target = dnd.hovered().filter(|t| t.column == column.id);` を見て、card リストの中で `target.before == Some(card.id)` の card の **直前**、`before == None` なら footer の直前(4 章の新規 card 枠の後ろ)に `<Placeholder>` を 1 つ入れる。
-- **掴んでいる card の元の位置と同じなら出さない**: `target.before == Some(carried)` または `target.before == after[i]`(carried が i 番目)は無視。動かない drop に preview は要らない。
-- `Placeholder` は `cx.leaf` で card と同じ幅、`PLACEHOLDER_H`(= card 1 行の高さ。`ui.spacing().interact_size.y + 12.0` を目安に定数)を `allocate_exact_size(.., Sense::hover)` し、角丸の破線枠(`theme.accent()`、内側は `theme.card()` を薄く)を描く。
-- **必ず `dnd.slot(rect, target)` を登録する。** placeholder が入ると下の card がずれ、ポインタが placeholder の上に来る。その矩形が slot でないと `hovered` が `None` になって placeholder が消え、card が戻り、また `hovered` が立つ、を毎フレーム繰り返す。placeholder 自身が同じ target の slot なら安定する。
-- `response.widget_info(|| WidgetInfo::labeled(WidgetType::Other, true, "drop here"))` で名前を付け、テストから見えるようにする(8 章 B-11)。
-- ゴースト(`look::ghost`)はそのまま。`Theme::accent` のコメント(「挿入線」)を直す。
-- plain 版も同じ描き方(同じ定数、同じ slot 登録)。
+- `Column` draws it. Look at `let target = dnd.hovered().filter(|t| t.column == column.id);` and put one `<Placeholder>` in the card list **right before** the card with `target.before == Some(card.id)`, or right before the footer (after the new card frame from section 4) if `before == None`.
+- **Do not show it if it equals the carried card's original position**: ignore `target.before == Some(carried)` or `target.before == after[i]` (carried is the i-th). A drop that moves nothing needs no preview.
+- `Placeholder` is a `cx.leaf` with the same width as a card, `allocate_exact_size(.., Sense::hover)` with `PLACEHOLDER_H` (= the height of one card row. A constant, about `ui.spacing().interact_size.y + 12.0`), and draws a rounded dashed frame (`theme.accent()`, inside a faint `theme.card()`).
+- **Always register `dnd.slot(rect, target)`.** When the placeholder appears, the cards below shift and the pointer ends up over the placeholder. If that rect is not a slot, `hovered` becomes `None`, the placeholder disappears, the cards move back, `hovered` fires again, and this repeats every frame. If the placeholder itself is a slot for the same target, it is stable.
+- Name it with `response.widget_info(|| WidgetInfo::labeled(WidgetType::Other, true, "drop here"))` so tests can see it (section 8 B-11).
+- The ghost (`look::ghost`) stays. Fix the `Theme::accent` comment ("insert line").
+- The plain version draws it the same way (same constants, same slot registration).
 
 ### 5.3 `hooks.rs`
 
-変更なし。`Dnd` の API はそのまま使える。
+No change. The `Dnd` API can be used as-is.
 
 ## 6. Toolbar
 
-ラベルの chip は意味を失うので、**"open" / "done" の 2 つの chip による絞り込み**に置き換える(`filter: Option<bool>`)。押した chip をもう一度押すと解除(v1 の `Option<Label>` と同じ動き)。`<Chip>` と `use_memo` の deps(`(column.id, rev, search, filter)`)はそのまま生きる。色は `theme.accent()`。plain 版も同じ。
+The label chips lose their meaning, so replace them with **a filter made of two chips, "open" / "done"** (`filter: Option<bool>`). Pressing the pressed chip again clears it (same behavior as v1's `Option<Label>`). `<Chip>` and the `use_memo` deps (`(column.id, rev, search, filter)`) stay as they are. The color is `theme.accent()`. Same in the plain version.
 
-## 7. plain 版(`plain.rs`)
+## 7. Plain version (`plain.rs`)
 
-react 版の各項目をそのまま鏡写しにする。差は「状態をどこに置くか」だけ、という v1 の建前を守る。
+Mirror each item of the react version as-is. Keep v1's premise that the only difference is "where the state lives".
 
-- `CardUi { editing: bool, draft_title: String }`。`expanded` / `draft_body` は消す。
-- 新規 card: `adding: Option<(ColumnId, String)>`(`renaming` と同じ形。同時に 1 列だけ。理由は v1 plan §5 と同じで、コメントに書く)。
-- 自動 focus + 全選択: `fresh: Option<egui::Id>`(次のフレームで focus と選択を当てる field の id)を `PlainState` に持つ。react 版の `fresh` state に当たる。
-- 背面 drag、cursor、checkbox、placeholder、Label の `.selectable(false)`、open/done 絞り込み。
+- `CardUi { editing: bool, draft_title: String }`. Remove `expanded` / `draft_body`.
+- New card: `adding: Option<(ColumnId, String)>` (same shape as `renaming`. Only one column at a time. The reason is the same as v1 plan §5, written in a comment).
+- Auto focus + select all: `PlainState` holds `fresh: Option<egui::Id>` (the id of the field to focus and select on the next frame). This matches the react version's `fresh` state.
+- Background drag, cursor, checkbox, placeholder, `.selectable(false)` on the Label, open/done filter.
 
-## 8. テスト(`tests/board.rs`)
+## 8. Tests (`tests/board.rs`)
 
-ヘルパを新仕様に合わせ、react / plain の両方に同じ関数を流す。
+Update the helpers to the new spec and run the same functions on both react / plain.
 
-- **card を探す**: title で `get_by_label(title)`(Label は `value` に text を持つ。今も通っている)。編集中は Label が無いので **checkbox `"done: <title>"`** で探す。`fn card_rect(harness, title) -> Rect` は checkbox の矩形を基準にせず、`"done: <title>"` の checkbox の中心を **掴む点**にする(2.2: checkbox の上で押して動かすと card の drag になる)。`drag` の `from` はこれ。
-- **drop 先**: `onto` の title Label の矩形の `top()+1` / `bottom()-1`(card の上半分 / 下半分に入る)。footer は `"+ card"` のまま。
-- `fn open_editor(title)`: `"edit"` の中で y が近いものをクリック(今と同じ)。開いたら `draft_field()` が **focus を持っている**ことを assert(`accesskit_node().is_focused()` か `harness.ctx.memory(|m| m.focused())`)。
-- `fn draft_field()`: 単一行 `TextInput` の最後(検索 → rename → 編集中 or 新規、の順)。名前 `"title"` / `"new card"` で引ける方が確実なので `get_by_label` を使う。
-- `fn edit(title, text)`: `open_editor` → `key_press(Key::End)`(全選択を解いて末尾へ)→ `type_text(text)`。`fn editors()` は `query_all_by_label("title").count()`。
+- **Finding a card**: `get_by_label(title)` by title (a Label has its text in `value`. This already passes). While editing there is no Label, so find it by **the checkbox `"done: <title>"`**. `fn card_rect(harness, title) -> Rect` does not use the checkbox rect as the base; instead the center of the `"done: <title>"` checkbox is **the grab point** (2.2: pressing on the checkbox and moving drags the card). `drag`'s `from` is this.
+- **Drop target**: `top()+1` / `bottom()-1` of the `onto` title Label's rect (falls in the card's top half / bottom half). The footer stays `"+ card"`.
+- `fn open_editor(title)`: click the `"edit"` whose y is close (same as now). Once open, assert that `draft_field()` **has focus** (`accesskit_node().is_focused()` or `harness.ctx.memory(|m| m.focused())`).
+- `fn draft_field()`: the last single-line `TextInput` (in order: search -> rename -> editing or new). Finding it by name `"title"` / `"new card"` is more reliable, so use `get_by_label`.
+- `fn edit(title, text)`: `open_editor` -> `key_press(Key::End)` (clear the select-all and go to the end) -> `type_text(text)`. `fn editors()` is `query_all_by_label("title").count()`.
 
-| # | 内容 |
+| # | Content |
 |---|---|
-| B-1 | "+ card" → 新規 field が focus 済み → "new card" と打って Enter → 13 cards、backlog 5/5、`column_of("new card") == 0`。続けて "+ card" → Esc → 13 のまま。"+ card" → 何も打たず Enter → 13 のまま |
-| B-2 | `edit("buy milk", " and bread")` → 編集中のまま "wire the drag" の上半分へ drag → 列 1、順序、`draft() == "buy milk and bread"`、`editors() == 1`、保存 title は "buy milk" のまま |
-| B-3 | `edit("read the plan", "!")` → "write the plan" の上へ → 順序が入れ替わり、`editors()==1` で draft が "read the plan!"、"write the plan" は編集中でない → 下半分へ戻す → 同じ |
-| B-4 | 追加(B-1 の手順)→ "buy milk" を末尾列へ → undo ×2 → redo ×2(今と同じ) |
-| B-5 | 検索(今と同じ。title だけ見るが結果は同じ: backlog 2/4、review 0/2) |
-| B-6 | 永続化(追加の手順が変わるだけ) |
-| B-8 | rename: 今と同じ + `rename` を開いて Esc → 名前が変わらず field が閉じる |
-| B-9 (新) | 編集: ペン → 開いた直後に "z" を打つと draft が "z"(全選択の確認)→ Esc → title は元のまま、editors()==0。ペン → End → "!" → Enter → title "buy milk!"、editors()==0、undo で戻る |
-| B-10 (新) | done: "buy milk" の checkbox クリック → `toggled` → undo で戻る。chip "done" → done 列 3/3、backlog 0/4 → もう一度押して解除 |
-| B-11 (新) | preview: "buy milk" を掴んで "wire the drag" の下半分に hover(`drag_at` → `hover_at` ×2、離さない)→ `query_by_label("drop here")` がある、"name the hooks" の y が hover 前より下 → `drop_at` → "drop here" が無い |
-| B-12 (新) | 選択: B-11 と同じ drag の後に `LabelSelectionState::load(&ctx).has_selection()` が false |
-| B-7 | plain 版に B-1 〜 B-12 を流す |
+| B-1 | "+ card" -> the new field is focused -> type "new card" and Enter -> 13 cards, backlog 5/5, `column_of("new card") == 0`. Then "+ card" -> Esc -> still 13. "+ card" -> Enter without typing -> still 13 |
+| B-2 | `edit("buy milk", " and bread")` -> while still editing, drag onto the top half of "wire the drag" -> column 1, order, `draft() == "buy milk and bread"`, `editors() == 1`, saved title still "buy milk" |
+| B-3 | `edit("read the plan", "!")` -> onto the top of "write the plan" -> order swapped, `editors()==1` with draft "read the plan!", "write the plan" not editing -> move back onto the bottom half -> same |
+| B-4 | add (steps of B-1) -> "buy milk" to the last column -> undo x2 -> redo x2 (same as now) |
+| B-5 | search (same as now. Looks only at title but the result is the same: backlog 2/4, review 0/2) |
+| B-6 | persistence (only the add steps change) |
+| B-8 | rename: same as now + open `rename` and Esc -> the name does not change and the field closes |
+| B-9 (new) | edit: pen -> typing "z" right after it opens gives draft "z" (confirms select-all) -> Esc -> title unchanged, editors()==0. pen -> End -> "!" -> Enter -> title "buy milk!", editors()==0, undo reverts |
+| B-10 (new) | done: click the "buy milk" checkbox -> `toggled` -> undo reverts. chip "done" -> done column 3/3, backlog 0/4 -> press again to clear |
+| B-11 (new) | preview: grab "buy milk" and hover over the bottom half of "wire the drag" (`drag_at` -> `hover_at` x2, do not release) -> `query_by_label("drop here")` exists, the y of "name the hooks" is lower than before the hover -> `drop_at` -> no "drop here" |
+| B-12 (new) | selection: after the same drag as B-11, `LabelSelectionState::load(&ctx).has_selection()` is false |
+| B-7 | run B-1 to B-12 on the plain version |
 
-`board.rs` のユニットテストは 1 章。
+Unit tests for `board.rs` are in section 1.
 
 ## 9. gallery / docs
 
-- `examples/gallery/tests/a11y.rs`: 新しい focusable は checkbox(名前付き)、`TitleEdit`(名前付き)、IconButton(名前付き)なので `KNOWN_UNNAMED` は増えないはず。落ちたら **名前を付ける方を優先**し、どうしても無理なものだけ足す(木の順に厳密比較なので位置に注意)。
-- `lib.rs` 冒頭の doc: body / expanded の記述を title / editing に直す。`META.summary` と `elements`(`Frame` は手書きになるので外す、`Checkbox` は使わないので足さない)。
-- `plain.rs` 冒頭の doc も同じ。
-- `docs/tasks/board/task.md` のスコープ(カードの項)と `docs/tasks/board/plan.md` の先頭に「v2 で改修。差分は [board-v2/plan.md](../board-v2/plan.md)」を 1 行。v1 plan の本文は書き換えない(当時の記録)。
-- README の examples 表の board の 1 行を新しい説明に。
-- `progress.md` の board の行に v2 を追記。
+- `examples/gallery/tests/a11y.rs`: the new focusables are the checkbox (named), `TitleEdit` (named), and IconButton (named), so `KNOWN_UNNAMED` should not grow. If it fails, **prefer giving a name**, and add only what really cannot be named (the comparison is strict in tree order, so mind the position).
+- The doc at the top of `lib.rs`: change the body / expanded text to title / editing. `META.summary` and `elements` (drop `Frame` since it is hand-written; do not add `Checkbox` since it is not used).
+- The doc at the top of `plain.rs` likewise.
+- Add one line, "Reworked in v2. The diff is in [board-v2/plan.md](../board-v2/plan.md)", to the scope (card item) of `docs/tasks/board/task.md` and to the top of `docs/tasks/board/plan.md`. Do not rewrite the body of the v1 plan (it is the record from that time).
+- Update the board row in the README examples table with the new description.
+- Add v2 to the board row in `progress.md`.
 
-elements に足したくなったもの(足さない。記録だけ):
+Things that were tempting to add to elements (not added. Record only):
 
-- `<TextEdit autofocus select_all>`、`<Checkbox>` の非 bind 版(`checked` + `on_change`)、`<Frame>` の `on_response`。全部 leaf の手書きで回避した。
+- `<TextEdit autofocus select_all>`, a non-bind version of `<Checkbox>` (`checked` + `on_change`), `on_response` on `<Frame>`. All worked around with hand-written leaves.
 
-## 10. 手順(subagent 用)
+## 10. Steps (for the subagent)
 
-各ステップの後に `cargo fmt && cargo clippy -p board --all-targets -- -D warnings && cargo test -p board`。最後に workspace 全体。GPU snapshot は回さない。
+After each step run `cargo fmt && cargo clippy -p board --all-targets -- -D warnings && cargo test -p board`. At the end run the whole workspace. Do not run GPU snapshots.
 
-1. `board.rs`: 1 章。ユニットテスト緑。
-2. `lib.rs`: `TitleEdit`(3 章)→ `Card`(2 章)→ `Column`(4, 5.2 章)→ `Toolbar`(6 章)→ `look.rs`。この時点で `tests/board.rs` は壊れてよい。
-3. `tests/board.rs`: 8 章。react 版の B-1 〜 B-6, B-8 〜 B-12 を緑にする。
-4. `plain.rs`: 7 章。B-7 を緑にする。
-5. 9 章(a11y、docs、README)。`cargo test --workspace`、`cargo check --workspace --target wasm32-unknown-unknown`。
-6. 可能なら `cargo run -p board` / `--bin board-plain` で目視: cursor、全選択、placeholder、"✎" の描画。
+1. `board.rs`: section 1. Unit tests green.
+2. `lib.rs`: `TitleEdit` (section 3) -> `Card` (section 2) -> `Column` (sections 4, 5.2) -> `Toolbar` (section 6) -> `look.rs`. `tests/board.rs` may be broken at this point.
+3. `tests/board.rs`: section 8. Make the react version's B-1 to B-6, B-8 to B-12 green.
+4. `plain.rs`: section 7. Make B-7 green.
+5. Section 9 (a11y, docs, README). `cargo test --workspace`, `cargo check --workspace --target wasm32-unknown-unknown`.
+6. If possible, check by eye with `cargo run -p board` / `--bin board-plain`: cursor, select-all, placeholder, rendering of "✎".
 
-## 11. 実装で判明した差分
+## 11. Differences found during implementation
 
-### 11.1 placeholder は常に木に置く(5.2 の訂正)
+### 11.1 The placeholder is always in the tree (correction to 5.2)
 
-「hover した時だけ `<Placeholder>` を挿す」は動かない。**途中に現れた taffy ノードは、現れたフレームだけ矩形が空**(egui_taffy は `first_frame` を sizing pass で描き、レイアウトは次のフレーム)。その 1 フレームこそポインタが placeholder を要求する瞬間(gap が開いて card がポインタの下から逃げる)なので slot が空振りし、gap が閉じ、card が戻り、毎フレーム振動する(実測: card の y が 90 ⇄ 162、幅 92 ⇄ 13 を往復し drop が成立しない)。
+"Insert `<Placeholder>` only when hovered" does not work. **A taffy node that appears mid-list has an empty rect on the frame it appears** (egui_taffy draws `first_frame` in a sizing pass and lays out on the next frame). That one frame is exactly when the pointer asks for the placeholder (the gap opens and the card slips out from under the pointer), so the slot misses, the gap closes, the card comes back, and it oscillates every frame (measured: the card's y bounced between 90 and 162, width between 92 and 13, and the drop never landed).
 
-直し: **card ごとに 1 つ、footer の前に 1 つ、常に描く**。`open` prop で高さだけ変える(`CARD_GAP` / `CARD_GAP + PLACEHOLDER_H`)。高さが変わるだけのノードは常に矩形を持つ。
+Fix: **always draw one per card and one before the footer**. Only the height changes via an `open` prop (`CARD_GAP` / `CARD_GAP + PLACEHOLDER_H`). A node that only changes height always has a rect.
 
-### 11.2 `CARD_GAP` が card リストの `gap` を置き換える
+### 11.2 `CARD_GAP` replaces the card list's `gap`
 
-閉じた placeholder が **card 間の余白そのもの**。`<View>` の `gap` は外し(0)、`const CARD_GAP: f32 = 6.0` を placeholder の閉じた高さにした。両方あると 12px になる。"nothing here" と新規 card の枠は `mt={CARD_GAP}` を持つ。先頭 card の上に 6px 入るが実害なし。plain 版も同じ(`item_spacing.y = 0.0` + `drop_gap`)。
+A closed placeholder **is the spacing between cards**. The `<View>` `gap` was removed (0), and `const CARD_GAP: f32 = 6.0` became the placeholder's closed height. With both it would be 12px. "nothing here" and the new card frame get `mt={CARD_GAP}`. 6px goes above the first card, but that does no harm. Same in the plain version (`item_spacing.y = 0.0` + `drop_gap`).
 
-### 11.3 `Placeholder` は `leaf` ではなく `leaf_fill`
+### 11.3 `Placeholder` is `leaf_fill`, not `leaf`
 
-`cx.leaf` は内容で測られ、初回は幅 0 の `Ui` で測られて taffy がそのまま固定する(ARCHITECTURE 6)。幅 0 の slot はポインタが入れない。`leaf_fill` + style の `w("100%")` / `h(..)` にした。
+`cx.leaf` is measured by its contents. On the first frame it is measured with a zero-width `Ui` and taffy pins that as-is (ARCHITECTURE 6). A zero-width slot cannot be entered by the pointer. Changed to `leaf_fill` + `w("100%")` / `h(..)` in the style.
 
-### 11.4 `META.elements` の `Frame` は残す
+### 11.4 Keep `Frame` in `META.elements`
 
-新規 card の枠は矩形が要らないので `<Frame>` 要素をそのまま使っている。外すと表示が嘘になる。`Button` は使わなくなったので外した。
+The new card frame does not need a rect, so it still uses the `<Frame>` element. Removing it would make the display a lie. `Button` is no longer used, so it was removed.
 
-### 11.5 plain 版で増えた 2 つの持ち物(7 章の補足)
+### 11.5 Two extra things the plain version has to hold (supplement to section 7)
 
-- `CardUi.rect: Option<egui::Rect>` — 背面の drag 面は**子より先に**登録する必要があるが、即時モードでは描く前に card の矩形が分からない。前フレームの矩形を覚えて使う。react 版は taffy が計算済みのものを読むだけ。
-- `PlainState.fresh: Option<egui::Id>` — 自動 focus + 全選択を当てる field の id。react 版は `<TitleEdit>` 内の `use_state` なので field を名指しする必要がない。
+- `CardUi.rect: Option<egui::Rect>`: the background drag surface must be registered **before the children**, but in immediate mode the card's rect is unknown before drawing. Remember the previous frame's rect and use it. The react version just reads what taffy already computed.
+- `PlainState.fresh: Option<egui::Id>`: the id of the field to auto focus + select all. The react version uses `use_state` inside `<TitleEdit>`, so it never has to name the field.
 
-### 11.6 テスト側の注意(8 章の補足)
+### 11.6 Notes on the test side (supplement to section 8)
 
-- **caret の点滅**: focus のある `TextEdit` は毎フレーム repaint を要求するので `Harness::run` が `ExceededMaxSteps` で落ちる。harness を作ったら `h.ctx.all_styles_mut(|s| s.visuals.text_cursor.blink = false)`(egui 0.36 に `Context::style_mut` は無い)。
-- **B-12**: egui 0.36 に `LabelSelectionState::load` は無い。`ctx.plugin::<egui::text_selection::LabelSelectionState>().lock().has_selection()`。
-- **`"done"` が曖昧**: toolbar の chip と 4 列目の名前が同じ label。`get_all_by_label("done").next()`(toolbar が先に描かれる)などで絞る。
+- **Caret blink**: a focused `TextEdit` requests a repaint every frame, so `Harness::run` fails with `ExceededMaxSteps`. After creating the harness, call `h.ctx.all_styles_mut(|s| s.visuals.text_cursor.blink = false)` (egui 0.36 has no `Context::style_mut`).
+- **B-12**: egui 0.36 has no `LabelSelectionState::load`. Use `ctx.plugin::<egui::text_selection::LabelSelectionState>().lock().has_selection()`.
+- **`"done"` is ambiguous**: the toolbar chip and the 4th column name have the same label. Narrow it down with something like `get_all_by_label("done").next()` (the toolbar is drawn first).
 
-### 11.7 a11y: card の背面も focusable(9 章の補足)
+### 11.7 a11y: the card background is focusable too (supplement to section 9)
 
-`ui.interact(rect, id, Sense::drag())` は focusable なノードを作るので、名無しだと `a11y.rs` に `board: Unknown` が 12 個出る(v1 では sense 付きの title Label が `board: Label` ×12 として同じ位置に出ていた)。`accesskit_node_builder` で **`"card: <title>"`** と名前を付けた。title そのものにしないのは、隣の Label と同じ名前のノードが 2 つ並ぶと読み上げでも kittest でも区別が付かないため。
+`ui.interact(rect, id, Sense::drag())` creates a focusable node, so without a name `a11y.rs` shows 12 `board: Unknown` (in v1 the title Label with a sense showed up at the same position as `board: Label` x12). Named it **`"card: <title>"`** via `accesskit_node_builder`. Not the title itself, because two nodes with the same name next to each other cannot be told apart by a screen reader or by kittest.
 
-`KNOWN_UNNAMED` は board / patch が入った時点から更新されておらず、この作業の前から赤だった。名前を付けられなかったものだけ理由付きで足した: `board: TextInput`(検索の `<TextEdit>`。要素に name prop が無い)と patch の 5 つ(溢れた `<ScrollArea>` の `GenericContainer`、`MultilineTextInput` ×2、`ComboBox` ×2)。
+`KNOWN_UNNAMED` had not been updated since board / patch landed, and was red before this work. Only what could not be named was added, with reasons: `board: TextInput` (the search `<TextEdit>`. The element has no name prop) and 5 from patch (`GenericContainer` of the overflowing `<ScrollArea>`, `MultilineTextInput` x2, `ComboBox` x2).
 
-### 11.8 gap のアニメーション(追加要望)
+### 11.8 Gap animation (extra request)
 
-placeholder が常に木にある(11.1)ので、高さを `animate_bool_with_time` で滑らかに変えれば下の card が滑る — と最初は書いたが、**taffy ノードの高さを毎フレーム変えると egui_taffy が毎フレーム再レイアウトして `request_discard` を呼び**、egui が画面に "PERF WARNING: request_discard has been called N frames in a row" を出す。egui_taffy は style が前フレームと違えば dirty → 末尾で再計算 → discard(`egui_taffy/src/lib.rs` の `recalculate`)。
+Since the placeholder is always in the tree (11.1), changing its height smoothly with `animate_bool_with_time` would make the cards below slide. That is what I wrote at first, but **changing a taffy node's height every frame makes egui_taffy re-layout every frame and call `request_discard`**, and egui prints "PERF WARNING: request_discard has been called N frames in a row" on screen. egui_taffy marks dirty if the style differs from the previous frame -> recomputes at the end -> discards (`recalculate` in `egui_taffy/src/lib.rs`).
 
-直し: **レイアウトは即時、絵だけ動かす。**
+Fix: **layout is immediate, only the picture moves.**
 
-- `look::gap_amount(ctx, id, open, carrying)`: gap の「絵の開き具合」0..1(`GAP_TIME` = 0.12s、quadratic_out)。掴んでいない時は時間 0 で即決(drop の次フレームに card が実体で現れるので、閉じかけの gap と重ならないように)。
-- `<Column>` が gap ごとに `amount` を求め、`lift += (amount - open) * PLACEHOLDER_H` を上から積む。placeholder には `Gap { open, amount, lift }`、card には `lift` を渡す。
-- `<Card>` / footer は `ui.with_visual_transform(look::lifted(lift), ..)` で `lift` だけ下にずらして描く。**入力は動かない**(egui の仕様)ので、drag 面と slot はレイアウト位置 = 着地位置のまま。120ms なので実害なし。
-- placeholder の絵は `rect.top() + lift + CARD_GAP` から高さ `amount * H`。閉じる時はレイアウト矩形をはみ出すが、clip は ScrollArea のもの。
-- 新規 card の枠(`<Frame>` 要素)と "nothing here" は動かさない。前者は「入力中に drag を始めた時だけ」ずれる。後者は上に gap が無いので `lift` = 0。
-- plain 版は `column()` のループで同じ積算、`drop_gap` に `amount` / `lift`、`card` に `lift`、同じ `with_visual_transform`。
+- `look::gap_amount(ctx, id, open, carrying)`: how far the gap "looks open", 0..1 (`GAP_TIME` = 0.12s, quadratic_out). When not carrying, decide at once with time 0 (the card appears for real on the frame after the drop, so it must not overlap a half-closed gap).
+- `<Column>` computes `amount` for each gap and accumulates `lift += (amount - open) * PLACEHOLDER_H` from the top. Pass `Gap { open, amount, lift }` to the placeholder and `lift` to the card.
+- `<Card>` / footer draw shifted down by `lift` with `ui.with_visual_transform(look::lifted(lift), ..)`. **Input does not move** (egui behavior), so the drag surface and slots stay at the layout position = landing position. At 120ms that does no harm.
+- The placeholder picture goes from `rect.top() + lift + CARD_GAP` with height `amount * H`. While closing it overflows the layout rect, but the clip is the ScrollArea's.
+- The new card frame (`<Frame>` element) and "nothing here" do not move. The former only shifts "when a drag starts while typing". The latter has no gap above it, so `lift` = 0.
+- The plain version does the same accumulation in the `column()` loop, passes `amount` / `lift` to `drop_gap`, `lift` to `card`, and uses the same `with_visual_transform`.
 
-テスト B-13: 60fps の harness(`with_step_dt(1/60)`)で時計を手で進めながら `step()` し、gap が開いている間の各フレームの `output().platform_output.num_completed_passes` が 1 であることを見る。kittest の既定 step(0.25s)だと egui が predicted_dt を経過済みに数えるので 120ms のアニメが 1 フレームで終わり、旧実装でも通ってしまう。旧実装では B-13 が落ちることを確認済み。
+Test B-13: with a 60fps harness (`with_step_dt(1/60)`), advance the clock by hand and `step()`, and check that `output().platform_output.num_completed_passes` is 1 on each frame while the gap is opening. With kittest's default step (0.25s), egui counts predicted_dt as already elapsed, so the 120ms animation finishes in one frame and the old implementation would pass too. Confirmed that B-13 fails on the old implementation.

@@ -1,34 +1,34 @@
-# プラン: core
+# Plan: core
 
-タスク定義は [task.md](task.md)。設計の根拠は [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)。本書は実装手順と確認方法を定める。実装中にここから外れる判断をした場合は本書を更新し、設計上の意味があれば ARCHITECTURE.md も更新する。
+The task definition is in [task.md](task.md). The design rationale is in [docs/ARCHITECTURE.md](../../ARCHITECTURE.md). This document sets the implementation steps and how to verify them. If you decide to deviate from it during implementation, update this document, and update ARCHITECTURE.md too if the change matters to the design.
 
-## 0. 全体
+## 0. Overview
 
-4 フェーズを順に進める。各フェーズは「実装 → テスト → ARCHITECTURE.md 反映 → コミット」で閉じ、次のフェーズは前のフェーズの API の上に乗る。
+Work through the 4 phases in order. Each phase closes with "implement, test, update ARCHITECTURE.md, commit", and the next phase builds on the previous phase's API.
 
-| フェーズ | 主な対象 | 触るクレート |
+| Phase | Main targets | Crates touched |
 |---|---|---|
-| 2 | `View`、hooks の残り、遅延キュー、`Cx` のレイアウトコンテキスト、衝突オーバーレイ | `egui-react` |
-| 3 | `#[component]` / `#[hook]` / `rsx!`、trybuild、spike のマクロ版置換 | `egui-react-macros`、`egui-react`(re-export と tests) |
-| 4 | `View` / `Text`、ウィジェット、コンテナ、スナップショット | `egui-react-elements` |
-| 5 | `run`、`use_persisted`、wasm、examples、CI | `egui-react-app`、`examples/*`、`egui-react`(persist) |
+| 2 | `View`, the rest of the hooks, the deferred queue, the layout context in `Cx`, the collision overlay | `egui-react` |
+| 3 | `#[component]` / `#[hook]` / `rsx!`, trybuild, replacing spike with the macro versions | `egui-react-macros`, `egui-react` (re-exports and tests) |
+| 4 | `View` / `Text`, widgets, containers, snapshots | `egui-react-elements` |
+| 5 | `run`, `use_persisted`, wasm, examples, CI | `egui-react-app`, `examples/*`, `egui-react` (persist) |
 
-追加する依存(`[workspace.dependencies]` に pin する)。
+Dependencies to add (pin them in `[workspace.dependencies]`).
 
-| crate | 用途 | 場所 |
+| crate | Purpose | Where |
 |---|---|---|
-| egui_taffy 0.14(dev → 通常依存に昇格) | `Cx` の `Tui` モード | egui-react |
+| egui_taffy 0.14 (promote from dev to normal dependency) | `Tui` mode of `Cx` | egui-react |
 | serde / serde_json | `use_persisted` | egui-react |
-| typed-builder | Props の builder | egui-react(`__private` で再エクスポート) |
-| syn 2(`full`, `extra-traits`)/ quote / proc-macro2 | マクロ | egui-react-macros |
-| trybuild | コンパイルエラーの固定 | egui-react(dev) |
-| egui_kittest `snapshot` + `wgpu` | スナップショット | egui-react-elements(feature `snapshot` の dev) |
+| typed-builder | Props builder | egui-react (re-exported under `__private`) |
+| syn 2 (`full`, `extra-traits`) / quote / proc-macro2 | macros | egui-react-macros |
+| trybuild | pin compile errors | egui-react (dev) |
+| egui_kittest `snapshot` + `wgpu` | snapshots | egui-react-elements (dev, behind feature `snapshot`) |
 | eframe `persistence` feature | `Storage` | egui-react-app |
-| wasm-bindgen-futures / web-sys(`Document`, `HtmlCanvasElement`) | wasm ランナー | egui-react-app(`cfg(target_arch = "wasm32")`) |
+| wasm-bindgen-futures / web-sys (`Document`, `HtmlCanvasElement`) | wasm runner | egui-react-app (`cfg(target_arch = "wasm32")`) |
 
-`egui-react` は `egui-react-macros` を通常依存に持ち、`rsx!` / `component` / `hook` を re-export する。ユーザーは `egui_react::prelude::*` だけを `use` する。マクロの trybuild テストは `egui-react` 側の `tests/ui/` に置く(proc-macro クレートから facade への dev-dependency 循環を避ける)。
+`egui-react` has `egui-react-macros` as a normal dependency and re-exports `rsx!` / `component` / `hook`. Users only `use` `egui_react::prelude::*`. The trybuild tests for the macros live in `tests/ui/` on the `egui-react` side (this avoids a dev-dependency cycle from the proc-macro crate to the facade).
 
-## 1. フェーズ 2: core hooks(`crates/egui-react/src/`)
+## 1. Phase 2: core hooks (`crates/egui-react/src/`)
 
 ### 1.1 `view.rs`
 
@@ -36,20 +36,20 @@
 pub trait View {
     fn show(self, cx: &mut Cx<'_, '_>);
 }
-impl View for ()                                   // 何もしない
+impl View for ()                                   // does nothing
 impl View for &str / String                        // cx.leaf(default, |ui| ui.label(..))
 impl<V: View> View for Option<V>
 impl<V: View> View for Vec<V>
 impl<V: View, const N: usize> View for [V; N]
 impl<F: FnOnce(&mut Cx<'_, '_>)> View for F        // escape hatch
 
-/// `rsx!` の展開先。閉包の型推論を効かせるための補助関数
+/// What `rsx!` expands to. A helper so closure type inference works
 pub fn view<F: FnOnce(&mut Cx<'_, '_>)>(f: F) -> impl View { f }
 ```
 
-ARCHITECTURE.md 3.2 の `IntoIterator<Item = V>` への blanket impl は、`FnOnce` の blanket impl および `Option<V>` と coherence で衝突する(rustc で確認済み)。`Option` / `Vec` / 配列の個別 impl に置き換える。`rsx!` 内の繰り返しは `for` で書けるので実用上の差はない。ARCHITECTURE.md 3.2 を更新する。
+The blanket impl for `IntoIterator<Item = V>` in ARCHITECTURE.md 3.2 conflicts under coherence with the `FnOnce` blanket impl and with `Option<V>` (confirmed with rustc). Replace it with separate impls for `Option` / `Vec` / arrays. Loops inside `rsx!` can be written with `for`, so there is no practical difference. Update ARCHITECTURE.md 3.2.
 
-`{ |cx| .. }` を直接 `impl View` の引数に渡すと閉包の引数型が推論されないことがあるので、`rsx!` は必ず `::egui_react::view(|cx| { .. })` を emit する。ユーザーの escape hatch も `view(|cx| ..)` を案内する。
+Passing `{ |cx| .. }` straight to an `impl View` argument sometimes fails to infer the closure's argument type, so `rsx!` always emits `::egui_react::view(|cx| { .. })`. Point users to `view(|cx| ..)` for the escape hatch too.
 
 ### 1.2 `use_memo`
 
@@ -58,9 +58,9 @@ ARCHITECTURE.md 3.2 の `IntoIterator<Item = V>` への blanket impl は、`FnOn
 pub fn use_memo<'s, D: Hash, T: 'static>(cx: &mut Cx<'s, '_>, deps: D, f: impl FnOnce() -> T) -> &'s T;
 ```
 
-`&'s T` を返すために `RefCell` の外に値を置く。`Slot` に `memo: elsa::FrozenVec<Box<dyn Any>>` を足し、deps のハッシュが変わったら `push_get` で新しい値を積んで `&'s T` を返す。古い値はパス内に配られた `&'s T` が指しているかもしれないので消さず、`end_pass(&mut self)` で最後の 1 つ以外を落とす(`as_mut()` で `&mut Vec` を取る)。deps のハッシュは `deps_hash` を `use_effect` と共用する。初回は必ず計算する。
+To return `&'s T`, keep the value outside the `RefCell`. Add `memo: elsa::FrozenVec<Box<dyn Any>>` to `Slot`. When the deps hash changes, push a new value with `push_get` and return `&'s T`. Do not delete old values, since `&'s T` handed out during the pass may still point at them; drop all but the last one in `end_pass(&mut self)` (take `&mut Vec` with `as_mut()`). Share the deps hash `deps_hash` with `use_effect`. Always compute on the first visit.
 
-### 1.3 `use_reducer` と `Dispatch`(`dispatch.rs`)
+### 1.3 `use_reducer` and `Dispatch` (`dispatch.rs`)
 
 ```rust
 #[track_caller]
@@ -70,15 +70,15 @@ pub fn use_reducer<'s, S: 'static, M: Send + 'static>(
     init: impl FnOnce() -> S,
 ) -> (State<'s, S>, Dispatch<M>);
 
-pub struct Dispatch<M> { queue: Arc<Mutex<Vec<M>>>, ctx: egui::Context }   // Clone。M: Send なら Send + Sync
-impl<M> Dispatch<M> { pub fn send(&self, msg: M); }   // push して request_repaint
+pub struct Dispatch<M> { queue: Arc<Mutex<Vec<M>>>, ctx: egui::Context }   // Clone. Send + Sync if M: Send
+impl<M> Dispatch<M> { pub fn send(&self, msg: M); }   // push, then request_repaint
 ```
 
-スロットの値は `(S, Arc<Mutex<Vec<M>>>)`。hook を訪問するたびにキューを `take` して reducer を順に適用し、その後で `State` guard と `Dispatch` を返す。
+The slot value is `(S, Arc<Mutex<Vec<M>>>)`. Each time the hook is visited, `take` the queue, apply the reducer to each message in order, then return the `State` guard and the `Dispatch`.
 
-ARCHITECTURE.md 5.5 は「パス末に reducer を適用」としているが、訪問時に変更する。理由は 2 つ。(a) パス末に適用するには reducer を保存する必要があり `'static` になるが、訪問時なら reducer は通常の閉包でよい。(b) 別スレッドから届いたメッセージはパス末適用だと「次のパスの本体が古い状態を見て、そのパス末で適用され、さらに次のフレームで表示」となり 1 フレーム余計に遅れる。訪問時適用なら `send` の `request_repaint` で来る次のフレームの本体が新しい状態を見る。ハンドラから `send` した場合の見え方(次フレームで反映)は `State` への書き込みと同じで変わらない。ARCHITECTURE.md 4 と 5.5 を更新する。
+ARCHITECTURE.md 5.5 says "apply the reducer at the end of the pass", but change this to apply on visit. Two reasons. (a) Applying at the end of the pass means storing the reducer, which makes it `'static`; applying on visit lets the reducer be a normal closure. (b) With end-of-pass application, a message from another thread goes "the next pass's body sees the old state, it is applied at the end of that pass, then shown in the frame after", which is one frame of extra delay. With on-visit application, the body of the next frame (triggered by `request_repaint` in `send`) sees the new state. When `send` is called from a handler, what the user sees (applied in the next frame) is the same as writing to `State`, so nothing changes. Update ARCHITECTURE.md 4 and 5.5.
 
-### 1.4 遅延キュー: `defer` と `update_later`
+### 1.4 Deferred queue: `defer` and `update_later`
 
 ```rust
 // Store
@@ -88,25 +88,25 @@ pub(crate) fn defer_raw(&self, f: Box<dyn FnOnce(&Store)>);
 // Cx
 pub fn defer(&self, f: impl FnOnce() + 'static);
 
-// State<'s, T> と Handle<'s, T> の両方
+// Both State<'s, T> and Handle<'s, T>
 pub fn update_later(&self, f: impl FnOnce(&mut T) + 'static);
 ```
 
-`update_later` はスロット Id を捕まえた閉包を積む。適用時に `slot_by_id` で引き、`borrow_mut` して `f` を呼び、`request_repaint` する。スロットが無ければ(そのパスで unmount された)黙って捨てる。`State::update_later` は guard が生きていても呼べる(適用はパス末で、guard はとっくに落ちている)。
+`update_later` queues a closure that captured the slot Id. When applied, look up the slot with `slot_by_id`, `borrow_mut` it, call `f`, and `request_repaint`. If the slot is gone (unmounted in that pass), drop it silently. `State::update_later` can be called while the guard is alive (it is applied at the end of the pass, long after the guard is dropped).
 
-`end_pass` の順序: 遅延キューを空になるまで適用 → sweep → 衝突オーバーレイ(1.6)。キューの適用中に新しい項目が積まれることは公開 API では起きない(`FnOnce()` は `Store` に触れない)。
+Order in `end_pass`: apply the deferred queue until it is empty, then sweep, then the collision overlay (1.6). The public API cannot push new items while the queue is being applied (`FnOnce()` cannot touch `Store`).
 
-閉包が `'static` なので、ループ変数を使う場合は `todos.update_later(move |t| t.remove(i))` と `move` が要る。ARCHITECTURE.md 3.7 と 4 の表に追記する。
+Because the closure is `'static`, using a loop variable needs `move`: `todos.update_later(move |t| t.remove(i))`. Add this to ARCHITECTURE.md 3.7 and the table in 4.
 
 ### 1.5 repaint
 
-`Dispatch::send` と `update_later` の適用は無条件に `request_repaint` する。`defer` はしない(状態に触れないため)。`repaint.rs` のテストにケースを足す。
+`Dispatch::send` and applying `update_later` always `request_repaint`. `defer` does not (it does not touch state). Add cases to the tests in `repaint.rs`.
 
-### 1.6 衝突オーバーレイ
+### 1.6 Collision overlay
 
-`Store` に `warn_on_collision: bool`(既定 `cfg!(debug_assertions)`)と `set_warn_on_collision` を足す。`end_pass` の最後で、有効かつ `collisions` が空でなければ `egui::Area::new(Id::new("egui_react_collision_warning")).order(Order::Debug).anchor(Align2::LEFT_TOP, (8.0, 8.0))` に `Frame::popup` で赤い文字を出す。文面は `egui-react: hook id collision at {file}:{line}:{column}. Wrap custom hooks in #[hook], or add key= inside loops.` とし、同じ位置は 1 パスに 1 行にまとめる。`end_pass` はランナーの `App::ui` の中で呼ばれるので、そのフレームの `Context` に描ける。
+Add `warn_on_collision: bool` (default `cfg!(debug_assertions)`) and `set_warn_on_collision` to `Store`. At the end of `end_pass`, if enabled and `collisions` is not empty, draw red text with `Frame::popup` in `egui::Area::new(Id::new("egui_react_collision_warning")).order(Order::Debug).anchor(Align2::LEFT_TOP, (8.0, 8.0))`. The text is `egui-react: hook id collision at {file}:{line}:{column}. Wrap custom hooks in #[hook], or add key= inside loops.`, with the same location collapsed to 1 line per pass. `end_pass` is called inside the runner's `App::ui`, so it can draw on that frame's `Context`.
 
-### 1.7 `Cx` のレイアウトコンテキスト
+### 1.7 Layout context in `Cx`
 
 ```rust
 pub struct Cx<'s, 'u> {
@@ -121,143 +121,143 @@ enum Surface<'u> {
 impl<'s, 'u> Cx<'s, 'u> {
     pub fn new(store: &'s Store, ui: &'u mut egui::Ui, scope: Id) -> Self;
     pub fn new_taffy(store: &'s Store, tui: &'u mut egui_taffy::Tui, scope: Id) -> Self;
-    pub fn ui(&mut self) -> &mut egui::Ui;          // Ui: そのまま。Taffy: tui.egui_ui_mut()(taffy の配置を受けない。elements は使わない)
+    pub fn ui(&mut self) -> &mut egui::Ui;          // Ui: as-is. Taffy: tui.egui_ui_mut() (not placed by taffy. elements do not use it)
     pub fn in_taffy(&self) -> bool;
     pub fn ctx(&self) -> &egui::Context;
     pub fn scope_id(&self) -> Id;
-    pub fn scope<R>(&mut self, source: impl Hash + Debug, f: impl FnOnce(&mut Cx<'s, '_>) -> R) -> R;   // Ui: ui.push_id。Taffy: tui.with_auto_id_prefix(id, ..)
-    pub fn hook_scope<R>(..) -> R;                                                                     // 変更なし
+    pub fn scope<R>(&mut self, source: impl Hash + Debug, f: impl FnOnce(&mut Cx<'s, '_>) -> R) -> R;   // Ui: ui.push_id. Taffy: tui.with_auto_id_prefix(id, ..)
+    pub fn hook_scope<R>(..) -> R;                                                                     // unchanged
     pub fn defer(&self, f: impl FnOnce() + 'static);
-    /// leaf: egui ウィジェットを 1 つ描く。Taffy の中なら tui.style(style.to_taffy()).ui(f)、外なら f(ui)
+    /// leaf: draw one egui widget. Inside Taffy: tui.style(style.to_taffy()).ui(f). Outside: f(ui)
     pub fn leaf<R>(&mut self, style: &ItemStyle, f: impl FnOnce(&mut egui::Ui) -> R) -> R;
-    /// container: taffy ノードを作り、その中を Taffy モードの Cx で描く。外なら egui_taffy::tui(ui, id).style(..).show、中なら tui.style(..).add
+    /// container: create a taffy node and draw inside it with a Taffy-mode Cx. Outside: egui_taffy::tui(ui, id).style(..).show. Inside: tui.style(..).add
     pub fn container<R>(&mut self, id: Id, style: taffy::Style, f: impl FnOnce(&mut Cx<'s, '_>) -> R) -> R;
 }
 ```
 
-`cx.ui` フィールドは `cx.ui()` メソッドになる。spike のテストと examples はこの時点で書き換える(フェーズ 3 でマクロ版に置き換わるまでの一時対応)。egui のコンテナ閉包の内側で `Cx` を作り直す手順は変わらない(`let (store, scope) = (cx.store, cx.scope_id()); cx.ui().vertical(|ui| { let mut cx = Cx::new(store, ui, scope); .. })`)。`container` の Ui モード側は `reserve_available_width()` を既定とし、ランナーのルートだけ `reserve_available_space()` を使う(4.1)。ARCHITECTURE.md 3.1 と 6 を更新する。
+The `cx.ui` field becomes the `cx.ui()` method. Rewrite spike's tests and examples at this point (a stopgap until Phase 3 replaces them with the macro versions). The way to rebuild a `Cx` inside an egui container closure does not change (`let (store, scope) = (cx.store, cx.scope_id()); cx.ui().vertical(|ui| { let mut cx = Cx::new(store, ui, scope); .. })`). The Ui-mode side of `container` defaults to `reserve_available_width()`; only the runner's root uses `reserve_available_space()` (4.1). Update ARCHITECTURE.md 3.1 and 6.
 
 ### 1.8 `layout.rs`
 
 ```rust
-pub enum Length { Px(f32), Percent(f32), Auto }      // From<f32> / From<i32> は Px、From<&str> は "50%" / "auto" / "12px" / "12" をパース(不正な文字列は panic)
+pub enum Length { Px(f32), Percent(f32), Auto }      // From<f32> / From<i32> give Px. From<&str> parses "50%" / "auto" / "12px" / "12" (invalid strings panic)
 #[derive(Default, Clone)]
 pub struct ItemStyle { w, h, min_w, min_h, max_w, max_h: Option<Length>, grow, shrink: Option<f32>, basis: Option<Length>, align_self: Option<AlignSelf>, m, mx, my, mt, mr, mb, ml, p, px, py, pt, pr, pb, pl: Option<Length> }
-impl ItemStyle { pub fn w(self, v: impl Into<Length>) -> Self; .. /* 各フィールドの setter */; pub fn to_taffy(&self) -> taffy::Style; }
+impl ItemStyle { pub fn w(self, v: impl Into<Length>) -> Self; .. /* a setter per field */; pub fn to_taffy(&self) -> taffy::Style; }
 #[derive(Default, Clone)]
-pub struct ContainerStyle { display: Display(Flex | Grid | Block | None), direction: Direction, wrap: bool, justify: Justify, align: Align, align_content: Option<Align>, gap: (f32, f32), cols: Option<u16> /* grid の等幅カラム数 */ }
+pub struct ContainerStyle { display: Display(Flex | Grid | Block | None), direction: Direction, wrap: bool, justify: Justify, align: Align, align_content: Option<Align>, gap: (f32, f32), cols: Option<u16> /* number of equal-width grid columns */ }
 impl ContainerStyle { pub fn merge(&self, item: &ItemStyle) -> taffy::Style; }
 ```
 
-`Direction` / `Justify` / `Align` / `AlignSelf` / `Display` は enum で、`From<&str>` を実装する(`"row"`, `"space-between"`, `"center"` など。不正な文字列は位置付きで panic)。`rsx!` が文字列リテラルをそのまま setter に渡せるようにするため。`m` / `p` の短縮形は `mx` → `ml` + `mr` の順で個別指定が優先する。taffy 側の型は `egui_taffy::taffy` を re-export して使う。
+`Direction` / `Justify` / `Align` / `AlignSelf` / `Display` are enums that implement `From<&str>` (`"row"`, `"space-between"`, `"center"`, and so on; invalid strings panic with a location). This lets `rsx!` pass string literals straight to the setters. For the `m` / `p` shorthands, the more specific setting wins, in the order `mx` then `ml` + `mr`. Use the taffy types by re-exporting `egui_taffy::taffy`.
 
-### 1.9 テスト(フェーズ 2)
+### 1.9 Tests (Phase 2)
 
-| # | テストファイル | 確認内容 |
+| # | Test file | What it checks |
 |---|---|---|
-| 2-1 | `view.rs` | `()` / `&str` / `String` / `Option` / `Vec` / 配列 / 閉包のそれぞれが描画される。`view(|cx| ..)` で `cx` の型注釈なしにコンパイルが通る |
-| 2-2 | `memo.rs` | deps が同じフレームでは `f` が再実行されず、変わると再実行される。同一フレームで同じ `&T` を 2 か所で読める。unmount で破棄される |
-| 2-3 | `reducer.rs` | ハンドラから `send` した次フレームで state が変わる。`Dispatch` を `std::thread::spawn` に渡して `send` し、`ctx.has_requested_repaint()` が true、次フレームで反映される。2 パス目で二重適用されない(`multi_pass` の手順を流用) |
-| 2-4 | `deferred.rs` | `for` で `todos` を読みながらループ内のハンドラで `update_later(move |t| t.remove(i))` を呼び、次フレームで要素が減る。同じフレーム内で後続のウィジェットは古い値を見る(5.7)。`defer` がパス末に 1 回だけ走る。unmount 済みスロットへの `update_later` が panic しない |
-| 2-5 | `repaint.rs`(追記) | `send` / `update_later` のフレームだけ repaint が要求される |
-| 2-6 | `collision.rs`(追記) | 衝突があるフレームで `get_by_label` にオーバーレイの文言が見える。`set_warn_on_collision(false)` で消える |
-| 2-7 | `taffy_cx.rs` | `cx.container` の中で `cx.leaf` を 3 つ描き、`direction="row"` で x 座標が単調増加、`"column"` で y 座標が単調増加(kittest の `Node::rect()` で確認)。`container` の入れ子で内側の hooks が動く。`cx.scope` が Taffy モードでも hooks の Id と egui の Id を分ける(同じ関数を 2 回 `scope` で包んで描き、state が独立し、`Collapsing` のような egui 側の状態も独立する) |
+| 2-1 | `view.rs` | Each of `()` / `&str` / `String` / `Option` / `Vec` / array / closure draws. `view(|cx| ..)` compiles without a type annotation on `cx` |
+| 2-2 | `memo.rs` | `f` does not rerun in a frame where deps are the same, and reruns when they change. The same `&T` can be read in 2 places in one frame. Dropped on unmount |
+| 2-3 | `reducer.rs` | state changes in the frame after `send` from a handler. Pass `Dispatch` to `std::thread::spawn` and `send`; `ctx.has_requested_repaint()` is true and the change shows in the next frame. No double application in the 2nd pass (reuse the `multi_pass` steps) |
+| 2-4 | `deferred.rs` | Read `todos` in a `for` loop while a handler inside the loop calls `update_later(move |t| t.remove(i))`; the element count drops in the next frame. Later widgets in the same frame see the old value (5.7). `defer` runs exactly once at the end of the pass. `update_later` on an unmounted slot does not panic |
+| 2-5 | `repaint.rs` (additions) | repaint is requested only in the frames with `send` / `update_later` |
+| 2-6 | `collision.rs` (additions) | In a frame with a collision, `get_by_label` finds the overlay text. It goes away with `set_warn_on_collision(false)` |
+| 2-7 | `taffy_cx.rs` | Draw 3 `cx.leaf`s inside `cx.container`; x increases monotonically with `direction="row"` and y with `"column"` (check with kittest's `Node::rect()`). Hooks work inside nested `container`s. `cx.scope` separates hook Ids and egui Ids in Taffy mode too (draw the same function twice wrapped in `scope`; state is independent and egui-side state such as `Collapsing` is also independent) |
 
-kittest の `Harness::new_ui_state` と `run_app` の形は spike と同じ。`tests/common/mod.rs` の `run_app` は `Cx::new` を使い続ける。
+The shape of kittest's `Harness::new_ui_state` and `run_app` is the same as in spike. `run_app` in `tests/common/mod.rs` keeps using `Cx::new`.
 
-## 2. フェーズ 3: マクロ(`crates/egui-react-macros/src/`)
+## 2. Phase 3: macros (`crates/egui-react-macros/src/`)
 
-### 2.1 `#[component]`(`component.rs`)
+### 2.1 `#[component]` (`component.rs`)
 
-入力は `fn Name<generics>(cx: &mut Cx, <props>..)`。戻り値は `()` のみ(それ以外はエラー)。第 1 引数が `&mut Cx` でなければエラー。
+The input is `fn Name<generics>(cx: &mut Cx, <props>..)`. The return type must be `()` (anything else is an error). The first argument must be `&mut Cx`, or it is an error.
 
-引数の扱い。
+How arguments are handled.
 
-| 形 | 生成 |
+| Shape | Generated |
 |---|---|
-| `x: T` | 必須 prop。`&T` の elided lifetime は `'e` に書き換える(`Type::Reference` で `lifetime: None` のもの)。`Cow<str>` のような path 内の省略はユーザーが明示する |
-| `x: Option<T>` | 省略可能 prop(`#[builder(default)]`) |
-| `#[prop(default)] x: T` / `#[prop(default = expr)] x: T` | 省略可能 prop |
+| `x: T` | Required prop. Rewrite the elided lifetime of `&T` to `'e` (a `Type::Reference` with `lifetime: None`). Elisions inside a path, such as `Cow<str>`, must be written out by the user |
+| `x: Option<T>` | Optional prop (`#[builder(default)]`) |
+| `#[prop(default)] x: T` / `#[prop(default = expr)] x: T` | Optional prop |
 | `#[prop(into)] x: T` | `#[builder(setter(into))]` |
-| `children: C` where `C: View`、または `children: impl View` | `impl` は generic `C: View` に脱糖する。`rsx!` は子が無くても `.children(())` を渡すので(2.3)、`()` を受けられる型なら省略可能になる |
-| `children` を宣言しない | `children: ()` を `#[builder(default)]` で生成する。`rsx!` が常に `.children(..)` を呼ぶため |
-| `#[event] on_x: A` | イベント enum に `X(A)` を足す。本体では `on_x: Emitter<'_, '_, NameEvent, A>` |
+| `children: C` where `C: View`, or `children: impl View` | `impl` desugars to a generic `C: View`. `rsx!` passes `.children(())` even when there are no children (2.3), so it is optional for any type that accepts `()` |
+| no `children` declared | Generate `children: ()` with `#[builder(default)]`, because `rsx!` always calls `.children(..)` |
+| `#[event] on_x: A` | Add `X(A)` to the event enum. In the body, `on_x: Emitter<'_, '_, NameEvent, A>` |
 
-生成物。
+Generated output.
 
 ```rust
-pub enum NameEvent { X(A), .. }                                  // #[event] が 1 つ以上ある場合のみ
+pub enum NameEvent { X(A), .. }                                  // only when there is at least one #[event]
 #[derive(::egui_react::__private::TypedBuilder)]
 #[builder(crate_module_path = ::egui_react::__private::typed_builder)]
 pub struct NameProps<'e, C: View, ..generics> {
     pub x: T,
     #[builder(default)] pub y: Option<U>,
-    #[builder(default)] pub events: Option<&'e mut dyn FnMut(NameEvent)>,   // #[event] がある場合のみ
+    #[builder(default)] pub events: Option<&'e mut dyn FnMut(NameEvent)>,   // only when there is an #[event]
     pub children: C,
 }
 #[allow(non_snake_case)]
 pub fn Name<'e, C: View, ..>(cx: &mut Cx<'_, '_>, props: NameProps<'e, C, ..>) {
     let NameProps { x, y, events, children } = props;
     let mut __noop = |_: NameEvent| {};
-    let __events: &mut dyn FnMut(NameEvent) = match events { Some(e) => e, None => &mut __noop };   // match の腕で lifetime を縮める
+    let __events: &mut dyn FnMut(NameEvent) = match events { Some(e) => e, None => &mut __noop };   // the match arms shorten the lifetime
     let __sink = ::egui_react::EventSink::new(__events);
     let on_x = ::egui_react::Emitter::new(&__sink, NameEvent::X);
-    { /* 本体。末尾式 tail は ::egui_react::View::show(tail, cx) に書き換える */ }
+    { /* body. The tail expression is rewritten to ::egui_react::View::show(tail, cx) */ }
 }
-impl<'e, C: View, ..> ::egui_react::__private::Props for NameProps<'e, C, ..> {   // 2.3 の props_builder 用
+impl<'e, C: View, ..> ::egui_react::__private::Props for NameProps<'e, C, ..> {   // for props_builder in 2.3
     type Builder = NamePropsBuilder<'e, C, ..>;
     fn builder() -> Self::Builder { Self::builder() }
 }
 ```
 
-本体の末尾式の書き換えは、本体を `syn::Block` として見て最後の `Stmt::Expr(expr, None)` を差し替える。末尾が `;` で終わる本体はそのまま。`if` / `match` の各腕で別々の `rsx!` を返す本体は閉包の型が一致せずコンパイルできないので、`rsx!{ if .. }` の形を案内する(trybuild で文面を固定)。`{ body }` を `View::show({ body }, cx)` で包む形はブロック内のローカルを guard が借用したまま返すことになり通らない。必ず末尾式だけを差し替える。
+To rewrite the tail expression, treat the body as a `syn::Block` and replace the last `Stmt::Expr(expr, None)`. A body that ends with `;` is left alone. A body that returns a different `rsx!` from each arm of `if` / `match` does not compile because the closure types differ, so point users to the `rsx!{ if .. }` form (pin the message with trybuild). Wrapping `{ body }` as `View::show({ body }, cx)` does not compile either, since it returns a value while a guard still borrows a local inside the block. Always replace only the tail expression.
 
-`Emitter` は spike の `Emitter<'a, 'e, E>` にペイロード型 `A` と variant コンストラクタ `fn(A) -> E` を足す。`on_x.emit(a)` は `sink(NameEvent::X(a))` になる。ARCHITECTURE.md 3.6 を更新する。
+`Emitter` extends spike's `Emitter<'a, 'e, E>` with a payload type `A` and a variant constructor `fn(A) -> E`. `on_x.emit(a)` becomes `sink(NameEvent::X(a))`. Update ARCHITECTURE.md 3.6.
 
-### 2.2 `#[hook]`(`hook.rs`)
+### 2.2 `#[hook]` (`hook.rs`)
 
-`#[track_caller]` を付け、本体を `cx.hook_scope(::std::panic::Location::caller(), |cx| { body })` で包む。`cx` は「`&mut Cx` 型の最初の引数」で、無ければエラー。戻り値と generics はそのまま。本体内の `return` は閉包から返ることになるが、閉包の戻り値がそのまま hook の戻り値になるので意味は変わらない。
+Add `#[track_caller]` and wrap the body in `cx.hook_scope(::std::panic::Location::caller(), |cx| { body })`. `cx` is "the first argument of type `&mut Cx`"; error if there is none. The return type and generics stay as they are. A `return` inside the body returns from the closure, but the closure's return value becomes the hook's return value, so the meaning does not change.
 
-### 2.3 `rsx!`(`rsx/`)
+### 2.3 `rsx!` (`rsx/`)
 
-#### パース
+#### Parsing
 
-`rstml::ParserConfig::new().custom_node::<ControlFlow>()` で `Vec<Node<ControlFlow>>` にパースする。`ControlFlow` は `if` / `for` / `match` の 3 種で、`peek_element` で先頭の ident を見る。本体(`{ .. }`)は `RecoverableContext::parse_recoverable::<Node<ControlFlow>>` を `}` まで繰り返して子ノードにする。
+Parse into `Vec<Node<ControlFlow>>` with `rstml::ParserConfig::new().custom_node::<ControlFlow>()`. `ControlFlow` has 3 kinds, `if` / `for` / `match`, and `peek_element` looks at the leading ident. The body (`{ .. }`) is parsed into child nodes by repeating `RecoverableContext::parse_recoverable::<Node<ControlFlow>>` until `}`.
 
-- `if cond { nodes } else if cond { nodes } else { nodes }`: `cond` は `syn::Expr::parse_without_eager_brace`。
-- `for pat in expr { nodes }`: `expr` も同様。
-- `match expr { pat (if guard)? => { nodes } | <Elem/> , .. }`: 腕の右辺は 1 つの要素か `{ nodes }`。
+- `if cond { nodes } else if cond { nodes } else { nodes }`: `cond` is `syn::Expr::parse_without_eager_brace`.
+- `for pat in expr { nodes }`: `expr` is parsed the same way.
+- `match expr { pat (if guard)? => { nodes } | <Elem/> , .. }`: the right side of an arm is one element or `{ nodes }`.
 
-ノードの種類と扱い。
+Node kinds and how they are handled.
 
-| ノード | 扱い |
+| Node | Handling |
 |---|---|
-| `<Name attrs>children</Name>` / `<Name attrs/>` | コンポーネント呼び出し。`Name` は Rust のパス(`elements::Button` も可) |
-| `"literal"` | 文字列リテラル。`View` として `show` する |
-| 引用符なしのテキスト | エラー: `text must be a string literal: "..."` |
+| `<Name attrs>children</Name>` / `<Name attrs/>` | Component call. `Name` is a Rust path (`elements::Button` is fine too) |
+| `"literal"` | String literal. `show` it as a `View` |
+| Unquoted text | Error: `text must be a string literal: "..."` |
 | `{expr}` | `::egui_react::View::show(expr, cx);` |
-| `<> .. </>` | 子を順に展開 |
-| `<!-- -->` | 無視 |
-| `if` / `for` / `match` | Rust の制御構文をそのまま emit し、本体を展開する |
+| `<> .. </>` | Expand the children in order |
+| `<!-- -->` | Ignored |
+| `if` / `for` / `match` | Emit the Rust control flow as-is and expand the body |
 
-#### 属性
+#### Attributes
 
-| 形 | 扱い |
+| Shape | Handling |
 |---|---|
-| `key={expr}` | scope の Id に混ぜる。要素ごとに最大 1 つ |
-| `on_x={expr}` | 融合閉包の腕 `NameEvent::X(a) => ::egui_react::Handler::call(expr, a)` |
-| `events={expr}` | 融合閉包の代わりに `expr` を `events` に渡す。`on_*` と併用はエラー |
-| レイアウト属性(`w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl`) | まとめて `.style(::egui_react::layout::ItemStyle::default().w(..).grow(..))` を 1 回呼ぶ。1 つも無ければ呼ばない |
-| その他 `name={expr}` / `name="lit"` / `name`(bool の true) | builder の setter `.name(expr)` |
+| `key={expr}` | Mixed into the scope Id. At most 1 per element |
+| `on_x={expr}` | An arm of the fused closure: `NameEvent::X(a) => ::egui_react::Handler::call(expr, a)` |
+| `events={expr}` | Pass `expr` to `events` instead of the fused closure. Error if used together with `on_*` |
+| Layout attributes (`w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl`) | Collected into one call: `.style(::egui_react::layout::ItemStyle::default().w(..).grow(..))`. Not called if there are none |
+| Other `name={expr}` / `name="lit"` / `name` (bool true) | The builder setter `.name(expr)` |
 
-`on_x` → `X` の変換は `on_` を外して PascalCase(`on_ok` → `Ok`、`on_value_change` → `ValueChange`)。属性名の重複はエラー。
+`on_x` to `X`: strip `on_` and PascalCase the rest (`on_ok` to `Ok`, `on_value_change` to `ValueChange`). Duplicate attribute names are an error.
 
-#### 展開
+#### Expansion
 
-`rsx!{ nodes }` 全体は `::egui_react::view(|cx| { stmts })` になる(非 `move`)。要素 1 つは次の文になる。
+The whole `rsx!{ nodes }` becomes `::egui_react::view(|cx| { stmts })` (not `move`). One element becomes the following statement.
 
 ```rust
-cx.scope((line!(), column!(), 3usize, key), |cx| {          // line!/column! は要素の span で emit。3 は rsx! 内の要素の通し番号
+cx.scope((line!(), column!(), 3usize, key), |cx| {          // line!/column! are emitted with the element's span. 3 is the element's sequence number inside the rsx!
     Name(cx, ::egui_react::props_builder(&Name)
         .x(expr)
         .style(::egui_react::layout::ItemStyle::default().grow(1.0))
@@ -274,314 +274,314 @@ cx.scope((line!(), column!(), 3usize, key), |cx| {          // line!/column! は
 });
 ```
 
-- `key` が無ければ `(line!(), column!(), n)`。`line!()` / `column!()` が要素の位置を返さない(マクロ呼び出し位置を返す)場合は、`Span::line()` / `Span::column()`(1.88 で stable)でマクロ側に埋め込む。どちらでも要素ごとに一意になればよい。
-- `children`: 常に `.children(..)` を呼ぶ。子が「1 つの文字列リテラル」または「1 つの `{expr}`」ならその式をそのまま渡す(`Button` の `children: impl Into<WidgetText>` と `View` の `children: impl View` の両方に効く)。複数の子か要素の子なら `::egui_react::view(|cx| { .. })`。子が無ければ `()`。`<View/>` は `()` が `View` なので通り、`<Button/>` は `()` が `Into<WidgetText>` でないので落ちる。generic `C` が未指定のまま残らないので、`children: impl View` を `#[builder(default)]` にする必要がない。
-- `props_builder`: `pub fn props_builder<P: Props, F: for<'a, 's, 'u> Fn(&'a mut Cx<'s, 'u>, P)>(_: &F) -> P::Builder { P::builder() }`。関数アイテムの型は名指しできないので、`Fn` bound から `P` を推論させる。`Props` trait は `#[component]` が `NameProps` に実装し、関連型で `NamePropsBuilder` に結ぶ。これで `use components::Name;` だけで `<Name/>` が書ける。
-- `.style(..)` は `style` prop を持たないコンポーネントに対しては「no method named `style`」で落ちる。レイアウト属性を受けたいユーザーコンポーネントは `style: ItemStyle` を宣言して子に渡す。
-- ハンドラは `Handler::call(closure, a)` の形で呼ばれるので、spike の `(|| ..)()` にあった `redundant_closure_call` は出ない。展開結果には `#[allow(clippy::redundant_closure_call)]` を付けない(付ける理由が無くなった。ARCHITECTURE.md 3.2 を更新)。
-- 融合閉包は `#[event]` の無いコンポーネントに `on_*` を渡した場合、`.events(..)` メソッドが無いことでコンパイルエラーになる。variant 名の誤りは `NameEvent::Foo` が無いことで落ちる。どちらも trybuild で文面を固定する。
+- Without `key`, it is `(line!(), column!(), n)`. If `line!()` / `column!()` do not return the element's position (they return the macro call site), embed `Span::line()` / `Span::column()` (stable in 1.88) on the macro side. Either is fine as long as each element gets a unique value.
+- `children`: always call `.children(..)`. If the child is "one string literal" or "one `{expr}`", pass that expression as-is (this works for both `Button`'s `children: impl Into<WidgetText>` and `View`'s `children: impl View`). For multiple children or element children, use `::egui_react::view(|cx| { .. })`. With no children, pass `()`. `<View/>` compiles because `()` is a `View`; `<Button/>` fails because `()` is not `Into<WidgetText>`. The generic `C` is never left unspecified, so `children: impl View` does not need `#[builder(default)]`.
+- `props_builder`: `pub fn props_builder<P: Props, F: for<'a, 's, 'u> Fn(&'a mut Cx<'s, 'u>, P)>(_: &F) -> P::Builder { P::builder() }`. A function item's type cannot be named, so `P` is inferred from the `Fn` bound. `#[component]` implements the `Props` trait for `NameProps` and ties it to `NamePropsBuilder` through the associated type. With this, `use components::Name;` alone is enough to write `<Name/>`.
+- `.style(..)` fails with "no method named `style`" on components without a `style` prop. A user component that wants layout attributes declares `style: ItemStyle` and passes it to its children.
+- Handlers are called as `Handler::call(closure, a)`, so the `redundant_closure_call` from spike's `(|| ..)()` no longer appears. Do not add `#[allow(clippy::redundant_closure_call)]` to the expansion (there is no reason to anymore. Update ARCHITECTURE.md 3.2).
+- If `on_*` is passed to a component without `#[event]`, the fused closure fails to compile because there is no `.events(..)` method. A wrong variant name fails because `NameEvent::Foo` does not exist. Pin both messages with trybuild.
 
-### 2.4 trybuild(`crates/egui-react/tests/ui/`)
+### 2.4 trybuild (`crates/egui-react/tests/ui/`)
 
-`tests/compile_fail.rs` から `trybuild::TestCases::new().compile_fail("tests/ui/*.rs")` と `pass("tests/ui/pass/*.rs")` を回す。
+`tests/compile_fail.rs` runs `trybuild::TestCases::new().compile_fail("tests/ui/*.rs")` and `pass("tests/ui/pass/*.rs")`.
 
-| ファイル | 内容 |
+| File | Content |
 |---|---|
 | `unknown_event.rs` | `<Dialog on_foo={..}/>`: `no variant named Foo` |
-| `event_on_plain_component.rs` | `#[event]` の無いコンポーネントに `on_click` |
-| `missing_prop.rs` | 必須 prop の省略(typed-builder のエラー) |
+| `event_on_plain_component.rs` | `on_click` on a component without `#[event]` |
+| `missing_prop.rs` | A required prop left out (typed-builder's error) |
 | `unquoted_text.rs` | `<Text>hello</Text>` |
 | `component_returns_value.rs` | `#[component] fn A(cx: &mut Cx) -> i32` |
 | `hook_without_cx.rs` | `#[hook] fn use_x() {}` |
-| `handler_borrows_prop.rs` | `<Dialog title={&*title} on_rename={|s| *title = s}/>` の E0502(ARCHITECTURE.md 3.7 の 2 つ目) |
-| `loop_handler_mutates.rs` | `for` 内のハンドラで `todos.remove(i)`(3.7 の 1 つ目) |
-| `pass/borrow_shapes.rs` | 兄弟ハンドラの `&mut` 共有、`for` + `update_later`、`children` 閉包、`view(|cx| ..)` の推論が通ること |
+| `handler_borrows_prop.rs` | E0502 from `<Dialog title={&*title} on_rename={|s| *title = s}/>` (the 2nd case in ARCHITECTURE.md 3.7) |
+| `loop_handler_mutates.rs` | `todos.remove(i)` in a handler inside `for` (the 1st case in 3.7) |
+| `pass/borrow_shapes.rs` | Sibling handlers sharing `&mut`, `for` + `update_later`, `children` closures, and `view(|cx| ..)` inference all compile |
 
-`.stderr` はコミットする。toolchain は pin されているので文面は安定する。
+Commit the `.stderr` files. The toolchain is pinned, so the messages are stable.
 
-### 2.5 spike の置き換え
+### 2.5 Replacing spike
 
-`tests/common/mod.rs` の手書き `counter` / `dialog` / `use_counter` を `#[component]` / `#[hook]` / `rsx!` 版にし、10 本の spike テストを変更せずに通す(`cx.ui()` への追従を除く)。`use_counter_unscoped` は `#[hook]` を付けない関数として残す(衝突テストの対照)。テストが期待するボタンのラベルとログは変えない。
+Turn the hand-written `counter` / `dialog` / `use_counter` in `tests/common/mod.rs` into `#[component]` / `#[hook]` / `rsx!` versions, and make the 10 spike tests pass without changes (other than following the move to `cx.ui()`). Keep `use_counter_unscoped` as a function without `#[hook]` (the control for the collision test). Do not change the button labels and logs the tests expect.
 
-### 2.6 テスト(フェーズ 3)
+### 2.6 Tests (Phase 3)
 
-| # | テストファイル | 確認内容 |
+| # | Test file | What it checks |
 |---|---|---|
-| 3-1 | spike の 10 本 | マクロ版で全て緑 |
-| 3-2 | `rsx_control_flow.rs` | `if` / `else if` / `else`、`for` + `key`、`match` の各腕、フラグメント、`Option` の `{expr}` |
-| 3-3 | `rsx_children.rs` | 単一リテラル / 単一 `{expr}` / 複数子 / 子なし。`children: impl View` を受ける親の中で子の hooks が親のスコープ下で動く |
-| 3-4 | `component_props.rs` | `Option` の省略、`#[prop(default = expr)]`、`#[prop(into)]`、`&str` prop、generics 付き props |
-| 3-5 | `component_events.rs` | `#[event]` 3 つ(ペイロードなし / 値 / 借用 `&str`)、`events=` escape hatch、`on_*` を 1 つも渡さない場合に `emit` が no-op |
-| 3-6 | `rsx_scope.rs` | 同じ `rsx!` 内の 2 つの `<Counter/>` が独立、`for` 内で `key` あり / なし(なしは `collisions()` が非空)、要素を `if` で消すと unmount される |
+| 3-1 | spike's 10 tests | All green with the macro versions |
+| 3-2 | `rsx_control_flow.rs` | `if` / `else if` / `else`, `for` + `key`, each `match` arm, fragments, `{expr}` with an `Option` |
+| 3-3 | `rsx_children.rs` | Single literal / single `{expr}` / multiple children / no children. Inside a parent that takes `children: impl View`, the children's hooks run under the parent's scope |
+| 3-4 | `component_props.rs` | Leaving out `Option`, `#[prop(default = expr)]`, `#[prop(into)]`, `&str` props, props with generics |
+| 3-5 | `component_events.rs` | 3 `#[event]`s (no payload / a value / a borrowed `&str`), the `events=` escape hatch, `emit` is a no-op when no `on_*` is passed |
+| 3-6 | `rsx_scope.rs` | Two `<Counter/>`s in the same `rsx!` are independent, `for` with and without `key` (without, `collisions()` is non-empty), removing an element with `if` unmounts it |
 | 3-7 | `compile_fail.rs` | trybuild |
 
-## 3. フェーズ 4: elements(`crates/egui-react-elements/src/`)
+## 3. Phase 4: elements (`crates/egui-react-elements/src/`)
 
-全要素は `#[component]` で書き、`style: ItemStyle` を `#[prop(default)]` で受ける。ウィジェットは `cx.leaf(&style, |ui| ..)` の中で egui を呼ぶ。コンテナ(egui-native のもの)は Taffy モードでは leaf として振る舞い、その中の子は Ui モードで描く。
+Write every element with `#[component]` and take `style: ItemStyle` with `#[prop(default)]`. Widgets call egui inside `cx.leaf(&style, |ui| ..)`. Containers (the egui-native ones) act as a leaf in Taffy mode, and their children draw in Ui mode.
 
-### 3.1 `View` と `Text`
+### 3.1 `View` and `Text`
 
 ```rust
 #[component]
 pub fn View(cx: &mut Cx, #[prop(default)] style: ItemStyle, #[prop(default)] display: Display, #[prop(default)] direction: Direction, #[prop(default)] wrap: bool, #[prop(default)] justify: Justify, #[prop(default)] align: Align, align_content: Option<Align>, #[prop(default)] gap: Gap, cols: Option<u16>, children: impl View)
 ```
 
-`ContainerStyle::merge(&style)` で `taffy::Style` を作り、`cx.container(id, style, |cx| children.show(cx))`。`id` は `cx.scope_id()`。`gap: Gap` は `From<f32>` と `From<(f32, f32)>`。`display="grid"` のときは `cols` を `grid_template_columns: vec![fr(1.0); cols]` にする。`col_span` / `row_span` は `ItemStyle` に足す。
+Build a `taffy::Style` with `ContainerStyle::merge(&style)`, then `cx.container(id, style, |cx| children.show(cx))`. `id` is `cx.scope_id()`. `gap: Gap` implements `From<f32>` and `From<(f32, f32)>`. With `display="grid"`, turn `cols` into `grid_template_columns: vec![fr(1.0); cols]`. Add `col_span` / `row_span` to `ItemStyle`.
 
 ```rust
 #[component]
 pub fn Text(cx: &mut Cx, #[prop(default)] style: ItemStyle, size: Option<f32>, color: Option<egui::Color32>, #[prop(default)] strong: bool, #[prop(default)] wrap: bool, children: impl Into<egui::WidgetText>)
 ```
 
-`egui::Label::new(rich).wrap_mode(if wrap { Wrap } else { Extend })` を leaf に置く。既定 `Extend` は ARCHITECTURE.md 6 のとおり。
+Put `egui::Label::new(rich).wrap_mode(if wrap { Wrap } else { Extend })` in a leaf. The default `Extend` follows ARCHITECTURE.md 6.
 
-### 3.2 ウィジェット
+### 3.2 Widgets
 
-| 要素 | props | events | 実装 |
+| Element | props | events | Implementation |
 |---|---|---|---|
 | `Button` | `children: impl Into<WidgetText>`, `enabled: bool = true` | `on_click: ()` | `ui.add_enabled(enabled, egui::Button::new(..))` |
-| `Label` | `children: impl Into<WidgetText>` | | `ui.label`(egui 既定の wrap。`Text` との違いは wrap 既定のみ) |
-| `TextEdit` | `bind: &mut String`, `multiline: bool = false`, `hint: Option<&str>`, `desired_width: Option<f32>` | `on_change: ()`, `on_submit: ()` | `changed()` で `on_change`、`lost_focus && Enter` で `on_submit` |
+| `Label` | `children: impl Into<WidgetText>` | | `ui.label` (egui's default wrap. The only difference from `Text` is the wrap default) |
+| `TextEdit` | `bind: &mut String`, `multiline: bool = false`, `hint: Option<&str>`, `desired_width: Option<f32>` | `on_change: ()`, `on_submit: ()` | `on_change` on `changed()`, `on_submit` on `lost_focus && Enter` |
 | `Checkbox` | `bind: &mut bool`, `label: Option<&str>` | `on_change: bool` | |
 | `Slider<T: Numeric>` | `bind: &mut T`, `range: RangeInclusive<T>`, `label: Option<&str>` | `on_change: ()` | |
 | `ComboBox` | `bind: &mut usize`, `options: &[impl AsRef<str>]`, `label: Option<&str>` | `on_change: usize` | `egui::ComboBox::from_id_salt(cx.scope_id())` |
-| `Image` | `source: egui::ImageSource`, `fit: Option<egui::Vec2>` | | `egui::Image::new(source)`。ローダーはアプリ側 |
+| `Image` | `source: egui::ImageSource`, `fit: Option<egui::Vec2>` | | `egui::Image::new(source)`. Loaders are the app's job |
 | `Separator` | `vertical: bool = false` | | |
 
-`bind` を持つ要素と、同じ state を触るハンドラを同じ要素に渡すと E0502 になる(2.4 の `handler_borrows_prop`)。`bind` 要素の `on_change` は state を触らない用途(ログ、`Dispatch`)に限られることをドキュメントに書く。
+Passing a `bind` element a handler that touches the same state on the same element gives E0502 (`handler_borrows_prop` in 2.4). Document that `on_change` on `bind` elements is only for uses that do not touch state (logging, `Dispatch`).
 
-### 3.3 コンテナ
+### 3.3 Containers
 
-| 要素 | props | 実装 |
+| Element | props | Implementation |
 |---|---|---|
-| `ScrollArea` | `horizontal`, `vertical = true`, `max_h: Option<f32>`, `children: impl View` | `egui::ScrollArea::..show(ui, ..)` の中で `Cx::new(store, ui, scope)` |
+| `ScrollArea` | `horizontal`, `vertical = true`, `max_h: Option<f32>`, `children: impl View` | `Cx::new(store, ui, scope)` inside `egui::ScrollArea::..show(ui, ..)` |
 | `Collapsing` | `header: &str`, `default_open: bool`, `children` | `CollapsingHeader::new(header).id_salt(cx.scope_id())` |
 | `Frame` | `fill: Option<Color32>`, `stroke: Option<Stroke>`, `inner_margin: Option<f32>`, `corner_radius: Option<f32>`, `children` | `egui::Frame::new()..show(ui, ..)` |
 | `Window` | `title: &str`, `open: Option<&mut bool>`, `resizable`, `children` | `egui::Window::new(title).id(cx.scope_id()).show(cx.ctx(), ..)` |
 | `SidePanel` / `TopBottomPanel` / `CentralPanel` | `side: Side` / `TopBottom`, `default_size: Option<f32>`, `resizable`, `children` | `show_inside(ui, ..)` |
 | `Vertical` / `Horizontal` | `children` | `ui.vertical` / `ui.horizontal` |
-| `Grid` | `cols: usize`, `striped: bool`, `children` | `egui::Grid::new(cx.scope_id()).show`。`children` は `Row` 要素で区切る(`Row` は `ui.end_row()` を呼ぶだけの要素) |
+| `Grid` | `cols: usize`, `striped: bool`, `children` | `egui::Grid::new(cx.scope_id()).show`. Split `children` with `Row` elements (`Row` is an element that only calls `ui.end_row()`) |
 
-すべて `children` の描画前に `Cx::new(store, ui, scope)` を作り直す(spike の nested_ui と同じ形)。`Window` と各 `Panel` は `cx.container` の中(Taffy モード)からも呼べる。その場合は leaf として扱わず、`cx.ctx()` / `cx.ui()` に直接描く(`Window` はコンテキストに浮くので配置を受けない)。
+All of them rebuild `Cx::new(store, ui, scope)` before drawing `children` (the same shape as spike's nested_ui). `Window` and each `Panel` can also be called from inside `cx.container` (Taffy mode). In that case they are not treated as a leaf; they draw directly on `cx.ctx()` / `cx.ui()` (`Window` floats on the context, so it is not placed by the layout).
 
-### 3.4 テスト(フェーズ 4)
+### 3.4 Tests (Phase 4)
 
-| # | テストファイル | 確認内容 |
+| # | Test file | What it checks |
 |---|---|---|
-| 4-1 | `widgets.rs` | 各ウィジェットを kittest で操作(`click` / `type_text` / `key_press(Enter)`)し、`bind` と events の両方が期待どおり動く。`ComboBox` は `click` → 選択肢 `click` |
-| 4-2 | `containers.rs` | 各コンテナの子に `use_state` を置き、フレームを跨いで保持される。`Window` の `open` を false にすると子が unmount される。`Grid` の `Row` で行が変わる(`rect()` の y) |
-| 4-3 | `layout.rs` | `View` の `direction` / `justify` / `align` / `gap` / `grow` / `w` / `p` / `m` を `rect()` で検証。`display="grid" cols={2}` で 2 列に並ぶ。入れ子の `View` の中の `Text` が親の幅で折り返さない(`Extend`) |
-| 4-4 | `snapshots.rs`(feature `snapshot`) | `layout` example の各セクションと `Text` の wrap を `harness.snapshot("..")`。`SnapshotOptions::threshold` は OS ごとの既定を使う |
-| 4-5 | `multi_pass.rs`(core 側、置き換え) | spike の taffy 版テストを `<View>` + `<Button>` + `<Text>` で書き直し、2 パス目でハンドラが 1 回だけ発火することを引き続き確認する |
+| 4-1 | `widgets.rs` | Drive each widget with kittest (`click` / `type_text` / `key_press(Enter)`); both `bind` and events behave as expected. `ComboBox`: `click`, then `click` an option |
+| 4-2 | `containers.rs` | Put `use_state` in the children of each container; it survives across frames. Setting `Window`'s `open` to false unmounts the children. `Grid`'s `Row` starts a new row (y of `rect()`) |
+| 4-3 | `layout.rs` | Verify `View`'s `direction` / `justify` / `align` / `gap` / `grow` / `w` / `p` / `m` with `rect()`. `display="grid" cols={2}` lays out in 2 columns. `Text` inside a nested `View` does not wrap at the parent's width (`Extend`) |
+| 4-4 | `snapshots.rs` (feature `snapshot`) | `harness.snapshot("..")` for each section of the `layout` example and for `Text` wrap. Use the per-OS default for `SnapshotOptions::threshold` |
+| 4-5 | `multi_pass.rs` (core side, replaced) | Rewrite spike's taffy test with `<View>` + `<Button>` + `<Text>` and keep checking that the handler fires exactly once in the 2nd pass |
 
-スナップショットの CI は 4.5 参照。画像は `crates/egui-react-elements/tests/snapshots/` にコミットする。
+For snapshots in CI, see 4.5. Commit the images to `crates/egui-react-elements/tests/snapshots/`.
 
-## 4. フェーズ 5: ランナーと examples
+## 4. Phase 5: runner and examples
 
 ### 4.1 `egui-react-app::run`
 
 ```rust
 pub struct Options {
     pub title: String,
-    pub max_passes: usize,               // 既定 3(8 章参照)
-    pub persist: bool,                   // 既定 true。eframe の Storage を使う
-    pub canvas_id: String,               // wasm。既定 "egui_react_canvas"
+    pub max_passes: usize,               // default 3 (see section 8)
+    pub persist: bool,                   // default true. Uses eframe's Storage
+    pub canvas_id: String,               // wasm. Default "egui_react_canvas"
     pub native: eframe::NativeOptions,
 }   // impl Default
 pub fn run<V: View>(options: Options, root: impl FnMut(&mut Cx<'_, '_>) -> V + 'static) -> eframe::Result;
 ```
 
-- native: `eframe::run_native`。`App::ui` で `CentralPanel::default().show(ui, ..)` の中で `store.begin_pass` → `cx.container(root_id, column + reserve_available_space, |cx| root(cx).show(cx))` → `store.end_pass`。`App::save` で `store.save_persisted()` を `storage.set_string("egui_react", ..)` に書く。`CreationContext` の `storage` から `load_persisted` する。
-- wasm: `cfg(target_arch = "wasm32")` で `wasm_bindgen_futures::spawn_local(eframe::WebRunner::new().start(canvas, WebOptions::default(), Box::new(..)))`。canvas は `web_sys::window().document().get_element_by_id(canvas_id)`。`run` の戻り値は `Ok(())`。
-- `root` は毎フレーム呼ばれる。`root` の中で hooks を使い、その state を借りる `rsx!` を返すと「ローカルを借用した値を返せない」エラーになる。ルートは `|cx| rsx!{ <App/> }` の形にして hooks はコンポーネントに置くことを doc comment と README に書く。`#[component]` の本体末尾は 2.1 の書き換えで同じ問題を回避している。
-- `Options::max_passes` を `ctx.options_mut` で設定する。
+- native: `eframe::run_native`. In `App::ui`, inside `CentralPanel::default().show(ui, ..)`, do `store.begin_pass`, then `cx.container(root_id, column + reserve_available_space, |cx| root(cx).show(cx))`, then `store.end_pass`. In `App::save`, write `store.save_persisted()` with `storage.set_string("egui_react", ..)`. `load_persisted` from the `storage` of `CreationContext`.
+- wasm: under `cfg(target_arch = "wasm32")`, `wasm_bindgen_futures::spawn_local(eframe::WebRunner::new().start(canvas, WebOptions::default(), Box::new(..)))`. The canvas is `web_sys::window().document().get_element_by_id(canvas_id)`. `run` returns `Ok(())`.
+- `root` is called every frame. Using hooks inside `root` and returning an `rsx!` that borrows that state gives a "cannot return value borrowing a local" error. Write in the doc comment and README that the root should be `|cx| rsx!{ <App/> }` and hooks go in components. The tail of a `#[component]` body avoids the same problem through the rewrite in 2.1.
+- Set `Options::max_passes` with `ctx.options_mut`.
 
-### 4.2 `use_persisted`(core、`hooks.rs`)
+### 4.2 `use_persisted` (core, `hooks.rs`)
 
 ```rust
 #[track_caller]
 pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<'s, '_>, key: &str, init: impl FnOnce() -> T) -> State<'s, T>;
 ```
 
-- Id は `Id::new(("egui_react_persisted", key))`。スコープには依存しない。
-- `Store` に `persisted: RefCell<HashMap<String, String>>`(キー → JSON 文字列)を持つ。`load_persisted(&mut self, json: &str)` で一括読み込み、`save_persisted(&self) -> String` で生きているスロットを直列化して map に上書きしてから全体を JSON にする。
-- `Slot` に `persist: Option<(String, fn(&dyn Any) -> Option<String>)>` を足す。初回訪問時は map にキーがあれば deserialize、失敗か無しなら `init`。
-- sweep で persist 付きスロットを落とすときは、先に直列化して map に書く(unmount した状態も次回起動で残る)。
-- ランナーの `App::save` は eframe が定期的(`auto_save_interval`)と終了時に呼ぶ。
+- The Id is `Id::new(("egui_react_persisted", key))`. It does not depend on the scope.
+- `Store` holds `persisted: RefCell<HashMap<String, String>>` (key to JSON string). `load_persisted(&mut self, json: &str)` loads everything at once; `save_persisted(&self) -> String` serializes the live slots, overwrites the map, then turns the whole map into JSON.
+- Add `persist: Option<(String, fn(&dyn Any) -> Option<String>)>` to `Slot`. On the first visit, deserialize if the key is in the map; on failure or absence, use `init`.
+- When sweep drops a slot with persist, serialize it into the map first (unmounted state also survives the next start).
+- The runner's `App::save` is called by eframe periodically (`auto_save_interval`) and at exit.
 
 ### 4.3 examples
 
-各 example は `src/main.rs` 1 つと `index.html` / `Trunk.toml`。`main` は native / wasm 共通で `egui_react_app::run(Options { title, ..Default::default() }, |cx| rsx!{ <App/> })`。
+Each example is a single `src/main.rs` plus `index.html` / `Trunk.toml`. `main` is shared by native / wasm: `egui_react_app::run(Options { title, ..Default::default() }, |cx| rsx!{ <App/> })`.
 
-| example | 内容 |
+| example | Content |
 |---|---|
-| `counter` | `use_state` + `View` / `Text` / `Button`。README の例と同じコード |
-| `todo` | `use_reducer` で `Vec<Todo>`(Add / Toggle / Remove / Clear)。`TextEdit bind` + `on_submit` で追加、`for` + `key` で一覧、`Checkbox` で toggle、削除は `Dispatch`。`use_persisted("todos", ..)` で保存。`Collapsing` に完了済みをまとめる |
-| `layout` | `View` の flex 属性を並べたデモ(row / column / justify 各種 / align / grow / gap / 入れ子 / grid)。`ScrollArea` の中に置く。4-4 のスナップショットと同じ構成 |
+| `counter` | `use_state` + `View` / `Text` / `Button`. The same code as the README example |
+| `todo` | `Vec<Todo>` with `use_reducer` (Add / Toggle / Remove / Clear). Add with `TextEdit bind` + `on_submit`, list with `for` + `key`, toggle with `Checkbox`, remove through `Dispatch`. Save with `use_persisted("todos", ..)`. Group finished items in a `Collapsing` |
+| `layout` | A demo listing `View`'s flex attributes (row / column / each justify / align / grow / gap / nesting / grid). Placed inside a `ScrollArea`. Same layout as the 4-4 snapshots |
 
-`examples/spike` は削除する。`Cargo.toml` の `members` は `examples/*` のままでよい。
+Delete `examples/spike`. `members` in `Cargo.toml` can stay `examples/*`.
 
 ### 4.4 README
 
-「使い方」節に counter の全コードと `cargo run -p counter`、`trunk serve examples/counter/index.html` を書く。hooks / elements の一覧表は ARCHITECTURE.md へのリンクで済ませる(英訳と整備はフェーズ 8)。
+In the "Usage" section, write the full counter code, `cargo run -p counter`, and `trunk serve examples/counter/index.html`. For the hooks / elements tables, just link to ARCHITECTURE.md (English translation and cleanup are Phase 8).
 
 ### 4.5 CI
 
-`ci.yml` に足すステップ。
+Steps to add to `ci.yml`.
 
-1. `cargo check --workspace --target wasm32-unknown-unknown`(`-p egui-react` から `--workspace` に広げる。examples も wasm でコンパイルできること)
-2. trunk: `jetli/trunk-action@v0.5` で `trunk` を入れ、`trunk build --release examples/counter/index.html`
-3. スナップショットは CI で回さない。コミット済みの画像は macOS のレンダラで生成したもので、Linux のソフトウェアレンダラとは一致しないため。ローカルでの回し方を README の Testing 節に書く
+1. `cargo check --workspace --target wasm32-unknown-unknown` (widen from `-p egui-react` to `--workspace`. The examples must compile for wasm too)
+2. trunk: install `trunk` with `jetli/trunk-action@v0.5`, then `trunk build --release examples/counter/index.html`
+3. Do not run snapshots in CI. The committed images were made with the macOS renderer and do not match Linux's software renderer. Write how to run them locally in the README Testing section
 
-`Swatinem/rust-cache` のキーは既存のまま。
+Keep the existing `Swatinem/rust-cache` key.
 
-## 5. 手順
+## 5. Steps
 
-1. フェーズ 2: `view.rs` → `layout.rs` → `Cx` の `Surface`(`cx.ui()` への追従で spike のテストと examples を直す)→ `use_memo` → `dispatch.rs` / `use_reducer` → 遅延キュー → オーバーレイ。テスト 2-1 〜 2-7。ARCHITECTURE.md 3.1 / 3.2 / 3.7 / 4 / 5.5 / 6 を更新。コミット。
-2. フェーズ 3: `egui-react-macros` の依存を足し、`#[hook]` → `#[component]` → `rsx!`(パース → 属性 → 展開 → 制御構文)の順。`egui-react` に `__private`(typed_builder、`Component` / `Props` trait、`props_builder`)と re-export を足す。`tests/common` をマクロ版に置換して spike のテストを通す。テスト 3-2 〜 3-7。ARCHITECTURE.md 3.2 / 3.3 / 3.6 を更新。コミット。
-3. フェーズ 4: `View` / `Text` → ウィジェット → コンテナ。テスト 4-1 〜 4-3、`multi_pass` の置き換え(4-5)。スナップショット(4-4)は feature の裏で書き、ローカルで画像を生成してコミット。ARCHITECTURE.md 6 を更新。コミット。
-4. フェーズ 5: `use_persisted`(core)→ `run`(native)→ examples 3 つ → wasm ランナー → `index.html` / `Trunk.toml` → README → CI。`examples/spike` を削除。`cargo run` 3 つと `trunk serve` を目視。コミット。
-5. CI が全ステップ緑であることを確認する。スナップショットのステップが不安定なら 4.5 のとおり外す。
-6. PR 本文に、フェーズごとの結果、ARCHITECTURE.md の変更点、外したもの(あれば)を書く。
+1. Phase 2: `view.rs`, then `layout.rs`, then `Surface` in `Cx` (fix spike's tests and examples to follow `cx.ui()`), then `use_memo`, then `dispatch.rs` / `use_reducer`, then the deferred queue, then the overlay. Tests 2-1 to 2-7. Update ARCHITECTURE.md 3.1 / 3.2 / 3.7 / 4 / 5.5 / 6. Commit.
+2. Phase 3: add the `egui-react-macros` dependencies, then `#[hook]`, then `#[component]`, then `rsx!` (parsing, then attributes, then expansion, then control flow). Add `__private` (typed_builder, the `Component` / `Props` traits, `props_builder`) and re-exports to `egui-react`. Replace `tests/common` with the macro version and make spike's tests pass. Tests 3-2 to 3-7. Update ARCHITECTURE.md 3.2 / 3.3 / 3.6. Commit.
+3. Phase 4: `View` / `Text`, then widgets, then containers. Tests 4-1 to 4-3, replace `multi_pass` (4-5). Write the snapshots (4-4) behind the feature, generate the images locally, and commit them. Update ARCHITECTURE.md 6. Commit.
+4. Phase 5: `use_persisted` (core), then `run` (native), then the 3 examples, then the wasm runner, then `index.html` / `Trunk.toml`, then README, then CI. Delete `examples/spike`. Check the 3 `cargo run`s and `trunk serve` by eye. Commit.
+5. Confirm every CI step is green. If the snapshot step is flaky, remove it as described in 4.5.
+6. In the PR body, write the results per phase, the ARCHITECTURE.md changes, and anything dropped (if any).
 
-## 6. 判断が必要になりそうな点
+## 6. Points that may need a decision
 
-- **`props_builder(&Name)` の推論**(2.3)。lifetime `'e` と generic `C` を持つ props で `Fn` bound 経由の推論が通らない場合は、`#[component]` が関数と同名の braced struct(型名前空間は関数と衝突しない)を Props として生成し、`rsx!` は `Name::builder()` を emit する。ユーザーの `use` は同じ 1 つで済む。`NameProps` 名は捨てる。
-- **`typed-builder` の `crate_module_path`**。効かない場合は必須フィールドの typestate builder を `#[component]` が自前で生成する(必須フィールド数ぶんの marker generics)。
-- **`line!()` / `column!()` の span**(2.3)。要素ごとに一意でなければ `Span::line()` / `Span::column()` をマクロ側で読んで数値リテラルとして埋め込む。
-- **`use_memo` の `&'s T`**(1.2)。`FrozenVec` で持ち回るのが煩雑なら `Memo<'s, T>: Deref<Target = T>` の guard を返す形に落とす。その場合 ARCHITECTURE.md 4 の表を更新する。
-- **Ui モード直下の `View` のサイズ**(1.7)。`reserve_available_width()` で `Window` の中に置いたときに崩れる場合は `View` に `fill: bool` prop を足して切り替える。
-- **`Surface::Taffy` での `cx.ui()`**。`egui_ui_mut()` に描いた結果がテストで明らかに壊れて見えるなら、Taffy モードの `ui()` は `leaf(default)` を自動で挟む代わりに panic ではなく `log::warn!` で 1 回だけ警告する。
-- **スナップショットの CI**(4.5)。
-- **wasm の `cargo check --workspace`**。`egui-react-app` の wasm 依存で check が通らない場合、`eframe` の `wasm-bindgen` 系 feature を見直す。examples 単体で通るまでは `-p egui-react -p egui-react-elements -p egui-react-app` に絞ってもよい。
+- **Inference of `props_builder(&Name)`** (2.3). If inference through the `Fn` bound fails for props with lifetime `'e` and generic `C`, have `#[component]` generate a braced struct with the same name as the function (the type namespace does not clash with the function) as the Props, and have `rsx!` emit `Name::builder()`. The user still needs the same single `use`. Drop the `NameProps` name.
+- **`typed-builder`'s `crate_module_path`**. If it does not work, have `#[component]` generate its own typestate builder for required fields (one marker generic per required field).
+- **The span of `line!()` / `column!()`** (2.3). If it is not unique per element, read `Span::line()` / `Span::column()` on the macro side and embed them as numeric literals.
+- **`&'s T` in `use_memo`** (1.2). If carrying it around in `FrozenVec` is too clumsy, fall back to returning a `Memo<'s, T>: Deref<Target = T>` guard. In that case update the table in ARCHITECTURE.md 4.
+- **Size of a `View` directly under Ui mode** (1.7). If `reserve_available_width()` breaks when placed inside a `Window`, add a `fill: bool` prop to `View` to switch.
+- **`cx.ui()` under `Surface::Taffy`**. If drawing on `egui_ui_mut()` looks clearly broken in tests, make Taffy-mode `ui()` warn once with `log::warn!` instead of panicking, rather than inserting `leaf(default)` automatically.
+- **Snapshots in CI** (4.5).
+- **wasm `cargo check --workspace`**. If check fails because of `egui-react-app`'s wasm dependencies, review `eframe`'s `wasm-bindgen` features. Until the examples pass on their own, narrowing to `-p egui-react -p egui-react-elements -p egui-react-app` is fine.
 
-## 7. ARCHITECTURE.md に反映する変更(着手時点で判明しているもの)
+## 7. Changes to apply to ARCHITECTURE.md (known at the start)
 
-- 3.1: `Cx` は `ui` フィールドではなく `ui()` メソッド。`Surface`(Ui / Taffy)、`leaf` / `container`、`defer` を持つ。
-- 3.2: `View` の impl 一覧を `Option` / `Vec` / 配列 / 閉包に改める。`rsx!` は `view(|cx| ..)` を emit する。`#[allow(clippy::redundant_closure_call)]` は不要になった。
-- 3.3: Props は typed-builder の builder で組み立てる。`Option` と `#[prop(default)]` が省略可能。`children` は必須。本体の末尾式は `View::show(tail, cx)` に書き換わる。
-- 3.6: `Emitter<'a, 'e, E, A>` はペイロード型と variant コンストラクタを持つ。`events` は `Option<&mut dyn FnMut(E)>` で、省略時は no-op。
-- 3.7: `update_later` の閉包は `'static`(`move`)。
-- 4: `use_reducer` のメッセージは次の訪問時に適用。`use_persisted` はキーのみで識別し、eframe `Storage` の 1 キーに JSON でまとめる。
-- 5.5: 遅延キューの適用は sweep の前、`Dispatch` は含まない。
-- 6: レイアウト属性の一覧、`Length` の単位、`View` の props、egui-native コンテナが Taffy モードでは leaf になること。
-- 7: `egui-react` が `egui_taffy` に依存する。`run(Options, |cx| rsx!{ <App/> })` の形。
+- 3.1: `Cx` has a `ui()` method, not a `ui` field. It has `Surface` (Ui / Taffy), `leaf` / `container`, and `defer`.
+- 3.2: Change the list of `View` impls to `Option` / `Vec` / arrays / closures. `rsx!` emits `view(|cx| ..)`. `#[allow(clippy::redundant_closure_call)]` is no longer needed.
+- 3.3: Props are built with typed-builder's builder. `Option` and `#[prop(default)]` are optional. `children` is required. The body's tail expression is rewritten to `View::show(tail, cx)`.
+- 3.6: `Emitter<'a, 'e, E, A>` has a payload type and a variant constructor. `events` is `Option<&mut dyn FnMut(E)>`; when left out it is a no-op.
+- 3.7: The `update_later` closure is `'static` (`move`).
+- 4: `use_reducer` messages are applied on the next visit. `use_persisted` is identified by key only and stored as JSON under one key in eframe `Storage`.
+- 5.5: The deferred queue is applied before sweep and does not include `Dispatch`.
+- 6: The list of layout attributes, `Length` units, `View`'s props, and that egui-native containers become leaves in Taffy mode.
+- 7: `egui-react` depends on `egui_taffy`. The `run(Options, |cx| rsx!{ <App/> })` form.
 
-## 8. 実装で判明した差分
+## 8. Differences found during implementation
 
-### フェーズ 2(手順 1)
+### Phase 2 (step 1)
 
-- **1.1** `impl View for &str` / `String` / `Option` / `Vec` / 配列と `FnOnce` の blanket impl は coherence で衝突せず、そのまま共存した。`view(|cx| ..)` の型推論も注釈なしで通る(テスト `view::every_view_impl_draws`)。
-- **1.2** `elsa::FrozenVec<Box<dyn Any>>` の `push_get` は素直に `&'s dyn Any` を返すので、6 章の代替案(`Memo` guard)には落とさずに `&'s T` を実現できた。`Slot` に `memo_last` / `memo_push` / `prune_memo` を足し、`prune_memo` は sweep の中で生存スロットに対して呼ぶ(`end_pass` の別ループにはしていない)。deps のハッシュ計算は `hooks::deps_hash` として `use_effect` と共用した。
-- **1.3** スロットの値は `(S, Arc<Mutex<Vec<M>>>)` のタプルにせず、state 用スロット(素の `S`)とキュー用スロット(`id.with("__egui_react_reducer_queue")`、`Arc<Mutex<Vec<M>>>`)の 2 つに分けた。タプルにすると `State` / `update_later` が `Box<dyn Any>` から `S` へ downcast できず、スロット値への射影関数を `State` に持たせる必要が出るため。2 スロットとも同じパスで訪問されるので sweep の挙動は変わらない。
-- **1.4** `update_later` は `State` / `Handle` の両方に生えるが、実装は `state.rs` の `queue_update` 1 つに寄せた。`State` と `Handle` は `ctx: &'s egui::Context` の代わりに `store: &'s Store` を持つように変え(`ctx` は `store.ctx()` から取る)、`State::new` / `Handle::new` のシグネチャが `(store, slot, location)` / `(store, slot)` になった。
-- **1.4** 遅延キューの適用は sweep より前なので、公開 API の範囲では「スロットが既に無い」経路には到達しない(そのパスで unmount されるスロットもまだ生きている)。`slot_by_id` が `None` の場合に黙って捨てる分岐は防御的なもので、テスト `deferred::update_later_on_a_slot_that_unmounts_in_the_same_pass_is_dropped` は「同じパスで unmount される state への `update_later` が panic しない」ことまでを確認する。
-- **1.6** オーバーレイの文言は `Collision::location` ごとに `BTreeSet` で重複を落とす。kittest からは `query_by_label_contains` で読める。
-- **1.7** `Surface` は `pub` にせず `cx.rs` の非公開 enum にした。外から必要なのは `Cx::new` / `Cx::new_taffy` / `in_taffy()` だけである。`Cx::hook_scope` は `Surface` を短い lifetime に再借用する `reborrow()` を経由する。`container` の `reserve_available_space()` 版(ランナーのルート用)はフェーズ 5 で足す。
-- **1.8** `ContainerStyle` の `justify` / `align` を `Option` にはできない。`rsx!` が `justify="center"` を渡せるためには `From<&str>` が要り、`impl From<&str> for Option<Justify>` は orphan rule に反するため。代わりに `Justify` / `Align` に既定値 `Normal`(= 未指定、taffy では `None`)の variant を足した。`align_content` は taffy の `AlignContent` が `JustifyContent` と同じ型なので、プランの `Option<Align>` ではなく `Option<Justify>` にした。`AlignSelf` は taffy と同じく `Align` の型エイリアスである。`ItemStyle.align_self` は `Option<Align>` のままで、setter が `impl Into<AlignSelf>` を取る。
-- **1.8** 等幅カラムは `taffy::style_helpers::evenly_sized_tracks(cols)` を使う。プランの `vec![fr(1.0); cols]` と等価だが、taffy 0.9 ではこれは `repeat(cols, 1fr)` 1 要素の `Vec` になる。
-- **1.8** `Length::Percent` は taffy に合わせて 0.0〜1.0 の割合を持つ。`"50%"` は `Percent(0.5)` になる。
-- **1.9** プランの表に無い `tests/layout.rs`(`Length` とレイアウト enum のパース、`m` / `p` 短縮形の優先順位、`to_taffy` / `merge` の写り方)を足した。テスト 2-7 の「`cx.scope` が Taffy モードでも Id を分ける」は、hooks 側(`use_state`)と egui 側(`ui.collapsing`)の 2 本に分けて確認している。
-- **その他** `Store::end_pass` を `run_deferred` → `sweep` → `show_collision_overlay` の 3 つに分割した。`egui-react` は `egui_taffy::taffy` を `egui_react::taffy` として re-export する。
+- **1.1** `impl View for &str` / `String` / `Option` / `Vec` / arrays and the `FnOnce` blanket impl did not conflict under coherence; they coexist as-is. Type inference for `view(|cx| ..)` also passes without annotations (test `view::every_view_impl_draws`).
+- **1.2** `push_get` on `elsa::FrozenVec<Box<dyn Any>>` simply returns `&'s dyn Any`, so `&'s T` worked without falling back to the section 6 alternative (the `Memo` guard). Added `memo_last` / `memo_push` / `prune_memo` to `Slot`; `prune_memo` is called on live slots inside sweep (not as a separate loop in `end_pass`). The deps hash is shared with `use_effect` as `hooks::deps_hash`.
+- **1.3** The slot value is not a `(S, Arc<Mutex<Vec<M>>>)` tuple. It is split into a state slot (plain `S`) and a queue slot (`id.with("__egui_react_reducer_queue")`, `Arc<Mutex<Vec<M>>>`). With a tuple, `State` / `update_later` could not downcast from `Box<dyn Any>` to `S`, and `State` would need a projection function over the slot value. Both slots are visited in the same pass, so sweep behaves the same.
+- **1.4** `update_later` exists on both `State` and `Handle`, but the implementation is a single `queue_update` in `state.rs`. `State` and `Handle` now hold `store: &'s Store` instead of `ctx: &'s egui::Context` (`ctx` comes from `store.ctx()`), so the signatures of `State::new` / `Handle::new` became `(store, slot, location)` / `(store, slot)`.
+- **1.4** The deferred queue is applied before sweep, so within the public API the "slot already gone" path is never reached (slots unmounted in that pass are still alive). The branch that silently drops when `slot_by_id` is `None` is defensive; the test `deferred::update_later_on_a_slot_that_unmounts_in_the_same_pass_is_dropped` only checks that `update_later` on state unmounted in the same pass does not panic.
+- **1.6** The overlay text drops duplicates per `Collision::location` with a `BTreeSet`. kittest can read it with `query_by_label_contains`.
+- **1.7** `Surface` is not `pub`; it is a private enum in `cx.rs`. All that is needed from outside is `Cx::new` / `Cx::new_taffy` / `in_taffy()`. `Cx::hook_scope` goes through `reborrow()`, which reborrows `Surface` for a shorter lifetime. The `reserve_available_space()` version of `container` (for the runner's root) is added in Phase 5.
+- **1.8** `justify` / `align` in `ContainerStyle` cannot be `Option`. For `rsx!` to pass `justify="center"`, `From<&str>` is needed, and `impl From<&str> for Option<Justify>` violates the orphan rule. Instead, `Justify` / `Align` got a default variant `Normal` (= unspecified, `None` in taffy). `align_content` is `Option<Justify>` rather than the plan's `Option<Align>`, because taffy's `AlignContent` is the same type as `JustifyContent`. `AlignSelf` is a type alias of `Align`, as in taffy. `ItemStyle.align_self` stays `Option<Align>`, and its setter takes `impl Into<AlignSelf>`.
+- **1.8** Equal-width columns use `taffy::style_helpers::evenly_sized_tracks(cols)`. It is equivalent to the plan's `vec![fr(1.0); cols]`, but in taffy 0.9 it is a one-element `Vec` of `repeat(cols, 1fr)`.
+- **1.8** `Length::Percent` holds a fraction from 0.0 to 1.0 to match taffy. `"50%"` becomes `Percent(0.5)`.
+- **1.9** Added `tests/layout.rs`, which is not in the plan's table (parsing of `Length` and the layout enums, precedence of the `m` / `p` shorthands, how `to_taffy` / `merge` map). The 2-7 check "`cx.scope` separates Ids in Taffy mode too" is split into 2 tests, one for the hooks side (`use_state`) and one for the egui side (`ui.collapsing`).
+- **Other** Split `Store::end_pass` into 3: `run_deferred`, `sweep`, `show_collision_overlay`. `egui-react` re-exports `egui_taffy::taffy` as `egui_react::taffy`.
 
-### フェーズ 3(手順 2)
+### Phase 3 (step 2)
 
-- **0 依存表** `syn` は 2 ではなく **3.0**。rstml 0.13 が syn 3 に依存しており、`Node` / `KeyedAttribute` が syn 3 の型を埋め込んでいるので選択の余地がない。feature は `full` / `extra-traits`(`Node<C>` の `Debug` 導出に必要)/ `visit` / `visit-mut` / `parsing` / `printing` / `proc-macro`。`typed-builder` は 0.23、`trybuild` は 1.0。
-- **2.1** `#[builder(crate_module_path = ::egui_react::__private::typed_builder)]` は再エクスポート経由でそのまま動いた。6 章の「自前 builder を生成する」代替案は不要。
-- **2.3** `props_builder(&Name)` の推論も `'e` + generic `C` を持つ props で通った。6 章の「関数と同名の braced struct を生成する」代替案は不要。`Props` trait と `props_builder` は `egui_react::__private` に置き、`props_builder` だけクレート直下にも再エクスポートしている。
-- **2.1** `#[event]` の引数は Props のフィールドにはならない(`Emitter` になるだけ)。イベント enum は、ペイロード型が実際に使うジェネリクスだけを引き継ぐ(`#[event] on_rename: &str` なら `NameEvent<'e>`)。使わないパラメータを enum に宣言できないため。
-- **2.1** `events` フィールドは `#[builder(default, setter(strip_option))]`。`Option<&mut dyn FnMut(E)>` をそのまま setter に渡させるのは煩雑なので、`rsx!` は `.events(&mut |ev| ..)` と書ける。`events=` escape hatch も `&mut (expr)` で包んで渡す。
-- **2.1** 本体末尾式の書き換えは `Stmt::Expr(_, None)` だけでなく `Stmt::Macro`(セミコロン無し)も対象にする。`rsx! { .. }` を本体の末尾に書くと syn は文マクロとしてパースするため。
-- **2.1** `impl Trait` 引数は `TProp0`, `TProp1`, .. という型パラメータに脱糖する。props 構造体・関数・`Props` impl の 3 か所に同じジェネリクス(`'e` + 関数自身のパラメータ + `TProp*`)を付ける。`'e` は実際に使われる場合だけ宣言する(未使用パラメータはエラーになるため)。
-- **2.2** `#[hook]` は「最初の `&mut Cx` 引数」を探す(第 1 引数に限定していない)。`&mut Cx` の判定は型の最終セグメントが `Cx` かどうかで行う。
-- **2.3** `Option<T>` prop は `#[builder(default)]` のみで `strip_option` は付けない(プラン 2.1 の表どおり)。したがって `hint={Some("x")}` と書く。将来 elements で煩雑になれば見直す。
-- **2.3** 要素の Id の材料は `(file!(), line!(), column!(), 通し番号, key)`。`line!()` / `column!()` は `rsx!` の呼び出し位置を返すので、同じ `rsx!` 内の要素は通し番号で、別の `rsx!` は位置で区別される。`Span::line()` / `Span::column()` は不要だった。`file!()` を足したのは、同じ位置に展開される別ファイルの `rsx!` を確実に分けるため。
-- **2.3** 属性値と `{expr}` ノードは、単一式のブロックなら中身を取り出して emit する。`{ expr }` をそのまま渡すとユーザーコードに `unused_braces` 警告が出るため。
-- **2.3** 不正なノード(引用符無しテキスト、`<!DOCTYPE>`)があった場合、`rsx!` は `compile_error!` と空の `view` だけを emit する。要素展開を続けると型エラーが連鎖して本来のメッセージが埋もれるため。
-- **2.3 / 3.6** 融合閉包は `NameEvent::Variant` を名指しするので、`on_*` を使う場所では `NameEvent` も import されている必要がある。プランの「ユーザーは `Name` だけを `use` すればよい」は props についてのみ成立する。ARCHITECTURE.md 3.6 に明記した。
-- **2.4** trybuild は 9 本(`compile_fail` 8 + `pass` 1)。`.stderr` はコミット済み。`missing_prop` は typed-builder の `Error_Missing_required_field_label` 型のエラーになる。
-- **2.5** `tests/common/mod.rs` はマクロ版の `Counter` / `NamedCounter` / `Dialog` / `use_counter` を持ち、加えて `counter(cx, initial)` / `named_counter(..)` という薄いラッパ関数(`rsx!` を 1 行呼ぶだけ)を残した。これで `sibling_handlers` / `custom_hook` / `collision` は無修正のまま通る。`fused_events` だけは手書きの `DialogProps { .. }` を組み立てていたので、`rsx!` + `on_ok` / `on_cancel` / `on_rename` に書き換えた(assert は無修正)。
-- **2.6** テストファイル名はプランどおり `rsx_control_flow.rs` / `rsx_children.rs` / `component_props.rs` / `component_events.rs` / `rsx_scope.rs` / `compile_fail.rs`。
-- **その他** `examples/spike` はマクロ版に置き換えた(`App` / `Counter` / `Dialog`)。`main.rs` は `rsx! { <components::App/> }.show(&mut cx)` を呼ぶ。
+- **Dependency table in 0** `syn` is **3.0**, not 2. rstml 0.13 depends on syn 3, and `Node` / `KeyedAttribute` embed syn 3 types, so there is no choice. Features: `full` / `extra-traits` (needed to derive `Debug` for `Node<C>`) / `visit` / `visit-mut` / `parsing` / `printing` / `proc-macro`. `typed-builder` is 0.23, `trybuild` is 1.0.
+- **2.1** `#[builder(crate_module_path = ::egui_react::__private::typed_builder)]` worked as-is through the re-export. The section 6 alternative "generate our own builder" is not needed.
+- **2.3** Inference of `props_builder(&Name)` also passed for props with `'e` + generic `C`. The section 6 alternative "generate a braced struct with the same name as the function" is not needed. The `Props` trait and `props_builder` live in `egui_react::__private`, and only `props_builder` is also re-exported at the crate root.
+- **2.1** `#[event]` arguments do not become Props fields (they only become `Emitter`s). The event enum carries only the generics the payload types actually use (`#[event] on_rename: &str` gives `NameEvent<'e>`), because unused parameters cannot be declared on the enum.
+- **2.1** The `events` field is `#[builder(default, setter(strip_option))]`. Making the user pass `Option<&mut dyn FnMut(E)>` to the setter is clumsy, so `rsx!` can write `.events(&mut |ev| ..)`. The `events=` escape hatch is also wrapped as `&mut (expr)`.
+- **2.1** The tail rewrite covers not only `Stmt::Expr(_, None)` but also `Stmt::Macro` (no semicolon). When `rsx! { .. }` is the last thing in the body, syn parses it as a statement macro.
+- **2.1** `impl Trait` arguments desugar to type parameters `TProp0`, `TProp1`, and so on. The same generics (`'e` + the function's own parameters + `TProp*`) go on all 3 places: the props struct, the function, and the `Props` impl. `'e` is declared only when it is actually used (an unused parameter is an error).
+- **2.2** `#[hook]` looks for "the first `&mut Cx` argument" (not limited to the first argument). Whether a type is `&mut Cx` is decided by whether its last path segment is `Cx`.
+- **2.3** `Option<T>` props get only `#[builder(default)]`, no `strip_option` (as in the table in plan 2.1). So you write `hint={Some("x")}`. Revisit if this gets clumsy in elements later.
+- **2.3** The element Id is made from `(file!(), line!(), column!(), sequence number, key)`. `line!()` / `column!()` return the `rsx!` call site, so elements in the same `rsx!` are told apart by sequence number and different `rsx!`s by position. `Span::line()` / `Span::column()` were not needed. `file!()` was added to reliably separate `rsx!`s in different files that expand at the same position.
+- **2.3** For attribute values and `{expr}` nodes, if the block is a single expression, emit the inner expression. Passing `{ expr }` as-is gives an `unused_braces` warning in user code.
+- **2.3** When there is an invalid node (unquoted text, `<!DOCTYPE>`), `rsx!` emits only `compile_error!` and an empty `view`. Continuing the element expansion causes a chain of type errors that buries the real message.
+- **2.3 / 3.6** The fused closure names `NameEvent::Variant`, so wherever `on_*` is used, `NameEvent` must be imported too. The plan's "the user only needs to `use` `Name`" holds only for props. Stated in ARCHITECTURE.md 3.6.
+- **2.4** trybuild has 9 cases (`compile_fail` 8 + `pass` 1). The `.stderr` files are committed. `missing_prop` gives an error on typed-builder's `Error_Missing_required_field_label` type.
+- **2.5** `tests/common/mod.rs` has the macro versions `Counter` / `NamedCounter` / `Dialog` / `use_counter`, plus thin wrapper functions `counter(cx, initial)` / `named_counter(..)` (a one-line `rsx!` call each). With these, `sibling_handlers` / `custom_hook` / `collision` pass unchanged. Only `fused_events` built a hand-written `DialogProps { .. }`, so it was rewritten to `rsx!` + `on_ok` / `on_cancel` / `on_rename` (asserts unchanged).
+- **2.6** Test file names follow the plan: `rsx_control_flow.rs` / `rsx_children.rs` / `component_props.rs` / `component_events.rs` / `rsx_scope.rs` / `compile_fail.rs`.
+- **Other** `examples/spike` was switched to the macro version (`App` / `Counter` / `Dialog`). `main.rs` calls `rsx! { <components::App/> }.show(&mut cx)`.
 
-### フェーズ 4(手順 3)
+### Phase 4 (step 3)
 
-#### フェーズ 3 への追随
+#### Follow-ups to Phase 3
 
-- **2.1** `Option<T>` prop は `#[builder(default, setter(strip_option))]` になった。`hint="x"` / `size={14.0}` と書ける。`#[prop(into)]` と併用すると `setter(into, strip_option)`。フェーズ 3 の「`strip_option` は付けない」判断はここで撤回した。trybuild の `.stderr` は影響を受けなかった。
+- **2.1** `Option<T>` props are now `#[builder(default, setter(strip_option))]`. You can write `hint="x"` / `size={14.0}`. Combined with `#[prop(into)]` it becomes `setter(into, strip_option)`. This reverses the Phase 3 decision "no `strip_option`". The trybuild `.stderr` files were not affected.
 
-#### 実装
+#### Implementation
 
-- **3.1** `Gap`(`From<f32>` / `From<i32>` / `From<(f32, f32)>`)は `egui_react::layout` に置いた。`ContainerStyle::gap` の隣にあるべき型で、`ContainerStyle::gap()` setter も `impl Into<Gap>` を取るようにした。`ItemStyle` には `col_span` / `row_span` を足し、`rsx!` のレイアウト属性一覧にも加えた。
-- **3.1** `View` の `align_content` は `Option<Justify>`(フェーズ 2 の型どおり)。`display` / `direction` / `justify` / `align` / `gap` / `side` は `#[prop(default, into)]` で、文字列リテラルをそのまま受ける。
-- **3.2** `ComboBox` の `options` は `&[impl AsRef<str>]` ではなく generic `S: AsRef<str>` の `&[S]`。`#[component]` は引数型のトップレベルの `impl Trait` しか脱糖しないため。
-- **3.2 / 5.6** `bind` を `&mut *state` で渡すと `DerefMut` が毎フレーム dirty を立て、アプリがアイドルにならない(kittest が `ExceededMaxSteps` で落ちる)。`State::bind(&mut self) -> &mut T` を core に足した。dirty を立てずに `&mut T` を貸すだけで、値が変わるのは入力があった時だけなので repaint は egui 側が出す。ARCHITECTURE.md 5.6 に追記した。
-- **3.3** egui 0.36 には `SidePanel` / `TopBottomPanel` が無く、`Panel::left/right/top/bottom` に統合されている。要素も `Panel`(`side="left"|"right"|"top"|"bottom"`)1 つ + `CentralPanel` にした。`Side` enum は `egui-react-elements` に置く。
-- **3.3** `Grid` の行区切りは `<Row/>` 要素ではなく `row()` という `impl View` を返す関数にし、`{row()}` と書く。`rsx!` は要素ごとに `cx.scope` → `Ui::push_id` で子 `Ui` を作るので、`<Row/>` の中の `ui.end_row()` は grid の `Ui` に届かない。`{expr}` ノードはスコープされないので届く。
-- **3.3** 同じ理由で、`<Panel>` と `<CentralPanel>` を兄弟要素として並べてもドッキングしない(それぞれが自分の子 `Ui` から場所を切り取り、親のカーソルはその下に進む)。スコープを挟まずに同じ `Ui` へ描けば期待どおり並ぶことをテスト `containers::panels_dock_when_they_share_one_ui` で固定した。パネルはランナーのルートで使う想定。ARCHITECTURE.md 6 に明記した。
-- **3.4 テスト 4-3** `grow` と `justify="space-between"` は余白の分配なので、`<View>` に `w` が無いと差が出ない(Ui モードの `container` は `reserve_available_width()` で親の幅を確保するが、taffy ノード自身の `size.width` は `auto` のまま)。テストでは `w={300.0}` を付けた。
-- **3.4 テスト 4-5** core の `multi_pass.rs` はそのまま残し、`egui-react-elements/tests/multi_pass.rs` に `<View>` + `<Button>` + `<Text>` 版を足した(core が elements に依存しないため)。taffy の再計算は「同じパスの中でノードの内容が変わった」時に起きるので、幅の変わる `<Text>` はハンドラより**後**に書く必要がある。
-- **3.4 テスト 4-4** スナップショットは feature `snapshot`(`egui_kittest/snapshot` + `egui_kittest/wgpu`)の裏。このマシンでは wgpu が動いたので 5 枚の PNG を生成してコミットした(`row` / `column_justify` / `grid` / `text_wrap` / `widgets`)。
-- **その他** `View` 要素(関数、値の名前空間)と `View` trait(型の名前空間)は共存できるので、`egui_react::prelude` と `egui_react_elements::prelude` を両方 glob import しても衝突しない。
+- **3.1** `Gap` (`From<f32>` / `From<i32>` / `From<(f32, f32)>`) lives in `egui_react::layout`. It belongs next to `ContainerStyle::gap`, and the `ContainerStyle::gap()` setter now takes `impl Into<Gap>`. Added `col_span` / `row_span` to `ItemStyle` and to the `rsx!` layout attribute list.
+- **3.1** `View`'s `align_content` is `Option<Justify>` (the Phase 2 type). `display` / `direction` / `justify` / `align` / `gap` / `side` are `#[prop(default, into)]` and take string literals directly.
+- **3.2** `ComboBox`'s `options` is `&[S]` with a generic `S: AsRef<str>`, not `&[impl AsRef<str>]`, because `#[component]` only desugars top-level `impl Trait` in argument types.
+- **3.2 / 5.6** Passing `bind` as `&mut *state` sets dirty every frame through `DerefMut`, and the app never goes idle (kittest fails with `ExceededMaxSteps`). Added `State::bind(&mut self) -> &mut T` to core. It only lends `&mut T` without setting dirty; the value only changes on input, so egui issues the repaint. Added to ARCHITECTURE.md 5.6.
+- **3.3** egui 0.36 has no `SidePanel` / `TopBottomPanel`; they are merged into `Panel::left/right/top/bottom`. The elements follow: one `Panel` (`side="left"|"right"|"top"|"bottom"`) + `CentralPanel`. The `Side` enum lives in `egui-react-elements`.
+- **3.3** `Grid` row breaks are not a `<Row/>` element but a function `row()` that returns `impl View`, written as `{row()}`. `rsx!` creates a child `Ui` per element through `cx.scope` and `Ui::push_id`, so `ui.end_row()` inside `<Row/>` never reaches the grid's `Ui`. `{expr}` nodes are not scoped, so it does reach.
+- **3.3** For the same reason, `<Panel>` and `<CentralPanel>` placed as sibling elements do not dock (each cuts its area out of its own child `Ui`, and the parent's cursor moves below). The test `containers::panels_dock_when_they_share_one_ui` pins that they line up as expected when drawn on the same `Ui` with no scope in between. Panels are meant to be used at the runner's root. Stated in ARCHITECTURE.md 6.
+- **3.4 test 4-3** `grow` and `justify="space-between"` distribute leftover space, so there is no visible difference unless `<View>` has `w` (the Ui-mode `container` reserves the parent's width with `reserve_available_width()`, but the taffy node's own `size.width` stays `auto`). The tests use `w={300.0}`.
+- **3.4 test 4-5** Core's `multi_pass.rs` stays as-is, and a `<View>` + `<Button>` + `<Text>` version was added as `egui-react-elements/tests/multi_pass.rs` (core does not depend on elements). taffy recomputes when "a node's content changed within the same pass", so the `<Text>` whose width changes must come **after** the handler.
+- **3.4 test 4-4** Snapshots are behind feature `snapshot` (`egui_kittest/snapshot` + `egui_kittest/wgpu`). wgpu worked on this machine, so 5 PNGs were generated and committed (`row` / `column_justify` / `grid` / `text_wrap` / `widgets`).
+- **Other** The `View` element (a function, value namespace) and the `View` trait (type namespace) can coexist, so glob importing both `egui_react::prelude` and `egui_react_elements::prelude` does not clash.
 
-### フェーズ 5(手順 4)
+### Phase 5 (step 4)
 
-#### コーディネータの指示で入れた変更
+#### Changes made on the coordinator's instructions
 
-- **`#[component(shares_ui)]`** を追加した。`Props` に `const SHARES_UI: bool`(既定 `false`)を足し、`rsx!` は要素の呼び出しを `::egui_react::__private::enter_scope(cx, source, props, Name)` に通す。`enter_scope` は `P::SHARES_UI` で `cx.scope` と新しい `cx.scope_sharing_ui`(hook スコープだけ深くする)を選ぶ。`Panel` / `CentralPanel` / `Row` がこれを使い、`<Panel side="left"/>` + `<CentralPanel/>` を兄弟要素として並べるとドッキングする(テスト `containers::panels_written_as_siblings_dock`)。
-- `enter_scope` の型引数 `P` は、`props_builder` のような `Fn` 境界からの推論ではなく **props の値そのもの**から決まる。同じ式の中で `&Name` を 2 回書くと 2 つの独立した推論変数になり generic なコンポーネントで曖昧になるため。props は `enter_scope` の引数として組み立てるので、融合閉包の `&mut |ev| ..` の一時値は文の終わりまで生きる。
-- `row()` は削除し、`#[component(shares_ui)] Row { children }` に置き換えた。`<Grid cols={2}><Row><A/><B/></Row></Grid>` と書ける。
-- この変更で trybuild の `.stderr` が 3 本変わった(エラーのスパンが `rsx!` 全体を指すようになった)。再生成してコミット済み。
+- Added **`#[component(shares_ui)]`**. `Props` got `const SHARES_UI: bool` (default `false`), and `rsx!` routes element calls through `::egui_react::__private::enter_scope(cx, source, props, Name)`. `enter_scope` picks `cx.scope` or the new `cx.scope_sharing_ui` (which only deepens the hook scope) based on `P::SHARES_UI`. `Panel` / `CentralPanel` / `Row` use this, so `<Panel side="left"/>` + `<CentralPanel/>` placed as siblings dock (test `containers::panels_written_as_siblings_dock`).
+- The type argument `P` of `enter_scope` is decided by **the props value itself**, not by inference from an `Fn` bound like `props_builder`. Writing `&Name` twice in the same expression creates 2 independent inference variables, which is ambiguous for generic components. Since the props are built as an argument of `enter_scope`, the temporary of the fused closure `&mut |ev| ..` lives until the end of the statement.
+- Removed `row()` and replaced it with `#[component(shares_ui)] Row { children }`. You can write `<Grid cols={2}><Row><A/><B/></Row></Grid>`.
+- This change altered 3 trybuild `.stderr` files (the error span now points at the whole `rsx!`). Regenerated and committed.
 
-#### 実装
+#### Implementation
 
-- **4.2** `Store` に `persisted: RefCell<HashMap<String, String>>` と `persisted_keys: RefCell<BTreeSet<String>>` を持つ。後者は `save_persisted(&self)` が「このプロセスで `use_persisted` が使ったキー」を走査するために要る(`elsa::FrozenMap` は `&self` で列挙できないので、キーから `Id` を再計算してスロットを引く)。
-- **4.2** 壊れた JSON は panic せず `log::warn!` して `init` に落ちる。トップレベルが壊れていれば `load_persisted` 全体を無視する。
-- **4.1** `Cx::root_container` を足した(`container` との違いは `reserve_available_space()` か `reserve_available_width()` かだけ)。
-- **4.1** `Options::native` は `#[cfg(not(target_arch = "wasm32"))]`。`eframe::NativeOptions` は wasm に存在しない。
-- **4.1** ルート閉包の `cx` は実質使わないので、examples と README は `|_cx| rsx!{ <App/> }` と書く。シグネチャは計画どおり `FnMut(&mut Cx) -> V` のまま残した。
-- **3.2 の変更** `TextEdit` の `on_submit` のペイロードを `()` から `String` に変え、`clear_on_submit: bool` を足した。`bind` が `&mut String` を握っている間は、同じ要素のハンドラから同じ state を触れない(E0499)。todo の「Enter で追加して入力欄を空にする」が書けなくなるので、テキストはイベントのペイロードで渡し、クリアは要素の仕事にした。
-- **4.3** todo は `use_persisted("todos", ..)` を真の保存先とし、`use_reducer` の state はそのコピーとして扱う。パスの先頭で差があれば書き戻す(毎パス無条件に書くと dirty が立ち続けてアイドルにならない)。チェックボックスは `todos` がループに借用されているのでスクラッチのコピーに bind し、実際の変更は `Dispatch` を通す。
-- **2.3(仕上げ)** `style={expr}` とレイアウト短縮属性は同じ `style` prop を埋めるので、`rsx!` が 1 つの `.style(..)` にまとめるようにした。両方あれば `style=` の式を起点に短縮属性を繋ぐ(`<Chip style={style} p={6}/>` → `.style((style).p(6))`)。`style: ItemStyle` を受け取るラッパーが呼び出し元のレイアウトを受けて自分の分を足せる。examples/layout の `Chip` とテスト `layout::style_and_shorthand_attributes_are_merged` がこの形。ARCHITECTURE.md 6 に追記した。
-- **4.5** スナップショットの CI ステップは入れない(上記 4.5)。wasm の check は `--workspace` に広げ、`jetli/trunk-action` で `trunk build --release examples/counter/index.html` を足した。
-- **その他** `examples/spike` を削除し、`counter` / `todo` / `layout` を追加した。それぞれ `index.html` と `Trunk.toml` を持つ。
+- **4.2** `Store` holds `persisted: RefCell<HashMap<String, String>>` and `persisted_keys: RefCell<BTreeSet<String>>`. The latter is needed so `save_persisted(&self)` can walk "the keys `use_persisted` used in this process" (`elsa::FrozenMap` cannot be enumerated through `&self`, so the `Id` is recomputed from the key to look up the slot).
+- **4.2** Broken JSON does not panic; it does `log::warn!` and falls back to `init`. If the top level is broken, the whole `load_persisted` is ignored.
+- **4.1** Added `Cx::root_container` (the only difference from `container` is `reserve_available_space()` versus `reserve_available_width()`).
+- **4.1** `Options::native` is `#[cfg(not(target_arch = "wasm32"))]`. `eframe::NativeOptions` does not exist on wasm.
+- **4.1** The root closure's `cx` is effectively unused, so the examples and README write `|_cx| rsx!{ <App/> }`. The signature stays `FnMut(&mut Cx) -> V` as planned.
+- **Change to 3.2** Changed the payload of `TextEdit`'s `on_submit` from `()` to `String` and added `clear_on_submit: bool`. While `bind` holds `&mut String`, a handler on the same element cannot touch the same state (E0499). That made todo's "add on Enter and clear the input" impossible to write, so the text is passed as the event payload and clearing is the element's job.
+- **4.3** todo treats `use_persisted("todos", ..)` as the real store and the `use_reducer` state as a copy of it. If they differ at the start of a pass, it writes back (writing unconditionally every pass keeps dirty set and never goes idle). The checkboxes bind to a scratch copy because `todos` is borrowed by the loop, and the real change goes through `Dispatch`.
+- **2.3 (finishing)** `style={expr}` and the layout shorthand attributes fill the same `style` prop, so `rsx!` now merges them into one `.style(..)`. When both are present, the shorthand attributes chain off the `style=` expression (`<Chip style={style} p={6}/>` gives `.style((style).p(6))`). A wrapper that takes `style: ItemStyle` can receive the caller's layout and add its own. `Chip` in examples/layout and the test `layout::style_and_shorthand_attributes_are_merged` use this form. Added to ARCHITECTURE.md 6.
+- **4.5** No snapshot CI step (see 4.5 above). The wasm check was widened to `--workspace`, and `trunk build --release examples/counter/index.html` was added with `jetli/trunk-action`.
+- **Other** Deleted `examples/spike` and added `counter` / `todo` / `layout`. Each has `index.html` and `Trunk.toml`.
 
-### 目視確認で見つかった不具合(手順 5)
+### Bugs found by manual checks (step 5)
 
-- **3.3 `ScrollArea`** `examples/layout` で最初のセクションしか見えなかった。原因は `cx.leaf`。egui_taffy の有限 leaf は「描いた内容の大きさ」を最小かつ最大サイズとして報告するが、`ScrollArea` は与えられた矩形を埋めてその大きさを返すので、最初のフレームの矩形に固定されて `grow` も効かない。`Cx::leaf_fill` を足した。内容サイズを報告せず(`min_size = 0`、`infinite = true`)、サイズ決定を taffy に任せる leaf で、`ScrollArea` はこれを使う。`<View>` の中の `ScrollArea` は `grow` / `h` / 残り空間で大きさが決まる。ARCHITECTURE.md 3.1 の表と 6 章に追記。
-- **4.1 `max_passes`** ウィンドウをリサイズすると `ScrollArea` の中の `<View>` が古い幅のまま残った。内側の `<View>` は別の egui_taffy ツリーで、外側が 2 パス目で決めた幅を知って `request_discard` するのが 2 パス目の末尾、つまり 3 パス目が要る。egui は上限を超えた discard を黙って捨て repaint もしないので、次の入力まで崩れたまま止まる。ランナーの `max_passes` 既定を 3 にし、さらに `end_pass` の後で「discard が要求されたが却下された」なら `request_repaint` して次フレームで収束させる。テストは `egui-react-elements/tests/scroll_fill.rs`。ARCHITECTURE.md 5.3 と 7 を更新。
+- **3.3 `ScrollArea`** Only the first section was visible in `examples/layout`. The cause was `cx.leaf`. A finite egui_taffy leaf reports "the size of what it drew" as both its min and max size, but `ScrollArea` fills the rect it is given and returns that size, so it got stuck at the first frame's rect and `grow` had no effect. Added `Cx::leaf_fill`. It is a leaf that does not report a content size (`min_size = 0`, `infinite = true`) and leaves sizing to taffy; `ScrollArea` uses it. A `ScrollArea` inside a `<View>` is sized by `grow` / `h` / the remaining space. Added to the table in ARCHITECTURE.md 3.1 and to section 6.
+- **4.1 `max_passes`** After resizing the window, the `<View>` inside a `ScrollArea` kept its old width. The inner `<View>` is a separate egui_taffy tree; it learns the width the outer one settled on in the 2nd pass and calls `request_discard` at the end of the 2nd pass, so a 3rd pass is needed. egui silently drops a discard beyond the limit and does not repaint, so the layout stays broken until the next input. The runner's `max_passes` default is now 3, and after `end_pass`, if "a discard was requested but rejected", it calls `request_repaint` so the next frame converges. The test is `egui-react-elements/tests/scroll_fill.rs`. Updated ARCHITECTURE.md 5.3 and 7.
 
-### 後続 PR への持ち越し
+### Carried over to later PRs
 
-- `use_persisted` と `use_reducer` を 1 つにした `use_persisted_reducer(cx, key, reducer, init)`。今は todo が「永続スロットとリデューサの state を毎パス突き合わせる」形になっており、ここだけ書き心地が落ちる。
-- `use_persisted` の wasm(localStorage)経路の自動テスト。native の `Storage` 相当でしかテストしていない。
-- `App::save` は毎回すべての永続キーを直列化する。値が大きくなるならスロットに dirty フラグを持たせる。
+- `use_persisted_reducer(cx, key, reducer, init)`, which merges `use_persisted` and `use_reducer`. Right now todo "reconciles the persisted slot and the reducer state every pass", and this is the one place where the writing experience drops.
+- Automated tests for the wasm (localStorage) path of `use_persisted`. Only tested with the native `Storage` equivalent.
+- `App::save` serializes every persisted key each time. If values get large, give slots a dirty flag.
 
-## 9. PR 本文の材料
+## 9. Material for the PR body
 
-### フェーズごとの成果
+### Results per phase
 
-| フェーズ | やったこと |
+| Phase | What was done |
 |---|---|
-| 2(core hooks) | `View` trait と `view()`、`layout`(`Length` / `ItemStyle` / `ContainerStyle` / 各 enum の `From<&str>`)、`Cx` の `Surface`(Ui / Taffy)と `ui()` / `leaf` / `container` / `defer`、`use_memo`(`&'s T`)、`dispatch.rs` と `use_reducer`、遅延キュー(`defer` / `update_later`)、Id 衝突のオーバーレイ。テスト 2-1 〜 2-7 + `layout.rs`。 |
-| 3(マクロ) | `#[hook]`、`#[component]`(Props 構造体 + typed-builder、イベント enum、`Emitter`、末尾式の `View::show` 書き換え)、`rsx!`(rstml + `if` / `for` / `match` のカスタムノード、属性の振り分け、融合イベント閉包)、`__private`(`Props` / `props_builder`)、trybuild 9 本。spike の 10 本をマクロ版で通した。 |
-| 4(elements) | `egui-react-elements`: `View` / `Text`、ウィジェット 8 種、コンテナ 10 種、`prelude`。テスト 4-1 〜 4-5 とスナップショット 5 枚。`#[component(shares_ui)]`(フェーズ 5 で追加)で `Panel` / `CentralPanel` / `Row` を親の `Ui` に描く。 |
-| 5(ランナー) | `use_persisted` と `Store` の永続化、`egui-react-app::run(Options, root)`(native / wasm)、examples `counter` / `todo` / `layout`(`index.html` + `Trunk.toml`)、README の使い方と Testing、CI の wasm 全体 check と trunk ビルド。`examples/spike` を削除。 |
+| 2 (core hooks) | The `View` trait and `view()`, `layout` (`Length` / `ItemStyle` / `ContainerStyle` / `From<&str>` for each enum), `Surface` (Ui / Taffy) in `Cx` with `ui()` / `leaf` / `container` / `defer`, `use_memo` (`&'s T`), `dispatch.rs` and `use_reducer`, the deferred queue (`defer` / `update_later`), the Id collision overlay. Tests 2-1 to 2-7 + `layout.rs`. |
+| 3 (macros) | `#[hook]`, `#[component]` (Props struct + typed-builder, event enum, `Emitter`, tail rewrite to `View::show`), `rsx!` (rstml + custom nodes for `if` / `for` / `match`, attribute routing, fused event closure), `__private` (`Props` / `props_builder`), 9 trybuild cases. Spike's 10 tests pass with the macro versions. |
+| 4 (elements) | `egui-react-elements`: `View` / `Text`, 8 widgets, 10 containers, `prelude`. Tests 4-1 to 4-5 and 5 snapshots. `#[component(shares_ui)]` (added in Phase 5) draws `Panel` / `CentralPanel` / `Row` on the parent's `Ui`. |
+| 5 (runner) | `use_persisted` and persistence in `Store`, `egui-react-app::run(Options, root)` (native / wasm), examples `counter` / `todo` / `layout` (`index.html` + `Trunk.toml`), README Usage and Testing, CI workspace-wide wasm check and trunk build. Deleted `examples/spike`. |
 
-### ARCHITECTURE.md の変更点
+### Changes to ARCHITECTURE.md
 
-- **3.1** `Cx` は `ui` フィールドではなく `ui()` メソッド。`Surface`(Ui / Taffy)、`leaf` / `container` / `root_container` / `defer` / `scope_sharing_ui` を持つ。メソッド表を追加。
-- **3.2** `View` の impl 一覧を `()` / `&str` / `String` / `Option` / `Vec` / 配列 / 閉包に改めた(`IntoIterator` の blanket impl は coherence で不可)。`rsx!` は `view(|cx| ..)` を emit する。`#[allow(clippy::redundant_closure_call)]` は不要。`rsx!` の中で書けるもの(属性、`children` の渡り方)を明記。
-- **3.3** Props は typed-builder。`Option<T>` と `#[prop(default)]` が省略可能で、`Option<T>` の setter は `strip_option`。`children` は必ず存在する。本体の末尾式は `View::show(tail, cx)` に書き換わる。`props_builder(&Name)` による型推論。`#[component(shares_ui)]` と `Props::SHARES_UI` / `enter_scope`。
-- **3.4** 衝突オーバーレイの実装(`warn_on_collision`、`Order::Debug` の `Area`、文面)。
-- **3.6** `Emitter<'a, 'e, E, A>` はペイロード型と variant コンストラクタを持つ。`events` は `Option<&mut dyn FnMut(E)>` で省略時は no-op。イベント enum のジェネリクスは実際に使う分だけ。`on_*` を書く場所には enum 名の import が要る。
-- **3.7** `update_later` の閉包は `'static`(`move`)。
-- **4** `use_reducer` のメッセージは次の訪問時に適用(理由付き)。`use_memo` の `&'s T` と `FrozenVec`。`use_persisted` はキーのみで識別し、eframe `Storage` の 1 キーに JSON でまとめる。遅延キューの行を更新。
-- **5.4 / 5.5** パス末の順序を「遅延キュー → sweep → オーバーレイ」に。`Dispatch` は遅延キューに入らない。
-- **5.6** `State::bind()` は dirty を立てない(bind 系ウィジェットが毎フレーム repaint を要求しないため)。
-- **6** `leaf` / `container` の挙動、レイアウト属性一覧(`Length` の単位、`ItemStyle` / `ContainerStyle`、enum の `From<&str>`、`style=` と短縮属性のマージ)、要素一覧の表、egui-native コンテナが Taffy モードでは leaf になること、パネルと `Row` が `shares_ui` である理由。
-- **7** `egui-react` が `egui_taffy` / `typed-builder` / `serde` に依存する。`run(Options, |_cx| rsx!{ <App/> })` の 1 フレームの流れと `Options` の中身。
+- **3.1** `Cx` has a `ui()` method, not a `ui` field. It has `Surface` (Ui / Taffy), `leaf` / `container` / `root_container` / `defer` / `scope_sharing_ui`. Added a method table.
+- **3.2** Changed the list of `View` impls to `()` / `&str` / `String` / `Option` / `Vec` / arrays / closures (the `IntoIterator` blanket impl is impossible under coherence). `rsx!` emits `view(|cx| ..)`. `#[allow(clippy::redundant_closure_call)]` is not needed. Spelled out what can be written inside `rsx!` (attributes, how `children` is passed).
+- **3.3** Props use typed-builder. `Option<T>` and `#[prop(default)]` are optional, and the `Option<T>` setter is `strip_option`. `children` always exists. The body's tail expression is rewritten to `View::show(tail, cx)`. Type inference through `props_builder(&Name)`. `#[component(shares_ui)]` and `Props::SHARES_UI` / `enter_scope`.
+- **3.4** The collision overlay implementation (`warn_on_collision`, an `Area` at `Order::Debug`, the text).
+- **3.6** `Emitter<'a, 'e, E, A>` has a payload type and a variant constructor. `events` is `Option<&mut dyn FnMut(E)>` and a no-op when left out. The event enum's generics are only those actually used. Wherever `on_*` is written, the enum name must be imported.
+- **3.7** The `update_later` closure is `'static` (`move`).
+- **4** `use_reducer` messages are applied on the next visit (with the reason). `&'s T` in `use_memo` and `FrozenVec`. `use_persisted` is identified by key only and stored as JSON under one key in eframe `Storage`. Updated the deferred queue row.
+- **5.4 / 5.5** End-of-pass order is "deferred queue, then sweep, then overlay". `Dispatch` does not go into the deferred queue.
+- **5.6** `State::bind()` does not set dirty (so bind-style widgets do not request a repaint every frame).
+- **6** Behavior of `leaf` / `container`, the layout attribute list (`Length` units, `ItemStyle` / `ContainerStyle`, `From<&str>` for the enums, merging `style=` with the shorthand attributes), the element table, that egui-native containers become leaves in Taffy mode, and why panels and `Row` are `shares_ui`.
+- **7** `egui-react` depends on `egui_taffy` / `typed-builder` / `serde`. The flow of one frame in `run(Options, |_cx| rsx!{ <App/> })` and the contents of `Options`.
 
-### 落としたもの
+### Dropped
 
-- スナップショットテストの CI ステップ。コミット済みの画像は macOS のレンダラで生成しており、GitHub Actions の Linux ソフトウェアレンダラとは一致しないため。feature `snapshot` の裏に残し、ローカルでの回し方を README の Testing 節に書いた(task.md の終了条件と決めごとも更新済み)。
+- The snapshot test CI step. The committed images were made with the macOS renderer and do not match the Linux software renderer on GitHub Actions. They stay behind feature `snapshot`, and how to run them locally is written in the README Testing section (task.md's done criteria and decisions are updated too).

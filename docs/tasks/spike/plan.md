@@ -1,65 +1,65 @@
-# プラン: spike
+# Plan: spike
 
-タスク定義は [task.md](task.md)。設計の根拠は [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)。本書は実装手順と確認方法を定める。実装中にここから外れる判断をした場合は本書を更新する。
+The task definition is in [task.md](task.md). The design rationale is in [docs/ARCHITECTURE.md](../../ARCHITECTURE.md). This document sets the implementation steps and how to verify them. If you decide to depart from this plan during implementation, update this document.
 
-## 1. ワークスペース
+## 1. Workspace
 
 ```
-Cargo.toml                      workspace。members = crates/*, examples/*
-rust-toolchain.toml             channel = stable(egui_taffy の MSRV 以上)、targets = ["wasm32-unknown-unknown"]
+Cargo.toml                      workspace. members = crates/*, examples/*
+rust-toolchain.toml             channel = stable (at or above egui_taffy's MSRV), targets = ["wasm32-unknown-unknown"]
 LICENSE-MIT / LICENSE-APACHE
-README.md                       1 段落の説明と ARCHITECTURE.md へのリンク
+README.md                       one-paragraph description and a link to ARCHITECTURE.md
 .github/workflows/ci.yml
-crates/egui-react/              core(本 PR の実体)
-crates/egui-react-macros/       proc-macro クレート。lib.rs は空
-crates/egui-react-elements/     空
-crates/egui-react-app/          空
-examples/spike/                 eframe バイナリ。Counter と Dialog を表示
+crates/egui-react/              core (the substance of this PR)
+crates/egui-react-macros/       proc-macro crate. lib.rs is empty
+crates/egui-react-elements/     empty
+crates/egui-react-app/          empty
+examples/spike/                 eframe binary. Shows Counter and Dialog
 ```
 
-`[workspace.dependencies]` に以下を pin する。
+Pin the following in `[workspace.dependencies]`.
 
 | crate | version |
 |---|---|
 | egui / eframe / egui_kittest | 0.36 |
 | egui_taffy | 0.14 |
-| rstml | 0.13(macros に依存だけ張る。未使用) |
-| elsa | 最新 |
-| log | 最新 |
+| rstml | 0.13 (only declared as a dependency of macros. Unused) |
+| elsa | latest |
+| log | latest |
 
-CI(`ci.yml`、ubuntu-latest):
+CI (`ci.yml`, ubuntu-latest):
 
 1. `cargo fmt --all --check`
 2. `cargo clippy --workspace --all-targets -- -D warnings`
 3. `cargo test --workspace`
 4. `cargo check -p egui-react --target wasm32-unknown-unknown`
 
-egui_kittest は `wgpu` / `snapshot` feature を有効にしない(ヘッドレスで動かす)。
+egui_kittest does not enable the `wgpu` / `snapshot` features (run headless).
 
-## 2. core の実装(`crates/egui-react/src/`)
+## 2. core implementation (`crates/egui-react/src/`)
 
 ### 2.1 `store.rs`
 
 ```rust
 pub struct Store {
-    slots: elsa::FrozenMap<egui::Id, Box<Slot>>,   // &self で insert でき、&Slot が安定
+    slots: elsa::FrozenMap<egui::Id, Box<Slot>>,   // can insert with &self, and &Slot is stable
     pass: Cell<u64>,
     collisions: RefCell<Vec<Collision>>,
 }
 struct Slot {
     value: RefCell<Box<dyn Any>>,
     last_visited: Cell<u64>,
-    cleanup: RefCell<Option<Box<dyn FnOnce()>>>,   // use_effect 用
-    deps_hash: Cell<Option<u64>>,                  // use_effect 用
-    location: &'static Location<'static>,          // 衝突報告用
+    cleanup: RefCell<Option<Box<dyn FnOnce()>>>,   // for use_effect
+    deps_hash: Cell<Option<u64>>,                  // for use_effect
+    location: &'static Location<'static>,          // for collision reports
 }
 pub struct Collision { pub id: egui::Id, pub location: &'static Location<'static> }
 ```
 
-- `begin_pass(&mut self)`: `pass += 1`。
-- `slot(&self, id, location, init) -> &Slot`: 存在すれば返す。`last_visited == pass` なら衝突として `collisions` に記録し `log::warn!`。無ければ `init` で作って insert。いずれも `last_visited = pass` に更新。
-- `end_pass(&mut self)`: `last_visited < pass` のスロットを列挙し、cleanup を実行して削除する(`FrozenMap::as_mut()` で `&mut HashMap` を取る)。`collisions` を返すか取り出せるようにする。
-- guard が生きている間に `end_pass` は呼ばれない(呼び出し側の責務。ランナーはコンポーネント本体を抜けた後に呼ぶ)。
+- `begin_pass(&mut self)`: `pass += 1`.
+- `slot(&self, id, location, init) -> &Slot`: return it if it exists. If `last_visited == pass`, record it in `collisions` as a collision and `log::warn!`. If it does not exist, create with `init` and insert. In both cases update `last_visited = pass`.
+- `end_pass(&mut self)`: list slots with `last_visited < pass`, run their cleanup, and remove them (get `&mut HashMap` via `FrozenMap::as_mut()`). Return `collisions` or make them retrievable.
+- `end_pass` is not called while a guard is alive (the caller's responsibility. The runner calls it after leaving the component body).
 
 ### 2.2 `cx.rs`
 
@@ -68,20 +68,20 @@ pub struct Cx<'s, 'u> {
     pub store: &'s Store,
     pub ui: &'u mut egui::Ui,
     scope: egui::Id,
-    contexts: &'s ContextStack,   // 2.5 参照。's でよい(Store が所有)
+    contexts: &'s ContextStack,   // see 2.5. 's is fine (Store owns it)
 }
 impl<'s, 'u> Cx<'s, 'u> {
     pub fn new(store: &'s Store, ui: &'u mut Ui, scope: Id) -> Self;
     pub fn scope_id(&self) -> Id;
-    /// コンポーネント境界。scope を深くし、ui.push_id も行う
+    /// Component boundary. Deepens scope and also does ui.push_id
     pub fn scope<R>(&mut self, source: impl Hash, f: impl FnOnce(&mut Cx<'s, '_>) -> R) -> R;
-    /// カスタム hook 境界。scope だけ深くする(ui.push_id はしない)
+    /// Custom hook boundary. Only deepens scope (no ui.push_id)
     pub fn hook_scope<R>(&mut self, loc: &'static Location<'static>, f: impl FnOnce(&mut Cx<'s, '_>) -> R) -> R;
     pub fn ctx(&self) -> &egui::Context;
 }
 ```
 
-egui のコンテナ閉包(`ui.vertical(|ui| ..)`)の内側では、`store` と `scope` をコピーして `Cx::new(store, ui, scope)` で作り直す。Rust 2021 の閉包は構造体のフィールドを個別に捕獲するので、`cx.ui.vertical(|ui| { let mut cx = Cx::new(store, ui, scope); .. })` は `cx.ui` の可変借用と衝突しない。この形をマクロが生成する前提で、spike では手書きする。
+Inside an egui container closure (`ui.vertical(|ui| ..)`), copy `store` and `scope` and rebuild with `Cx::new(store, ui, scope)`. Rust 2021 closures capture struct fields one by one, so `cx.ui.vertical(|ui| { let mut cx = Cx::new(store, ui, scope); .. })` does not conflict with the mutable borrow of `cx.ui`. The macro is expected to generate this shape; in spike we write it by hand.
 
 ### 2.3 `state.rs`
 
@@ -91,18 +91,18 @@ pub struct State<'s, T> {
     dirty: bool,
     ctx: egui::Context,
 }
-impl Deref / DerefMut          // DerefMut で dirty = true
-impl Drop                      // dirty なら ctx.request_repaint()
-impl State { pub fn into_handle(self) -> Handle<'s, T>; }   // guard を消費して Handle に変える
+impl Deref / DerefMut          // DerefMut sets dirty = true
+impl Drop                      // if dirty, ctx.request_repaint()
+impl State { pub fn into_handle(self) -> Handle<'s, T>; }   // consume the guard and turn it into a Handle
 
 #[derive(Clone, Copy)]
 pub struct Handle<'s, T> { slot: &'s Slot, ctx: &'s egui::Context?, _t: PhantomData<T> }
-impl Handle { get()(T: Clone), set(v), update(|&mut T|), with(|&T| -> R) }   // 各呼び出しで一瞬だけ borrow。set/update は request_repaint
+impl Handle { get()(T: Clone), set(v), update(|&mut T|), with(|&T| -> R) }   // each call borrows only for a moment. set/update request_repaint
 ```
 
-`Handle` が `Copy` であるために `egui::Context` を値で持てない。`Store` に `Context` のクローンを 1 つ持たせ、`&'s Context` を参照させる(`begin_pass(&mut self, ctx: &Context)` で更新)。
+For `Handle` to be `Copy`, it cannot own an `egui::Context` by value. Have `Store` hold one clone of `Context` and let `Handle` reference `&'s Context` (updated via `begin_pass(&mut self, ctx: &Context)`).
 
-`State::handle(&self)` は提供しない。guard が生きたまま `Handle` を使うと同じ `RefCell` の二重借用で panic するため、必ず `into_handle` で guard を消費させる。この点は ARCHITECTURE.md 3.5 に追記する。
+`State::handle(&self)` is not provided. Using a `Handle` while the guard is alive panics on a double borrow of the same `RefCell`, so always consume the guard with `into_handle`. Add this point to ARCHITECTURE.md 3.5.
 
 ### 2.4 `hooks.rs`
 
@@ -115,38 +115,38 @@ pub fn use_handle<'s, T: 'static>(cx: &mut Cx<'s, '_>, init: impl FnOnce() -> T)
 pub fn use_effect<D: Hash, C: IntoCleanup>(cx: &mut Cx, deps: D, f: impl FnOnce() -> C);
 ```
 
-- Id は `cx.scope_id().with(Location::caller())`。`Location` は `(file, line, column)` を hash する。
-- `use_effect`: deps を `std::hash::DefaultHasher` で hash し、スロットの `deps_hash` と比較。異なる(または初回)なら、既存 cleanup を実行してから `f` を**その場で**呼び、返された cleanup を保存。`IntoCleanup` は `()` と `F: FnOnce() + 'static` に実装する。
+- The Id is `cx.scope_id().with(Location::caller())`. `Location` hashes `(file, line, column)`.
+- `use_effect`: hash deps with `std::hash::DefaultHasher` and compare with the slot's `deps_hash`. If different (or first time), run the existing cleanup, then call `f` **on the spot**, and store the returned cleanup. Implement `IntoCleanup` for `()` and `F: FnOnce() + 'static`.
 
-### 2.5 `context.rs`(最小)
+### 2.5 `context.rs` (minimal)
 
 ```rust
 pub fn provide_context<'s, T: 'static>(cx: &mut Cx<'s, '_>, value: Handle<'s, T>, children: impl FnOnce(&mut Cx<'s, '_>));
 pub fn use_context<'s, T: 'static>(cx: &Cx<'s, '_>) -> Option<Handle<'s, T>>;
 ```
 
-`Store` が `ContextStack: RefCell<Vec<(TypeId, *const ())>>` 相当のスタックを持ち、`provide_context` は push → children → pop する。`Handle<'s, T>` は `Copy` かつ `'s` なので、`Vec<(TypeId, Box<dyn Any>)>` に `Handle` を値で入れれば unsafe は不要。`children` の後に必ず pop する(panic 安全性は spike では考えない)。
+`Store` holds a stack like `ContextStack: RefCell<Vec<(TypeId, *const ())>>`, and `provide_context` does push -> children -> pop. `Handle<'s, T>` is `Copy` and `'s`, so putting `Handle` by value into `Vec<(TypeId, Box<dyn Any>)>` needs no unsafe. Always pop after `children` (panic safety is not considered in spike).
 
-### 2.6 `events.rs`(マクロ生成物の手書き版)
+### 2.6 `events.rs` (hand-written version of macro output)
 
 ```rust
 pub trait Handler<A> { fn call(self, a: A); }
-impl<F: FnOnce()> Handler<()> for F;         // 引数を捨てる版と受ける版の両立方法を確認する
-impl<F: FnOnce(A), A> Handler<A> for F;      // ↑ と impl が衝突するなら、Handler0 / Handler1 に分けてマクロ側で引数の有無を見て選ぶ
+impl<F: FnOnce()> Handler<()> for F;         // check how the argument-dropping and argument-taking versions can coexist
+impl<F: FnOnce(A), A> Handler<A> for F;      // if this impl conflicts with the one above, split into Handler0 / Handler1 and let the macro pick by whether there is an argument
 
 pub struct Emitter<'e, E> { sink: &'e RefCell<&'e mut dyn FnMut(E)> }
 impl<E> Emitter<'_, E> { pub fn emit(&self, e: E); }
 ```
 
-`Handler` の 2 つの blanket impl は coherence で衝突する可能性が高い。衝突した場合はマクロが閉包の引数個数を構文的に見て `call0` / `call1` を選ぶ方針にし、その旨を ARCHITECTURE.md 3.6 に追記する。spike ではどちらで成立するかを確定させる。
+The two blanket impls of `Handler` are very likely to conflict under coherence. If they conflict, the policy is that the macro looks at the closure's argument count syntactically and picks `call0` / `call1`, and this is added to ARCHITECTURE.md 3.6. The spike settles which one holds.
 
 ### 2.7 `lib.rs`
 
-上記を re-export。`prelude` モジュールを置く。
+Re-export the above. Put a `prelude` module.
 
-## 3. 手書き展開コード(`crates/egui-react/tests/common/`)
+## 3. Hand-written expanded code (`crates/egui-react/tests/common/`)
 
-マクロが生成するはずのコードを、以下の形で手書きする。テストと examples の両方から使うので `tests/common/mod.rs` と `examples/spike/src/components.rs` に置く(重複は許容。マクロ導入時に消える)。
+Write the code the macros should generate by hand, in the following shape. Both tests and examples use it, so put it in `tests/common/mod.rs` and `examples/spike/src/components.rs` (duplication is allowed. It goes away when macros arrive).
 
 ### Counter
 
@@ -163,7 +163,7 @@ pub fn counter(cx: &mut Cx, initial: i32) {
 }
 ```
 
-### Dialog(2 つの callback props)
+### Dialog (2 callback props)
 
 ```rust
 pub enum DialogEvent { Ok(()), Cancel(()) }
@@ -177,7 +177,7 @@ pub fn dialog(cx: &mut Cx, props: DialogProps<'_>) {
     if cx.ui.button("Cancel").clicked() { on_cancel.emit(DialogEvent::Cancel(())); }
 }
 
-// 親側の展開形
+// Expanded form on the parent side
 let mut open = use_state(cx, || true);
 if *open {
     dialog(cx, DialogProps {
@@ -190,7 +190,7 @@ if *open {
 }
 ```
 
-### カスタム hook(`#[hook]` の展開形)
+### Custom hook (expanded form of `#[hook]`)
 
 ```rust
 #[track_caller]
@@ -200,71 +200,71 @@ pub fn use_counter<'s>(cx: &mut Cx<'s, '_>) -> State<'s, i32> {
 }
 ```
 
-## 4. テスト(`crates/egui-react/tests/`)
+## 4. Tests (`crates/egui-react/tests/`)
 
-各テストは `egui_kittest::Harness::new_ui_state(|ui, store: &mut Store| { .. }, Store::new())` の形で書き、閉包の中で `store.begin_pass(ui.ctx())` → `Cx::new(&*store, ui, Id::new("root"))` でコンポーネントを描く → guard が落ちたあと `store.end_pass()` を呼ぶ。この一連を `tests/common/run.rs` の `run_app(ui, store, |cx| ..)` にまとめる。
+Write each test in the form `egui_kittest::Harness::new_ui_state(|ui, store: &mut Store| { .. }, Store::new())`. Inside the closure: `store.begin_pass(ui.ctx())` -> draw the component with `Cx::new(&*store, ui, Id::new("root"))` -> call `store.end_pass()` after the guards drop. Bundle this sequence into `run_app(ui, store, |cx| ..)` in `tests/common/run.rs`.
 
-| # | ARCHITECTURE.md 10 章の項目 | テストファイル | 確認内容 |
+| # | Item in ARCHITECTURE.md section 10 | Test file | What to check |
 |---|---|---|---|
-| 1 | guard が本体の間だけ生き、兄弟ハンドラが同じ state を順に `&mut` 借用できる | `sibling_handlers.rs` | Counter の `+` `-` をクリックし、ラベルが 1 → 2 → 1 になる |
-| 2 | `#[hook]` 越しに guard を返せる | `custom_hook.rs` | `use_counter` を同一コンポーネントで 2 回呼び、それぞれ独立にインクリメントできる |
-| 3 | 融合閉包と `Handler` | `fused_events.rs` | Dialog の OK / Cancel それぞれで `open` が false になる。両方の閉包が同一 state を捕獲してコンパイルが通ること自体が主目的 |
-| 4 | `use_context` の `Handle` と親の guard の共存 | `context_handle.rs` | 親が `use_handle` で theme を持ち `provide_context`、子が `use_context().set()`、親が children の後に `.get()` で新値を読む。同時に親は別スロットの `State` guard を握っている |
-| 5 | 多重パスでハンドラが 1 回だけ発火し effect が再実行されない | `multi_pass.rs` | (a) 1 パス目で `ctx.request_discard()` を呼ぶ手動版、(b) egui_taffy の flex 内でクリックによりラベル幅が変わる版。両方で count が +1 のみ、effect 実行回数が 1。テストが実際に 2 パス走ったことを、ルート閉包の呼び出し回数で確認する。`ctx.options_mut(|o| o.max_passes = 2)` を設定 |
-| 6 | Id 衝突検出 | `collision.rs` | (a) `hook_scope` の無いヘルパーを 2 回呼ぶ、(b) `for` 内で key 無しに `use_state` を呼ぶ。両方で `store.collisions()` が空でない。対照として `cx.scope(i, ..)` で包んだ版は空 |
-| 7 | sweep が状態を破棄し cleanup を走らせる | `unmount.rs` | `if show { child }` の child が `use_effect((), || { log.push("mount"); move || log.push("cleanup") })` と `use_state`。show を true → false → true にして、ログが `[mount, cleanup, mount]`、state が初期値に戻る。ログは `Arc<Mutex<Vec<&str>>>` |
-| 8 | egui コンテナ閉包の内側で新しい `Cx` を作り hooks が動く | `nested_ui.rs` | `ui.vertical` の中で `use_state` を持つ子を描き、外側と内側の state が独立し、フレームを跨いで保持される |
-| 9 | repaint ポリシー | `repaint.rs` | `DerefMut` を呼んだフレームだけ `ctx.has_requested_repaint()` が true。読むだけのフレームは false |
-| 10 | `use_effect` の deps | `effect_deps.rs` | deps が同じフレームでは再実行されず、変わると cleanup → 本体の順で走る |
+| 1 | The guard lives only during the body, and sibling handlers can borrow the same state `&mut` in turn | `sibling_handlers.rs` | Click Counter's `+` and `-`, and the label goes 1 -> 2 -> 1 |
+| 2 | A guard can be returned through `#[hook]` | `custom_hook.rs` | Call `use_counter` twice in the same component, and each increments independently |
+| 3 | Fused closure and `Handler` | `fused_events.rs` | `open` becomes false for each of Dialog's OK / Cancel. The main goal is that both closures capture the same state and it compiles |
+| 4 | `use_context`'s `Handle` coexists with the parent's guard | `context_handle.rs` | The parent holds theme with `use_handle` and calls `provide_context`, the child calls `use_context().set()`, and the parent reads the new value with `.get()` after children. At the same time the parent holds a `State` guard on another slot |
+| 5 | In multi-pass, handlers fire only once and effects do not rerun | `multi_pass.rs` | (a) a manual version that calls `ctx.request_discard()` in pass 1, (b) a version where a click changes label width inside egui_taffy flex. In both, count is only +1 and effect run count is 1. Confirm the test actually ran 2 passes by the root closure's call count. Set `ctx.options_mut(|o| o.max_passes = 2)` |
+| 6 | Id collision detection | `collision.rs` | (a) call a helper without `hook_scope` twice, (b) call `use_state` inside `for` without a key. In both, `store.collisions()` is not empty. As a control, the version wrapped in `cx.scope(i, ..)` is empty |
+| 7 | sweep drops state and runs cleanup | `unmount.rs` | The child in `if show { child }` has `use_effect((), || { log.push("mount"); move || log.push("cleanup") })` and `use_state`. Set show to true -> false -> true; the log is `[mount, cleanup, mount]` and state returns to its initial value. The log is `Arc<Mutex<Vec<&str>>>` |
+| 8 | Create a new `Cx` inside an egui container closure and hooks work | `nested_ui.rs` | Draw a child with `use_state` inside `ui.vertical`; outer and inner state are independent and persist across frames |
+| 9 | repaint policy | `repaint.rs` | `ctx.has_requested_repaint()` is true only in frames that called `DerefMut`. Read-only frames are false |
+| 10 | `use_effect` deps | `effect_deps.rs` | Not rerun in frames where deps are the same; when they change, cleanup -> body run in that order |
 
-kittest の操作は `harness.get_by_label("+").click(); harness.run();` の形。ラベルの取得は AccessKit 経由なので、ボタンのテキストを一意にする。
+kittest operations take the form `harness.get_by_label("+").click(); harness.run();`. Labels are looked up via AccessKit, so make button texts unique.
 
 ## 5. examples/spike
 
-eframe の `App::ui` で `Store` を `begin_pass` / `end_pass` し、Counter と Dialog(開くボタン付き)を描く。`Options::max_passes = 2` を設定する。動作を目視で確認するためのもので、テストではない。
+In eframe's `App::ui`, `begin_pass` / `end_pass` the `Store`, and draw Counter and Dialog (with an open button). Set `Options::max_passes = 2`. This is for visual checks of behavior, not a test.
 
-## 6. 手順
+## 6. Steps
 
-1. ワークスペースと CI を作り、空クレートで CI が緑になることを確認する。
-2. `store.rs` → `cx.rs` → `state.rs` → `hooks.rs` の順に実装し、テスト 1, 8, 9, 10 を通す。
-3. `events.rs` を実装し、`Handler` の coherence 問題を確定させ、テスト 3 を通す。
-4. `hook_scope` と衝突検出を実装し、テスト 2, 6 を通す。
-5. sweep と cleanup を実装し、テスト 7 を通す。
-6. `context.rs` を実装し、テスト 4 を通す。
-7. egui_taffy を dev-dependency に追加し、テスト 5 を通す。
-8. examples/spike を書き、`cargo run -p spike` で目視確認する。
-9. 検証で崩れた前提を ARCHITECTURE.md に反映する。少なくとも `into_handle`(2.3)と `Handler` の結論(2.6)は追記が必要になる。
-10. PR 本文に、検証項目ごとの結果と ARCHITECTURE.md の変更点を書く。
+1. Create the workspace and CI, and confirm CI is green with empty crates.
+2. Implement in the order `store.rs` -> `cx.rs` -> `state.rs` -> `hooks.rs`, and pass tests 1, 8, 9, 10.
+3. Implement `events.rs`, settle the `Handler` coherence issue, and pass test 3.
+4. Implement `hook_scope` and collision detection, and pass tests 2, 6.
+5. Implement sweep and cleanup, and pass test 7.
+6. Implement `context.rs`, and pass test 4.
+7. Add egui_taffy as a dev-dependency, and pass test 5.
+8. Write examples/spike and check visually with `cargo run -p spike`.
+9. Reflect assumptions that broke during verification in ARCHITECTURE.md. At least `into_handle` (2.3) and the `Handler` conclusion (2.6) will need to be added.
+10. Write the result per verification item and the ARCHITECTURE.md changes in the PR body.
 
-## 7. 判断が必要になりそうな点
+## 7. Points likely to need a decision
 
-- `Handler` の blanket impl が衝突した場合の方針(2.6 に記載)。
-- `elsa::FrozenMap` の `as_mut()` が使いにくい場合、`Store` を `slots: UnsafeCell<HashMap<Id, Box<Slot>>>` で自前実装してもよい。その場合は安全性の根拠(insert は `Box` の中身を動かさない、削除は `&mut self` でのみ行う)をコメントに書く。
-- kittest で `num_completed_passes` を直接読めない場合は、ルート閉包の呼び出し回数を `Store` 外のカウンタで数える。
-- テスト 5(b) で egui_taffy が discard を要求しない場合は、(a) の手動版が通っていれば項目 5 は満たしたとみなし、(b) は削除して理由を PR 本文に書く。
+- Policy if the `Handler` blanket impls conflict (described in 2.6).
+- If `elsa::FrozenMap`'s `as_mut()` is awkward, `Store` may be implemented by hand with `slots: UnsafeCell<HashMap<Id, Box<Slot>>>`. In that case write the safety reasoning in a comment (insert does not move the contents of `Box`, removal happens only via `&mut self`).
+- If `num_completed_passes` cannot be read directly in kittest, count the root closure's calls with a counter outside `Store`.
+- If egui_taffy does not request discard in test 5(b), treat item 5 as met if the manual version (a) passes, delete (b), and write the reason in the PR body.
 
-## 8. 実装で判明した差分(手順 2〜3)
+## 8. Differences found during implementation (steps 2 to 3)
 
-本書のスケッチと実際の実装の差分。設計上の意味があるものは ARCHITECTURE.md にも反映済み。
+Differences between this document's sketch and the actual implementation. Those with design meaning are already reflected in ARCHITECTURE.md.
 
-- **2.1** `elsa::FrozenMap` を採用。unsafe なし。sweep は `AsMut::as_mut` trait 経由で `&mut HashMap` を取り `retain` する(本書の書き方と異なり inherent method ではない)。
-- **2.2** `Cx::scope` の `source` は `impl Hash` ではなく `impl Hash + Debug`。egui 0.36 の `Ui::push_id` が `AsIdSalt = Hash + Debug` を要求する。`rsx!` の `key={..}` にも `Debug` が必要になる。
-- **2.3** `State` は `inner: Option<RefMut<'s, T>>` を持つ。`Drop` を実装した型からフィールドを move out できないため、`into_handle` は `inner = None` で借用を解放してから `Handle` を作る。`ctx` は所有ではなく `&'s egui::Context`(`Store` が clone を 1 つ持ち、`State` と `Handle` の両方が借りる)。`Store::new()` の時点では `Context::default()` を仮に持ち、初回 `begin_pass` で置き換える。
-- **2.4** `IntoCleanup` の `()` と `FnOnce()` の blanket impl は E0119 で衝突する。`IntoCleanup<Marker>` としてマーカー型(`NoCleanup` / `FnCleanup`)で区別する。呼び出し側は変わらない。
-- **2.6** `Handler` も同じ手法で解決し、`call0` / `call1` の分割は不要になった。最終形は `Handler<A, Marker>` で、impl は `F: FnOnce() -> R` に `(Arity0, R)`、`F: FnOnce(A) -> R` に `(Arity1, R)`。マーカーに `R` を含めないと非 `()` を返す本体でエラーになる。推論は全ての形(引数型注釈なし、ペイロード破棄、借用ペイロード、`fn` item)で曖昧にならないことをテスト `fused_events::handler_call_shapes` で固定した。マクロは `::egui_react::Handler::call(closure, a)` を完全修飾で emit する。
-- **2.6** `Emitter` の lifetime は 1 つでは構築できない(`RefCell<T>` が不変で、ローカル `RefCell` の借用が props の lifetime より短いため)。最終形は `EventSink<'e, E> = RefCell<&'e mut (dyn FnMut(E) + 'e)>` と `Emitter<'a, 'e, E> { sink: &'a EventSink<'e, E> }`。
-- **3** ハンドラの `(|| ..)()` 展開に clippy の `redundant_closure_call` が出る。テストでは file-level `allow`。`rsx!` は展開結果に `#[allow(clippy::redundant_closure_call)]` を付ける必要がある。
-- **4 テスト 9** 毎パス state を書き換えると毎パス repaint が要求され、`Harness::run` が `ExceededMaxSteps` で panic する。毎フレーム書き換えるテストは `harness.step()` を使う。
-- **新規の借用制約** 同一要素に、state を借用する値 prop と同じ state を変更するハンドラを渡すと E0502(`title={&*title} on_rename={|s| *title = s}`)。テストでは値を先に clone した。ARCHITECTURE.md 3.7 に追記済み。
+- **2.1** Adopted `elsa::FrozenMap`. No unsafe. sweep gets `&mut HashMap` via the `AsMut::as_mut` trait and does `retain` (unlike the wording in this document, it is not an inherent method).
+- **2.2** `Cx::scope`'s `source` is `impl Hash + Debug`, not `impl Hash`. `Ui::push_id` in egui 0.36 requires `AsIdSalt = Hash + Debug`. `rsx!`'s `key={..}` will also need `Debug`.
+- **2.3** `State` holds `inner: Option<RefMut<'s, T>>`. A type that implements `Drop` cannot move a field out, so `into_handle` sets `inner = None` to release the borrow before creating the `Handle`. `ctx` is `&'s egui::Context`, not owned (`Store` holds one clone, and both `State` and `Handle` borrow it). At `Store::new()` it temporarily holds `Context::default()`, replaced on the first `begin_pass`.
+- **2.4** The blanket impls of `IntoCleanup` for `()` and `FnOnce()` conflict with E0119. Distinguish them with marker types (`NoCleanup` / `FnCleanup`) as `IntoCleanup<Marker>`. The call side does not change.
+- **2.6** `Handler` was solved the same way, and the `call0` / `call1` split became unnecessary. The final form is `Handler<A, Marker>`, with impls `(Arity0, R)` for `F: FnOnce() -> R` and `(Arity1, R)` for `F: FnOnce(A) -> R`. Without `R` in the marker, bodies that return non-`()` error. The test `fused_events::handler_call_shapes` pins down that inference is unambiguous in every shape (no argument type annotation, payload dropped, borrowed payload, `fn` item). The macro emits `::egui_react::Handler::call(closure, a)` fully qualified.
+- **2.6** `Emitter` cannot be built with one lifetime (`RefCell<T>` is invariant, and the borrow of the local `RefCell` is shorter than the props lifetime). The final form is `EventSink<'e, E> = RefCell<&'e mut (dyn FnMut(E) + 'e)>` and `Emitter<'a, 'e, E> { sink: &'a EventSink<'e, E> }`.
+- **3** The handler's `(|| ..)()` expansion triggers clippy's `redundant_closure_call`. Tests use a file-level `allow`. `rsx!` must attach `#[allow(clippy::redundant_closure_call)]` to its expansion.
+- **4 test 9** Writing state every pass requests a repaint every pass, and `Harness::run` panics with `ExceededMaxSteps`. Tests that write every frame use `harness.step()`.
+- **New borrow constraint** Passing a value prop that borrows state and a handler that mutates the same state to the same element gives E0502 (`title={&*title} on_rename={|s| *title = s}`). Tests clone the value first. Already added to ARCHITECTURE.md 3.7.
 
-## 9. 実装で判明した差分(手順 4〜8)
+## 9. Differences found during implementation (steps 4 to 8)
 
-- **2.5** `Vec<(TypeId, Box<dyn Any>)>` に `Handle<'s, T>` は入らない(`dyn Any` は `'static` を要求し、`Handle` はストアを借用する)。代わりに `(TypeId, egui::Id)` でスロット Id を積み、`use_context` が `store.slot_by_id(id)` から `Handle` を組み直す。`Slot` に `id` を、`Handle` に `slot_id()` を追加した。`Box` も downcast も unsafe も不要で、`Store` に lifetime パラメータも付かない。
-- **2.3 / 4 テスト 4** 「guard が生きたまま同じスロットの `Handle` を使う」panic は公開 API では到達不能なので `#[should_panic]` テストは書かなかった。`Handle` の入手経路が `use_handle` と `into_handle` に限られるため。
-- **4 テスト 6** 衝突には 2 段階ある。1 回目の guard が生きていれば呼び出し位置付きの明確なメッセージで panic(`try_borrow_mut` で検出)。落ちていれば黙って同じスロットを再利用し、記録と `log::warn!` のみ。後者がオーバーレイ(フェーズ 2)の主対象。
-- **4 テスト 5** (b) egui_taffy 版も discard を発生させたので削除せず。定常フレームが 1 パスであることも assert し、追加パスの要求元が taffy であることを示している。
-- **7** パス数をルート閉包の呼び出し回数で数えるのは誤り。kittest の `Node::click()` は press と release の 2 イベントを積み、`Harness::step()` はイベントごとに 1 フレーム回すので 1 回の `step()` で 2 フレーム走る。`egui::Context::current_pass_index()`(フレーム内で 0 から始まる)を使う。
-- **5.3 の補足** effect がハンドラより前に置かれ、deps がそのハンドラの変更する state に依存する場合、2 パス目で deps が変わっているので effect が走る。deps 変化 1 回につき 1 回という不変条件は保たれる(テスト `effect_deps_changed_during_pass_one_rerun_in_pass_two`)。
-- **8** `eframe::App::ui` 内で `self.store.begin_pass(ui.ctx())` → `Cx::new(&self.store, ..)` → `self.store.end_pass()` は NLL でそのまま通る。`egui-react-app::run` はこの形でよい。
-- **フェーズ 4 向けメモ** egui_taffy の `tui.ui(..)` / `tui.label(..)` は `TuiBuilderLogic` trait のメソッドで、`use egui_taffy::TuiBuilderLogic as _;` が必要。
-- **8 / フェーズ 5 向けメモ** eframe の `App::ui` が渡す root `Ui` は margin も背景も持たない。ライトモードではライトテーマの濃いグレー文字が eframe 既定の黒いクリアカラー上に描かれて見えない。examples/spike は `egui::CentralPanel::default().show(ui, ..)` で包んだ。`egui-react-app::run` も同じく CentralPanel(または `Frame::central_panel`)で包む必要がある。
+- **2.5** `Handle<'s, T>` cannot go into `Vec<(TypeId, Box<dyn Any>)>` (`dyn Any` requires `'static`, and `Handle` borrows the store). Instead, push slot Ids as `(TypeId, egui::Id)`, and `use_context` rebuilds the `Handle` from `store.slot_by_id(id)`. Added `id` to `Slot` and `slot_id()` to `Handle`. No `Box`, no downcast, no unsafe, and `Store` gets no lifetime parameter.
+- **2.3 / 4 test 4** The "use a `Handle` on the same slot while the guard is alive" panic is unreachable through the public API, so no `#[should_panic]` test was written. The only ways to get a `Handle` are `use_handle` and `into_handle`.
+- **4 test 6** Collisions have two stages. If the first guard is alive, panic with a clear message including the call site (detected via `try_borrow_mut`). If it has dropped, silently reuse the same slot, with only a record and `log::warn!`. The latter is the main target of the overlay (Phase 2).
+- **4 test 5** The egui_taffy version (b) also produced a discard, so it was not deleted. It also asserts that a steady frame is 1 pass, showing that the extra pass is requested by taffy.
+- **7** Counting passes by the root closure's call count is wrong. kittest's `Node::click()` queues 2 events, press and release, and `Harness::step()` runs 1 frame per event, so one `step()` runs 2 frames. Use `egui::Context::current_pass_index()` (starts at 0 within a frame).
+- **Note on 5.3** If an effect is placed before a handler and its deps depend on the state that handler changes, deps have changed in pass 2, so the effect runs. The invariant of one run per deps change holds (test `effect_deps_changed_during_pass_one_rerun_in_pass_two`).
+- **8** `self.store.begin_pass(ui.ctx())` -> `Cx::new(&self.store, ..)` -> `self.store.end_pass()` inside `eframe::App::ui` passes as-is under NLL. `egui-react-app::run` can use this shape.
+- **Note for Phase 4** egui_taffy's `tui.ui(..)` / `tui.label(..)` are methods of the `TuiBuilderLogic` trait, and need `use egui_taffy::TuiBuilderLogic as _;`.
+- **8 / note for Phase 5** The root `Ui` that eframe's `App::ui` passes has no margin and no background. In light mode, the light theme's dark gray text is drawn on eframe's default black clear color and cannot be seen. examples/spike wraps it in `egui::CentralPanel::default().show(ui, ..)`. `egui-react-app::run` must also wrap in CentralPanel (or `Frame::central_panel`).
