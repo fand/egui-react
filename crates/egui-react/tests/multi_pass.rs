@@ -98,10 +98,8 @@ fn taffy_body(cx: &mut Cx<'_, '_>, counters: &Rc<Counters>) {
     });
 
     let mut count = use_state(cx, || 0i32);
-    let style = ContainerStyle::default()
-        .direction("row")
-        .merge(&ItemStyle::default());
-    cx.container(egui::Id::new("flex"), style, |cx| {
+    let style = ContainerStyle::default().direction("row");
+    cx.container(egui::Id::new("flex"), &style, &ItemStyle::default(), |cx| {
         cx.leaf(&ItemStyle::default(), |ui| {
             if ui.button("bump").clicked() {
                 *count += 1;

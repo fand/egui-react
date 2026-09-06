@@ -18,6 +18,13 @@
 //! One tree per root lives in the [`Store`], not in egui memory: one map
 //! lookup per frame, and a tree left behind by an unmounted subtree is dropped
 //! by [`Store::end_pass`] instead of growing egui's `IdTypeMap` forever.
+//!
+//! There is a second, smaller path beside this one: [`lite`], which lays a
+//! `<VirtualList>` row out with a flex solver of its own instead of a taffy
+//! tree. It reuses this module's measure function, its galley cache and its
+//! `<Text>` painting, so the two agree on everything but who solves the boxes.
+
+pub(crate) mod lite;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -41,6 +48,71 @@ struct Measure {
     min_size: Vec2,
     max_size: Vec2,
     infinite: Vec2b,
+}
+
+impl Measure {
+    /// What a node with nothing to measure reports.
+    ///
+    /// This is the `None` arm of the measure function: a container that ended
+    /// up with no children is laid out as a leaf, and it has no measurement of
+    /// its own, so it is zero whatever it is asked.
+    const EMPTY: Self = Self {
+        min_size: Vec2::ZERO,
+        max_size: Vec2::ZERO,
+        infinite: Vec2b::FALSE,
+    };
+
+    /// What a `leaf_fill` reports: no content size, so the layout alone sizes
+    /// it, clamped to the root rect.
+    const FILL: Self = Self {
+        min_size: Vec2::ZERO,
+        max_size: Vec2::INFINITY,
+        infinite: Vec2b::TRUE,
+    };
+}
+
+/// Turn what a leaf reported while it was drawn into the size the layout asks
+/// for.
+///
+/// This is `egui_taffy`'s measure function, ported unchanged. Both layout paths
+/// call it, so a leaf is the same size whichever one lays its row out.
+/// `root_size` is the size of the rect the whole tree was given; a leaf that
+/// says it is infinite in one direction is clamped to it.
+fn measure_leaf(
+    measure: Measure,
+    available_space: Size<AvailableSpace>,
+    root_size: Vec2,
+) -> Size<f32> {
+    let Measure {
+        mut min_size,
+        mut max_size,
+        infinite,
+    } = measure;
+
+    if min_size.any_nan() {
+        min_size = Vec2::ZERO;
+    }
+    if max_size.any_nan() {
+        max_size = root_size;
+    }
+
+    let max_size = Vec2 {
+        x: if infinite.x { root_size.x } else { max_size.x },
+        y: if infinite.y { root_size.y } else { max_size.y },
+    };
+
+    let width = match available_space.width {
+        AvailableSpace::Definite(num) => num.clamp(min_size.x, max_size.x.max(min_size.x)),
+        AvailableSpace::MinContent => min_size.x,
+        AvailableSpace::MaxContent => max_size.x,
+    };
+    let height = match available_space.height {
+        AvailableSpace::Definite(num) => num.clamp(min_size.y, max_size.y.max(min_size.y)),
+        AvailableSpace::MinContent => min_size.y,
+        AvailableSpace::MaxContent => max_size.y,
+    };
+
+    Size { width, height }
 }
 
 /// What taffy is told about a node that has no children of its own.
@@ -398,47 +470,10 @@ impl Tree {
 
                     let context = match context {
                         Some(NodeCtx::Leaf(measure)) => *measure,
-                        _ => Measure {
-                            min_size: Vec2::ZERO,
-                            max_size: Vec2::ZERO,
-                            infinite: Vec2b::FALSE,
-                        },
+                        _ => Measure::EMPTY,
                     };
 
-                    let Measure {
-                        mut min_size,
-                        mut max_size,
-                        infinite,
-                    } = context;
-
-                    if min_size.any_nan() {
-                        min_size = Vec2::ZERO;
-                    }
-                    if max_size.any_nan() {
-                        max_size = root_size;
-                    }
-
-                    let max_size = Vec2 {
-                        x: if infinite.x { root_size.x } else { max_size.x },
-                        y: if infinite.y { root_size.y } else { max_size.y },
-                    };
-
-                    let width = match available_space.width {
-                        AvailableSpace::Definite(num) => {
-                            num.clamp(min_size.x, max_size.x.max(min_size.x))
-                        }
-                        AvailableSpace::MinContent => min_size.x,
-                        AvailableSpace::MaxContent => max_size.x,
-                    };
-                    let height = match available_space.height {
-                        AvailableSpace::Definite(num) => {
-                            num.clamp(min_size.y, max_size.y.max(min_size.y))
-                        }
-                        AvailableSpace::MinContent => min_size.y,
-                        AvailableSpace::MaxContent => max_size.y,
-                    };
-
-                    Size { width, height }
+                    measure_leaf(context, available_space, root_size)
                 },
             )
             .unwrap();
@@ -769,11 +804,7 @@ impl TreeCx<'_> {
                 infinite: Vec2b::FALSE,
             }
         } else {
-            Measure {
-                min_size: Vec2::ZERO,
-                max_size: Vec2::INFINITY,
-                infinite: Vec2b::TRUE,
-            }
+            Measure::FILL
         };
         self.tree.borrow_mut().set_measure(node, measure);
 

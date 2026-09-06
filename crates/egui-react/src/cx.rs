@@ -4,8 +4,9 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::panic::Location;
 
+use crate::engine::lite::{self, LiteCx};
 use crate::engine::{self, Reserve, TreeCx};
-use crate::layout::ItemStyle;
+use crate::layout::{ContainerStyle, ItemStyle};
 use crate::store::Store;
 
 /// Hash key derived from a `#[track_caller]` call site.
@@ -21,6 +22,10 @@ pub(crate) fn location_key(location: &'static Location<'static>) -> (&'static st
 enum Surface<'u> {
     Ui(&'u mut egui::Ui),
     Tree(TreeCx<'u>),
+    /// A position in a `<VirtualList>` row laid out without taffy. Everything
+    /// `Cx` does here it also does in [`Surface::Tree`]; only who solves the
+    /// boxes differs. See [`crate::engine::lite`].
+    Lite(LiteCx<'u>),
 }
 
 /// The context passed to components and hooks.
@@ -74,6 +79,21 @@ impl<'s, 'u> Cx<'s, 'u> {
         }
     }
 
+    /// A `Cx` at a position in a lite row, with both ids given.
+    ///
+    /// The root size hint is dropped for the same reason as in
+    /// [`Cx::at_tree`]: inside a row a `<View>` is a node, and its rect comes
+    /// from the layout.
+    fn at_lite(store: &'s Store, lite: LiteCx<'u>, scope: egui::Id, layout: egui::Id) -> Self {
+        Self {
+            store,
+            surface: Surface::Lite(lite),
+            scope,
+            layout,
+            root_size: None,
+        }
+    }
+
     /// A `Cx` at a position in a layout tree, with both ids given.
     ///
     /// The root size hint is dropped here: it is about the rect a tree is laid
@@ -107,12 +127,16 @@ impl<'s, 'u> Cx<'s, 'u> {
         match &mut self.surface {
             Surface::Ui(ui) => ui,
             Surface::Tree(tree) => tree.root_ui(),
+            Surface::Lite(lite) => lite.root_ui(),
         }
     }
 
-    /// Whether this `Cx` is inside a taffy container.
+    /// Whether this `Cx` is inside a `<View>`.
+    ///
+    /// True on both layout paths: what an element reads it for is whether its
+    /// size is the layout's decision, and that is the same either way.
     pub fn in_taffy(&self) -> bool {
-        matches!(self.surface, Surface::Tree(_))
+        matches!(self.surface, Surface::Tree(_) | Surface::Lite(_))
     }
 
     /// The id of the current component scope; the base of every hook id.
@@ -153,6 +177,10 @@ impl<'s, 'u> Cx<'s, 'u> {
             // Nothing else changes: no `Ui` is pushed.
             Surface::Tree(tree) => {
                 let mut cx = Cx::at_tree(store, tree.reborrow(), scope, id);
+                f(&mut cx)
+            }
+            Surface::Lite(lite) => {
+                let mut cx = Cx::at_lite(store, lite.reborrow(), scope, id);
                 f(&mut cx)
             }
         }
@@ -207,6 +235,10 @@ impl<'s, 'u> Cx<'s, 'u> {
                 let mut cx = Cx::at_tree(store, tree.reborrow(), scope, layout);
                 f(&mut cx)
             }
+            Surface::Lite(lite) => {
+                let mut cx = Cx::at_lite(store, lite.reborrow(), scope, layout);
+                f(&mut cx)
+            }
         }
     }
 
@@ -215,6 +247,7 @@ impl<'s, 'u> Cx<'s, 'u> {
         match &self.surface {
             Surface::Ui(ui) => ui.ctx(),
             Surface::Tree(tree) => tree.ctx(),
+            Surface::Lite(lite) => lite.ctx(),
         }
     }
 
@@ -246,6 +279,10 @@ impl<'s, 'u> Cx<'s, 'u> {
             // keys their nodes, and the hook scope salts their leaves' `Ui`s.
             Surface::Tree(tree) => {
                 let mut cx = Cx::at_tree(store, tree.reborrow(), scope, layout);
+                f(&mut cx)
+            }
+            Surface::Lite(lite) => {
+                let mut cx = Cx::at_lite(store, lite.reborrow(), scope, layout);
                 f(&mut cx)
             }
         }
@@ -302,6 +339,7 @@ impl<'s, 'u> Cx<'s, 'u> {
         match &mut self.surface {
             Surface::Ui(ui) => f(ui),
             Surface::Tree(tree) => tree.leaf(prefix, scope, style.to_taffy(), true, f),
+            Surface::Lite(lite) => lite.leaf(scope, style, true, f),
         }
     }
 
@@ -345,6 +383,7 @@ impl<'s, 'u> Cx<'s, 'u> {
             Surface::Tree(tree) => {
                 tree.text(prefix, scope, style.to_taffy(), text, wrap, selectable)
             }
+            Surface::Lite(lite) => lite.text(scope, style, text, wrap, selectable),
         }
     }
 
@@ -362,21 +401,55 @@ impl<'s, 'u> Cx<'s, 'u> {
         match &mut self.surface {
             Surface::Ui(ui) => f(ui),
             Surface::Tree(tree) => tree.leaf(prefix, scope, style.to_taffy(), false, f),
+            Surface::Lite(lite) => lite.leaf(scope, style, false, f),
         }
     }
 
-    /// Open a taffy container and draw `f` inside it.
+    /// Open a container and draw `f` inside it.
     ///
-    /// Outside taffy this starts a new layout tree in the current `Ui`; inside
-    /// taffy it adds a child node. Either way `f` receives a `Cx` in taffy
-    /// mode, so its direct children become taffy nodes.
+    /// Outside a container this starts a new layout tree in the current `Ui`;
+    /// inside one it adds a child node. Either way `f` receives a `Cx` that is
+    /// inside a container, so its direct children become layout nodes.
+    ///
+    /// The two styles are passed as they are rather than merged into a
+    /// [`taffy::Style`], because a `<VirtualList>` row is laid out by the lite
+    /// path (`crate::engine::lite`), which reads them directly and never builds
+    /// a taffy style at all. The taffy path merges them itself.
     pub fn container<R>(
         &mut self,
         id: egui::Id,
-        style: taffy::Style,
+        container: &ContainerStyle,
+        item: &ItemStyle,
         f: impl FnOnce(&mut Cx<'s, '_>) -> R,
     ) -> R {
-        self.container_reserving(id, style, false, f)
+        let store = self.store;
+        let scope = self.scope;
+        let layout = self.layout;
+
+        // A row of a `<VirtualList>`: a fixed rect over a plain `Ui`. That is
+        // the one place the lite path applies, and only while every style in
+        // the row is inside its subset.
+        if let Surface::Ui(ui) = &mut self.surface
+            && let Some(size) = self.root_size
+            && !store.taffy_rows_forced()
+        {
+            let tree = store.lite_tree(id);
+            if lite::supported(&tree, container, item) {
+                return lite::show(&tree, ui, container, item, size, |lite| {
+                    let mut cx = Cx::at_lite(store, lite.reborrow(), scope, layout);
+                    f(&mut cx)
+                });
+            }
+        }
+
+        if let Surface::Lite(lite) = &mut self.surface {
+            return lite.container(container, item, |lite| {
+                let mut cx = Cx::at_lite(store, lite.reborrow(), scope, layout);
+                f(&mut cx)
+            });
+        }
+
+        self.container_taffy(id, container.merge(item), false, f)
     }
 
     /// [`Cx::container`] for the root of an app: reserve *all* available space.
@@ -384,16 +457,20 @@ impl<'s, 'u> Cx<'s, 'u> {
     /// The runner uses this so that the outermost `<View>` fills the window;
     /// nested containers only reserve the available width, so that a column of
     /// them stacks instead of each one claiming the whole height.
+    ///
+    /// Takes a [`taffy::Style`], unlike [`Cx::container`]: an app root is never
+    /// a `<VirtualList>` row, so it never takes the lite path, and the runner's
+    /// `root_style()` is a taffy style users can reach for.
     pub fn root_container<R>(
         &mut self,
         id: egui::Id,
         style: taffy::Style,
         f: impl FnOnce(&mut Cx<'s, '_>) -> R,
     ) -> R {
-        self.container_reserving(id, style, true, f)
+        self.container_taffy(id, style, true, f)
     }
 
-    fn container_reserving<R>(
+    fn container_taffy<R>(
         &mut self,
         id: egui::Id,
         style: taffy::Style,
@@ -419,6 +496,13 @@ impl<'s, 'u> Cx<'s, 'u> {
                 let mut cx = Cx::at_tree(store, tree.reborrow(), scope, layout);
                 f(&mut cx)
             }),
+            // A raw taffy style inside a lite row, which only
+            // [`Cx::root_container`] can be: the solver cannot read it, so the
+            // row moves to the taffy path and this frame is drawn again.
+            Surface::Lite(lite) => lite.fall_back_container(|lite| {
+                let mut cx = Cx::at_lite(store, lite.reborrow(), scope, layout);
+                f(&mut cx)
+            }),
         }
     }
 
@@ -437,6 +521,7 @@ impl<'s, 'u> Cx<'s, 'u> {
         match &mut self.surface {
             Surface::Ui(ui) => Surface::Ui(ui),
             Surface::Tree(tree) => Surface::Tree(tree.reborrow()),
+            Surface::Lite(lite) => Surface::Lite(lite.reborrow()),
         }
     }
 }

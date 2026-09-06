@@ -848,6 +848,154 @@ halves of this: rows at exactly `row_h` pitch over 20 scrolled frames with no
 discard requested, and a row that draws twice as tall still moving the list on
 by `row_h`.
 
+## After E1 (`<VirtualList>` rows laid out without taffy)
+
+Date: 2026-09-06. Same machine and conditions as above: native macOS arm64,
+Rust 1.95.0, release profile, egui 0.36.1, taffy 0.9.2. Code state: step E1
+uncommitted on top of `b0f2ba1`. Samples in [samples-e1.csv](samples-e1.csv).
+
+What changed. A `<VirtualList>` row no longer holds a taffy tree. Its nodes are
+a `Vec` rebuilt in draw order every frame, its styles are the `ItemStyle` and
+`ContainerStyle` the elements already carry, and its boxes are solved by
+`crates/egui-react/src/engine/lite.rs`, a single-line flexbox solver ported
+from taffy 0.9 for the subset those two structs can express. A row using
+anything outside the subset (`wrap`, `align_content`, grid, block, `baseline`,
+`col_span` / `row_span`, an `auto` margin) falls back to the taffy path, row by
+row, and says so once at `debug` level. Everything else is shared with the
+taffy path: the measure function, the galley cache, `<Text>`'s widget rect and
+selection, and the two rules from steps B and C (do not discard when nothing
+moved; recompute before drawing when only the root rect resized). The other
+layout paths are untouched.
+
+Reproduce:
+
+```sh
+PERF_CSV="$PWD/docs/tasks/perf/samples-e1.csv" \
+  cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
+```
+
+| Scenario | Mode | Mean ms | p50 ms | p95 ms | Passes/frame | Discard frames /120 | Final rows | Row callbacks/frame |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Idle | All | 21.733 | 21.430 | 23.851 | 1.00 | 0 | 10000 | 10000.00 |
+| Idle | Virtual | 0.132 | 0.134 | 0.153 | 1.00 | 0 | 37 | 37.00 |
+| Idle | Plain | 0.114 | 0.113 | 0.132 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | All | 21.858 | 21.530 | 23.907 | 1.00 | 0 | 10000 | 10000.00 |
+| Scroll | Virtual | 0.184 | 0.183 | 0.252 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | Plain | 0.141 | 0.135 | 0.177 | 1.00 | 0 | 37 | 37.00 |
+| Filter | All | 42.202 | 9.117 | 163.934 | 1.60 | 72 | 1250–10000 | 7000.00 |
+| Filter | Virtual | 1.067 | 1.046 | 1.363 | 1.00 | 0 | 37 | 37.00 |
+| Filter | Plain | 1.029 | 0.998 | 1.306 | 1.00 | 0 | 37 | 37.00 |
+| Resize | All | 33.977 | 33.726 | 35.833 | 1.00 | 0 | 10000 | 10000.00 |
+| Resize | Virtual | 0.203 | 0.191 | 0.322 | 1.10 | 12 | 37–40 | 42.80 |
+| Resize | Plain | 0.145 | 0.137 | 0.219 | 1.00 | 0 | 37–40 | 38.90 |
+
+| Scenario | Virtual pass histogram (passes: frames) | Virtual discard requests |
+|---|---|---:|
+| Idle | 1: 120 | 0 |
+| Scroll | 1: 120 | 0 |
+| Filter | 1: 120 | 0 |
+| Resize | 1: 108, 2: 12 | 12 |
+
+The pass behaviour is exactly E's, which is what E1 had to leave alone: one
+pass everywhere but the twelve Resize frames where the visible row count grows
+and a slot draws its first widget leaf.
+
+### Virtual against Plain
+
+| Scenario | After E | After E1 | Second E1 run |
+|---|---:|---:|---:|
+| Idle | 1.27x | **1.15x** | **1.15x** |
+| Scroll | 1.51x | 1.30x | 1.33x |
+| Filter | 1.06x | **1.04x** | **1.04x** |
+| Resize | 1.58x | 1.40x | 1.40x |
+
+The second run of the same build reads Virtual 0.132 / 0.174 / 1.045 / 0.212 ms
+against Plain 0.115 / 0.131 / 1.004 / 0.151 ms. Both runs agree to within
+0.01 ms on every Virtual figure, so the ratios above are not a noise artefact
+this time.
+
+### Compared with E
+
+| Scenario | E Virtual ms | E1 Virtual ms | Change |
+|---|---:|---:|---:|
+| Idle | 0.145 | 0.132 | −9% |
+| Scroll | 0.219 | 0.184 | −16% |
+| Filter | 1.093 | 1.067 | −2% |
+| Resize | 0.240 | 0.203 | −15% |
+
+Filter is dominated by rebuilding ten thousand strings, which neither path
+touches, so its 2% is the layout share of that scenario and nothing more.
+
+### The gate
+
+| Gate | Target | Measured | |
+|---|---|---|---|
+| Idle | ≤ 1.20x Plain | 1.15x, 1.15x | pass |
+| Scroll | ≤ 1.20x Plain | 1.30x, 1.33x | **miss** |
+| Passes/frame | 1.00 / 1.00 / 1.00 / 1.10 | 1.00 / 1.00 / 1.00 / 1.10 | pass |
+| Parity | every corpus rect equal | 18 row trees, every node | pass |
+| Snapshots | byte-identical | 15 pass, 2 board missing as before | pass |
+
+Scroll misses. As plan-e.md section 5 says for that case, what follows is one
+profile of it and no further optimisation.
+
+### Where the scrolled frame's 0.95 µs per row goes
+
+Date: 2026-09-06. Instruments Time Profiler via `xctrace`, release build with
+line tables and frame pointers, one mode per process, 120,000 scrolled frames
+each (17,537 samples for Virtual, 13,307 for Plain). The scroll is a saw wave —
+250 frames down, 250 up, 20 points a frame — so every frame's rows carry
+different text without running off the end of the list. Samples are charged to
+the deepest frame in the backtrace that belongs to a named bucket. The
+benchmark was temporarily given a single-mode entry point for this and reverted;
+nothing here is committed code.
+
+Isolated, the two modes come to 146.1 µs (Virtual) against 110.9 µs (Plain) per
+frame, a 1.32x ratio — the same ratio the benchmark reports, so the profile is
+measuring the same gap.
+
+| Bucket | Virtual µs/frame | Plain | Difference | Per row |
+|---|---:|---:|---:|---:|
+| lite solver (`LiteTree::compute` and everything under it) | 13.48 | 0 | +13.48 | +364 ns |
+| lite tree building (`LiteCx::container` / `leaf` / `text`, `lite::show`) | 8.42 | 0 | +8.42 | +227 ns |
+| egui-react component layer (`Cx::scope`, `rsx!`, `<Row>`, `<Text>`, `Store`) | 7.57 | 0 | +7.57 | +205 ns |
+| taffy engine (the app root tree and the `<VirtualList>` leaf, not the rows) | 4.87 | 0 | +4.87 | +132 ns |
+| text layout (galleys, `GalleyCache`, harfrust) | 19.72 | 15.72 | +3.99 | +108 ns |
+| egui widgets and `Ui` (`create_widget`, `get_response`, `Ui::new_child`) | 67.97 | 64.78 | +3.18 | +86 ns |
+| tessellation | 16.36 | 16.97 | −0.61 | −16 ns |
+| egui's own row layout, paid by Plain (`horizontal`, `with_layout`, `push_id`) | 5.97 | 11.95 | −5.97 | −161 ns |
+| epaint other, unattributed | 1.79 | 1.46 | +0.32 | +9 ns |
+| **Total** | **146.1** | **110.9** | **+35.2** | **+953 ns** |
+
+Findings:
+
+- The solver is 38% of the gap, and it runs on a scrolled frame because every
+  slot shows a different row's text: the `<Text>` job hash changes, so the
+  frame's nodes differ from the last frame's and the layout is solved again.
+  On an idle frame the node comparison finds them identical and no box is
+  solved at all, which is why Idle is 1.15x and Scroll is 1.30x. The same
+  cause was traced for the taffy path in "After E"; E1 made that computation
+  about four times cheaper (E's scroll surcharge over idle was 0.074 ms for 37
+  rows, E1's is 0.052 ms) but did not remove it.
+- The next 205 ns a row is not layout at all. It is one `Cx::scope` per
+  element, the `rsx!` closures, and the `<Row>` / `<Text>` component bodies —
+  the same layer the step C attribution measured at 28.2 µs/frame for
+  `Cx::scope` alone. Nothing in plan E touches it.
+- 132 ns a row is charged to the taffy path, which still holds the app's root
+  `<View>` and the `<VirtualList>` leaf itself. That is one tree for the whole
+  list, not one per row; it is in the table because it is part of the 35.2 µs,
+  not because it scales with rows.
+- Plain is not free either: it pays 161 ns a row for `ui.horizontal`,
+  `with_layout`, `allocate_ui_with_layout` and `push_id`, which is the closest
+  thing it has to a layout step.
+
+So a scrolled `<VirtualList>` row costs about 0.95 µs more than a plain egui
+row, of which 0.59 µs is the lite path (solve plus build) and 0.36 µs is the
+component layer, the app's own root tree and the extra galley work. Getting
+Scroll under 1.2x means either not solving a row whose text changed but whose
+boxes cannot move — the follow-up already listed under "What remains" — or
+making the component layer cheaper, which is a different piece of work again.
+
 ## Summary D
 
 Every number is already above; this is the whole sequence in one place.
@@ -855,30 +1003,30 @@ Every number is already above; this is the whole sequence in one place.
 the same machine. Timings drift a few percent between runs and `Plain` drifts
 with them, so passes per frame and the ratio are the stable signal.
 
-| Scenario | Baseline | A | B | C | D1 | D2 | D2b | E |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Idle | 0.225 / 1.00 | 0.222 / 1.00 | 0.225 / 1.00 | 0.241 / 1.00 | 0.160 / 1.00 | 0.153 / 1.00 | 0.152 / 1.00 | 0.145 / 1.00 |
-| Scroll | 0.452 / 2.00 | 0.466 / 2.00 | 0.298 / 1.00 | 0.303 / 1.00 | 0.221 / 1.00 | 0.214 / 1.00 | 0.216 / 1.00 | 0.219 / 1.00 |
-| Filter | 1.528 / 1.60 | 1.263 / 1.60 | 1.158 / 1.00 | 1.222 / 1.00 | 1.127 / 1.00 | 1.094 / 1.00 | 1.102 / 1.00 | 1.093 / 1.00 |
-| Resize | 0.662 / 2.98 | 0.653 / 2.98 | 0.649 / 2.98 | 0.311 / 1.02 | 0.247 / 1.10 | 0.211 / 1.10 | 0.217 / 1.10 | 0.240 / 1.10 |
+| Scenario | Baseline | A | B | C | D1 | D2 | D2b | E | E1 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Idle | 0.225 / 1.00 | 0.222 / 1.00 | 0.225 / 1.00 | 0.241 / 1.00 | 0.160 / 1.00 | 0.153 / 1.00 | 0.152 / 1.00 | 0.145 / 1.00 | 0.132 / 1.00 |
+| Scroll | 0.452 / 2.00 | 0.466 / 2.00 | 0.298 / 1.00 | 0.303 / 1.00 | 0.221 / 1.00 | 0.214 / 1.00 | 0.216 / 1.00 | 0.219 / 1.00 | 0.184 / 1.00 |
+| Filter | 1.528 / 1.60 | 1.263 / 1.60 | 1.158 / 1.00 | 1.222 / 1.00 | 1.127 / 1.00 | 1.094 / 1.00 | 1.102 / 1.00 | 1.093 / 1.00 | 1.067 / 1.00 |
+| Resize | 0.662 / 2.98 | 0.653 / 2.98 | 0.649 / 2.98 | 0.311 / 1.02 | 0.247 / 1.10 | 0.211 / 1.10 | 0.217 / 1.10 | 0.240 / 1.10 | 0.203 / 1.10 |
 
 `Plain` on the same runs, mean ms (one pass per frame throughout):
 
-| Scenario | Baseline | A | B | C | D1 | D2 | D2b | E |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Idle | 0.124 | 0.114 | 0.113 | 0.123 | 0.112 | 0.116 | 0.118 | 0.114 |
-| Scroll | 0.153 | 0.149 | 0.146 | 0.146 | 0.139 | 0.135 | 0.134 | 0.145 |
-| Filter | 1.286 | 1.021 | 1.014 | 1.065 | 1.038 | 1.025 | 1.032 | 1.027 |
-| Resize | 0.153 | 0.147 | 0.149 | 0.153 | 0.144 | 0.133 | 0.137 | 0.152 |
+| Scenario | Baseline | A | B | C | D1 | D2 | D2b | E | E1 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Idle | 0.124 | 0.114 | 0.113 | 0.123 | 0.112 | 0.116 | 0.118 | 0.114 | 0.114 |
+| Scroll | 0.153 | 0.149 | 0.146 | 0.146 | 0.139 | 0.135 | 0.134 | 0.145 | 0.141 |
+| Filter | 1.286 | 1.021 | 1.014 | 1.065 | 1.038 | 1.025 | 1.032 | 1.027 | 1.029 |
+| Resize | 0.153 | 0.147 | 0.149 | 0.153 | 0.144 | 0.133 | 0.137 | 0.152 | 0.145 |
 
 `<VirtualList>` / `Plain`, against task.md's 1.5x:
 
-| Scenario | Baseline | A | B | C | D1 | D2 | D2b | E |
-|---|---:|---:|---:|---:|---:|---:|---:|---:|
-| Idle | 1.81x | 1.95x | 1.99x | 1.96x | 1.43x | **1.32x** | **1.29x** | **1.27x** |
-| Scroll | 2.95x | 3.13x | 2.04x | 2.08x | 1.59x | 1.59x | 1.61x | 1.51x |
-| Filter | 1.19x | 1.24x | 1.14x | 1.15x | 1.09x | **1.07x** | **1.07x** | **1.06x** |
-| Resize | 4.33x | 4.44x | 4.36x | 2.03x | 1.72x | 1.59x | 1.58x | 1.58x |
+| Scenario | Baseline | A | B | C | D1 | D2 | D2b | E | E1 |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Idle | 1.81x | 1.95x | 1.99x | 1.96x | 1.43x | **1.32x** | **1.29x** | **1.27x** | **1.15x** |
+| Scroll | 2.95x | 3.13x | 2.04x | 2.08x | 1.59x | 1.59x | 1.61x | 1.51x | 1.30x |
+| Filter | 1.19x | 1.24x | 1.14x | 1.15x | 1.09x | **1.07x** | **1.07x** | **1.06x** | **1.04x** |
+| Resize | 4.33x | 4.44x | 4.36x | 2.03x | 1.72x | 1.59x | 1.58x | 1.58x | 1.40x |
 
 The E column is one run, and a second run of the same build puts Scroll at
 1.63x and Resize at 1.51x (see "After E"). E moved no timing; read it as a
@@ -891,9 +1039,11 @@ built in and a container node as a rect instead of a `Ui`; D2 `<Text>` as a
 galley on the node instead of a `Label` in a `Ui`; D2b text selection back on
 that `<Text>`, which costs nothing measurable; E a fixed root rect for
 `<VirtualList>` rows, which cost nothing and saved nothing but put the rows at
-the pitch `show_rows` reserved. D2, D2b and E differ by less than one run of
-noise, so those three columns are repeat measurements of D2 as much as steps of
-their own.
+the pitch `show_rows` reserved; E1 lays those rows out with a flex solver of
+egui-react's own instead of a taffy tree. D2, D2b and E differ by less than one
+run of noise, so those three columns are repeat measurements of D2 as much as
+steps of their own; E1 is the first move since D2 that is larger than the
+noise on every scenario.
 
 ### What remains
 
