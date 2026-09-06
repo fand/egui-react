@@ -233,6 +233,40 @@ impl<'s, 'u> Cx<'s, 'u> {
         }
     }
 
+    /// Draw static text, as a taffy node when inside a container.
+    ///
+    /// Outside a container this is `ui.add(egui::Label::new(text))` and
+    /// nothing else. Inside one it skips the `Label` and the `Ui` it would need:
+    /// the galley is laid out by the layout engine, which is where its size is
+    /// wanted anyway, and painted straight onto the tree's own `Ui`. What the
+    /// engine keeps of `Label` is the widget rect and the `WidgetInfo`, so the
+    /// text is still hoverable, still in the accessibility tree, and still
+    /// found by `egui_kittest`'s label queries. What it drops is `Label`'s
+    /// text selection: inside a `<View>` a `<Text>` cannot be selected with the
+    /// mouse.
+    ///
+    /// `wrap` picks between `TextWrapMode::Wrap` and `TextWrapMode::Extend`,
+    /// as `<Text>`'s own prop does.
+    pub fn text(
+        &mut self,
+        style: &ItemStyle,
+        text: egui::WidgetText,
+        wrap: bool,
+    ) -> egui::Response {
+        let (prefix, scope) = (self.layout, self.scope);
+        match &mut self.surface {
+            Surface::Ui(ui) => {
+                let wrap_mode = if wrap {
+                    egui::TextWrapMode::Wrap
+                } else {
+                    egui::TextWrapMode::Extend
+                };
+                ui.add(egui::Label::new(text).wrap_mode(wrap_mode))
+            }
+            Surface::Tree(tree) => tree.text(prefix, scope, style.to_taffy(), text, wrap),
+        }
+    }
+
     /// Like [`Cx::leaf`], but the leaf takes whatever space taffy gives it.
     ///
     /// A plain leaf is measured by its content: taffy sizes it to what it drew

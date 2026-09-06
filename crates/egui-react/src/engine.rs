@@ -10,6 +10,11 @@
 //! containers on a `<View>`, so nothing is lost and a row costs three `Ui`s
 //! instead of nine.
 //!
+//! A `<Text>` does not even cost that: its galley is laid out inside the taffy
+//! measure function and painted onto the tree's own `Ui` (see [`TextCtx`] and
+//! [`Tree::paint_texts`]), so a row of `<View>` and `<Text>` opens one `Ui` for
+//! the whole tree and is right on its first frame.
+//!
 //! One tree per root lives in the [`Store`], not in egui memory: one map
 //! lookup per frame, and a tree left behind by an unmounted subtree is dropped
 //! by [`Store::end_pass`] instead of growing egui's `IdTypeMap` forever.
@@ -18,8 +23,10 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
 use std::rc::Rc;
+use std::sync::Arc;
 
-use egui::{Pos2, Rect, UiBuilder, Vec2, Vec2b};
+use egui::text::LayoutJob;
+use egui::{Galley, Pos2, Rect, UiBuilder, Vec2, Vec2b};
 use taffy::{AvailableSpace, Layout, NodeId, Size, TaffyTree, TraversePartialTree as _};
 
 use crate::store::Store;
@@ -36,16 +43,105 @@ struct Measure {
     infinite: Vec2b,
 }
 
+/// What taffy is told about a node that has no children of its own.
+enum NodeCtx {
+    /// A leaf that drew itself into a `Ui` and reported what that `Ui` took.
+    Leaf(Measure),
+    /// A `<Text>`: laid out by the measure function, not by drawing it first.
+    Text(TextCtx),
+}
+
+/// A `<Text>` node: the job to lay out, and the galley it last produced.
+///
+/// The galley is built inside the taffy measure function, so a new `<Text>`
+/// needs no invisible sizing pass: taffy asks for its size and gets the real
+/// one in the same pass it was added. The paint step then reuses the same
+/// galley from the cache below.
+struct TextCtx {
+    /// The layout job [`egui::Label`] would have built in a `Ui` of this node,
+    /// with `wrap.max_width` left for each layout to fill in.
+    job: Arc<LayoutJob>,
+    /// A hash of `job`, so the per frame "did the text change?" test is one
+    /// integer compare rather than a string compare.
+    hash: u64,
+    /// Wrap to the width the node is given, or run on (`Extend`)?
+    wrap: bool,
+    /// The last galley, with the wrap width and the pixels per point it was
+    /// laid out for, both as bits so they compare exactly.
+    galley: Option<(u32, u32, Arc<Galley>)>,
+}
+
+impl TextCtx {
+    /// The galley for `wrap_width`, laid out only if the cache does not have it.
+    fn galley(&mut self, fonts: Fonts<'_>, wrap_width: f32) -> Arc<Galley> {
+        let key = (wrap_width.to_bits(), fonts.pixels_per_point.to_bits());
+        if let Some((width, ppp, galley)) = &self.galley
+            && (*width, *ppp) == key
+        {
+            return Arc::clone(galley);
+        }
+        let mut job = LayoutJob::clone(&self.job);
+        job.wrap.max_width = wrap_width;
+        // `fonts_mut`, as `WidgetText::into_galley_impl` does: a font used for
+        // the first time has to be loaded before the text can be laid out.
+        // epaint keeps its own galley cache behind this, so a miss here is not
+        // necessarily a re-layout.
+        let galley = fonts.ctx.fonts_mut(|fonts| fonts.layout_job(job));
+        self.galley = Some((key.0, key.1, Arc::clone(&galley)));
+        galley
+    }
+}
+
+/// What laying a galley out needs.
+///
+/// The pixels per point is carried rather than read from the context, because
+/// reading it takes egui's lock and this is on the per node path.
+#[derive(Clone, Copy)]
+struct Fonts<'a> {
+    ctx: &'a egui::Context,
+    pixels_per_point: f32,
+}
+
+impl<'a> Fonts<'a> {
+    /// Read from a `Ui`, which keeps the pixels per point on its painter.
+    fn of(ui: &'a egui::Ui) -> Self {
+        Self {
+            ctx: ui.ctx(),
+            pixels_per_point: ui.pixels_per_point(),
+        }
+    }
+}
+
+/// A `<Text>` whose shape is reserved in the painter and filled in once the
+/// layout for this frame is final.
+///
+/// Every other leaf draws where the last frame put it and asks for a second
+/// pass when that turns out to be wrong. A galley needs no `Ui` and no
+/// drawing, so it does not have to: the shape's slot is claimed in draw order,
+/// and the text goes into it after the layout is computed. That is what lets a
+/// tree of `<View>` and `<Text>` alone be right on its very first frame.
+struct PendingText {
+    node: NodeId,
+    idx: egui::layers::ShapeIdx,
+    color: egui::Color32,
+    wrap: bool,
+}
+
 /// One node of a tree, as looked up by its [`egui::Id`].
 struct NodeSlot {
     node: NodeId,
     /// Was this node visited in the frame being drawn? Cleared by the sweep.
     keep: bool,
+    /// Was this node added during the frame being drawn?
+    ///
+    /// Such a node has no layout it was drawn with — taffy leaves a new node
+    /// at zero — so it takes no part in the "did anything move?" comparison.
+    fresh: bool,
 }
 
 /// One taffy tree: everything a `<View>` root keeps between frames.
 pub(crate) struct Tree {
-    taffy: TaffyTree<Measure>,
+    taffy: TaffyTree<NodeCtx>,
     nodes: HashMap<egui::Id, NodeSlot>,
     /// The outermost node, as of the last finished frame.
     ///
@@ -54,11 +150,16 @@ pub(crate) struct Tree {
     root: Option<NodeId>,
     /// The size of the rect the tree was given when it was last laid out.
     last_size: Vec2,
-    /// Was a node added during the frame being drawn?
+    /// Was a leaf added during the frame being drawn?
     ///
-    /// A new node drew in an invisible sizing pass, so it always needs a
-    /// second pass, whatever the layout says.
+    /// A new leaf drew in an invisible sizing pass, so it always needs a
+    /// second pass, whatever the layout says. Containers and `<Text>` nodes do
+    /// not set this: a container draws nothing of its own and a `<Text>` is
+    /// measured rather than drawn, so for those the layout comparison in
+    /// [`Tree::finish`] is the whole story.
     created_this_frame: bool,
+    /// The `<Text>` shapes claimed this frame, waiting for the final layout.
+    texts: Vec<PendingText>,
     /// The pass number of the last [`Tree::visit`], for the store's sweep.
     last_visited: u64,
 }
@@ -71,6 +172,7 @@ impl Tree {
             root: None,
             last_size: Vec2::ZERO,
             created_this_frame: false,
+            texts: Vec::new(),
             last_visited: 0,
         }
     }
@@ -118,9 +220,12 @@ impl Tree {
             }
             Entry::Vacant(entry) => {
                 first_frame = true;
-                self.created_this_frame = true;
                 let node = taffy.new_leaf(style).unwrap();
-                entry.insert(NodeSlot { node, keep: true });
+                entry.insert(NodeSlot {
+                    node,
+                    keep: true,
+                    fresh: true,
+                });
                 node
             }
         };
@@ -155,8 +260,88 @@ impl Tree {
     /// Record what a leaf measured. Only writes when it changed, because a
     /// write marks the node dirty.
     fn set_measure(&mut self, node: NodeId, measure: Measure) {
-        if self.taffy.get_node_context(node) != Some(&measure) {
-            self.taffy.set_node_context(node, Some(measure)).unwrap();
+        let same = matches!(self.taffy.get_node_context(node), Some(NodeCtx::Leaf(old)) if *old == measure);
+        if !same {
+            self.taffy
+                .set_node_context(node, Some(NodeCtx::Leaf(measure)))
+                .unwrap();
+        }
+    }
+
+    /// Record the text of a `<Text>` node, keeping the cached galley when
+    /// neither the job nor the wrap mode changed. Only writes when it changed,
+    /// because a write marks the node dirty.
+    fn set_text(&mut self, node: NodeId, job: Arc<LayoutJob>, hash: u64, wrap: bool) {
+        let same = matches!(
+            self.taffy.get_node_context(node),
+            Some(NodeCtx::Text(old)) if old.hash == hash && old.wrap == wrap
+        );
+        if !same {
+            self.taffy
+                .set_node_context(
+                    node,
+                    Some(NodeCtx::Text(TextCtx {
+                        job,
+                        hash,
+                        wrap,
+                        galley: None,
+                    })),
+                )
+                .unwrap();
+        }
+    }
+
+    /// The galley of a `<Text>` node at `wrap_width`, from its cache if it is
+    /// there. Only [`Tree::paint_texts`] calls this outside the measure
+    /// function.
+    fn text_galley(
+        &mut self,
+        node: NodeId,
+        fonts: Fonts<'_>,
+        wrap_width: f32,
+    ) -> Option<Arc<Galley>> {
+        match self.taffy.get_node_context_mut(node) {
+            Some(NodeCtx::Text(text)) => Some(text.galley(fonts, wrap_width)),
+            _ => None,
+        }
+    }
+
+    /// Where a node's content rect sits on screen, walking up to the root.
+    ///
+    /// [`TreeCx`] carries the origin down while the frame is drawn, but the
+    /// text shapes are filled in afterwards, from the layout as computed.
+    fn content_rect_of(&self, node: NodeId, root_min: Pos2) -> Rect {
+        let mut origin = Vec2::ZERO;
+        let mut parent = self.taffy.parent(node);
+        while let Some(node) = parent {
+            let location = self.taffy.layout(node).unwrap().location;
+            origin += egui::vec2(location.x, location.y);
+            parent = self.taffy.parent(node);
+        }
+        content_rect(self.taffy.layout(node).unwrap(), root_min + origin)
+    }
+
+    /// Put every `<Text>` claimed this frame into the shape it reserved.
+    ///
+    /// Runs after the layout is final, so the galley is painted where the node
+    /// ended up rather than where it was last frame.
+    fn paint_texts(&mut self, ui: &egui::Ui, root_min: Pos2) {
+        if self.texts.is_empty() {
+            return;
+        }
+        let fonts = Fonts::of(ui);
+        let painter = ui.painter();
+        for pending in std::mem::take(&mut self.texts) {
+            let rect = self.content_rect_of(pending.node, root_min);
+            let width = wrap_width(&rect, pending.wrap);
+            let Some(galley) = self.text_galley(pending.node, fonts, width) else {
+                continue;
+            };
+            let pos = galley_pos(&rect, &galley);
+            painter.set(
+                pending.idx,
+                egui::epaint::TextShape::new(pos, galley, pending.color),
+            );
         }
     }
 
@@ -172,7 +357,13 @@ impl Tree {
     /// whole tree was given; a leaf that says it is infinite in one direction
     /// is clamped to it. Ported from `egui_taffy` unchanged, so that existing
     /// layouts come out the same.
-    fn compute(&mut self, node: NodeId, available_space: Size<AvailableSpace>, root_size: Vec2) {
+    fn compute(
+        &mut self,
+        node: NodeId,
+        available_space: Size<AvailableSpace>,
+        root_size: Vec2,
+        fonts: Fonts<'_>,
+    ) {
         self.taffy
             .compute_layout_with_measure(
                 node,
@@ -183,11 +374,36 @@ impl Tree {
                  context,
                  _style|
                  -> Size<f32> {
-                    let context = context.copied().unwrap_or(Measure {
-                        min_size: Vec2::ZERO,
-                        max_size: Vec2::ZERO,
-                        infinite: Vec2b::FALSE,
-                    });
+                    // A `<Text>` is laid out here rather than measured after
+                    // drawing: the galley is what taffy is asking about, and
+                    // building it needs no `Ui`.
+                    if let Some(NodeCtx::Text(text)) = context {
+                        let wrap_width = if text.wrap {
+                            match available_space.width {
+                                AvailableSpace::Definite(width) => width,
+                                AvailableSpace::MinContent => 0.0,
+                                AvailableSpace::MaxContent => f32::INFINITY,
+                            }
+                        } else {
+                            f32::INFINITY
+                        };
+                        // `ceil`, as the leaf path does, so that a node holding
+                        // text is the size `egui::Label` in a leaf reported.
+                        let size = text.galley(fonts, wrap_width).size().ceil();
+                        return Size {
+                            width: size.x,
+                            height: size.y,
+                        };
+                    }
+
+                    let context = match context {
+                        Some(NodeCtx::Leaf(measure)) => *measure,
+                        _ => Measure {
+                            min_size: Vec2::ZERO,
+                            max_size: Vec2::ZERO,
+                            infinite: Vec2b::FALSE,
+                        },
+                    };
 
                     let Measure {
                         mut min_size,
@@ -245,7 +461,12 @@ impl Tree {
     ///
     /// Skipped when the tree is dirty: a measurement or a style changed, so
     /// the result would be thrown away by [`Tree::finish`] anyway.
-    fn layout_first_on_resize(&mut self, root_rect: Rect, available_space: Size<AvailableSpace>) {
+    fn layout_first_on_resize(
+        &mut self,
+        root_rect: Rect,
+        available_space: Size<AvailableSpace>,
+        fonts: Fonts<'_>,
+    ) {
         let Some(root) = self.root else {
             // First frame of this tree: there is no layout to reuse.
             return;
@@ -256,7 +477,7 @@ impl Tree {
         if self.taffy.dirty(root).unwrap() {
             return;
         }
-        self.compute(root, available_space, root_rect.size());
+        self.compute(root, available_space, root_rect.size(), fonts);
         self.last_size = root_rect.size();
     }
 
@@ -275,15 +496,35 @@ impl Tree {
         root: NodeId,
         root_rect: Rect,
         available_space: Size<AvailableSpace>,
-        ctx: &egui::Context,
+        fonts: Fonts<'_>,
     ) {
         self.root = Some(root);
+
+        // Whether the layout will be recomputed, decided before the sweep,
+        // because the sweep itself dirties the tree. Nothing the sweep is about
+        // to drop can make this wrong: a node it drops was already detached
+        // from its parent by `trim_children` while the frame was drawn, and
+        // that dirties the tree.
+        let compute = self.taffy.dirty(root).unwrap() || self.last_size != root_rect.size();
+
+        // The layout every node still in the tree was drawn with. "Drawn with"
+        // stays true when `layout_first_on_resize` already computed the layout
+        // at the top of the frame: every child read its rect after that
+        // computation. Nodes added during this frame are left out: taffy leaves
+        // a new node at zero, so comparing that with the computed layout would
+        // report a move for every one of them. A new node that *drew* is
+        // covered by `created` instead.
+        let mut old: Vec<(NodeId, Layout)> = Vec::new();
 
         let Self { taffy, nodes, .. } = self;
         let mut removed = false;
         nodes.retain(|_, slot| {
             if slot.keep {
                 slot.keep = false;
+                let fresh = std::mem::replace(&mut slot.fresh, false);
+                if compute && !fresh {
+                    old.push((slot.node, *taffy.layout(slot.node).unwrap()));
+                }
                 return true;
             }
             removed = true;
@@ -296,23 +537,12 @@ impl Tree {
 
         let created = std::mem::take(&mut self.created_this_frame);
 
-        if !self.taffy.dirty(root).unwrap() && self.last_size == root_rect.size() {
+        if !compute {
             return;
         }
 
-        // The layout every node still in the tree was drawn with. "Drawn with"
-        // stays true when `layout_first_on_resize` already computed the layout
-        // at the top of the frame: every child read its rect after that
-        // computation. It is taken here, not there, so that nodes created
-        // during the frame are included.
-        let old: Vec<(NodeId, Layout)> = self
-            .nodes
-            .values()
-            .map(|slot| (slot.node, *self.taffy.layout(slot.node).unwrap()))
-            .collect();
-
         self.last_size = root_rect.size();
-        self.compute(root, available_space, root_rect.size());
+        self.compute(root, available_space, root_rect.size(), fonts);
 
         let taffy = &self.taffy;
         let moved = old.iter().any(|(node, old)| {
@@ -327,7 +557,7 @@ impl Tree {
         // surviving nodes were drawn with, and it is already out of the map
         // above, so the comparison cannot tell what dropping it did.
         if created || removed || moved {
-            ctx.request_discard("egui-react: layout changed");
+            fonts.ctx.request_discard("egui-react: layout changed");
         }
     }
 }
@@ -508,8 +738,11 @@ impl TreeCx<'_> {
         if first_frame {
             // A node that has never been laid out has a zero rect, so its
             // first draw is a measurement: invisible, and in a sizing pass so
-            // that widgets ask for as little space as they can.
+            // that widgets ask for as little space as they can. That is the
+            // one reason a frame always needs a second pass, so it is recorded
+            // here rather than wherever a node happens to be created.
             builder = builder.sizing_pass().invisible();
+            self.tree.borrow_mut().created_this_frame = true;
         }
         let mut ui = self.root_ui.new_child(builder);
         let inner = f(&mut ui);
@@ -536,6 +769,126 @@ impl TreeCx<'_> {
 
         inner
     }
+
+    /// Add a `<Text>` node: a galley, a widget rect and nothing else.
+    ///
+    /// This is what [`crate::Cx::text`] does instead of putting an
+    /// `egui::Label` in a [`TreeCx::leaf`]. The two calls `Label` makes that
+    /// matter outside the picture — the widget rect and the `WidgetInfo` —
+    /// are made here as well, so hover, `egui_kittest` label queries and screen
+    /// readers still find the text. What is skipped is the child `Ui`, the text
+    /// selection state, and laying the galley out twice.
+    ///
+    /// The galley itself is built by the measure function (see [`TextCtx`]) and
+    /// painted by [`Tree::paint_texts`], after the layout is final.
+    pub(crate) fn text(
+        &mut self,
+        prefix: egui::Id,
+        scope: egui::Id,
+        style: taffy::Style,
+        text: egui::WidgetText,
+        wrap: bool,
+    ) -> egui::Response {
+        let index = self.next_index();
+        let (node, layout, _first_frame) = self.tree.borrow_mut().add_child_node(
+            prefix.with(index),
+            style,
+            Some(self.parent),
+            index,
+        );
+        let rect = content_rect(&layout, self.origin);
+
+        let (job, hash) = text_job(self.root_ui, text);
+        let fonts = Fonts::of(self.root_ui);
+        let galley = {
+            let mut tree = self.tree.borrow_mut();
+            tree.set_text(node, Arc::clone(&job), hash, wrap);
+            // Only for the widget rect below: the galley that is painted comes
+            // from `paint_texts`, after the layout is final. In the steady
+            // state the two are the same cache entry.
+            tree.text_galley(node, fonts, wrap_width(&rect, wrap))
+        };
+
+        // The rect `Label` allocates: the galley's own size, not the node's.
+        // A `<Text grow={1}>` fills its row, and the text inside it does not.
+        let rect = galley
+            .as_ref()
+            .map_or(rect, |galley| galley_rect(&rect, galley));
+
+        // The widget rect `Label` registers. `Sense::hover()`: a `<Text>` is
+        // not clickable and does not take focus, so nothing here is focusable
+        // and no id can clash.
+        let response = self
+            .root_ui
+            .interact(rect, scope.with(index), egui::Sense::hover());
+        let enabled = self.root_ui.is_enabled();
+        response
+            .widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, enabled, &job.text));
+
+        let color = self.root_ui.style().visuals.text_color();
+        let idx = self.root_ui.painter().add(egui::Shape::Noop);
+        self.tree.borrow_mut().texts.push(PendingText {
+            node,
+            idx,
+            color,
+            wrap,
+        });
+
+        response
+    }
+}
+
+/// The width a `<Text>` galley is laid out for inside `rect`.
+#[inline]
+fn wrap_width(rect: &Rect, wrap: bool) -> f32 {
+    if wrap { rect.width() } else { f32::INFINITY }
+}
+
+/// Where `egui::Label` puts the galley's top left corner inside the rect it
+/// was given, and how big the rect it allocates for it is.
+///
+/// `halign` is the galley's own: it says which edge of the rect the text is
+/// measured from, which is what `Label` reads it for too.
+fn galley_pos(rect: &Rect, galley: &Galley) -> Pos2 {
+    match galley.job.halign {
+        egui::Align::LEFT => rect.left_top(),
+        egui::Align::Center => rect.center_top(),
+        egui::Align::RIGHT => rect.right_top(),
+    }
+}
+
+/// The rect `egui::Label` would allocate for `galley` inside `rect`.
+fn galley_rect(rect: &Rect, galley: &Galley) -> Rect {
+    let size = galley.size();
+    let pos = galley_pos(rect, galley);
+    let min = match galley.job.halign {
+        egui::Align::LEFT => pos,
+        egui::Align::Center => pos - egui::vec2(size.x / 2.0, 0.0),
+        egui::Align::RIGHT => pos - egui::vec2(size.x, 0.0),
+    };
+    Rect::from_min_size(min, size)
+}
+
+/// The layout job `egui::Label` would build for `text` in a `Ui` of `ui`.
+///
+/// A copy of the non-wrapping branch of `Label::layout_in_ui`, minus the
+/// `wrap.max_width`, which each layout fills in from the width it is asked
+/// about. `ui` is the tree's own `Ui`: a leaf `Ui` inherits its style and its
+/// layout, so the two agree on the font, the alignment and the vertical
+/// alignment of the text.
+fn text_job(ui: &egui::Ui, text: egui::WidgetText) -> (Arc<LayoutJob>, u64) {
+    let valign = ui.text_valign();
+    let mut job = Arc::unwrap_or_clone(text.into_layout_job(
+        ui.style(),
+        egui::FontSelection::Default,
+        valign,
+    ));
+    let layout = ui.layout();
+    job.halign = layout.horizontal_placement();
+    job.justify = layout.horizontal_justify();
+
+    let hash = egui::epaint::util::hash(&job);
+    (Arc::new(job), hash)
 }
 
 /// Draw one tree, from the `Ui` it sits in.
@@ -572,7 +925,6 @@ pub(crate) fn show<R>(
         available_space.height = AvailableSpace::Definite(height);
     }
     let root_rect = ui.available_rect_before_wrap();
-    let ctx = ui.ctx().clone();
 
     let tree = store.tree(id);
     // A child `Ui`, as `egui_taffy` does, rather than the caller's own: this is
@@ -580,7 +932,7 @@ pub(crate) fn show<R>(
     let mut root_ui = ui.new_child(UiBuilder::new());
 
     tree.borrow_mut()
-        .layout_first_on_resize(root_rect, available_space);
+        .layout_first_on_resize(root_rect, available_space, Fonts::of(&root_ui));
 
     // The root node carries the container style the caller passed. It has no
     // parent, so it is never reordered, and its key is the tree's own id.
@@ -605,7 +957,10 @@ pub(crate) fn show<R>(
         // still attached. Every other node is trimmed before, and doing the
         // same here is one rule instead of two.
         tree.trim_children(root, used);
-        tree.finish(root, root_rect, available_space, &ctx);
+        tree.finish(root, root_rect, available_space, Fonts::of(&root_ui));
+        // After `finish`, so every galley lands where the layout for *this*
+        // frame puts it rather than where the last one did.
+        tree.paint_texts(&root_ui, root_rect.min);
         tree.layout(root).content_size
     };
     ui.allocate_space(egui::vec2(content_size.width, content_size.height));

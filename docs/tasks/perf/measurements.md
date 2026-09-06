@@ -538,3 +538,112 @@ time-to-live is a knob and picking its value from this benchmark would be
 tuning to the benchmark. Nothing else regressed: mean frame time is *better*
 on Resize too (0.311 → 0.247), because the twelve two-pass frames are cheaper
 than step C's three were.
+
+## After D2 (`<Text>` is a galley on a taffy node, not a `Label` in a `Ui`)
+
+Date: 2026-09-06. Same machine and conditions as above: native macOS arm64,
+Rust 1.95.0, release profile, egui 0.36.1, taffy 0.9.2. `<Text>` no longer puts
+an `egui::Label` in a leaf `Ui`: the galley is laid out inside the taffy measure
+function, painted straight onto the tree's own `Ui`, and registered with the
+widget rect and the `WidgetInfo` that `Label` writes. Code state: step D2
+uncommitted on top of `5a9f04a`. Samples in [samples-d2.csv](samples-d2.csv).
+One recorded run; a second run of the same build agreed to within 0.003 ms on
+every Virtual figure.
+
+Reproduce:
+
+```sh
+PERF_CSV="$PWD/docs/tasks/perf/samples-d2.csv" \
+  cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
+```
+
+| Scenario | Mode | Mean ms | p50 ms | p95 ms | Passes/frame | Discard frames /120 | Final rows | Row callbacks/frame |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Idle | All | 21.651 | 21.392 | 23.680 | 1.00 | 0 | 10000 | 10000.00 |
+| Idle | Virtual | 0.153 | 0.157 | 0.185 | 1.00 | 0 | 37 | 37.00 |
+| Idle | Plain | 0.116 | 0.114 | 0.140 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | All | 21.740 | 21.466 | 23.260 | 1.00 | 0 | 10000 | 10000.00 |
+| Scroll | Virtual | 0.214 | 0.221 | 0.257 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | Plain | 0.135 | 0.134 | 0.166 | 1.00 | 0 | 37 | 37.00 |
+| Filter | All | 41.527 | 8.893 | 162.080 | 1.60 | 72 | 1250–10000 | 7000.00 |
+| Filter | Virtual | 1.094 | 1.071 | 1.410 | 1.00 | 0 | 37 | 37.00 |
+| Filter | Plain | 1.025 | 0.996 | 1.304 | 1.00 | 0 | 37 | 37.00 |
+| Resize | All | 34.423 | 34.319 | 36.600 | 1.00 | 0 | 10000 | 10000.00 |
+| Resize | Virtual | 0.211 | 0.210 | 0.353 | 1.10 | 12 | 37–40 | 42.80 |
+| Resize | Plain | 0.133 | 0.131 | 0.154 | 1.00 | 0 | 37–40 | 38.90 |
+
+| Scenario | Virtual pass histogram (passes: frames) | Virtual discard requests |
+|---|---|---:|
+| Idle | 1: 120 | 0 |
+| Scroll | 1: 120 | 0 |
+| Filter | 1: 120 | 0 |
+| Resize | 1: 108, 2: 12 | 12 |
+
+### Virtual against Plain
+
+| Scenario | Virtual / Plain after D1 | Virtual / Plain after D2 |
+|---|---:|---:|
+| Idle | 1.43x | 1.32x |
+| Scroll | 1.59x | 1.59x |
+| Filter | 1.09x | 1.07x |
+| Resize | 1.72x | 1.59x |
+
+### Compared with step D1
+
+| Scenario | Passes/frame after D1 | Passes/frame after D2 | Virtual mean ms D1 → D2 |
+|---|---:|---:|---|
+| Idle | 1.00 | 1.00 | 0.160 → 0.153 |
+| Scroll | 1.00 | 1.00 | 0.221 → 0.214 |
+| Filter | 1.00 | 1.00 | 1.127 → 1.094 |
+| Resize | 1.10 | 1.10 | 0.247 → 0.211 |
+
+Plain moved 0.112 → 0.116 (Idle) and 0.144 → 0.133 (Resize) between the two
+recordings, so part of the Resize gain and none of the Idle gain is the machine.
+The pass behaviour is untouched: the same histograms, the same twelve Resize
+discard frames from D1's tree sweep, and every row body still runs once.
+
+A `<Row>` is a `<View>` holding two `<Text>` and one `<Button>`. In D1 it cost
+the tree's own `Ui` plus one per leaf: four. Now the two `<Text>` leaves open no
+`Ui` at all, so it costs two, and `<Text>` skips `Label`'s own work as well —
+the `Ui`'s placer, the allocation, the alignment, and the text selection state
+that `Label` runs for every label whether or not anything is selected.
+
+Where that shows and where it does not:
+
+- **Idle** falls to 1.32x, from 1.43x. This is the cleanest reading: no
+  computation, no new nodes, so what is left is the per node cost of one React
+  pass, and the two `Ui`s a row no longer builds are most of what went.
+- **Resize** falls to 1.59x, from 1.72x.
+- **Scroll** does not move (1.59x). A scrolled frame recomputes every row tree,
+  because the rect a row inside a `ScrollArea` is given changes height on every
+  frame, and D2 makes that computation slightly dearer: the text nodes are
+  measured inside it instead of before it. The `Ui`s saved and the measurement
+  added roughly cancel, so the whole D2 gain lands on the frames that do not
+  recompute. Idle 0.153 against Scroll 0.214 is that computation, 0.061 ms for
+  37 trees.
+- **Filter** was through the criterion already, and is now 1.07x.
+- **All** mode gains most of all, 26.7 → 21.7 ms per frame at Idle: it is one
+  tree with 20,000 `<Text>` in it, and every one of them used to open a `Ui`.
+
+Against task.md's 1.5x: Idle (1.32x), Filter (1.07x) pass; Scroll (1.59x) and
+Resize (1.59x) do not, both within a tenth of it.
+
+### What D2 changed about passes
+
+A `<Text>` is measured, not drawn: the galley is laid out while taffy asks the
+node for its size, so a new `<Text>` needs no invisible sizing pass and does not
+force a second one. Two rules follow from that and are now in the engine:
+
+- only a leaf that draws to be measured sets `created_this_frame`;
+- a node created during the frame takes no part in the "did anything move?"
+  comparison, because taffy leaves a new node at zero and there is no layout it
+  was drawn with.
+
+For that to be safe the text has to be painted where the node ends up, not where
+it was last frame, so `<Text>` claims its shape in the painter in draw order and
+fills it in after the layout is computed. A tree of `<View>` and `<Text>` alone
+is then right on its first frame and costs one pass
+(`crates/egui-react/tests/engine_text.rs`). A tree with any other widget in it
+still costs two, as before: that widget has to draw to be measured. This is why
+the twelve Resize frames are unchanged — a new `<VirtualList>` slot draws a
+`<Button>`.

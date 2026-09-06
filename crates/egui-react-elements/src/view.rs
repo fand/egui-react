@@ -51,6 +51,10 @@ pub fn View(
 /// The wrap mode defaults to `Extend`, so a `<Text>` inside a `<View>` reports
 /// its full width to taffy instead of collapsing into one character per line.
 /// Pass `wrap` to get egui's usual wrapping.
+///
+/// Inside a `<View>` this is a taffy node holding a galley rather than an
+/// `egui::Label` in a `Ui` of its own; see [`Cx::text`]. Outside one it is
+/// `ui.add(egui::Label::new(..))` and nothing else.
 #[component]
 pub fn Text(
     cx: &mut Cx,
@@ -71,12 +75,5 @@ pub fn Text(
     if strong {
         text = text.strong();
     }
-    let wrap_mode = if wrap {
-        egui::TextWrapMode::Wrap
-    } else {
-        egui::TextWrapMode::Extend
-    };
-    cx.leaf(&style, |ui| {
-        ui.add(egui::Label::new(text).wrap_mode(wrap_mode))
-    });
+    cx.text(&style, text, wrap);
 }
