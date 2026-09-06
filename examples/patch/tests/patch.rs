@@ -211,6 +211,26 @@ fn wiring_a_node_puts_it_in_the_shader() {
     );
 }
 
+/// A node's sockets sit one above the other on its left edge, and the lower
+/// one is its own target: a wire dropped on `mix1`'s second input lands there
+/// and not on the first.
+#[test]
+fn the_second_input_is_its_own_target() {
+    let mut harness = loaded();
+
+    wire(&mut harness, "shader1 out", "mix1 in 1");
+
+    let after = program(&mut harness);
+    assert!(
+        after.contains("let b = n2(uv);"),
+        "the second input reads shader1:\n{after}"
+    );
+    assert!(
+        after.contains("let a = n4(uv);"),
+        "and the first one is untouched:\n{after}"
+    );
+}
+
 /// P-3: a node's own state stays with the node.
 ///
 /// The same claim as `board`'s B-2, in a deeper tree: here the state is inside

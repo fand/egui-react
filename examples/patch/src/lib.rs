@@ -112,6 +112,14 @@ pub enum Port {
     Out,
 }
 
+/// Which edge of a node a socket sits on: inputs on the left, the output on
+/// the right, the way the wires run.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Side {
+    Left,
+    Right,
+}
+
 /// The drag session, `board`'s hook with a port at both ends: a port is picked
 /// up and another port is where it lands.
 pub type PortDnd = Dnd<PortRef, PortRef>;
@@ -124,10 +132,10 @@ pub type Actions = Dispatch<Undoable<Msg>>;
 
 /// Where every port was drawn this frame.
 ///
-/// A node's header is flexbox, so the middle of a port circle is not known
-/// until the node has been drawn — and the wires need all of them. The nodes
-/// write into this as they go and the canvas reads it afterwards, painting the
-/// wires into a shape slot it reserved before drawing anything.
+/// A node's ports are laid out by flexbox, so the middle of a port circle is
+/// not known until the node has been drawn — and the wires need all of them.
+/// The nodes write into this as they go and the canvas reads it afterwards,
+/// painting the wires into a shape slot it reserved before drawing anything.
 ///
 /// The `Rc<RefCell<_>>` is not decoration. This is written on every frame, and
 /// every write on `Handle` (`set`, `update`) asks for a repaint, which would
@@ -217,7 +225,7 @@ const NODE_W: f32 = 168.0;
 
 /// How much room a node's child `Ui` is given. The node draws its own frame
 /// and takes only the height it needs; this is the ceiling.
-const NODE_MAX_H: f32 = 260.0;
+const NODE_MAX_H: f32 = 300.0;
 
 /// The diameter of a port circle.
 const PORT: f32 = 12.0;
@@ -654,8 +662,8 @@ fn PatchCanvas(
     });
 }
 
-/// One node: a header that is also the drag handle, its ports, and the
-/// controls for whatever kind of node it is.
+/// One node: a header that is the drag handle, a row of sockets on the node's
+/// two edges, and the controls for whatever kind of node it is.
 ///
 /// `collapsed` and `hovered` belong to *this node*. Nothing above it knows
 /// they exist, nothing has to make room for them when a node is added, and
@@ -685,9 +693,9 @@ fn NodeView(
     let hint = match *hovered {
         Some(Port::Out) => String::from("out: drag to an input"),
         Some(Port::In(port)) if node.inputs[port].is_some() => {
-            format!("in {port}: click to unplug")
+            format!("{}: click to unplug", node.kind.input_label(port))
         }
-        Some(Port::In(port)) => format!("in {port}: black"),
+        Some(Port::In(port)) => format!("{}: black", node.kind.input_label(port)),
         None => String::new(),
     };
 
@@ -696,21 +704,12 @@ fn NodeView(
             fill={look.node}
             stroke={egui::Stroke::new(1.0, if selected { look.accent } else { look.edge })}
             corner_radius={6.0}
-            inner_margin={6.0}
+            // No inner margin: the sockets have to reach the node's edges, so
+            // the padding goes on the rows that are not the port row.
+            inner_margin={0.0}
         >
-            <View direction="column" w="100%" gap={4}>
-                <View direction="row" w="100%" gap={4} align="center">
-                    for port in 0..node.kind.inputs() {
-                        <PortDot
-                            key={port}
-                            node={node.id}
-                            port={Port::In(port)}
-                            label={format!("{} in {port}", node.name).as_str()}
-                            connected={node.inputs[port].is_some()}
-                            on_hover={|over: bool| set_hover(&mut hovered, Port::In(port), over)}
-                        />
-                    }
-
+            <View direction="column" w="100%" gap={4} py={6}>
+                <View direction="row" w="100%" gap={4} align="center" px={6}>
                     // The header strip is the drag handle, and one leaf is
                     // all a drag needs. `<Text>` would draw the same thing
                     // and hand back no `Response` (board 8.4).
@@ -789,33 +788,64 @@ fn NodeView(
                     >
                         {if open { "-" } else { "+" }}
                     </SmallButton>
+                </View>
+
+                // The sockets sit on the node's own edges, where the wires
+                // meet them: inputs down the left, the output on the right.
+                <View direction="row" w="100%" justify="space-between" align="start">
+                    // Enough room between the rows that two sockets are two
+                    // targets: the area that answers to the pointer is wider
+                    // than the circle.
+                    <View direction="column" gap={6}>
+                        for port in 0..node.kind.inputs() {
+                            <View key={port} direction="row" gap={4} align="center">
+                                <PortDot
+                                    node={node.id}
+                                    port={Port::In(port)}
+                                    side={Side::Left}
+                                    label={format!("{} in {port}", node.name).as_str()}
+                                    connected={node.inputs[port].is_some()}
+                                    on_hover={|over: bool| {
+                                        set_hover(&mut hovered, Port::In(port), over)
+                                    }}
+                                />
+                                <Text size={10.0}>{node.kind.input_label(port)}</Text>
+                            </View>
+                        }
+                    </View>
                     // The output has none: it is the end of the chain.
                     if node.kind != Kind::Output {
-                        <PortDot
-                            node={node.id}
-                            port={Port::Out}
-                            label={format!("{} out", node.name).as_str()}
-                            connected={used}
-                            on_hover={|over: bool| set_hover(&mut hovered, Port::Out, over)}
-                        />
+                        <View direction="row" gap={4} align="center">
+                            <Text size={10.0}>"out"</Text>
+                            <PortDot
+                                node={node.id}
+                                port={Port::Out}
+                                side={Side::Right}
+                                label={format!("{} out", node.name).as_str()}
+                                connected={used}
+                                on_hover={|over: bool| set_hover(&mut hovered, Port::Out, over)}
+                            />
+                        </View>
                     }
                 </View>
 
                 if open {
-                    <NodeBody node={node}/>
-                    <View direction="row" w="100%" gap={4} align="center">
-                        <Text grow={1.0} size={10.0}>{node.kind.name()}</Text>
-                        if node.kind != Kind::Output {
-                            <SmallButton
-                                label={format!("delete {}", node.name).as_str()}
-                                on_click={|| send(&actions, Msg::RemoveNode(node.id))}
-                            >"x"</SmallButton>
-                        }
+                    <View direction="column" w="100%" gap={4} px={6}>
+                        <NodeBody node={node}/>
+                        <View direction="row" w="100%" gap={4} align="center">
+                            <Text grow={1.0} size={10.0}>{node.kind.name()}</Text>
+                            if node.kind != Kind::Output {
+                                <SmallButton
+                                    label={format!("delete {}", node.name).as_str()}
+                                    on_click={|| send(&actions, Msg::RemoveNode(node.id))}
+                                >"x"</SmallButton>
+                            }
+                        </View>
                     </View>
                 }
 
                 if !hint.is_empty() {
-                    <Text size={10.0} color={look.accent}>{hint.as_str()}</Text>
+                    <Text size={10.0} px={6} color={look.accent}>{hint.as_str()}</Text>
                 }
             </View>
         </Frame>
@@ -847,6 +877,9 @@ fn PortDot(
     cx: &mut Cx,
     node: NodeId,
     port: Port,
+    // Which edge the circle straddles, which is what makes a wire arrive at
+    // the node instead of somewhere inside it.
+    side: Side,
     // What a screen reader — and a test — calls this socket. A painted circle
     // has no name of its own, so it is given one.
     label: &str,
@@ -859,33 +892,41 @@ fn PortDot(
     let look = look(cx.ctx());
     let dragging = dnd.carrying().is_some();
 
-    let (rect, response) = cx.leaf(&ItemStyle::default().shrink(0.0), |ui| {
-        let (rect, response) =
-            ui.allocate_exact_size(egui::Vec2::splat(PORT), egui::Sense::click_and_drag());
+    let (centre, hit, response) = cx.leaf(&ItemStyle::default().shrink(0.0), |ui| {
+        // The layout keeps `PORT` square of room, but the circle is drawn half
+        // outside it: its middle is on the node's edge, so a wire ends where
+        // the node does. Only the canvas clips, so painting past the node's
+        // own rectangle is allowed.
+        let (rect, placed) = ui.allocate_exact_size(egui::Vec2::splat(PORT), egui::Sense::hover());
+        let centre = match side {
+            Side::Left => rect.left_center(),
+            Side::Right => rect.right_center(),
+        };
+        // The circle is small and a pointer is not precise, so what answers to
+        // the pointer is a square around the circle rather than the space the
+        // layout gave it.
+        let hit = egui::Rect::from_center_size(centre, egui::Vec2::splat(PORT)).expand(PORT_PAD);
+        let response = ui.interact(hit, placed.id, egui::Sense::click_and_drag());
         let hot = response.hovered() || (dragging && response.contains_pointer());
         let fill = match (connected, hot) {
             (_, true) => look.accent,
             (true, false) => look.wire,
             (false, false) => look.canvas,
         };
-        ui.painter().circle(
-            rect.center(),
-            PORT * 0.35,
-            fill,
-            egui::Stroke::new(1.0, look.wire),
-        );
+        ui.painter()
+            .circle(centre, PORT * 0.35, fill, egui::Stroke::new(1.0, look.wire));
         // Nothing about a painted circle reaches the accessibility tree unless
         // it is said out loud.
         response.widget_info(|| {
             egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label)
         });
-        (rect, response)
+        (centre, hit, response)
     });
 
     // Where the wires are drawn from, this frame.
-    ports.put(PortRef { node, port }, rect.center());
+    ports.put(PortRef { node, port }, centre);
     // Only worth offering during a drag; `slot` checks that for itself.
-    dnd.slot(rect.expand(PORT_PAD), PortRef { node, port });
+    dnd.slot(hit, PortRef { node, port });
 
     if response.drag_started() {
         dnd.pick_up(PortRef { node, port });

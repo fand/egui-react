@@ -144,6 +144,18 @@ impl Kind {
         }
     }
 
+    /// What an input is called next to its socket.
+    ///
+    /// Only `Mix` needs more than "in": its two pictures are not
+    /// interchangeable, so they are named after the blend that reads them.
+    pub fn input_label(&self, port: usize) -> &'static str {
+        match self {
+            Self::Mix { .. } if port == 0 => "A",
+            Self::Mix { .. } => "B",
+            _ => "in",
+        }
+    }
+
     /// The parameters a new node of this kind starts with.
     pub fn defaults(&self) -> [f32; 4] {
         match self {
