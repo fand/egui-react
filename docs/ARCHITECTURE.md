@@ -16,6 +16,7 @@ React 風の書き方(JSX、関数コンポーネント、hooks)で egui アプ�
 - JS / TS の React を動かすこと。JS ランタイムは同梱しない。
 - React の意味論への忠実な再現。VDOM、reconciler、`memo()`、`useCallback` は作らない。
 - Signal 風の細粒度反応性。購読機構は持たない。
+- web でのスクリーンリーダー対応。egui / AccessKit の web 対応に依存する。egui はウィジェットツリーを AccessKit に出しており、native では OS のアクセシビリティ API に届くが、web ではそれを DOM に映す adapter が上流に無い(`docs/tasks/a11y/`)。要素のラベル(`Button` の `label`、`Image` の `alt`)は adapter が入った日にそのまま効くので、先に埋めてある。
 
 ## 2. 基本原理
 
@@ -323,10 +324,12 @@ Flexbox / Grid を一級市民にするため egui_taffy を採用する(0.14、
 | 種類 | 要素 |
 |---|---|
 | レイアウト | `View`(`display` / `direction` / `wrap` / `justify` / `align` / `align_content` / `gap` / `cols`)、`Text`(`size` / `color` / `strong` / `wrap`) |
-| ウィジェット | `Button`(`enabled`, `on_click`)、`Label`(`wrap`)、`TextEdit`(`bind` / `multiline` / `hint` / `desired_width` / `rows`, `on_change` / `on_submit`)、`Checkbox`(`bind` / `label`, `on_change`)、`Slider<T: Numeric>`(`bind` / `range` / `label`, `on_change`)、`ComboBox`(`bind` / `options` / `label`, `on_change`)、`Image`(`source` / `fit`)、`Separator`(`vertical`) |
+| ウィジェット | `Button`(`enabled` / `label`, `on_click`)、`Label`(`wrap`)、`TextEdit`(`bind` / `multiline` / `hint` / `desired_width` / `rows`, `on_change` / `on_submit`)、`Checkbox`(`bind` / `label`, `on_change`)、`Slider<T: Numeric>`(`bind` / `range` / `label`, `on_change`)、`ComboBox`(`bind` / `options` / `label`, `on_change`)、`Image`(`source` / `fit` / `alt`)、`Separator`(`vertical`) |
 | コンテナ | `ScrollArea`、`VirtualList`(`rows` / `row_h` / `render`)、`Collapsing`、`Frame`、`Window`(`title` / `open` / `resizable` / `default_pos` / `default_size`)、`Panel`(`side`)、`CentralPanel`、`Vertical`、`Horizontal`、`Grid` + `row()` |
 | 描画 | `Canvas`(`sense` / `paint`, `on_drag` / `on_hover`。taffy がくれた矩形をそのまま渡す leaf) |
 | 非同期 | `Suspense`(`fallback: impl View`、`shares_ui`。中の `use_future` が 1 つでも `Pending` なら children の代わりに `fallback` を描く。5.8) |
+
+`Button` の `label` と `Image` の `alt` は支援技術が読む名前である。`Button` の `label` は描くもの(children)を変えず、accesskit ノードの名前だけを差し替える(`Context::accesskit_node_builder`)。アイコンや `"x"` だけのボタンはそのままでは字面しか読まれないので渡す。`Image` の `alt` は `egui::Image::alt_text` に落ち、読み込みに失敗したときの ⚠ の隣にも描かれる。web での読み上げ自体は 1 章の非ゴールのとおり上流待ちだが、これらは native では今日から効く。
 
 `TextEdit` は taffy の中(`Cx::in_taffy()`)ではノードを埋める。単行は `desired_width` をノードの幅にし、`multiline` は `ui.add_sized(ui.available_size(), ..)` で縦横とも埋める(`desired_rows` だと行単位にしか合わず、端数がノードからはみ出す)。`grow` や `w` で広げたノードの中に egui 既定の 280pt / 4 行で描かれると残りが空くためである。`desired_width` / `rows` を明示した場合はそちらが勝つ。`Slider` / `ComboBox` / `Button` は今のところ伸びない(それぞれ `spacing.slider_width` / `spacing.combo_width` / 内容の幅のまま)。
 
@@ -381,6 +384,7 @@ egui は 0.36 系に固定する。egui 0.35 以降 `eframe::App::ui` が `&mut 
 
 - native / wasm / Android: eframe。wasm は trunk でビルドする。描画バックエンドは wgpu。**eframe 0.36 の既定 feature には `wgpu` が入っていて `glow` は入っていない**(0.35 までとは逆)ので、何もしなくても wgpu で描かれる。glow の方が opt-in になったため、選択のための feature は置かない。web は WebGPU 非対応のブラウザのために WebGL へ落ちる。`eframe/wgpu` → `egui-wgpu/default` → `wgpu/webgl` と伝播するので、こちらで `wgpu` を直接依存に取る必要は無い。
 - iOS: eframe は未対応(emilk/egui#3117 が open)。`egui-winit` + `egui-wgpu` の薄いランナーを `react-egui-app` 内に書く。ビルドは cargo-mobile2。
+- アクセシビリティ: native は eframe(egui-winit)が `Context::enable_accesskit` を呼び、ウィジェットツリーが OS のアクセシビリティ API に届く。**web では届かない。** eframe の web ランナーは毎フレームの `TreeUpdate` を `accesskit_update: _, // not currently implemented`(`eframe/src/web/app_runner.rs`)と捨てており、canvas の中身を DOM に映す adapter も上流に無い。方針と試作は `docs/tasks/a11y/`。
 - ライブラリ本体は `&mut egui::Ui` しか触らないので、プラットフォーム対応はランナー層とタッチ / IME の調整に閉じる。
 - 非同期の実行機構は core の `task::spawn` に閉じる(4 章「`use_future` の詳細」)。iOS / Android は native と同じスレッド経路を使う。
 

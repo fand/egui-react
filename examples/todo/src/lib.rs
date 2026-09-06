@@ -121,7 +121,8 @@ pub fn App(cx: &mut Cx) {
                         on_change={|_: bool| dispatch.send(Msg::Toggle(i))}
                     />
                     <Text grow={1.0}>{todo.text.as_str()}</Text>
-                    <Button on_click={|| dispatch.send(Msg::Remove(i))}>"x"</Button>
+                    // `label` is what a screen reader says; "x" is what is drawn.
+                    <Button label="remove" on_click={|| dispatch.send(Msg::Remove(i))}>"x"</Button>
                 </View>
             }
 

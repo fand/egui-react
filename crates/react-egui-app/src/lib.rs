@@ -8,6 +8,8 @@
 use react_egui::layout::{ContainerStyle, ItemStyle};
 use react_egui::{Cx, Store, View};
 
+pub mod a11y;
+
 /// The eframe storage key everything `use_persisted` holds is written under.
 const STORAGE_KEY: &str = "react_egui";
 

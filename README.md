@@ -48,7 +48,7 @@ The hooks, the elements and the layout attributes are listed in [docs/ARCHITECTU
 
 ## Examples
 
-Every example but one runs in the browser in the [gallery](https://fand.github.io/react-egui/), next to its source. Start with `showcase`, a small notes app that uses most of the library at once; the rest take one idea each. `shell` is standalone: a docked panel carves up the nearest enclosing `Ui`, which is the window, so there is nothing sensible for a gallery column to do with it. Some of them also have a version written with plain egui, so you can switch between the two and compare.
+Every example but one runs in the browser in the [gallery](https://fand.github.io/react-egui/), next to its source. Start with `showcase`, a small notes app that uses most of the library at once; the rest take one idea each. `shell` is standalone: a docked panel carves up the nearest enclosing `Ui`, which is the window, so there is nothing sensible for a gallery column to do with it. Some of them also have a version written with plain egui, so you can switch between the two and compare. The gallery draws to a canvas, so a screen reader cannot read it on the web — natively it can, and the widget names are there either way (`docs/tasks/a11y/`).
 
 ![The gallery: example list, the running example, and its source next to it](docs/gallery.png)
 

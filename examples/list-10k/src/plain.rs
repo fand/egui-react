@@ -104,7 +104,11 @@ pub fn ui(ui: &mut egui::Ui, state: &mut PlainState) {
                     );
                     ui.label(name);
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.button("x").clicked() {
+                        let button = ui.button("x");
+                        // `<Button label="remove">`, by hand.
+                        ui.ctx()
+                            .accesskit_node_builder(button.id, |node| node.set_label("remove"));
+                        if button.clicked() {
                             remove = Some(*i);
                         }
                     });
