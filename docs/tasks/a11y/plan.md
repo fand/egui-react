@@ -377,18 +377,18 @@ wasm の自動テストは `wasm-bindgen-test` で DOM の形(ノード数、`ro
 - `wasm-bindgen-test`(headless Chrome): `TreeUpdate` を手で作って `Adapter` に流し、DOM に期待どおりの要素と属性と座標が並ぶこと。差分更新でノードが増減すること。adapter は egui 非依存なので、このテストに egui は出てこない。
 - VoiceOver チェックリスト(macOS、Safari と Chrome の両方。gallery の counter / todo / form)。
 
-  **状態: まだ回していない。人間が要る。** 手順 10 までは headless Chrome で確かめられる範囲を全部確かめたが(6.10)、支援技術が実際にどう読むかは自動化できないと 4 章の頭に書いたとおりで、下の 8 行は人が VoiceOver を入れて触るまで空欄のままである。**F1 を続けるか F2 に落ちるかはこの表の結果で決まる**ので、手順 11 に進む前にここを埋める。1 と 2 が落ちるなら F2、通るなら F1 のまま上流に出せる。
+  **状態: 回した(2026-09-05、macOS)。8 項目とも通った。F1 で成立し、手順 11(F2、eframe fork)は不要。** 1 は最初 `Cmd+Option+→` を押していてブラウザのタブ切替になっただけで、VO キー(`Ctrl+Option`)で動いた。canvas が `role="application"` なので、VO カーソルが中に降りない場合は `VO+Shift+↓` で一段入る。ブラウザの版は未記録。
 
   | | 確かめること | 結果 |
   |---|---|---|
-  | 1 | VO+右矢印でウィジェットを順に読み、ボタン名が読まれる | 未 |
-  | 2 | Tab でフォーカスが移り、VoiceOver のカーソルが追随する | 未 |
-  | 3 | Enter / Space でボタンが押され、結果(カウンタの値)が読まれる | 未 |
-  | 4 | チェックボックスの「オン/オフ」が読まれ、切り替えられる | 未 |
-  | 5 | テキスト欄に入力でき、入力した値が読まれる | 未 |
-  | 6 | スライダーの値が読まれ、矢印キーで動かせる | 未 |
-  | 7 | ミラーがマウス操作を邪魔していない(`pointer-events`。Flutter が [#188859](https://github.com/flutter/flutter/issues/188859) / [#160560](https://github.com/flutter/flutter/issues/160560) で踏んでいる穴) | 未 |
-  | 8 | フォーカスされているノードが**目でも**分かる(egui 側のフォーカスリングが出ている)。Flutter web は透明なミラーのせいでこれが出ず、[#186044](https://github.com/flutter/flutter/issues/186044) が open のまま | 未 |
+  | 1 | VO+右矢印でウィジェットを順に読み、ボタン名が読まれる | ○ |
+  | 2 | Tab でフォーカスが移り、VoiceOver のカーソルが追随する | ○ |
+  | 3 | Enter / Space でボタンが押され、結果(カウンタの値)が読まれる | ○ |
+  | 4 | チェックボックスの「オン/オフ」が読まれ、切り替えられる | ○ |
+  | 5 | テキスト欄に入力でき、入力した値が読まれる | ○ |
+  | 6 | スライダーの値が読まれ、矢印キーで動かせる | ○ |
+  | 7 | ミラーがマウス操作を邪魔していない(`pointer-events`。Flutter が [#188859](https://github.com/flutter/flutter/issues/188859) / [#160560](https://github.com/flutter/flutter/issues/160560) で踏んでいる穴) | ○ |
+  | 8 | フォーカスされているノードが**目でも**分かる(egui 側のフォーカスリングが出ている)。Flutter web は透明なミラーのせいでこれが出ず、[#186044](https://github.com/flutter/flutter/issues/186044) が open のまま | ○ |
 
   読み上げの様子は動画に録って上流の issue に貼る。
 
@@ -515,7 +515,7 @@ counter と custom-hook のボタン。名前は空ではない(「プラス」�
 
 **残っている穴。**
 
-- **VoiceOver の実機は未確認**(4 章)。F1 / F2 の判定はそこで初めて付く。
+- **VoiceOver の実機は 8 項目とも通った**(4 章)。F1 のまま上流に出す。
 - `Role::MultilineTextInput` は `<div role="textbox">` のまま。`<textarea>` にするかは、テキスト欄の読み上げを一度見てから決める。
 - form の slider の隣に出る `SpinButton`(egui の `DragValue`)は `step` がドラッグの刻み(1.12…)になる。矢印キーで動かす分には粗すぎるので、`numeric_value_step` を使うかどうかは role ごとに分ける余地がある。
 - `aria-owns` はミラーを canvas の下に付け替えるので、canvas 自身の子(将来 eframe が何か置いたら)との順序は保証しない。
