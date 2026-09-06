@@ -645,6 +645,14 @@ pub(crate) struct TreeCx<'u> {
     parent: NodeId,
     /// Where `parent`'s border box sits on screen.
     origin: Pos2,
+    /// Is `origin` a place a layout computation actually put `parent`?
+    ///
+    /// False while any node between the tree root and here was created during
+    /// this frame: taffy leaves a new node at zero, so everything below it is
+    /// drawn at a position this frame's computation is about to change. A
+    /// `<Text>` reads this to decide whether it may paint itself right away
+    /// (see [`TreeCx::text`]).
+    placed: bool,
     /// How many children have been added under `parent` so far.
     child_index: &'u mut usize,
 }
@@ -657,6 +665,7 @@ impl TreeCx<'_> {
             root_ui: self.root_ui,
             parent: self.parent,
             origin: self.origin,
+            placed: self.placed,
             child_index: self.child_index,
         }
     }
@@ -689,7 +698,7 @@ impl TreeCx<'_> {
         f: impl FnOnce(&mut TreeCx<'_>) -> R,
     ) -> R {
         let index = self.next_index();
-        let (node, layout, _first_frame) =
+        let (node, layout, first_frame) =
             self.tree
                 .borrow_mut()
                 .add_child_node(key, style, Some(self.parent), index);
@@ -702,6 +711,7 @@ impl TreeCx<'_> {
                 root_ui: self.root_ui,
                 parent: node,
                 origin,
+                placed: self.placed && !first_frame,
                 child_index: &mut used,
             };
             f(&mut child)
@@ -773,14 +783,33 @@ impl TreeCx<'_> {
     /// Add a `<Text>` node: a galley, a widget rect and nothing else.
     ///
     /// This is what [`crate::Cx::text`] does instead of putting an
-    /// `egui::Label` in a [`TreeCx::leaf`]. The two calls `Label` makes that
-    /// matter outside the picture — the widget rect and the `WidgetInfo` —
-    /// are made here as well, so hover, `egui_kittest` label queries and screen
-    /// readers still find the text. What is skipped is the child `Ui`, the text
-    /// selection state, and laying the galley out twice.
+    /// `egui::Label` in a [`TreeCx::leaf`]. The calls `Label` makes that matter
+    /// outside the picture — the widget rect, the `WidgetInfo` and the text
+    /// selection state — are made here as well, so hover, `egui_kittest` label
+    /// queries, screen readers and dragging to select all still work. What is
+    /// skipped is the child `Ui` and laying the galley out twice.
     ///
-    /// The galley itself is built by the measure function (see [`TextCtx`]) and
-    /// painted by [`Tree::paint_texts`], after the layout is final.
+    /// `selectable` follows `egui::Label::selectable`: `None` means the style's
+    /// `interaction.selectable_labels`.
+    ///
+    /// There are two paint paths, and which one runs depends on whether the
+    /// node's place on screen is already known:
+    ///
+    /// - **Placed** (this node and every node above it existed before this
+    ///   frame): the galley is painted here, in draw order, through
+    ///   `LabelSelectionState::label_text_selection`, which adds the shape
+    ///   itself. If the layout computed at the end of the frame moves the node
+    ///   after all, that counts as a move and the frame is discarded and drawn
+    ///   again, so the paint is never left in the wrong place.
+    /// - **Not placed** (created this frame, or under a container created this
+    ///   frame): taffy leaves a new node at zero, so there is no position to
+    ///   paint at yet. The shape's slot is claimed with a `Noop` and filled in
+    ///   by [`Tree::paint_texts`] once the layout is final. That is what lets a
+    ///   new `<View>` / `<Text>` tree be right on its first frame; the cost is
+    ///   that the text is not selectable for that one frame.
+    ///
+    /// A non-selectable `<Text>` always takes the second path: it is cheaper,
+    /// and it needs nothing from the selection state.
     pub(crate) fn text(
         &mut self,
         prefix: egui::Id,
@@ -788,51 +817,94 @@ impl TreeCx<'_> {
         style: taffy::Style,
         text: egui::WidgetText,
         wrap: bool,
+        selectable: Option<bool>,
     ) -> egui::Response {
         let index = self.next_index();
-        let (node, layout, _first_frame) = self.tree.borrow_mut().add_child_node(
+        let (node, layout, first_frame) = self.tree.borrow_mut().add_child_node(
             prefix.with(index),
             style,
             Some(self.parent),
             index,
         );
-        let rect = content_rect(&layout, self.origin);
+        let content = content_rect(&layout, self.origin);
 
         let (job, hash) = text_job(self.root_ui, text);
         let fonts = Fonts::of(self.root_ui);
         let galley = {
             let mut tree = self.tree.borrow_mut();
             tree.set_text(node, Arc::clone(&job), hash, wrap);
-            // Only for the widget rect below: the galley that is painted comes
-            // from `paint_texts`, after the layout is final. In the steady
-            // state the two are the same cache entry.
-            tree.text_galley(node, fonts, wrap_width(&rect, wrap))
+            // For the widget rect below, and for the immediate paint path. On
+            // the deferred path the galley that is painted comes from
+            // `paint_texts`, after the layout is final; in the steady state the
+            // two are the same cache entry.
+            tree.text_galley(node, fonts, wrap_width(&content, wrap))
         };
 
         // The rect `Label` allocates: the galley's own size, not the node's.
         // A `<Text grow={1}>` fills its row, and the text inside it does not.
         let rect = galley
             .as_ref()
-            .map_or(rect, |galley| galley_rect(&rect, galley));
+            .map_or(content, |galley| galley_rect(&content, galley));
 
-        // The widget rect `Label` registers. `Sense::hover()`: a `<Text>` is
-        // not clickable and does not take focus, so nothing here is focusable
-        // and no id can clash.
-        let response = self
-            .root_ui
-            .interact(rect, scope.with(index), egui::Sense::hover());
+        let selectable =
+            selectable.unwrap_or_else(|| self.root_ui.style().interaction.selectable_labels);
+
+        // The sense `Label` picks. A plain `<Text>` is inert; a selectable one
+        // takes the clicks and drags that start and extend a selection, minus
+        // `FOCUSABLE`, so the TAB key still walks past it.
+        let sense = if selectable {
+            // On a touch screen, dragging scrolls the enclosing `ScrollArea`
+            // rather than selecting, exactly as `Label` decides it.
+            let allow_drag_to_select = self.root_ui.input(|i| !i.has_touch_screen());
+            let mut select_sense = if allow_drag_to_select {
+                egui::Sense::click_and_drag()
+            } else {
+                egui::Sense::click()
+            };
+            select_sense -= egui::Sense::FOCUSABLE;
+            egui::Sense::hover() | select_sense
+        } else {
+            egui::Sense::hover()
+        };
+
+        // The widget rect `Label` registers.
+        let response = self.root_ui.interact(rect, scope.with(index), sense);
         let enabled = self.root_ui.is_enabled();
         response
             .widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, enabled, &job.text));
 
+        // `Label`'s colour. Its `interactive` flag is true only when the caller
+        // asked for a sense of its own, which `<Text>` never does, so a
+        // selectable `<Text>` is coloured like an inert one and does not change
+        // colour under the pointer. The cursor is what says it is selectable.
         let color = self.root_ui.style().visuals.text_color();
-        let idx = self.root_ui.painter().add(egui::Shape::Noop);
-        self.tree.borrow_mut().texts.push(PendingText {
-            node,
-            idx,
-            color,
-            wrap,
-        });
+
+        match galley.filter(|_| selectable && self.placed && !first_frame) {
+            Some(galley) => {
+                let underline = if response.has_focus() || response.highlighted() {
+                    egui::Stroke::new(1.0, color)
+                } else {
+                    egui::Stroke::NONE
+                };
+                egui::text_selection::LabelSelectionState::label_text_selection(
+                    self.root_ui,
+                    &response,
+                    galley_pos(&content, &galley),
+                    galley,
+                    color,
+                    underline,
+                );
+            }
+            None => {
+                let idx = self.root_ui.painter().add(egui::Shape::Noop);
+                self.tree.borrow_mut().texts.push(PendingText {
+                    node,
+                    idx,
+                    color,
+                    wrap,
+                });
+            }
+        }
 
         response
     }
@@ -936,7 +1008,7 @@ pub(crate) fn show<R>(
 
     // The root node carries the container style the caller passed. It has no
     // parent, so it is never reordered, and its key is the tree's own id.
-    let (root, root_layout, _first_frame) = tree.borrow_mut().add_child_node(id, style, None, 0);
+    let (root, root_layout, first_frame) = tree.borrow_mut().add_child_node(id, style, None, 0);
 
     let mut used = 0usize;
     let inner = {
@@ -945,6 +1017,7 @@ pub(crate) fn show<R>(
             root_ui: &mut root_ui,
             parent: root,
             origin: border_box_min(&root_layout, root_rect.min),
+            placed: !first_frame,
             child_index: &mut used,
         };
         f(&mut tc)

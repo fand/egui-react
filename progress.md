@@ -70,19 +70,26 @@ Known pre-existing: `cargo fmt --all -- --check` fails on ~30 untouched files
 Decision D was taken: replace egui_taffy with an own layout engine over taffy.
 Plan: [docs/tasks/perf/plan-d.md](docs/tasks/perf/plan-d.md). Numbers in
 [measurements.md](docs/tasks/perf/measurements.md) ("After D1", "After D2",
-"Summary D").
+"After D2b", "Summary D").
 
 | Step | Commit | Result |
 |---|---|---|
 | D1: `crates/egui-react/src/engine.rs`, `Cx` on it, trees in the `Store`, egui_taffy and `[patch]` removed | `5a9f04a` | A row costs 3 egui `Ui`s instead of 9. Idle 0.241 -> 0.160 ms, 1.96x -> 1.43x Plain. |
 | D2: `<Text>` is a galley on the node, not a `Label` in a `Ui` | `bf8d2f2` | A row costs 2. Idle 0.153 ms, 1.32x. All-rows idle 27 -> 22 ms. |
 | D3: docs (ARCHITECTURE 3.1 / 5.3 / 6 / 7 / 11, README, task.md result, this block) | this commit | – |
+| D2b: text selection back on the engine's `<Text>` | uncommitted | Idle 0.152 ms, 1.29x. Selection costs nothing measurable. |
 
-After D2, VirtualList / Plain: Idle **1.32x**, Filter **1.07x**, Scroll 1.59x,
-Resize 1.59x. Two of the four are through task.md's 1.5x; the other two miss by
-0.09x. Passes per frame: 1.00 everywhere except Resize at 1.10. Gallery
-snapshots byte-identical through both steps. The web and 120-Hz criteria are
+After D2b, VirtualList / Plain: Idle **1.29x**, Filter **1.07x**, Scroll 1.61x,
+Resize 1.58x. Two of the four are through task.md's 1.5x; the other two miss by
+about 0.1x. Passes per frame: 1.00 everywhere except Resize at 1.10. Gallery
+snapshots byte-identical through all of it. The web and 120-Hz criteria are
 still unmeasured.
+
+Text selection follows `interaction.selectable_labels` exactly as
+`egui::Label` does, and `<Text selectable={false}>` turns it off. A `<Text>`
+drawn for the first time is not selectable for that one frame: it has no place
+on screen until the layout is computed, so it keeps D2's deferred paint for
+that frame and paints itself through `LabelSelectionState` from the next one.
 
 Follow-ups, neither done (measurements.md, "What remains"): keep a swept tree
 for a grace period, which gives Resize back its 1.02 passes; give

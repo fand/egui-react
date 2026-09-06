@@ -67,7 +67,7 @@ fn frame(ctx: &egui::Context, store: &mut Store, with_leaf: bool) -> FrameResult
             let store: &Store = store;
             let mut cx = Cx::new(store, &mut root, egui::Id::new("root"));
             cx.root_container(egui::Id::new("column"), root_style(), |cx| {
-                cx.text(&ItemStyle::default(), "hello".into(), false);
+                cx.text(&ItemStyle::default(), "hello".into(), false, None);
                 if with_leaf {
                     cx.leaf(&ItemStyle::default(), |ui| {
                         ui.label("beside");

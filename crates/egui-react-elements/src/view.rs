@@ -55,7 +55,13 @@ pub fn View(
 /// Inside a `<View>` this is a taffy node holding a galley rather than an
 /// `egui::Label` in a `Ui` of its own; see [`Cx::text`]. Outside one it is
 /// `ui.add(egui::Label::new(..))` and nothing else.
+///
+/// `selectable` is `egui::Label::selectable`: leave it off to follow the
+/// style's `interaction.selectable_labels`, which is what a `Label` does. A
+/// `<Text>` drawn for the first time is not selectable until the next frame,
+/// because its place on screen is only known once the layout is computed.
 #[component]
+#[allow(clippy::too_many_arguments)]
 pub fn Text(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
@@ -63,6 +69,7 @@ pub fn Text(
     color: Option<egui::Color32>,
     #[prop(default)] strong: bool,
     #[prop(default)] wrap: bool,
+    selectable: Option<bool>,
     children: impl Into<egui::WidgetText>,
 ) {
     let mut text: egui::WidgetText = children.into();
@@ -75,5 +82,5 @@ pub fn Text(
     if strong {
         text = text.strong();
     }
-    cx.text(&style, text, wrap);
+    cx.text(&style, text, wrap, selectable);
 }

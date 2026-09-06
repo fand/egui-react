@@ -606,7 +606,9 @@ A `<Row>` is a `<View>` holding two `<Text>` and one `<Button>`. In D1 it cost
 the tree's own `Ui` plus one per leaf: four. Now the two `<Text>` leaves open no
 `Ui` at all, so it costs two, and `<Text>` skips `Label`'s own work as well —
 the `Ui`'s placer, the allocation, the alignment, and the text selection state
-that `Label` runs for every label whether or not anything is selected.
+that `Label` runs for every label whether or not anything is selected. (The
+selection state came back in D2b below, and cost nothing measurable; the `Ui`s
+are the part that mattered.)
 
 Where that shows and where it does not:
 
@@ -648,6 +650,90 @@ still costs two, as before: that widget has to draw to be measured. This is why
 the twelve Resize frames are unchanged — a new `<VirtualList>` slot draws a
 `<Button>`.
 
+## After D2b (text selection back on the engine's `<Text>`)
+
+Date: 2026-09-06. Same machine and conditions as above: native macOS arm64,
+Rust 1.95.0, release profile, egui 0.36.1, taffy 0.9.2. D2 dropped `Label`'s
+text selection; D2b puts it back. A `<Text>` now takes the sense `Label` takes
+(`click_and_drag` minus `FOCUSABLE` when selectable), and a `<Text>` whose place
+on screen is already known paints itself in draw order through
+`LabelSelectionState::label_text_selection` instead of adding a bare
+`TextShape`. A `<Text>` created this frame keeps D2's deferred paint for that
+one frame, so a new `<View>` / `<Text>` tree is still right in one pass. Code
+state: step D2b uncommitted on top of `2c1a3ac`. Samples in
+[samples-d2b.csv](samples-d2b.csv). One recorded run; a second run of the same
+build agreed to within 0.006 ms on every Virtual figure but Resize, which moved
+0.016 ms while its `Plain` moved 0.012 ms the same way.
+
+Reproduce:
+
+```sh
+PERF_CSV="$PWD/docs/tasks/perf/samples-d2b.csv" \
+  cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
+```
+
+| Scenario | Mode | Mean ms | p50 ms | p95 ms | Passes/frame | Discard frames /120 | Final rows | Row callbacks/frame |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Idle | All | 22.020 | 21.846 | 23.729 | 1.00 | 0 | 10000 | 10000.00 |
+| Idle | Virtual | 0.152 | 0.156 | 0.182 | 1.00 | 0 | 37 | 37.00 |
+| Idle | Plain | 0.118 | 0.116 | 0.140 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | All | 21.975 | 21.733 | 23.833 | 1.00 | 0 | 10000 | 10000.00 |
+| Scroll | Virtual | 0.216 | 0.220 | 0.266 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | Plain | 0.134 | 0.131 | 0.172 | 1.00 | 0 | 37 | 37.00 |
+| Filter | All | 42.386 | 9.361 | 162.953 | 1.60 | 72 | 1250–10000 | 7000.00 |
+| Filter | Virtual | 1.102 | 1.070 | 1.403 | 1.00 | 0 | 37 | 37.00 |
+| Filter | Plain | 1.032 | 1.004 | 1.323 | 1.00 | 0 | 37 | 37.00 |
+| Resize | All | 34.255 | 34.157 | 36.248 | 1.00 | 0 | 10000 | 10000.00 |
+| Resize | Virtual | 0.217 | 0.213 | 0.347 | 1.10 | 12 | 37–40 | 42.80 |
+| Resize | Plain | 0.137 | 0.134 | 0.174 | 1.00 | 0 | 37–40 | 38.90 |
+
+| Scenario | Virtual pass histogram (passes: frames) | Virtual discard requests |
+|---|---|---:|
+| Idle | 1: 120 | 0 |
+| Scroll | 1: 120 | 0 |
+| Filter | 1: 120 | 0 |
+| Resize | 1: 108, 2: 12 | 12 |
+
+### Virtual against Plain
+
+| Scenario | Virtual / Plain after D2 | Virtual / Plain after D2b |
+|---|---:|---:|
+| Idle | 1.32x | 1.29x |
+| Scroll | 1.59x | 1.61x |
+| Filter | 1.07x | 1.07x |
+| Resize | 1.59x | 1.58x |
+
+### What selection costs per frame
+
+| Scenario | Virtual mean ms D2 → D2b | Plain mean ms D2 → D2b |
+|---|---|---|
+| Idle | 0.153 → 0.152 | 0.116 → 0.118 |
+| Scroll | 0.214 → 0.216 | 0.135 → 0.134 |
+| Filter | 1.094 → 1.102 | 1.025 → 1.032 |
+| Resize | 0.211 → 0.217 | 0.133 → 0.137 |
+
+Nothing here is a cost. Every Virtual move is at most 0.008 ms, `Plain` moved
+by the same amount in the same direction on three of the four scenarios, and
+the two D2b runs of the *same* build differ by as much. The benchmark's rows
+are the case that matters: the `<Text>` nodes of the 37 visible rows exist
+before the frame, so all 74 of them run the placed path and call
+`label_text_selection` every frame. So the honest statement is an upper bound:
+selection costs less than this benchmark's noise floor, about 0.01 ms per
+frame, which over 74 texts is 0.0001 ms each.
+
+That is the expected shape. `label_text_selection` on a label with nothing
+selected reads the pointer position, finds no cursor range for the widget, and
+adds the same `TextShape` the fast path added. The work D2 removed was the
+`Ui`s, not the selection state.
+
+The pass behaviour is untouched: the same histograms, the same twelve Resize
+discard frames, every row body still runs once. It has to be, and the engine is
+what makes it so — an immediate paint sits at the layout the node was drawn
+with, and a layout that moves is already a discard, so the picture can never be
+left stale. Rule B still holds as well: a text whose galley changed but whose
+rect did not still does not discard, because nothing about the paint path
+touches the "did anything move?" comparison.
+
 ## Summary D
 
 Every number is already above; this is the whole sequence in one place.
@@ -655,49 +741,52 @@ Every number is already above; this is the whole sequence in one place.
 the same machine. Timings drift a few percent between runs and `Plain` drifts
 with them, so passes per frame and the ratio are the stable signal.
 
-| Scenario | Baseline | A | B | C | D1 | D2 |
-|---|---:|---:|---:|---:|---:|---:|
-| Idle | 0.225 / 1.00 | 0.222 / 1.00 | 0.225 / 1.00 | 0.241 / 1.00 | 0.160 / 1.00 | 0.153 / 1.00 |
-| Scroll | 0.452 / 2.00 | 0.466 / 2.00 | 0.298 / 1.00 | 0.303 / 1.00 | 0.221 / 1.00 | 0.214 / 1.00 |
-| Filter | 1.528 / 1.60 | 1.263 / 1.60 | 1.158 / 1.00 | 1.222 / 1.00 | 1.127 / 1.00 | 1.094 / 1.00 |
-| Resize | 0.662 / 2.98 | 0.653 / 2.98 | 0.649 / 2.98 | 0.311 / 1.02 | 0.247 / 1.10 | 0.211 / 1.10 |
+| Scenario | Baseline | A | B | C | D1 | D2 | D2b |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Idle | 0.225 / 1.00 | 0.222 / 1.00 | 0.225 / 1.00 | 0.241 / 1.00 | 0.160 / 1.00 | 0.153 / 1.00 | 0.152 / 1.00 |
+| Scroll | 0.452 / 2.00 | 0.466 / 2.00 | 0.298 / 1.00 | 0.303 / 1.00 | 0.221 / 1.00 | 0.214 / 1.00 | 0.216 / 1.00 |
+| Filter | 1.528 / 1.60 | 1.263 / 1.60 | 1.158 / 1.00 | 1.222 / 1.00 | 1.127 / 1.00 | 1.094 / 1.00 | 1.102 / 1.00 |
+| Resize | 0.662 / 2.98 | 0.653 / 2.98 | 0.649 / 2.98 | 0.311 / 1.02 | 0.247 / 1.10 | 0.211 / 1.10 | 0.217 / 1.10 |
 
 `Plain` on the same runs, mean ms (one pass per frame throughout):
 
-| Scenario | Baseline | A | B | C | D1 | D2 |
-|---|---:|---:|---:|---:|---:|---:|
-| Idle | 0.124 | 0.114 | 0.113 | 0.123 | 0.112 | 0.116 |
-| Scroll | 0.153 | 0.149 | 0.146 | 0.146 | 0.139 | 0.135 |
-| Filter | 1.286 | 1.021 | 1.014 | 1.065 | 1.038 | 1.025 |
-| Resize | 0.153 | 0.147 | 0.149 | 0.153 | 0.144 | 0.133 |
+| Scenario | Baseline | A | B | C | D1 | D2 | D2b |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Idle | 0.124 | 0.114 | 0.113 | 0.123 | 0.112 | 0.116 | 0.118 |
+| Scroll | 0.153 | 0.149 | 0.146 | 0.146 | 0.139 | 0.135 | 0.134 |
+| Filter | 1.286 | 1.021 | 1.014 | 1.065 | 1.038 | 1.025 | 1.032 |
+| Resize | 0.153 | 0.147 | 0.149 | 0.153 | 0.144 | 0.133 | 0.137 |
 
 `<VirtualList>` / `Plain`, against task.md's 1.5x:
 
-| Scenario | Baseline | A | B | C | D1 | D2 |
-|---|---:|---:|---:|---:|---:|---:|
-| Idle | 1.81x | 1.95x | 1.99x | 1.96x | 1.43x | **1.32x** |
-| Scroll | 2.95x | 3.13x | 2.04x | 2.08x | 1.59x | 1.59x |
-| Filter | 1.19x | 1.24x | 1.14x | 1.15x | 1.09x | **1.07x** |
-| Resize | 4.33x | 4.44x | 4.36x | 2.03x | 1.72x | 1.59x |
+| Scenario | Baseline | A | B | C | D1 | D2 | D2b |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Idle | 1.81x | 1.95x | 1.99x | 1.96x | 1.43x | **1.32x** | **1.29x** |
+| Scroll | 2.95x | 3.13x | 2.04x | 2.08x | 1.59x | 1.59x | 1.61x |
+| Filter | 1.19x | 1.24x | 1.14x | 1.15x | 1.09x | **1.07x** | **1.07x** |
+| Resize | 4.33x | 4.44x | 4.36x | 2.03x | 1.72x | 1.59x | 1.58x |
 
 Steps: A slot-keyed `<VirtualList>` row trees; B the egui_taffy fork skips the
 discard when the layout did not move; C the same fork computes the layout
 before drawing on a root resize; D1 the own engine over taffy, with B and C
 built in and a container node as a rect instead of a `Ui`; D2 `<Text>` as a
-galley on the node instead of a `Label` in a `Ui`.
+galley on the node instead of a `Label` in a `Ui`; D2b text selection back on
+that `<Text>`, which costs nothing measurable. D2 and D2b differ by less than
+one run of noise, so the D2b column is a repeat measurement of D2 as much as a
+step of its own.
 
 ### What remains
 
-Idle and Filter are through the criterion. Scroll and Resize sit at 1.59x, a
-tenth over it, and each has one identified cause.
+Idle and Filter are through the criterion. Scroll (1.61x) and Resize (1.58x)
+sit about a tenth over it, and each has one identified cause.
 
 **Scroll** is the per-frame recompute of every row tree. A row inside a
 `ScrollArea` is handed a rect that runs from the row down to the bottom of the
 viewport, so its root rect is a different height on every scrolled frame and
 every one of the 37 trees recomputes, even though the layout that comes out is
 the one the nodes were already drawn with. The discard is skipped (step B), but
-the computation is not: idle 0.153 against scroll 0.214 ms is that
-computation, 0.061 ms for 37 trees. **Resize** is the 1.10 passes per frame:
+the computation is not: idle 0.152 against scroll 0.216 ms is that
+computation, 0.064 ms for 37 trees. **Resize** is the 1.10 passes per frame:
 the tree sweep in `Store::end_pass` drops a tree nothing drew in the pass, and
 the resize scenario grows and shrinks the visible row count four times, so the
 three extra slot trees are rebuilt on every cycle — 12 two-pass frames instead

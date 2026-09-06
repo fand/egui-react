@@ -10,7 +10,7 @@ sequence and what remains.
 
 | Completion criterion | Status |
 |---|---|
-| `<VirtualList>` at most 1.5x plain egui | **Partly.** Idle 1.32x pass, Filter 1.07x pass. Scroll 1.59x and Resize 1.59x miss by 0.09x |
+| `<VirtualList>` at most 1.5x plain egui | **Partly.** Idle 1.29x pass, Filter 1.07x pass. Scroll 1.61x and Resize 1.58x miss by about 0.1x (After D2b) |
 | No PERF WARNING scrolling the web gallery at 120 Hz | **Unmeasured.** Native scrolling is one pass per frame with zero discard requests over 120 frames, which is what produced the warning; the browser was never measured |
 | Idle frame time within 8.3 ms on the web | **Unmeasured.** Native idle is 0.153 ms for `<VirtualList>`. The 16.7 ms in the symptoms below was `stable_dt`, a frame interval, not CPU time |
 | All existing tests and snapshots pass | **Pass.** The 13 gallery snapshots that passed before are byte-identical after D1 and after D2 |
