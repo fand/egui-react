@@ -34,8 +34,8 @@
 //!
 //! which is exactly what `key={node.id}` does inside `rsx!` — mix the key into
 //! the scope id. Because the key is the node's *identity* and the canvas is a
-//! flat list, a node's own state (collapsed, the name being typed, which port
-//! the pointer is over) survives deleting another node and survives `Raise`
+//! flat list, a node's own state (whether it is collapsed, which port the
+//! pointer is over) survives deleting another node and survives `Raise`
 //! reordering the vector. `board` needed `use_identity` for the same effect
 //! because its cards sit inside columns and moving one changed its parent;
 //! here nothing is in between, so the key alone is enough.
@@ -85,7 +85,6 @@ pub const META: Meta = Meta {
     elements: &[
         "View",
         "Text",
-        "TextEdit",
         "Button",
         "Canvas",
         "Suspense",
@@ -571,8 +570,8 @@ fn PatchCanvas(
             // `id_salt` by the node, so the widgets inside keep their egui ids
             // when the node moves in `graph.nodes`. Without it a child `Ui`
             // takes an id from its position in the list, and `Raise` — sent by
-            // the first frame of a header drag — would rename the header
-            // mid-drag and egui would drop the drag.
+            // the first frame of a header drag — would give the header a new id
+            // mid-drag, which egui reads as the drag having ended.
             let builder = egui::UiBuilder::new().id_salt(node.id).max_rect(node_rect);
             ui.scope_builder(builder, |ui| {
                 let mut cx = Cx::new(store, ui, scope);
@@ -658,10 +657,10 @@ fn PatchCanvas(
 /// One node: a header that is also the drag handle, its ports, and the
 /// controls for whatever kind of node it is.
 ///
-/// `collapsed`, `renaming`, `draft` and `hovered` belong to *this node*.
-/// Nothing above it knows they exist, nothing has to make room for them when a
-/// node is added, and nothing has to clean up after them when one is deleted —
-/// the pass-end sweep does that.
+/// `collapsed` and `hovered` belong to *this node*. Nothing above it knows
+/// they exist, nothing has to make room for them when a node is added, and
+/// nothing has to clean up after them when one is deleted — the pass-end sweep
+/// does that.
 #[component]
 fn NodeView(
     cx: &mut Cx,
@@ -675,12 +674,9 @@ fn NodeView(
     let look = look(cx.ctx());
 
     let mut collapsed = use_state(cx, || false);
-    let mut renaming = use_state(cx, || false);
-    let mut draft = use_state(cx, || node.name.clone());
     let mut hovered = use_state(cx, || None::<Port>);
 
     let open = !*collapsed;
-    let editing = *renaming;
     // The drag handle is one line of text tall, plus a little air. Taffy needs
     // the number before the strip is drawn, so it is asked for here.
     let head_h = cx.ui().text_style_height(&egui::TextStyle::Body) + 4.0;
@@ -715,89 +711,77 @@ fn NodeView(
                         />
                     }
 
-                    if editing {
-                        <TextEdit
-                            grow={1.0}
-                            min_w={0.0}
-                            bind={draft.bind()}
-                            on_submit={|name: String| {
-                                send(&actions, Msg::Rename { node: node.id, name });
-                                *renaming = false;
-                            }}
-                        />
-                    } else {
-                        // The header strip is the drag handle, and one leaf is
-                        // all a drag needs. `<Text>` would draw the same thing
-                        // and hand back no `Response` (board 8.4).
-                        //
-                        // `leaf_fill`, so the strip is the whole width taffy
-                        // gives it rather than the width of the name: a node is
-                        // grabbed by its header, not by its title.
-                        {view(|cx| {
-                            let response = cx.leaf_fill(
-                                &ItemStyle::default().grow(1.0).min_w(0.0).h(head_h),
-                                |ui| {
-                                    let (rect, response) = ui.allocate_exact_size(
-                                        ui.available_size(),
-                                        egui::Sense::click_and_drag(),
-                                    );
-                                    ui.painter().rect_filled(
-                                        rect,
-                                        3.0,
-                                        look.edge.gamma_multiply(0.35),
-                                    );
-                                    let galley = egui::WidgetText::from(
-                                        egui::RichText::new(node.name.as_str()).strong(),
+                    // The header strip is the drag handle, and one leaf is
+                    // all a drag needs. `<Text>` would draw the same thing
+                    // and hand back no `Response` (board 8.4).
+                    //
+                    // `leaf_fill`, so the strip is the whole width taffy
+                    // gives it rather than the width of the name: a node is
+                    // grabbed by its header, not by its title.
+                    {view(|cx| {
+                        let response = cx.leaf_fill(
+                            &ItemStyle::default().grow(1.0).min_w(0.0).h(head_h),
+                            |ui| {
+                                let (rect, response) = ui.allocate_exact_size(
+                                    ui.available_size(),
+                                    egui::Sense::click_and_drag(),
+                                );
+                                ui.painter().rect_filled(
+                                    rect,
+                                    3.0,
+                                    look.edge.gamma_multiply(0.35),
+                                );
+                                let galley = egui::WidgetText::from(
+                                    egui::RichText::new(node.name.as_str()).strong(),
+                                )
+                                .into_galley(
+                                    ui,
+                                    Some(egui::TextWrapMode::Truncate),
+                                    (rect.width() - 8.0).max(0.0),
+                                    egui::TextStyle::Body,
+                                );
+                                let at = egui::pos2(
+                                    rect.left() + 4.0,
+                                    rect.center().y - galley.size().y * 0.5,
+                                );
+                                ui.painter().galley(at, galley, ui.visuals().text_color());
+                                // A painted title is not a widget, so the
+                                // name has to be said out loud — it is what
+                                // a screen reader, and every test here,
+                                // looks the node up by.
+                                response.widget_info(|| {
+                                    egui::WidgetInfo::labeled(
+                                        egui::WidgetType::Button,
+                                        ui.is_enabled(),
+                                        node.name.as_str(),
                                     )
-                                    .into_galley(
-                                        ui,
-                                        Some(egui::TextWrapMode::Truncate),
-                                        (rect.width() - 8.0).max(0.0),
-                                        egui::TextStyle::Body,
-                                    );
-                                    let at = egui::pos2(
-                                        rect.left() + 4.0,
-                                        rect.center().y - galley.size().y * 0.5,
-                                    );
-                                    ui.painter().galley(at, galley, ui.visuals().text_color());
-                                    // A painted title is not a widget, so the
-                                    // name has to be said out loud — it is what
-                                    // a screen reader, and every test here,
-                                    // looks the node up by.
-                                    response.widget_info(|| {
-                                        egui::WidgetInfo::labeled(
-                                            egui::WidgetType::Button,
-                                            ui.is_enabled(),
-                                            node.name.as_str(),
-                                        )
-                                    });
-                                    // What the pointer says it can do, and then
-                                    // that it is doing it.
-                                    if response.dragged() {
-                                        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
-                                        response
-                                    } else {
-                                        response.on_hover_cursor(egui::CursorIcon::Grab)
-                                    }
-                                },
-                            );
-                            if response.drag_started() {
-                                on_drag.emit(Drag::Start);
-                            }
-                            // Only when it really moved: a write on every
-                            // frame of a held pointer is a repaint on every
-                            // frame of it.
-                            if response.dragged() && response.drag_delta() != egui::Vec2::ZERO {
-                                on_drag.emit(Drag::By(response.drag_delta()));
-                            }
-                            if response.drag_stopped() {
-                                on_drag.emit(Drag::End);
-                            }
-                            if response.clicked() {
-                                on_select.emit(());
-                            }
-                        })}
-                    }
+                                });
+                                // What the pointer says it can do, and then
+                                // that it is doing it.
+                                if response.dragged() {
+                                    ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                                    response
+                                } else {
+                                    response.on_hover_cursor(egui::CursorIcon::Grab)
+                                }
+                            },
+                        );
+                        if response.drag_started() {
+                            on_drag.emit(Drag::Start);
+                        }
+                        // Only when it really moved: a write on every
+                        // frame of a held pointer is a repaint on every
+                        // frame of it.
+                        if response.dragged() && response.drag_delta() != egui::Vec2::ZERO {
+                            on_drag.emit(Drag::By(response.drag_delta()));
+                        }
+                        if response.drag_stopped() {
+                            on_drag.emit(Drag::End);
+                        }
+                        if response.clicked() {
+                            on_select.emit(());
+                        }
+                    })}
 
                     <SmallButton
                         label={format!("collapse {}", node.name).as_str()}
@@ -821,18 +805,6 @@ fn NodeView(
                     <NodeBody node={node}/>
                     <View direction="row" w="100%" gap={4} align="center">
                         <Text grow={1.0} size={10.0}>{node.kind.name()}</Text>
-                        <SmallButton
-                            label={format!("rename {}", node.name).as_str()}
-                            on_click={|| {
-                                // Opening takes a fresh copy of the saved name,
-                                // so cancelling and starting again begins from
-                                // what is saved rather than from an old draft.
-                                if !*renaming {
-                                    *draft = node.name.clone();
-                                }
-                                *renaming = !*renaming;
-                            }}
-                        >"name"</SmallButton>
                         if node.kind != Kind::Output {
                             <SmallButton
                                 label={format!("delete {}", node.name).as_str()}

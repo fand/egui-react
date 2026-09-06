@@ -216,46 +216,33 @@ fn wiring_a_node_puts_it_in_the_shader() {
 /// The same claim as `board`'s B-2, in a deeper tree: here the state is inside
 /// a component, inside a `Cx` built around a child `Ui`, inside the canvas
 /// leaf. What keys it is the `cx.scope(node.id, ..)` the canvas writes by hand.
+///
+/// Being collapsed is that state. Nothing outside a node knows about it, and
+/// the patch itself does not record it, so it can only have come from the
+/// node's own hooks.
 #[test]
 fn node_state_survives_its_neighbours() {
     let mut harness = loaded();
 
-    // level1 is collapsed; its body — and the delete button in it — goes away.
-    click(&mut harness, "collapse level1");
-    assert!(harness.query_by_label("delete level1").is_none());
-
-    // transform1 has a half-typed name that was never submitted.
-    click(&mut harness, "rename transform1");
-    let field = harness.get_by_role(egui::accesskit::Role::TextInput);
-    field.focus();
-    harness.step();
-    harness
-        .get_by_role(egui::accesskit::Role::TextInput)
-        .type_text(" turned");
-    settle(&mut harness);
-    let draft = |harness: &Harness<'static, Store>| {
+    // A collapsed node draws no body, and its delete button is in that body.
+    let collapsed = |harness: &Harness<'static, Store>, name: &str| {
         harness
-            .get_by_role(egui::accesskit::Role::TextInput)
-            .accesskit_node()
-            .value()
+            .query_by_label(format!("delete {name}").as_str())
+            .is_none()
     };
-    assert_eq!(draft(&harness).as_deref(), Some("transform1 turned"));
+
+    click(&mut harness, "collapse level1");
+    click(&mut harness, "collapse transform1");
+    assert!(collapsed(&harness, "level1"));
+    assert!(collapsed(&harness, "transform1"));
 
     // A third node is deleted, which unplugs it and rewires nothing else.
     click(&mut harness, "delete grayscale1");
     assert!(harness.query_by_label("grayscale1").is_none());
-
-    assert_eq!(
-        draft(&harness).as_deref(),
-        Some("transform1 turned"),
-        "the draft stayed with its node"
-    );
     assert!(
-        harness.query_by_label("delete level1").is_none(),
-        "and level1 is still collapsed"
+        collapsed(&harness, "level1") && collapsed(&harness, "transform1"),
+        "deleting a neighbour left both of them collapsed"
     );
-    // The saved name is untouched: what is open is an editor, not an edit.
-    assert!(harness.query_by_label("shader1").is_some());
 
     // Dragging a node raises it to the end of the list, which is a different
     // position in `graph.nodes` and the same node.
@@ -269,12 +256,12 @@ fn node_state_survives_its_neighbours() {
     harness.drop_at(at + egui::vec2(0.0, 40.0));
     settle(&mut harness);
 
-    assert_eq!(
-        draft(&harness).as_deref(),
-        Some("transform1 turned"),
+    assert!(
+        collapsed(&harness, "level1") && collapsed(&harness, "transform1"),
         "reordering the nodes did not move anyone's state"
     );
-    assert!(harness.query_by_label("delete level1").is_none());
+    // And the node that moved is still there, still open.
+    assert!(harness.query_by_label("delete shader1").is_some());
 }
 
 /// P-4: a cycle is a message, and the last program that worked stays.
