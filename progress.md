@@ -77,7 +77,8 @@ Plan: [docs/tasks/perf/plan-d.md](docs/tasks/perf/plan-d.md). Numbers in
 | D1: `crates/egui-react/src/engine.rs`, `Cx` on it, trees in the `Store`, egui_taffy and `[patch]` removed | `5a9f04a` | A row costs 3 egui `Ui`s instead of 9. Idle 0.241 -> 0.160 ms, 1.96x -> 1.43x Plain. |
 | D2: `<Text>` is a galley on the node, not a `Label` in a `Ui` | `bf8d2f2` | A row costs 2. Idle 0.153 ms, 1.32x. All-rows idle 27 -> 22 ms. |
 | D3: docs (ARCHITECTURE 3.1 / 5.3 / 6 / 7 / 11, README, task.md result, this block) | this commit | – |
-| D2b: text selection back on the engine's `<Text>` | uncommitted | Idle 0.152 ms, 1.29x. Selection costs nothing measurable. |
+| D2b: text selection back on the engine's `<Text>` | `dfc5dfc` | Idle 0.152 ms, 1.29x. Selection costs nothing measurable. |
+| E: a fixed root rect for `<VirtualList>` rows (`Cx::with_root_size`) | uncommitted | Rows now sit at the `row_h` pitch `show_rows` reserved (list-10k: 20, was 18). No timing change: the scrolled-frame recompute was never the root rect (traced). |
 
 After D2b, VirtualList / Plain: Idle **1.29x**, Filter **1.07x**, Scroll 1.61x,
 Resize 1.58x. Two of the four are through task.md's 1.5x; the other two miss by
@@ -92,9 +93,9 @@ on screen until the layout is computed, so it keeps D2's deferred paint for
 that frame and paints itself through `LabelSelectionState` from the next one.
 
 Follow-ups, neither done (measurements.md, "What remains"): keep a swept tree
-for a grace period, which gives Resize back its 1.02 passes; give
-`<VirtualList>` rows a fixed rect, so a scrolled frame stops recomputing all 37
-row trees.
+for a grace period, which gives Resize back its 1.02 passes; skip laying a row
+out again when only a galley changed size inside a node that cannot move, which
+is what a scrolled frame really pays.
 
 Fork: `../egui_taffy` is no longer a dependency of anything here. Its two
 branches stay as the source of possible upstream PRs — `skip-unchanged-discard`

@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::panic::Location;
 
-use crate::engine::{self, TreeCx};
+use crate::engine::{self, Reserve, TreeCx};
 use crate::layout::ItemStyle;
 use crate::store::Store;
 
@@ -41,6 +41,9 @@ pub struct Cx<'s, 'u> {
     /// slot so that scrolling reuses nodes instead of building new ones. See
     /// [`Cx::with_layout_id`].
     layout: egui::Id,
+    /// The size the next tree opened over a plain `Ui` is laid out into, if the
+    /// caller set one. See [`Cx::with_root_size`].
+    root_size: Option<egui::Vec2>,
 }
 
 impl<'s, 'u> Cx<'s, 'u> {
@@ -51,26 +54,39 @@ impl<'s, 'u> Cx<'s, 'u> {
     /// an element that re-enters inside a reused list slot puts the slot's
     /// layout id back with [`Cx::with_layout_id`].
     pub fn new(store: &'s Store, ui: &'u mut egui::Ui, scope: egui::Id) -> Self {
-        Self::at_ui(store, ui, scope, scope)
+        Self::at_ui(store, ui, scope, scope, None)
     }
 
-    /// A `Cx` over an egui `Ui`, with both ids given.
-    fn at_ui(store: &'s Store, ui: &'u mut egui::Ui, scope: egui::Id, layout: egui::Id) -> Self {
+    /// A `Cx` over an egui `Ui`, with both ids and the root size hint given.
+    fn at_ui(
+        store: &'s Store,
+        ui: &'u mut egui::Ui,
+        scope: egui::Id,
+        layout: egui::Id,
+        root_size: Option<egui::Vec2>,
+    ) -> Self {
         Self {
             store,
             surface: Surface::Ui(ui),
             scope,
             layout,
+            root_size,
         }
     }
 
     /// A `Cx` at a position in a layout tree, with both ids given.
+    ///
+    /// The root size hint is dropped here: it is about the rect a tree is laid
+    /// out into, and inside a tree a `<View>` is a node whose rect the layout
+    /// decides. A tree opened by a leaf of this one starts from a plain `Ui`
+    /// again and is unaffected as well.
     fn at_tree(store: &'s Store, tree: TreeCx<'u>, scope: egui::Id, layout: egui::Id) -> Self {
         Self {
             store,
             surface: Surface::Tree(tree),
             scope,
             layout,
+            root_size: None,
         }
     }
 
@@ -126,9 +142,10 @@ impl<'s, 'u> Cx<'s, 'u> {
     pub fn with_layout_id<R>(&mut self, id: egui::Id, f: impl FnOnce(&mut Cx<'s, '_>) -> R) -> R {
         let store = self.store;
         let scope = self.scope;
+        let root_size = self.root_size;
         match &mut self.surface {
             Surface::Ui(ui) => {
-                let mut cx = Cx::at_ui(store, ui, scope, id);
+                let mut cx = Cx::at_ui(store, ui, scope, id, root_size);
                 f(&mut cx)
             }
             // Inside a tree the layout id is what an unnamed node hashes into
@@ -136,6 +153,58 @@ impl<'s, 'u> Cx<'s, 'u> {
             // Nothing else changes: no `Ui` is pushed.
             Surface::Tree(tree) => {
                 let mut cx = Cx::at_tree(store, tree.reborrow(), scope, id);
+                f(&mut cx)
+            }
+        }
+    }
+
+    /// Run `f` with the size the trees it opens are laid out into.
+    ///
+    /// This is an internal for list elements, like [`Cx::with_layout_id`], not
+    /// something a component body needs.
+    ///
+    /// A `<View>` over a plain `Ui` normally takes the width that is left,
+    /// measures its own height and reserves that much room. Neither is what a
+    /// `<VirtualList>` row wants. Inside `egui::ScrollArea::show_rows` the
+    /// space that is left runs from the row to the bottom of the band of
+    /// visible rows, so the root rect moves with the scroll offset; and the
+    /// room reserved is whatever the row drew, which is not the `row_h` the
+    /// visible range was worked out from, so the rows drift out of step with
+    /// it.
+    ///
+    /// With a size given, the tree's root rect is that size at the cursor, both
+    /// axes are definite, and exactly that much room is reserved afterwards. So
+    /// the rows sit at one pitch, and the root size is the same on every frame:
+    /// a scrolled frame lays a row out again only when something in the row
+    /// really changed.
+    ///
+    /// The size wins over what the tree measured. A tree that draws taller than
+    /// this overlaps whatever comes after it; `<VirtualList>` says the same
+    /// thing about its rows, and it is the same rule.
+    ///
+    /// **The hint is not consumed by the first tree**: every tree `f` opens
+    /// over a plain `Ui` gets it, at any depth of components, until a tree is
+    /// entered — inside a tree the hint is dropped, so a tree opened by a leaf
+    /// of this one is unaffected. Consuming it would mean shared mutable state,
+    /// because a `Cx` is copied into each child scope rather than borrowed, and
+    /// it would buy nothing: the caller's contract is that everything drawn
+    /// here is one row of a fixed height, so a second root tree in the same row
+    /// is already a mistake either way.
+    pub fn with_root_size<R>(
+        &mut self,
+        size: egui::Vec2,
+        f: impl FnOnce(&mut Cx<'s, '_>) -> R,
+    ) -> R {
+        let (store, scope, layout) = (self.store, self.scope, self.layout);
+        match &mut self.surface {
+            Surface::Ui(ui) => {
+                let mut cx = Cx::at_ui(store, ui, scope, layout, Some(size));
+                f(&mut cx)
+            }
+            // Nothing to do in tree mode: a `<View>` here is a node, and its
+            // rect comes from the layout.
+            Surface::Tree(tree) => {
+                let mut cx = Cx::at_tree(store, tree.reborrow(), scope, layout);
                 f(&mut cx)
             }
         }
@@ -162,10 +231,11 @@ impl<'s, 'u> Cx<'s, 'u> {
         let store = self.store;
         let scope = self.scope.with(&source);
         let layout = self.layout.with(&source);
+        let root_size = self.root_size;
         match &mut self.surface {
             Surface::Ui(ui) => {
                 ui.push_id(source, |ui| {
-                    let mut cx = Cx::at_ui(store, ui, scope, layout);
+                    let mut cx = Cx::at_ui(store, ui, scope, layout, root_size);
                     f(&mut cx)
                 })
                 .inner
@@ -212,11 +282,13 @@ impl<'s, 'u> Cx<'s, 'u> {
         // and collide. `source` is a call site or a hook's location, never a
         // row index, so nothing positional leaks in.
         let layout = self.layout.with(&source);
+        let root_size = self.root_size;
         let mut cx = Cx {
             store,
             surface: self.reborrow(),
             scope,
             layout,
+            root_size,
         };
         f(&mut cx)
     }
@@ -331,8 +403,15 @@ impl<'s, 'u> Cx<'s, 'u> {
         let store = self.store;
         let scope = self.scope;
         let layout = self.layout;
+        // A size set by `with_root_size` wins over both: the caller knows the
+        // rect, so nothing is taken from the `Ui`.
+        let reserve = match (self.root_size, all_space) {
+            (Some(size), _) => Reserve::Fixed(size),
+            (None, true) => Reserve::AllSpace,
+            (None, false) => Reserve::Content,
+        };
         match &mut self.surface {
-            Surface::Ui(ui) => engine::show(store, ui, id, style, all_space, |tree| {
+            Surface::Ui(ui) => engine::show(store, ui, id, style, reserve, |tree| {
                 let mut cx = Cx::at_tree(store, tree.reborrow(), scope, layout);
                 f(&mut cx)
             }),

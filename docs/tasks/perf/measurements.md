@@ -734,6 +734,120 @@ left stale. Rule B still holds as well: a text whose galley changed but whose
 rect did not still does not discard, because nothing about the paint path
 touches the "did anything move?" comparison.
 
+## After E (a fixed root rect for `<VirtualList>` rows)
+
+Date: 2026-09-06. Same machine and conditions as above: native macOS arm64,
+Rust 1.95.0, release profile, egui 0.36.1, taffy 0.9.2. Code state: step E
+uncommitted on top of `dfc5dfc`. Samples in [samples-e.csv](samples-e.csv).
+
+What changed. A `<VirtualList>` row's tree is no longer laid out into "the space
+that is left": `Cx::with_root_size` hands it a rect of `ui.available_width()` by
+`row_h`, both axes definite, and the row reserves exactly that much room instead
+of the height its content came to. `engine::show` takes a `Reserve` (`Content` /
+`AllSpace` / `Fixed`) instead of the `all_space` flag. Nothing else moved: the
+B and C rules, the other elements and the benchmark are untouched.
+
+Reproduce:
+
+```sh
+PERF_CSV="$PWD/docs/tasks/perf/samples-e.csv" \
+  cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
+```
+
+| Scenario | Mode | Mean ms | p50 ms | p95 ms | Passes/frame | Discard frames /120 | Final rows | Row callbacks/frame |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Idle | All | 21.551 | 21.325 | 23.472 | 1.00 | 0 | 10000 | 10000.00 |
+| Idle | Virtual | 0.145 | 0.146 | 0.169 | 1.00 | 0 | 37 | 37.00 |
+| Idle | Plain | 0.114 | 0.112 | 0.130 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | All | 21.565 | 21.366 | 23.069 | 1.00 | 0 | 10000 | 10000.00 |
+| Scroll | Virtual | 0.219 | 0.221 | 0.264 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | Plain | 0.145 | 0.137 | 0.204 | 1.00 | 0 | 37 | 37.00 |
+| Filter | All | 41.766 | 9.084 | 161.644 | 1.60 | 72 | 1250–10000 | 7000.00 |
+| Filter | Virtual | 1.093 | 1.068 | 1.390 | 1.00 | 0 | 37 | 37.00 |
+| Filter | Plain | 1.027 | 1.004 | 1.309 | 1.00 | 0 | 37 | 37.00 |
+| Resize | All | 34.010 | 33.780 | 37.179 | 1.00 | 0 | 10000 | 10000.00 |
+| Resize | Virtual | 0.240 | 0.228 | 0.359 | 1.10 | 12 | 37–40 | 42.80 |
+| Resize | Plain | 0.152 | 0.138 | 0.231 | 1.00 | 0 | 37–40 | 38.90 |
+
+| Scenario | Virtual pass histogram (passes: frames) | Virtual discard requests |
+|---|---|---:|
+| Idle | 1: 120 | 0 |
+| Scroll | 1: 120 | 0 |
+| Filter | 1: 120 | 0 |
+| Resize | 1: 108, 2: 12 | 12 |
+
+The pass behaviour is exactly D2b's, which is what step E had to leave alone:
+the twelve Resize frames are the new slot trees, and a real window resize still
+takes the early layout path (traced below).
+
+### Virtual against Plain
+
+| Scenario | Virtual / Plain after D2b | Virtual / Plain after E |
+|---|---:|---:|
+| Idle | 1.29x | 1.27x |
+| Scroll | 1.61x | 1.51x |
+| Filter | 1.07x | 1.06x |
+| Resize | 1.58x | 1.58x |
+
+**Read those two Scroll figures as one number, not as a change.** A second run
+of the same build gives Virtual 0.144 / 0.208 / 1.082 / 0.210 ms and Plain
+0.113 / 0.128 / 0.995 / 0.139 ms, that is 1.27x / **1.63x** / 1.09x / 1.51x. The
+two runs of the same build differ by 0.011 ms on Scroll Virtual and 0.017 ms on
+Scroll Plain, and by 0.030 ms on Resize Virtual; the ratio swings by 0.1x with
+them. Nothing here separates E from D2b on time.
+
+### Scroll did not move, and why
+
+The expectation was Scroll Virtual dropping to about 0.17-0.18 ms, because
+"After D2b" attributed the 0.064 ms scroll surcharge to the root rect of the 37
+row trees changing height on every scrolled frame. Measured: 0.219 ms against
+D2b's 0.216, inside the noise above.
+
+That attribution was wrong, and the trace says so. Temporary `println!`s in
+`Tree::layout_first_on_resize` (one line per early layout) and in `Tree::finish`
+(the two triggers, `dirty(root)` and `last_size != root_rect.size()`), run over
+40 frames of the same fixture — 30 idle, 10 scrolled by 20 pt, then 6 window
+widths — give the same picture with and without step E:
+
+| Frames | Trees | Computed | dirty | root size changed | Early layouts |
+|---|---:|---:|---:|---:|---:|
+| Idle (1-29) | 40 | 0 | 0 | 0 | 0 |
+| Scrolled (31-39), before E | 40 | 39 | 39 | 0 | 0 |
+| Scrolled (31-39), after E | 40 | 39 | 39 | 0 | 0 |
+| Window width changed, after E | 40 | 0 | 0 | 0 | 40 |
+
+So on a scrolled frame the root size was **already** constant before step E.
+The benchmark scrolls by exactly 20 pt, which is exactly one row, and
+`show_rows` hands the callback a `Ui` whose rect covers the visible rows only.
+Slot *k*'s rect therefore runs from `y_min + k * 20` to `y_max`, and both ends
+move by one row together: the same size on every frame. The 39 recomputations
+are all `dirty`, and dirty because every slot shows a different row's text one
+frame later, so `set_text` writes a new job onto the `<Text>` node. That work is
+not the root rect, and a fixed root rect cannot remove it.
+
+The last line of the table is the other half: after E a real width change still
+takes the early layout in all 40 trees, so `layout_first_on_resize` was not
+disabled by accident, and the Resize scenario keeps its 1: 108 / 2: 12.
+
+### What E did change: the rows sit where `show_rows` put them
+
+Not a timing result, a correctness one, and it is why the step is worth keeping.
+A row used to reserve the height its content measured, which is not the `row_h`
+the visible range was worked out from. In list-10k, `row_h` is 20 (`ROW_H` 18
+plus `ROW_GAP` 2) and the rows landed 18 apart:
+
+| | reserved by `show_rows` | measured pitch of `#0` .. `#11` |
+|---|---:|---:|
+| Before E | 20 | 18 |
+| After E | 20 | 20 |
+
+Two points per row, so the 21st visible row was drawn 40 points above where the
+scroll area had put it, and the gap showed up as blank space at the bottom of
+the viewport. `crates/egui-react-elements/tests/virtual_list.rs` now holds both
+halves of this: rows at exactly `row_h` pitch over 20 scrolled frames with no
+discard requested, and a row that draws twice as tall still moving the list on
+by `row_h`.
+
 ## Summary D
 
 Every number is already above; this is the whole sequence in one place.
@@ -741,67 +855,80 @@ Every number is already above; this is the whole sequence in one place.
 the same machine. Timings drift a few percent between runs and `Plain` drifts
 with them, so passes per frame and the ratio are the stable signal.
 
-| Scenario | Baseline | A | B | C | D1 | D2 | D2b |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Idle | 0.225 / 1.00 | 0.222 / 1.00 | 0.225 / 1.00 | 0.241 / 1.00 | 0.160 / 1.00 | 0.153 / 1.00 | 0.152 / 1.00 |
-| Scroll | 0.452 / 2.00 | 0.466 / 2.00 | 0.298 / 1.00 | 0.303 / 1.00 | 0.221 / 1.00 | 0.214 / 1.00 | 0.216 / 1.00 |
-| Filter | 1.528 / 1.60 | 1.263 / 1.60 | 1.158 / 1.00 | 1.222 / 1.00 | 1.127 / 1.00 | 1.094 / 1.00 | 1.102 / 1.00 |
-| Resize | 0.662 / 2.98 | 0.653 / 2.98 | 0.649 / 2.98 | 0.311 / 1.02 | 0.247 / 1.10 | 0.211 / 1.10 | 0.217 / 1.10 |
+| Scenario | Baseline | A | B | C | D1 | D2 | D2b | E |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Idle | 0.225 / 1.00 | 0.222 / 1.00 | 0.225 / 1.00 | 0.241 / 1.00 | 0.160 / 1.00 | 0.153 / 1.00 | 0.152 / 1.00 | 0.145 / 1.00 |
+| Scroll | 0.452 / 2.00 | 0.466 / 2.00 | 0.298 / 1.00 | 0.303 / 1.00 | 0.221 / 1.00 | 0.214 / 1.00 | 0.216 / 1.00 | 0.219 / 1.00 |
+| Filter | 1.528 / 1.60 | 1.263 / 1.60 | 1.158 / 1.00 | 1.222 / 1.00 | 1.127 / 1.00 | 1.094 / 1.00 | 1.102 / 1.00 | 1.093 / 1.00 |
+| Resize | 0.662 / 2.98 | 0.653 / 2.98 | 0.649 / 2.98 | 0.311 / 1.02 | 0.247 / 1.10 | 0.211 / 1.10 | 0.217 / 1.10 | 0.240 / 1.10 |
 
 `Plain` on the same runs, mean ms (one pass per frame throughout):
 
-| Scenario | Baseline | A | B | C | D1 | D2 | D2b |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Idle | 0.124 | 0.114 | 0.113 | 0.123 | 0.112 | 0.116 | 0.118 |
-| Scroll | 0.153 | 0.149 | 0.146 | 0.146 | 0.139 | 0.135 | 0.134 |
-| Filter | 1.286 | 1.021 | 1.014 | 1.065 | 1.038 | 1.025 | 1.032 |
-| Resize | 0.153 | 0.147 | 0.149 | 0.153 | 0.144 | 0.133 | 0.137 |
+| Scenario | Baseline | A | B | C | D1 | D2 | D2b | E |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Idle | 0.124 | 0.114 | 0.113 | 0.123 | 0.112 | 0.116 | 0.118 | 0.114 |
+| Scroll | 0.153 | 0.149 | 0.146 | 0.146 | 0.139 | 0.135 | 0.134 | 0.145 |
+| Filter | 1.286 | 1.021 | 1.014 | 1.065 | 1.038 | 1.025 | 1.032 | 1.027 |
+| Resize | 0.153 | 0.147 | 0.149 | 0.153 | 0.144 | 0.133 | 0.137 | 0.152 |
 
 `<VirtualList>` / `Plain`, against task.md's 1.5x:
 
-| Scenario | Baseline | A | B | C | D1 | D2 | D2b |
-|---|---:|---:|---:|---:|---:|---:|---:|
-| Idle | 1.81x | 1.95x | 1.99x | 1.96x | 1.43x | **1.32x** | **1.29x** |
-| Scroll | 2.95x | 3.13x | 2.04x | 2.08x | 1.59x | 1.59x | 1.61x |
-| Filter | 1.19x | 1.24x | 1.14x | 1.15x | 1.09x | **1.07x** | **1.07x** |
-| Resize | 4.33x | 4.44x | 4.36x | 2.03x | 1.72x | 1.59x | 1.58x |
+| Scenario | Baseline | A | B | C | D1 | D2 | D2b | E |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Idle | 1.81x | 1.95x | 1.99x | 1.96x | 1.43x | **1.32x** | **1.29x** | **1.27x** |
+| Scroll | 2.95x | 3.13x | 2.04x | 2.08x | 1.59x | 1.59x | 1.61x | 1.51x |
+| Filter | 1.19x | 1.24x | 1.14x | 1.15x | 1.09x | **1.07x** | **1.07x** | **1.06x** |
+| Resize | 4.33x | 4.44x | 4.36x | 2.03x | 1.72x | 1.59x | 1.58x | 1.58x |
+
+The E column is one run, and a second run of the same build puts Scroll at
+1.63x and Resize at 1.51x (see "After E"). E moved no timing; read it as a
+third repeat measurement of D2 next to D2b.
 
 Steps: A slot-keyed `<VirtualList>` row trees; B the egui_taffy fork skips the
 discard when the layout did not move; C the same fork computes the layout
 before drawing on a root resize; D1 the own engine over taffy, with B and C
 built in and a container node as a rect instead of a `Ui`; D2 `<Text>` as a
 galley on the node instead of a `Label` in a `Ui`; D2b text selection back on
-that `<Text>`, which costs nothing measurable. D2 and D2b differ by less than
-one run of noise, so the D2b column is a repeat measurement of D2 as much as a
-step of its own.
+that `<Text>`, which costs nothing measurable; E a fixed root rect for
+`<VirtualList>` rows, which cost nothing and saved nothing but put the rows at
+the pitch `show_rows` reserved. D2, D2b and E differ by less than one run of
+noise, so those three columns are repeat measurements of D2 as much as steps of
+their own.
 
 ### What remains
 
-Idle and Filter are through the criterion. Scroll (1.61x) and Resize (1.58x)
-sit about a tenth over it, and each has one identified cause.
+Idle and Filter are through the criterion. Scroll (1.51x and 1.63x on the two E
+runs) and Resize (1.58x, 1.51x) sit around a tenth over it.
 
-**Scroll** is the per-frame recompute of every row tree. A row inside a
-`ScrollArea` is handed a rect that runs from the row down to the bottom of the
-viewport, so its root rect is a different height on every scrolled frame and
-every one of the 37 trees recomputes, even though the layout that comes out is
-the one the nodes were already drawn with. The discard is skipped (step B), but
-the computation is not: idle 0.152 against scroll 0.216 ms is that
-computation, 0.064 ms for 37 trees. **Resize** is the 1.10 passes per frame:
-the tree sweep in `Store::end_pass` drops a tree nothing drew in the pass, and
-the resize scenario grows and shrinks the visible row count four times, so the
-three extra slot trees are rebuilt on every cycle — 12 two-pass frames instead
-of egui_taffy's 3 (measured, "The one metric that moved the wrong way" above).
+**Scroll** is the per-frame recompute of every row tree, and step E showed what
+makes it recompute. It is not the root rect — that is fixed now, and the trace
+in "After E" shows it was already constant on this benchmark's frames. It is
+`dirty`: scrolling by one row gives every one of the 37 slots a different row's
+text, `set_text` writes a new job onto the `<Text>` node, and the tree has to
+be laid out again. The result is right, so the discard is still skipped (step
+B), but idle 0.145 against scroll 0.219 ms is that computation plus the new
+galleys — 0.074 ms for 37 trees, about 0.002 ms each. Removing it means not
+re-laying-out a row whose text changed but whose boxes cannot move, which is a
+different piece of work from anything done so far. **Resize** is the 1.10 passes
+per frame: the tree sweep in `Store::end_pass` drops a tree nothing drew in the
+pass, and the resize scenario grows and shrinks the visible row count four
+times, so the three extra slot trees are rebuilt on every cycle — 12 two-pass
+frames instead of egui_taffy's 3 (measured, "The one metric that moved the wrong
+way" above).
 
-Two candidate follow-ups, neither done:
+Candidate follow-ups, none done:
 
 - **Keep a swept tree for a grace period** instead of dropping it in the pass
   it was not drawn. That gives Resize its 1.02 passes back and still bounds the
   memory. It was left out of D1 because a time-to-live is a knob and picking
   its value from this benchmark would be tuning to the benchmark.
-- **Give `<VirtualList>` rows a fixed rect**, so a row's tree is not handed a
-  root rect whose height depends on where the row sits in the viewport, and the
-  scroll frames stop recomputing. `<VirtualList>` already knows the row height,
-  which is what makes this possible.
+- **Do not lay a row out again when only a galley changed size inside a node
+  that cannot move.** That is the Scroll cost as traced in "After E". It needs
+  a rule about which nodes a measurement can move, and getting it wrong leaves
+  a wrong picture on screen, so it is a bigger change than E was.
+- ~~Give `<VirtualList>` rows a fixed rect~~ — that was step E. It fixed the row
+  pitch and cost nothing, but the scroll time did not move, because the root
+  rect was not the trigger.
 
-Both are layout work, not measurement work. The web and 120 Hz criteria in
+All of that is layout work, not measurement work. The web and 120 Hz criteria in
 task.md are still unmeasured and are a separate task.

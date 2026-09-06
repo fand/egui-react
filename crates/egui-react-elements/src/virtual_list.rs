@@ -38,6 +38,12 @@ use egui_react::prelude::*;
 /// the range without measuring anything, and it is the one thing this element
 /// cannot check for you: a row that draws taller will overlap the next.
 ///
+/// The row's rect is the list's, not the row's: each row is laid out into a
+/// rect exactly `row_h` tall, and the list moves on by exactly `row_h`
+/// whatever the row drew. So the rows always sit where `show_rows` put them —
+/// a row that draws shorter leaves a gap under itself instead of pulling the
+/// whole list up, and one that draws taller reaches into the next row.
+///
 /// The size comes from the style, not the content (`leaf_fill`), so give it
 /// `grow` or an `h`; with neither it fills the window on that axis.
 #[component]
@@ -56,6 +62,12 @@ pub fn VirtualList(
     let mut render = render;
     cx.leaf_fill(&style, move |ui| {
         egui::ScrollArea::vertical().show_rows(ui, row_h, rows, move |ui, range| {
+            // The rect every row's tree is laid out into, and the room it
+            // takes. Fixed, so a row moves the cursor on by exactly the height
+            // `show_rows` worked the visible range out from, and so a row
+            // tree's root size does not move with the scroll offset. See
+            // `Cx::with_root_size`.
+            let row_size = egui::vec2(ui.available_width(), row_h);
             // The same shape as any container element: rebuild a `Cx` around
             // the `Ui` egui handed back, then enter a scope per row.
             let mut cx = Cx::new(store, ui, scope);
@@ -73,7 +85,9 @@ pub fn VirtualList(
                 // leaf's `Ui` inside the row's `<View>`, so a `Ui` per row
                 // would only cost a frame's worth of `Ui::new_child` calls.
                 cx.scope_sharing_ui(i, |cx| {
-                    cx.with_layout_id(layout.with(("vl-slot", slot)), |cx| render(cx, i))
+                    cx.with_layout_id(layout.with(("vl-slot", slot)), |cx| {
+                        cx.with_root_size(row_size, |cx| render(cx, i))
+                    })
                 });
             }
         });

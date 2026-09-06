@@ -963,40 +963,74 @@ fn text_job(ui: &egui::Ui, text: egui::WidgetText) -> (Arc<LayoutJob>, u64) {
     (Arc::new(job), hash)
 }
 
+/// How much room a tree takes in the `Ui` it is drawn in, and what rect its
+/// root node is laid out into.
+#[derive(Clone, Copy)]
+pub(crate) enum Reserve {
+    /// The available width; the height comes from what the tree measured.
+    ///
+    /// Every `<View>` that is not the app root and not a list row.
+    Content,
+    /// All the space that is left, on both axes.
+    ///
+    /// The runner's root, so the outermost `<View>` fills the window.
+    AllSpace,
+    /// Exactly this size, wherever the cursor is.
+    ///
+    /// The caller knows the rect, so none of it is read from the `Ui`. That is
+    /// what a `<VirtualList>` row uses. Inside `ScrollArea::show_rows` the
+    /// space that is left runs from the row to the bottom of the band of
+    /// visible rows, so a root rect taken from it moves with the scroll
+    /// offset, and the room reserved afterwards would be the height the row
+    /// happened to draw rather than the `row_h` the visible range was worked
+    /// out from. Both go away here. See [`crate::Cx::with_root_size`].
+    Fixed(Vec2),
+}
+
 /// Draw one tree, from the `Ui` it sits in.
 ///
 /// The frame goes: reserve space, compute early if only the rect resized, let
 /// `f` build the tree, sweep what nothing drew, recompute and decide about the
 /// second pass, then tell the surrounding `Ui` how much room the tree took.
-///
-/// `all_space` reserves both axes (the runner's root, so the outermost
-/// `<View>` fills the window); otherwise only the width is reserved and the
-/// height is left as max-content, so a column of nested containers stacks
-/// instead of each one claiming the whole height.
 pub(crate) fn show<R>(
     store: &Store,
     ui: &mut egui::Ui,
     id: egui::Id,
     style: taffy::Style,
-    all_space: bool,
+    reserve: Reserve,
     f: impl FnOnce(&mut TreeCx<'_>) -> R,
 ) -> R {
     // The same reservation `egui_taffy`'s `TuiInitializer` makes: a definite
     // width taken from the space that is left, and a minimum width on the `Ui`
     // so the surrounding layout knows about it. The height is `MinContent`
     // unless the caller asks for all the space.
-    let width = ui.available_size().x;
-    ui.set_min_width(width);
-    let mut available_space = Size {
-        width: AvailableSpace::Definite(width),
-        height: AvailableSpace::MinContent,
+    //
+    // `Fixed` does none of that: the size is the caller's, so nothing is read
+    // from the `Ui` but where its cursor is, and the space is reserved at the
+    // end instead.
+    let (root_rect, available_space) = match reserve {
+        Reserve::Fixed(size) => (
+            Rect::from_min_size(ui.available_rect_before_wrap().min, size),
+            Size {
+                width: AvailableSpace::Definite(size.x),
+                height: AvailableSpace::Definite(size.y),
+            },
+        ),
+        Reserve::Content | Reserve::AllSpace => {
+            let width = ui.available_size().x;
+            ui.set_min_width(width);
+            let mut available_space = Size {
+                width: AvailableSpace::Definite(width),
+                height: AvailableSpace::MinContent,
+            };
+            if matches!(reserve, Reserve::AllSpace) {
+                let height = ui.available_size().y;
+                ui.set_min_height(height);
+                available_space.height = AvailableSpace::Definite(height);
+            }
+            (ui.available_rect_before_wrap(), available_space)
+        }
     };
-    if all_space {
-        let height = ui.available_size().y;
-        ui.set_min_height(height);
-        available_space.height = AvailableSpace::Definite(height);
-    }
-    let root_rect = ui.available_rect_before_wrap();
 
     let tree = store.tree(id);
     // A child `Ui`, as `egui_taffy` does, rather than the caller's own: this is
@@ -1023,7 +1057,7 @@ pub(crate) fn show<R>(
         f(&mut tc)
     };
 
-    let content_size = {
+    let taken = {
         let mut tree = tree.borrow_mut();
         // Before the sweep, unlike `egui_taffy`, which trims the root's tail
         // after it recomputes and so lays out one frame with the stale tail
@@ -1034,9 +1068,19 @@ pub(crate) fn show<R>(
         // After `finish`, so every galley lands where the layout for *this*
         // frame puts it rather than where the last one did.
         tree.paint_texts(&root_ui, root_rect.min);
-        tree.layout(root).content_size
+        match reserve {
+            // The size the caller asked for, not the one the content came to,
+            // so the cursor advances by the same amount whatever the tree drew.
+            // A tree that drew taller overlaps what comes next; that is the
+            // caller's business (see `<VirtualList>`).
+            Reserve::Fixed(size) => size,
+            Reserve::Content | Reserve::AllSpace => {
+                let content_size = tree.layout(root).content_size;
+                egui::vec2(content_size.width, content_size.height)
+            }
+        }
     };
-    ui.allocate_space(egui::vec2(content_size.width, content_size.height));
+    ui.allocate_space(taken);
 
     inner
 }

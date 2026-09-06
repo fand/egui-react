@@ -2,6 +2,9 @@
 
 mod common;
 
+use std::cell::Cell;
+use std::rc::Rc;
+
 use common::run_app;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
@@ -216,6 +219,167 @@ fn only_the_visible_rows_are_drawn() {
     );
     assert!(harness.query_by_label("row 0").is_some());
     assert!(harness.query_by_label("row 9999").is_none());
+}
+
+/// A row whose layout does not depend on how wide its text is: a fixed column
+/// and a growing one, the shape `examples/list-10k` uses.
+///
+/// The pitch tests are about the row's *root* rect, so nothing inside the row
+/// may move on its own.
+#[component]
+fn PitchRow(cx: &mut Cx, index: usize) {
+    rsx! {
+        <View direction="row" gap={8} align="center" w="100%" h={ROW_H}>
+            <Text w={80.0}>{format!("row {index}")}</Text>
+            <Text grow={1.0}>"filler"</Text>
+        </View>
+    }
+}
+
+/// A row that draws twice as tall as the height the list was told.
+///
+/// `<VirtualList>` says every row must be `row_h` tall and that a taller one
+/// overlaps the next; this is that case, written down.
+#[component]
+fn TallRow(cx: &mut Cx, index: usize) {
+    rsx! {
+        <View direction="column" w="100%" h={ROW_H * 2.0}>
+            <Text>{format!("tall {index}")}</Text>
+            <Text>{format!("more {index}")}</Text>
+        </View>
+    }
+}
+
+/// A list whose rows sit at exactly `ROW_H` and that counts discard requests.
+///
+/// `item_spacing.y` is zeroed, because `show_rows` puts the rows at
+/// `row_h + item_spacing.y` and the test wants one number. `tall` swaps in a
+/// row that draws over its height.
+fn pitch_harness<'a>(discards: &Rc<Cell<usize>>, tall: bool) -> Harness<'a, Store> {
+    let discards = Rc::clone(discards);
+    Harness::builder()
+        .with_size(egui::vec2(300.0, 300.0))
+        .build_ui_state(
+            move |ui, store: &mut Store| {
+                ui.spacing_mut().item_spacing.y = 0.0;
+                run_app(ui, store, |cx| {
+                    rsx! {
+                        <View direction="column" w="100%" h={280.0}>
+                            <VirtualList
+                                rows={ROWS}
+                                row_h={ROW_H}
+                                grow={1.0}
+                                render={|cx: &mut Cx<'_, '_>, i: usize| {
+                                    if tall {
+                                        rsx! { <TallRow index={i}/> }.show(cx);
+                                    } else {
+                                        rsx! { <PitchRow index={i}/> }.show(cx);
+                                    }
+                                }}
+                            />
+                        </View>
+                    }
+                    .show(cx);
+                });
+                if ui.ctx().output(|o| o.requested_discard()) {
+                    discards.set(discards.get() + 1);
+                }
+            },
+            Store::new(),
+        )
+}
+
+/// The top of each `prefix i` label that is on screen, in order.
+fn label_tops(harness: &Harness<'_, Store>, prefix: &str) -> Vec<(usize, f32)> {
+    (0..WINDOW)
+        .filter_map(|i| {
+            harness
+                .query_by_label(&format!("{prefix} {i}"))
+                .map(|node| (i, node.rect().top()))
+        })
+        .collect()
+}
+
+/// Consecutive rows sit exactly `ROW_H` apart.
+fn assert_row_pitch(tops: &[(usize, f32)]) {
+    assert!(tops.len() > 4, "expected a screenful of rows, got {tops:?}");
+    for pair in tops.windows(2) {
+        let [(a, top_a), (b, top_b)] = pair else {
+            unreachable!()
+        };
+        assert_eq!(b - a, 1, "rows {a} and {b} are not neighbours");
+        assert!(
+            (top_b - top_a - ROW_H).abs() < 0.01,
+            "rows {a} and {b} are {} apart, not {ROW_H}",
+            top_b - top_a,
+        );
+    }
+}
+
+/// A row's tree is laid out into a rect of its own size, so scrolling does not
+/// change it and nothing has to be laid out again.
+///
+/// Before this, a row's root rect ran from the row to the bottom of the
+/// viewport, so every visible row tree saw a new root size on every scrolled
+/// frame.
+#[test]
+fn scrolling_keeps_the_rows_at_one_pitch_and_asks_for_no_second_pass() {
+    let discards = Rc::new(Cell::new(0usize));
+    let mut harness = pitch_harness(&discards, false);
+    harness.run();
+    harness.run();
+    assert_row_pitch(&label_tops(&harness, "row"));
+
+    // One row per frame, so the visible range keeps its length and no slot is
+    // added or dropped.
+    discards.set(0);
+    for _ in 0..20 {
+        scroll(&mut harness, ROW_H);
+    }
+    assert_eq!(
+        discards.get(),
+        0,
+        "scrolling asked for {} extra passes",
+        discards.get(),
+    );
+
+    let tops = label_tops(&harness, "row");
+    assert!(
+        tops.first().unwrap().0 > 0,
+        "the window should have moved: {tops:?}",
+    );
+    assert_row_pitch(&tops);
+}
+
+/// A row that draws taller than `row_h` still moves the cursor by `row_h`.
+///
+/// The row overlaps the one below it — that is the caller's problem, and the
+/// element's docs say so. What must not happen is the list drifting out of step
+/// with the range `show_rows` computed.
+#[test]
+fn a_row_taller_than_row_h_still_advances_by_row_h() {
+    let discards = Rc::new(Cell::new(0usize));
+    let mut harness = pitch_harness(&discards, true);
+    harness.run();
+    harness.run();
+
+    let tops = label_tops(&harness, "tall");
+    assert_row_pitch(&tops);
+    // The overlap: the second line of a row is drawn below where the next row
+    // starts.
+    let more = harness.get_by_label("more 0").rect();
+    assert!(
+        more.bottom() > tops[1].1,
+        "a double height row should reach into the next row: {more:?} against {}",
+        tops[1].1,
+    );
+
+    discards.set(0);
+    for _ in 0..10 {
+        scroll(&mut harness, ROW_H);
+    }
+    assert_eq!(discards.get(), 0);
+    assert_row_pitch(&label_tops(&harness, "tall"));
 }
 
 /// Scrolling brings later rows in and drops earlier ones.

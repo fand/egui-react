@@ -2,21 +2,24 @@
 
 ## Result (2026-09-06)
 
-Done in six steps: A (slot-keyed `<VirtualList>` row trees), B and C (an
-egui_taffy fork), D1 and D2 (an own layout engine over taffy, replacing
-egui_taffy), D3 (docs). Every number below is the native benchmark in
-[measurements.md](measurements.md), "After D2"; "Summary D" there has the whole
-sequence and what remains.
+Done in seven steps: A (slot-keyed `<VirtualList>` row trees), B and C (an
+egui_taffy fork), D1, D2 and D2b (an own layout engine over taffy, replacing
+egui_taffy), D3 (docs), E (a fixed root rect for `<VirtualList>` rows). Every
+number below is the native benchmark in [measurements.md](measurements.md),
+"After E"; "Summary D" there has the whole sequence and what remains.
 
 | Completion criterion | Status |
 |---|---|
-| `<VirtualList>` at most 1.5x plain egui | **Partly.** Idle 1.29x pass, Filter 1.07x pass. Scroll 1.61x and Resize 1.58x miss by about 0.1x (After D2b) |
+| `<VirtualList>` at most 1.5x plain egui | **Partly.** Idle 1.27x pass, Filter 1.06x pass. Scroll and Resize miss by about 0.1x: 1.51x / 1.58x on the recorded run, 1.63x / 1.51x on a second run of the same build (After E) |
 | No PERF WARNING scrolling the web gallery at 120 Hz | **Unmeasured.** Native scrolling is one pass per frame with zero discard requests over 120 frames, which is what produced the warning; the browser was never measured |
-| Idle frame time within 8.3 ms on the web | **Unmeasured.** Native idle is 0.153 ms for `<VirtualList>`. The 16.7 ms in the symptoms below was `stable_dt`, a frame interval, not CPU time |
-| All existing tests and snapshots pass | **Pass.** The 13 gallery snapshots that passed before are byte-identical after D1 and after D2 |
+| Idle frame time within 8.3 ms on the web | **Unmeasured.** Native idle is 0.145 ms for `<VirtualList>`. The 16.7 ms in the symptoms below was `stable_dt`, a frame interval, not CPU time |
+| All existing tests and snapshots pass | **Pass.** The gallery snapshots that pass are byte-identical after D1, D2 and E (15 today; the 2 board ones have no committed snapshot) |
 
-The two scenarios that miss, and the two candidate follow-ups for them, are in
-measurements.md under "Summary D". Neither was done.
+The two scenarios that miss, and the candidate follow-ups for them, are in
+measurements.md under "Summary D". One of those follow-ups became step E: it
+put the rows at the pitch `show_rows` reserved but changed no timing, because
+the scrolled-frame recompute comes from the row's text, not from its root rect.
+The others are not done.
 
 ## Objective
 
