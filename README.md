@@ -55,7 +55,7 @@ Every example but one runs in the browser in the [gallery](https://fand.github.i
 | name | what | live | source | plain egui |
 |---|---|---|---|---|
 | `showcase` | A notes app: reducer, persistence, context, memo and a settings window, together. | [#showcase](https://fand.github.io/react-egui/#showcase) | [lib.rs](examples/showcase/src/lib.rs) | – |
-| `board` | Cards that keep their own editing state while they are dragged between columns. | [#board](https://fand.github.io/react-egui/#board) | [lib.rs](examples/board/src/lib.rs) | [plain.rs](examples/board/src/plain.rs) |
+| `board` | Cards that keep the title being typed into them while they are dragged between columns. | [#board](https://fand.github.io/react-egui/#board) | [lib.rs](examples/board/src/lib.rs) | [plain.rs](examples/board/src/plain.rs) |
 | `patch` | A node editor that generates, validates and previews its own WGSL shader. | [#patch](https://fand.github.io/react-egui/#patch) | [lib.rs](examples/patch/src/lib.rs) | – |
 | `counter` | One piece of state, three handlers that borrow it in turn. | [#counter](https://fand.github.io/react-egui/#counter) | [lib.rs](examples/counter/src/lib.rs) | [plain.rs](examples/counter/src/plain.rs) |
 | `todo` | A reducer drives the list; `use_persisted` keeps it across restarts. | [#todo](https://fand.github.io/react-egui/#todo) | [lib.rs](examples/todo/src/lib.rs) | [plain.rs](examples/todo/src/plain.rs) |

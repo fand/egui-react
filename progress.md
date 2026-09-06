@@ -8,17 +8,18 @@ PR: https://github.com/fand/react-egui/pull/10(ブランチ `claude/complex-ui-d
 | 項目 | 状態 |
 |---|---|
 | board(`examples/board`、plain 版・gallery 登録・tests 込み) | 済 `6e8b8a8` |
+| board v2(`docs/tasks/board-v2/`。title だけの card、done の checkbox、ペンでインライン編集、card 全体を掴む drag、挿入先の空 card preview) | 済。差分と実装メモは `docs/tasks/board-v2/plan.md` 11 章 |
 | patch(`examples/patch`、gallery 登録・tests 込み) | 済 `12ba0fb` |
 | `origin/main`(a11y PR #5)の merge | 済 `cdf4246`。conflict は `examples/gallery/src/main.rs` の `setup` 閉包のみ(shader/patch の `gpu::setup` と `WebA11y` plugin を両方呼ぶ形で解決) |
 | `cargo fmt --check` / `clippy --workspace --all-targets -D warnings` / `check --target wasm32-unknown-unknown` | merge 後も緑 |
-| `cargo test --workspace` | **1 件赤**: `gallery/tests/a11y.rs::every_focusable_widget_has_a_name`(下記「次にやること 1」) |
+| `cargo test --workspace` | 緑(a11y は board v2 で直した。下記「次にやること 1」は済) |
 | `trunk build` / GPU snapshot / 実機での目視 | **未**(このコンテナには trunk も GPU も無い) |
 
 ## 次にやること
 
-### 1. a11y テストを緑にする(必須。CI が赤)
+### 1. a11y テストを緑にする(済。board v2 で対応)
 
-main で入った `examples/gallery/tests/a11y.rs` は、全 example のフォーカス可能ノードに名前があるかを見て、無いものを `KNOWN_UNNAMED` と厳密比較する。board / patch が新しい無名ノードを足したので落ちる。出ているもの:
+card 全体を掴む背面(`ui.interact(Sense::drag())`)に `"card: <title>"`、checkbox に `"done: <title>"`、pen / × に `"edit"` / `"remove"`、インライン編集の field に `"title"` / `"column name"` / `"new card"` の名前を付けた。名前を付けられなかった board の検索 `<TextEdit>` と patch の 5 つ(`GenericContainer` = 溢れた `<ScrollArea>`、`MultilineTextInput` ×2、`ComboBox` ×2)は理由付きで `KNOWN_UNNAMED` に入れた。patch の `Label` ×7 と `Unknown` ×1 は patch 側で命名済み。以下は当時の調査メモ:
 
 | example | role | 正体 | 直し方 |
 |---|---|---|---|

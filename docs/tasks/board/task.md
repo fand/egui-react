@@ -21,10 +21,10 @@ core(`react-egui`、`react-egui-macros`)には手を入れない。`react-egui-e
 
 - `examples/board`(lib + bin + `plain.rs`)。
   - 列 4 つ(Backlog / Doing / Review / Done)を横に並べ、各列はカードの縦リスト。
-  - カード: タイトル、ラベル色、本文。**インライン編集(`editing` / `draft`)と本文の展開(`expanded`)はカードのローカル state**。
+  - カード: タイトルと done の checkbox(v2 で改修。ラベル色と本文は廃止)。**インライン編集(`editing` / `draft`)はカードのローカル state**。
   - ドラッグ & ドロップ: 列間の移動と列内の並べ替え。
   - 列: 名前のインライン編集、件数表示、末尾にカードを追加。
-  - ツールバー: 検索(debounce)、ラベルでの絞り込み、undo / redo、ダーク / ライト。
+  - ツールバー: 検索(debounce)、open / done の絞り込み(v2。旧: ラベル)、undo / redo、ダーク / ライト。
   - ボードの中身は `use_reducer` が持ち、`use_persisted` が再起動を跨ぐ(`showcase` と同じ組み合わせ)。
   - undo / redo は `use_undoable`(reducer を履歴で包む custom hook)。
   - `Dispatch` とテーマは `provide_context` で配り、間の `<View>` は何も知らない。

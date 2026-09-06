@@ -1,5 +1,7 @@
 # プラン: board
 
+> v2 で改修した。差分は [board-v2/plan.md](../board-v2/plan.md)。以下は当時の記録なので書き換えない。
+
 タスク定義は [task.md](task.md)。設計の根拠は [docs/ARCHITECTURE.md](../../ARCHITECTURE.md)。実装中にここから外れる判断をした場合は本書を更新し、設計上の意味があれば ARCHITECTURE.md も更新する。
 
 ## 0. 全体

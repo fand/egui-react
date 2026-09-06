@@ -230,3 +230,9 @@ elements に足したくなったもの(足さない。記録だけ):
 - **caret の点滅**: focus のある `TextEdit` は毎フレーム repaint を要求するので `Harness::run` が `ExceededMaxSteps` で落ちる。harness を作ったら `h.ctx.all_styles_mut(|s| s.visuals.text_cursor.blink = false)`(egui 0.36 に `Context::style_mut` は無い)。
 - **B-12**: egui 0.36 に `LabelSelectionState::load` は無い。`ctx.plugin::<egui::text_selection::LabelSelectionState>().lock().has_selection()`。
 - **`"done"` が曖昧**: toolbar の chip と 4 列目の名前が同じ label。`get_all_by_label("done").next()`(toolbar が先に描かれる)などで絞る。
+
+### 11.7 a11y: card の背面も focusable(9 章の補足)
+
+`ui.interact(rect, id, Sense::drag())` は focusable なノードを作るので、名無しだと `a11y.rs` に `board: Unknown` が 12 個出る(v1 では sense 付きの title Label が `board: Label` ×12 として同じ位置に出ていた)。`accesskit_node_builder` で **`"card: <title>"`** と名前を付けた。title そのものにしないのは、隣の Label と同じ名前のノードが 2 つ並ぶと読み上げでも kittest でも区別が付かないため。
+
+`KNOWN_UNNAMED` は board / patch が入った時点から更新されておらず、この作業の前から赤だった。名前を付けられなかったものだけ理由付きで足した: `board: TextInput`(検索の `<TextEdit>`。要素に name prop が無い)と patch の 5 つ(溢れた `<ScrollArea>` の `GenericContainer`、`MultilineTextInput` ×2、`ComboBox` ×2)。
