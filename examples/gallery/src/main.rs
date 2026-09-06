@@ -14,11 +14,13 @@ fn main() -> eframe::Result {
         Options {
             title: String::from("react-egui: gallery"),
             setup: Some(Box::new(move |cc| {
-                // The shader example's pipeline, built once for the whole
-                // gallery. It lands in `callback_resources` under its own
-                // type, so it costs the other examples nothing and cannot
-                // clash with them.
+                // What the two wgpu examples need before anything is drawn: the
+                // shader example's pipeline, and the buffer and layouts the patch
+                // example builds its pipelines from. Each lands in
+                // `callback_resources` under its own type, so they cost the other
+                // examples nothing and cannot clash with each other.
                 shader::gpu::setup(cc);
+                patch::gpu::setup(cc);
                 // The accessibility tree, mirrored into hidden DOM elements
                 // over the canvas. Does nothing off the web; there, egui's
                 // tree would otherwise be thrown away by eframe.

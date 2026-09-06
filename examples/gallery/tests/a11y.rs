@@ -42,8 +42,22 @@ const SKIP: &[&str] = &["fetch"];
 /// - `shader`'s `Unknown`: the `<Canvas>` leaf, which senses drags. It is a
 ///   drawing surface, not a control; naming it needs a story for canvases in
 ///   general (`docs/tasks/a11y/`).
+/// - `patch`'s `GenericContainer`: an `<ScrollArea>` whose content overflows.
+///   egui makes such a region focusable so it can be scrolled from the
+///   keyboard, and writes no name for it; `<ScrollArea>` has no name prop.
+/// - `patch`'s `MultilineTextInput`: the WGSL source fields, a hand-written
+///   `egui::TextEdit::multiline` leaf — the same gap as the single-line ones.
+/// - `patch`'s `ComboBox`: `<ComboBox>` names itself from its `label` prop,
+///   but that prop also *draws* the label beside the box, which is a change to
+///   the picture rather than to the tree.
 const KNOWN_UNNAMED: &[&str] = &[
     "showcase: TextInput",
+    "board: TextInput",
+    "patch: GenericContainer",
+    "patch: MultilineTextInput",
+    "patch: MultilineTextInput",
+    "patch: ComboBox",
+    "patch: ComboBox",
     "todo: TextInput",
     "form: TextInput",
     "form: CheckBox",

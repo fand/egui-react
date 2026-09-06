@@ -78,12 +78,13 @@ fn a_tag_narrows_the_list() {
     let chip = harness.get_by_label("use_future").rect();
     assert!(chip.width() > chip.height(), "the tag wrapped: {chip:?}");
 
-    // Only the fetch example uses `use_future`.
+    // `fetch` and `patch` are the two examples that use `use_future`.
     harness.get_by_label("use_future").click();
     harness.run();
     harness.run();
 
     assert!(harness.query_by_label("fetch").is_some());
+    assert!(harness.query_by_label("patch").is_some());
     for name in ["showcase", "counter", "todo", "layout"] {
         assert!(
             harness.query_by_label(name).is_none(),

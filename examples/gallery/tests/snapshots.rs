@@ -268,3 +268,38 @@ mod list_10k {
 }
 
 same!(layout, egui::vec2(520.0, 900.0), 1000, as_it_opens);
+
+/// The board, in two images rather than one, for the same reason as
+/// [`list_10k`]: the react-egui columns are taffy nodes with a `gap`, and the
+/// plain ones come from `ui.columns` and `ui.horizontal`, so the two agree on
+/// what they draw and disagree by a point or two on where. Closing that would
+/// mean writing `plain.rs` to reproduce taffy's arithmetic rather than to be
+/// read, which is the line plan.md section 5 draws.
+///
+/// Neither image is committed yet: this container has no GPU and no software
+/// Vulkan, so the first run on a machine that has one writes them
+/// (`UPDATE_SNAPSHOTS=1`). See docs/tasks/board/plan.md section 8.
+mod board {
+    use super::*;
+    use ::board::App as ExampleApp;
+    use ::board::plain::{self, PlainState};
+
+    const SIZE: egui::Vec2 = egui::vec2(900.0, 560.0);
+
+    #[test]
+    fn react_egui() {
+        let mut harness = react(SIZE, |cx| rsx! { <ExampleApp/> }.show(cx));
+        harness.run();
+        harness.snapshot("board_react");
+    }
+
+    #[test]
+    fn plain_egui() {
+        let mut harness = harness(SIZE, PlainState::default(), |ui, state| {
+            ui.set_min_size(ui.available_size());
+            plain::ui(ui, state);
+        });
+        harness.run();
+        harness.snapshot("board_plain");
+    }
+}

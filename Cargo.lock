@@ -505,6 +505,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "board"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_kittest",
+ "example-meta",
+ "react-egui",
+ "react-egui-app",
+ "react-egui-elements",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1453,6 +1468,7 @@ dependencies = [
 name = "gallery"
 version = "0.1.0"
 dependencies = [
+ "board",
  "clock",
  "counter",
  "custom-hook",
@@ -1466,6 +1482,7 @@ dependencies = [
  "form",
  "layout",
  "list-10k",
+ "patch",
  "react-egui",
  "react-egui-app",
  "react-egui-elements",
@@ -2713,6 +2730,27 @@ name = "paste"
 version = "1.0.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "57c0d7b74b563b49d38dae00a0c37d4d6de9b432382b2892f0574ddcae73fd0a"
+
+[[package]]
+name = "patch"
+version = "0.1.0"
+dependencies = [
+ "board",
+ "bytemuck",
+ "eframe",
+ "egui",
+ "egui-wgpu",
+ "egui_kittest",
+ "example-meta",
+ "log",
+ "naga",
+ "react-egui",
+ "react-egui-app",
+ "react-egui-elements",
+ "serde",
+ "serde_json",
+ "wgpu",
+]
 
 [[package]]
 name = "peniko"
