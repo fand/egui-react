@@ -262,6 +262,84 @@ fn dragging_a_header_moves_the_node() {
     assert_eq!(header(&harness), start + egui::vec2(0.0, 80.0));
 }
 
+/// The header of `shader1`, by role: the inspector shows the same name as a
+/// plain label once the node is selected.
+fn header(harness: &Harness<'static, Store>) -> egui::Pos2 {
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Button, "shader1")
+        .rect()
+        .center()
+}
+
+/// Drag the empty canvas, which pans it.
+fn pan(harness: &mut Harness<'static, Store>, by: egui::Vec2) {
+    // Just below shader1, well inside the canvas and on no node.
+    let from = egui::pos2(200.0, 720.0);
+    harness.hover_at(from);
+    harness.step();
+    harness.drag_at(from);
+    harness.step();
+    for step in 1..=4 {
+        harness.hover_at(from + by * (step as f32 / 4.0));
+        harness.step();
+    }
+    harness.drop_at(from + by);
+    settle(harness);
+}
+
+/// Recentre looks at the nodes, not at the origin: where it ends up does not
+/// depend on where the view was before.
+#[test]
+fn recentre_puts_the_nodes_in_the_middle() {
+    let mut harness = loaded();
+    let start = header(&harness);
+
+    click(&mut harness, "recentre");
+    let home = header(&harness);
+    assert_ne!(home, start, "the preset is not centred to begin with");
+
+    pan(&mut harness, egui::vec2(120.0, 60.0));
+    assert_eq!(header(&harness), home + egui::vec2(120.0, 60.0));
+
+    click(&mut harness, "recentre");
+    assert_eq!(header(&harness), home);
+}
+
+/// The wheel zooms about the pointer; zooming back out lands where it was.
+///
+/// What can be checked here is limited: kittest reads widget rectangles in
+/// layer coordinates, which only equal screen coordinates at zoom 1. So the
+/// round trip is what is pinned, and that nothing along the way panics.
+#[test]
+fn zooming_in_and_out_round_trips() {
+    let mut harness = loaded();
+    let start = header(&harness);
+    let over = egui::pos2(500.0, 500.0);
+    harness.hover_at(over);
+    harness.step();
+
+    harness.input_mut().events.push(egui::Event::Zoom(2.0));
+    settle(&mut harness);
+    // The layer coordinates moved, which is the pan changing under the zoom:
+    // proof the zoom happened, since the zoom itself is invisible from here.
+    assert_ne!(header(&harness), start, "the pinch was seen");
+    harness.input_mut().events.push(egui::Event::MouseWheel {
+        unit: egui::MouseWheelUnit::Point,
+        delta: egui::vec2(0.0, 40.0),
+        modifiers: egui::Modifiers::NONE,
+        phase: egui::TouchPhase::Move,
+    });
+    settle(&mut harness);
+    settle(&mut harness);
+
+    let back = (2.0f32 * (40.0f32 * 0.002).exp()).recip();
+    harness.input_mut().events.push(egui::Event::Zoom(back));
+    settle(&mut harness);
+
+    let end = header(&harness);
+    assert!((end - start).length() < 0.5, "{start:?} -> {end:?}");
+}
+
 /// P-3: a node's own state stays with the node.
 ///
 /// The same claim as `board`'s B-2, in a deeper tree: here the state is inside

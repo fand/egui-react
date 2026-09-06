@@ -237,6 +237,77 @@ const PORT_PAD: f32 = 5.0;
 /// The height of the preview canvas.
 const PREVIEW_H: f32 = 168.0;
 
+/// What a node is about as tall as, for placing the view over the nodes.
+/// The real height is only known once the node has drawn itself.
+const NODE_H_NOMINAL: f32 = 150.0;
+
+/// Where the canvas is looking. A patch point `p` is drawn at
+/// `canvas.min + zoom * (pan + p)`.
+///
+/// `pan` is in patch units, so at `zoom == 1` the nodes are drawn exactly
+/// where they would be with no layer transform at all, and none is set. That
+/// is the state a test looks at: kittest reads widget rectangles in layer
+/// coordinates, and at zoom 1 those are screen coordinates.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub struct Camera {
+    pub pan: egui::Vec2,
+    pub zoom: f32,
+}
+
+impl Default for Camera {
+    fn default() -> Self {
+        Self {
+            pan: egui::Vec2::ZERO,
+            zoom: 1.0,
+        }
+    }
+}
+
+impl Camera {
+    pub const ZOOM: std::ops::RangeInclusive<f32> = 0.25..=3.0;
+
+    /// The layer transform: scale about the canvas's corner, so that at zoom
+    /// 1 it is the identity whatever the pan.
+    fn to_global(self, corner: egui::Pos2) -> egui::emath::TSTransform {
+        use egui::emath::TSTransform;
+        TSTransform::from_translation(corner.to_vec2())
+            * TSTransform::from_scaling(self.zoom)
+            * TSTransform::from_translation(-corner.to_vec2())
+    }
+
+    /// The patch point under a screen point.
+    fn patch_at(self, corner: egui::Pos2, screen: egui::Pos2) -> egui::Pos2 {
+        ((screen - corner) / self.zoom - self.pan).to_pos2()
+    }
+
+    /// Zoom by `factor` about a screen point, which stays where it is.
+    fn zoomed(self, factor: f32, corner: egui::Pos2, about: egui::Pos2) -> Self {
+        let zoom = (self.zoom * factor).clamp(*Self::ZOOM.start(), *Self::ZOOM.end());
+        let under = self.patch_at(corner, about);
+        Self {
+            pan: (about - corner) / zoom - under.to_vec2(),
+            zoom,
+        }
+    }
+
+    /// Zoom 1, with the middle of the nodes in the middle of a canvas of
+    /// `size`. An empty patch looks at its origin.
+    fn home(nodes: &[Node], size: egui::Vec2) -> Self {
+        let bounds = nodes.iter().fold(egui::Rect::NOTHING, |bounds, node| {
+            bounds.union(egui::Rect::from_min_size(
+                egui::pos2(node.pos[0], node.pos[1]),
+                egui::vec2(NODE_W, NODE_H_NOMINAL),
+            ))
+        });
+        let pan = if bounds.is_positive() {
+            size / 2.0 - bounds.center().to_vec2()
+        } else {
+            egui::Vec2::ZERO
+        };
+        Self { pan, zoom: 1.0 }
+    }
+}
+
 #[component]
 pub fn App(cx: &mut Cx) {
     rsx! {
@@ -291,17 +362,25 @@ fn PatchView(cx: &mut Cx) {
     // the moment two messages land in one visit to the reducer. `(rev, epoch)`
     // is monotonic, so the question does not arise.
     let mut epoch = use_state(cx, || 0u64);
-    let mut pan = use_state(cx, egui::Vec2::default);
+    let mut camera = use_state(cx, Camera::default);
+    // How big the canvas is, reported by the canvas itself and written only
+    // when it changes. "Recentre" is decided here, next to the camera, and
+    // needs the one number the layout engine has and this component does not.
+    let mut canvas = use_state(cx, egui::Vec2::default);
 
     // Read once: an element may not hold a shared borrow of a state *and* a
     // handler that writes it (ARCHITECTURE 3.7).
     let steps = *epoch;
-    let offset = *pan;
+    let view_at = *camera;
     let graph = &history.present;
     let full = graph.nodes.len() >= graph::MAX_NODES;
+    let home = Camera::home(&graph.nodes, *canvas);
     // Where a new node lands: the first free place near the canvas's top-left
     // corner, in patch coordinates.
-    let next_pos = graph.free_pos([-offset.x + 40.0, -offset.y + 40.0]);
+    let next_pos = graph.free_pos([
+        -view_at.pan.x + 40.0 / view_at.zoom,
+        -view_at.pan.y + 40.0 / view_at.zoom,
+    ]);
 
     let view = rsx! {
         <View direction="row" grow={1.0} w="100%" h="100%" gap={8} p={8}>
@@ -321,7 +400,7 @@ fn PatchView(cx: &mut Cx) {
                     *epoch += 1;
                     dispatch.send(Undoable::Redo);
                 }}
-                on_home={|| *pan = egui::Vec2::ZERO}
+                on_home={|| *camera = home}
             />
             // Only the canvas and the preview wait for the preset; the palette
             // above is drawn and usable while the future is pending.
@@ -334,8 +413,14 @@ fn PatchView(cx: &mut Cx) {
                 <Stage
                     graph={graph}
                     epoch={steps}
-                    pan={offset}
-                    on_pan={|delta: egui::Vec2| *pan += delta}
+                    camera={view_at}
+                    on_camera={|next: Camera| *camera = next}
+                    on_size={|size: egui::Vec2| {
+                        // Every frame, so only a change may write.
+                        if *canvas != size {
+                            *canvas = size;
+                        }
+                    }}
                 />
             </Suspense>
         </View>
@@ -386,7 +471,7 @@ fn Palette(
             <Text>{format!("{count} / {} nodes", graph::MAX_NODES)}</Text>
             <Button w="100%" on_click={|| on_home.emit(())}>"recentre"</Button>
             <Text size={11.0} wrap w="100%">
-                "Drag a header to move a node, a port to wire one. Click a wired input to unplug it."
+                "Drag a header to move a node, a port to wire one. Click a wired input to unplug it. Drag the background to pan, scroll or pinch to zoom."
             </Text>
         </View>
     }
@@ -399,7 +484,14 @@ fn Palette(
 /// The file is `include_str!`, so the wait is one frame — in a real editor it
 /// would be a request to a patch library, and nothing else here would change.
 #[component]
-fn Stage(cx: &mut Cx, graph: &Graph, epoch: u64, pan: egui::Vec2, #[event] on_pan: egui::Vec2) {
+fn Stage(
+    cx: &mut Cx,
+    graph: &Graph,
+    epoch: u64,
+    camera: Camera,
+    #[event] on_camera: Camera,
+    #[event] on_size: egui::Vec2,
+) {
     let loaded = use_future(cx, (), || async { preset::parse(preset::STARTER) });
     let Poll::Ready(preset) = loaded else {
         // Nothing to draw, and nothing to say about it: the nearest boundary
@@ -461,10 +553,11 @@ fn Stage(cx: &mut Cx, graph: &Graph, epoch: u64, pan: egui::Vec2, #[event] on_pa
                 h={0.0}
                 w="100%"
                 graph={graph}
-                pan={pan}
+                camera={camera}
                 selected={&picked}
                 on_select={|node: NodeId| *selected = Some(node)}
-                on_pan={|delta: egui::Vec2| on_pan.emit(delta)}
+                on_camera={|next: Camera| on_camera.emit(next)}
+                on_size={|size: egui::Vec2| on_size.emit(size)}
             />
         </View>
         <View direction="column" w={300.0} shrink={0.0} gap={6}>
@@ -492,12 +585,13 @@ fn PatchCanvas(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
     graph: &Graph,
-    pan: egui::Vec2,
+    camera: Camera,
     // A real `Option`, so `&Option<T>`: a bare `Option<T>` prop is the
     // *optional* kind, whose setter takes the inner value (board 8.5).
     selected: &Option<NodeId>,
     #[event] on_select: NodeId,
-    #[event] on_pan: egui::Vec2,
+    #[event] on_camera: Camera,
+    #[event] on_size: egui::Vec2,
 ) {
     let dnd = use_drag(cx);
     let ports = use_port_map(cx);
@@ -543,25 +637,63 @@ fn PatchCanvas(
     let chosen = *selected;
 
     cx.leaf_fill(&style, move |ui| {
-        let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::drag());
-        // A child `Ui` inherits the parent's clip rect, not its `max_rect`, so
-        // without this a node panned past the edge paints over the palette.
-        ui.set_clip_rect(rect.intersect(ui.clip_rect()));
+        let (rect, _) = ui.allocate_exact_size(ui.available_size(), egui::Sense::hover());
+        on_size.emit(rect.size());
         let painter = ui.painter();
         painter.rect_filled(rect, 4.0, look.canvas);
-        grid(painter, rect, pan, look);
+        grid(painter, rect, camera, look);
 
+        // The nodes go in a layer of their own, right above this one, and the
+        // layer is what zooms: egui scales its shapes and maps the pointer
+        // back, so nothing inside a node knows. The same shape as
+        // `egui::Scene`, by hand, because the zoom here is driven by the
+        // scroll wheel as well as the pinch and `Scene` reads the wheel as a
+        // pan.
+        let to_global = camera.to_global(rect.min);
+        let layer = egui::LayerId::new(ui.layer_id().order, ui.id().with("patch"));
+        ui.ctx().set_sublayer(ui.layer_id(), layer);
+        let mut local = ui.new_child(
+            egui::UiBuilder::new()
+                .layer_id(layer)
+                .max_rect(to_global.inverse() * rect)
+                .sense(egui::Sense::click_and_drag()),
+        );
+        // The clip rect is the canvas, in layer coordinates: it is what keeps
+        // a node panned past the edge from painting over the palette.
+        local.set_clip_rect(to_global.inverse() * rect);
+        ui.ctx().set_transform_layer(layer, to_global);
+        let background = local.response();
+
+        // The background is the only thing that pans. A node's header is a
+        // widget on top of it and therefore wins the pointer. `drag_delta` is
+        // already divided by the zoom, so this is in patch units.
+        if background.dragged() {
+            on_camera.emit(Camera {
+                pan: camera.pan + background.drag_delta(),
+                ..camera
+            });
+        }
+        // The wheel and the pinch both zoom, about the pointer. Only while the
+        // pointer is over the canvas: the inspector has a scroll area of its
+        // own.
+        if let Some(pointer) = ui.input(|i| i.pointer.latest_pos())
+            && rect.contains(pointer)
+        {
+            let (pinch, scroll) = ui.input(|i| (i.zoom_delta(), i.smooth_scroll_delta()));
+            let factor = pinch * (scroll.y * 0.002).exp();
+            if factor != 1.0 {
+                on_camera.emit(camera.zoomed(factor, rect.min, pointer));
+            }
+        }
+
+        // Everything below draws into the zoomed layer.
+        let ui = &mut local;
+        let painter = ui.painter();
         // Reserved now, filled at the end: the wires are drawn from positions
         // the nodes themselves report, and they belong *under* the nodes.
         let wires = painter.add(egui::Shape::Noop);
 
-        // The background is the only thing that pans. A node's header is drawn
-        // later and therefore wins the pointer.
-        if response.dragged() {
-            on_pan.emit(response.drag_delta());
-        }
-
-        let origin = rect.min + pan;
+        let origin = rect.min + camera.pan;
         for node in &graph.nodes {
             let mut at = origin + egui::vec2(node.pos[0], node.pos[1]);
             if let Some((id, offset)) = live
@@ -654,12 +786,18 @@ fn PatchCanvas(
         }
         ui.painter().set(wires, egui::Shape::Vec(shapes));
 
-        // The wire being dragged is drawn last, on top of everything.
+        // The wire being dragged is drawn last, on top of everything. The
+        // pointer is a screen position and the wire is drawn in the layer.
         if let (Some(held), Some(pointer)) = (carrying, dnd.pointer())
             && let Some(from) = ports.at(held)
         {
-            ui.painter().add(wire(from, pointer, look.accent));
+            ui.painter()
+                .add(wire(from, to_global.inverse() * pointer, look.accent));
         }
+
+        // The background answers to the pointer over the whole canvas, not
+        // just where the nodes happen to be.
+        ui.expand_to_include_rect(to_global.inverse() * rect);
     });
 }
 
@@ -902,7 +1040,7 @@ fn PortDot(
     let look = look(cx.ctx());
     let dragging = dnd.carrying().is_some();
 
-    let (centre, hit, response) = cx.leaf(&ItemStyle::default().shrink(0.0), |ui| {
+    let (centre, hit, response, layer) = cx.leaf(&ItemStyle::default().shrink(0.0), |ui| {
         // The layout keeps `PORT` square of room, but the circle is drawn half
         // outside it: its middle is on the node's edge, so a wire ends where
         // the node does. Only the canvas clips, so painting past the node's
@@ -932,13 +1070,19 @@ fn PortDot(
         response.widget_info(|| {
             egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label)
         });
-        (centre, hit, response)
+        (centre, hit, response, ui.layer_id())
     });
 
     // Where the wires are drawn from, this frame.
     ports.put(PortRef { node, port }, centre);
-    // Only worth offering during a drag; `slot` checks that for itself.
-    dnd.slot(hit, PortRef { node, port });
+    // Only worth offering during a drag; `slot` checks that for itself. The
+    // session compares against the screen pointer, and this rectangle is in
+    // the zoomed layer, so it is mapped out first.
+    let to_global = cx
+        .ctx()
+        .layer_transform_to_global(layer)
+        .unwrap_or(egui::emath::TSTransform::IDENTITY);
+    dnd.slot(to_global * hit, PortRef { node, port });
 
     if response.drag_started() {
         dnd.pick_up(PortRef { node, port });
@@ -1406,19 +1550,21 @@ fn look(ctx: &egui::Context) -> Look {
 }
 
 /// The dots behind the patch, so panning is visible.
-fn grid(painter: &egui::Painter, rect: egui::Rect, pan: egui::Vec2, look: Look) {
-    const STEP: f32 = 32.0;
+fn grid(painter: &egui::Painter, rect: egui::Rect, camera: Camera, look: Look) {
+    // Drawn on the canvas, not in the zoomed layer, so the lines stay one
+    // pixel wide; the spacing and the offset are what zoom.
+    let step = 32.0 * camera.zoom;
     let stroke = egui::Stroke::new(1.0, look.edge.gamma_multiply(0.5));
-    let start = |offset: f32| offset.rem_euclid(STEP);
-    let mut x = rect.left() + start(pan.x);
+    let start = |offset: f32| (offset * camera.zoom).rem_euclid(step);
+    let mut x = rect.left() + start(camera.pan.x);
     while x < rect.right() {
         painter.vline(x, rect.y_range(), stroke);
-        x += STEP;
+        x += step;
     }
-    let mut y = rect.top() + start(pan.y);
+    let mut y = rect.top() + start(camera.pan.y);
     while y < rect.bottom() {
         painter.hline(rect.x_range(), y, stroke);
-        y += STEP;
+        y += step;
     }
 }
 
@@ -1437,4 +1583,79 @@ fn wire(from: egui::Pos2, to: egui::Pos2, color: egui::Color32) -> egui::Shape {
         egui::Color32::TRANSPARENT,
         egui::Stroke::new(1.5, color),
     ))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const CORNER: egui::Pos2 = egui::pos2(100.0, 20.0);
+
+    /// Zooming about a point leaves that point over the same patch position.
+    #[test]
+    fn zoom_keeps_the_point_under_the_pointer() {
+        let camera = Camera {
+            pan: egui::vec2(-30.0, 12.0),
+            zoom: 1.0,
+        };
+        let about = egui::pos2(400.0, 300.0);
+        let before = camera.patch_at(CORNER, about);
+        let zoomed = camera.zoomed(2.0, CORNER, about);
+        assert_eq!(zoomed.zoom, 2.0);
+        let after = zoomed.patch_at(CORNER, about);
+        assert!((after - before).length() < 1e-3, "{before:?} -> {after:?}");
+
+        // And back again is where it started, pan included.
+        let back = zoomed.zoomed(0.5, CORNER, about);
+        assert_eq!(back.zoom, 1.0);
+        assert!((back.pan - camera.pan).length() < 1e-3, "{back:?}");
+    }
+
+    #[test]
+    fn zoom_is_clamped() {
+        let camera = Camera::default();
+        let about = egui::pos2(400.0, 300.0);
+        assert_eq!(
+            camera.zoomed(100.0, CORNER, about).zoom,
+            *Camera::ZOOM.end()
+        );
+        assert_eq!(
+            camera.zoomed(0.001, CORNER, about).zoom,
+            *Camera::ZOOM.start()
+        );
+    }
+
+    /// At zoom 1 the layer transform is the identity, whatever the pan: that
+    /// is what lets a test read widget rectangles as screen positions.
+    #[test]
+    fn zoom_one_is_no_transform() {
+        let camera = Camera {
+            pan: egui::vec2(123.0, -45.0),
+            zoom: 1.0,
+        };
+        assert_eq!(camera.to_global(CORNER), egui::emath::TSTransform::IDENTITY);
+    }
+
+    /// Home puts the middle of the nodes in the middle of the canvas.
+    #[test]
+    fn home_centres_the_nodes() {
+        let node = |x: f32, y: f32| Node {
+            id: 1,
+            name: String::from("n"),
+            kind: Kind::Level,
+            pos: [x, y],
+            params: [0.0; 4],
+            inputs: [None, None],
+        };
+        let nodes = [node(0.0, 0.0), node(400.0, 200.0)];
+        let size = egui::vec2(800.0, 600.0);
+        let home = Camera::home(&nodes, size);
+        assert_eq!(home.zoom, 1.0);
+        // The nodes span 0..400+NODE_W by 0..200+NODE_H_NOMINAL.
+        let centre = egui::pos2((400.0 + NODE_W) / 2.0, (200.0 + NODE_H_NOMINAL) / 2.0);
+        let on_screen = (home.pan + centre.to_vec2()) * home.zoom;
+        assert_eq!(on_screen, size / 2.0);
+
+        assert_eq!(Camera::home(&[], size), Camera::default());
+    }
 }
