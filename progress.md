@@ -22,6 +22,33 @@ The benchmark and measurement changes are included with this handoff. The exampl
 `Row` was made public so the integration benchmark can reuse it; its declarative
 implementation is unchanged. No production performance optimization has been applied.
 
+### Steps A-C done (2026-09-06)
+
+Plan: [docs/tasks/perf/plan.md](docs/tasks/perf/plan.md). Numbers per step in
+[measurements.md](docs/tasks/perf/measurements.md) (After step A / B / C).
+
+| Step | Commit | Result |
+|---|---|---|
+| A: slot-keyed VirtualList row trees (`Cx::with_layout_id`) | `798f327` | Passes unchanged (row tree root rect height depends on scroll position). No tree per scrolled row; egui memory stops growing with scroll. |
+| B: egui_taffy fork skips discard when layout unchanged | `20a22c5` | Scroll 2.00 -> 1.00, Filter 1.60 -> 1.00 passes/frame, 0 discards. |
+| C: egui_taffy fork computes layout before drawing on root resize | `c1c417e` | Resize 2.98 -> 1.02 passes/frame. All-rows mode 131 -> 54 ms. |
+
+Fork: `../egui_taffy` (sibling checkout, not pushed), branches
+`skip-unchanged-discard` (`d618550`, step B) and `layout-first` (`ee07d38`,
+step C, on top of B). Wired in through `[patch.crates-io]` in the workspace
+`Cargo.toml` on this branch only; CI and a fresh clone need the sibling checkout
+or the patch removed.
+
+After C, VirtualList / Plain: Idle 1.96x, Scroll 2.08x, Filter 1.15x, Resize
+2.03x. Only Filter meets task.md's 1.5x. The remaining gap is per-frame
+overhead at one pass, not extra passes. Decision D (keep egui_taffy and
+upstream B + C, or replace it with an own layer over taffy) is open; plan
+section 5 lists the criteria. An attribution of the idle gap (per-tree
+bookkeeping vs per-node vs egui-react) is the input it still needs.
+
+Known pre-existing: `cargo fmt --all -- --check` fails on ~30 untouched files
+(import order); the two board gallery snapshots are missing.
+
 ### Product constraint
 
 Preserve the React-like component API and declarative row layout. The user does
@@ -102,7 +129,7 @@ The CSV contains 1,440 frames and 2,180 passes. `frame_cpu_ms` repeats the full
 frame duration on each pass row: do not sum it across passes. Measurements are
 one recorded run, not portable performance thresholds.
 
-### Conclusions and next work
+### Conclusions and next work (written before steps A-C; items 1-3 are done, see above)
 
 1. Trace the exact invalidation source per tree/node during scrolling and
    resizing: new nodes, style/measurement changes, root sizes, and scroll offsets.
