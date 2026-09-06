@@ -199,3 +199,34 @@ elements に足したくなったもの(足さない。記録だけ):
 4. `plain.rs`: 7 章。B-7 を緑にする。
 5. 9 章(a11y、docs、README)。`cargo test --workspace`、`cargo check --workspace --target wasm32-unknown-unknown`。
 6. 可能なら `cargo run -p board` / `--bin board-plain` で目視: cursor、全選択、placeholder、"✎" の描画。
+
+## 11. 実装で判明した差分
+
+### 11.1 placeholder は常に木に置く(5.2 の訂正)
+
+「hover した時だけ `<Placeholder>` を挿す」は動かない。**途中に現れた taffy ノードは、現れたフレームだけ矩形が空**(egui_taffy は `first_frame` を sizing pass で描き、レイアウトは次のフレーム)。その 1 フレームこそポインタが placeholder を要求する瞬間(gap が開いて card がポインタの下から逃げる)なので slot が空振りし、gap が閉じ、card が戻り、毎フレーム振動する(実測: card の y が 90 ⇄ 162、幅 92 ⇄ 13 を往復し drop が成立しない)。
+
+直し: **card ごとに 1 つ、footer の前に 1 つ、常に描く**。`open` prop で高さだけ変える(`CARD_GAP` / `CARD_GAP + PLACEHOLDER_H`)。高さが変わるだけのノードは常に矩形を持つ。
+
+### 11.2 `CARD_GAP` が card リストの `gap` を置き換える
+
+閉じた placeholder が **card 間の余白そのもの**。`<View>` の `gap` は外し(0)、`const CARD_GAP: f32 = 6.0` を placeholder の閉じた高さにした。両方あると 12px になる。"nothing here" と新規 card の枠は `mt={CARD_GAP}` を持つ。先頭 card の上に 6px 入るが実害なし。plain 版も同じ(`item_spacing.y = 0.0` + `drop_gap`)。
+
+### 11.3 `Placeholder` は `leaf` ではなく `leaf_fill`
+
+`cx.leaf` は内容で測られ、初回は幅 0 の `Ui` で測られて taffy がそのまま固定する(ARCHITECTURE 6)。幅 0 の slot はポインタが入れない。`leaf_fill` + style の `w("100%")` / `h(..)` にした。
+
+### 11.4 `META.elements` の `Frame` は残す
+
+新規 card の枠は矩形が要らないので `<Frame>` 要素をそのまま使っている。外すと表示が嘘になる。`Button` は使わなくなったので外した。
+
+### 11.5 plain 版で増えた 2 つの持ち物(7 章の補足)
+
+- `CardUi.rect: Option<egui::Rect>` — 背面の drag 面は**子より先に**登録する必要があるが、即時モードでは描く前に card の矩形が分からない。前フレームの矩形を覚えて使う。react 版は taffy が計算済みのものを読むだけ。
+- `PlainState.fresh: Option<egui::Id>` — 自動 focus + 全選択を当てる field の id。react 版は `<TitleEdit>` 内の `use_state` なので field を名指しする必要がない。
+
+### 11.6 テスト側の注意(8 章の補足)
+
+- **caret の点滅**: focus のある `TextEdit` は毎フレーム repaint を要求するので `Harness::run` が `ExceededMaxSteps` で落ちる。harness を作ったら `h.ctx.all_styles_mut(|s| s.visuals.text_cursor.blink = false)`(egui 0.36 に `Context::style_mut` は無い)。
+- **B-12**: egui 0.36 に `LabelSelectionState::load` は無い。`ctx.plugin::<egui::text_selection::LabelSelectionState>().lock().has_selection()`。
+- **`"done"` が曖昧**: toolbar の chip と 4 列目の名前が同じ label。`get_all_by_label("done").next()`(toolbar が先に描かれる)などで絞る。

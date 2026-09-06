@@ -2,9 +2,9 @@
 //!
 //! What is shared: `board.rs` — the columns, the cards, the messages, the
 //! reducer, the filter, and the arithmetic that turns a drop on a card into a
-//! position in a column — and `look.rs`, the colours and the dragged card's
-//! ghost. Both versions use every line of both. Nothing that is merely
-//! drawing is counted as a difference.
+//! position in a column — and `look.rs`, the colours, the dragged card's ghost
+//! and the gap it would drop into. Both versions use every line of both.
+//! Nothing that is merely drawing is counted as a difference.
 //!
 //! What is not shared is the whole of this file, and the difference it is here
 //! to show is one field:
@@ -13,18 +13,25 @@
 //! ui: HashMap<CardId, CardUi>,
 //! ```
 //!
-//! A card's editing draft and its expanded flag have to live *somewhere*, and
-//! in immediate mode with no per-item state that somewhere is the caller. So:
-//! a map keyed by card id (not by index — an index would hand a card its
-//! neighbour's draft the moment anything moved), an entry made on demand, and
-//! a line that deletes the entries of cards that are gone. Forget that line
-//! and the map grows for as long as the program runs.
+//! A card's editing flag and the title being typed into it have to live
+//! *somewhere*, and in immediate mode with no per-item state that somewhere is
+//! the caller. So: a map keyed by card id (not by index — an index would hand a
+//! card its neighbour's draft the moment anything moved), an entry made on
+//! demand, and a line that deletes the entries of cards that are gone. Forget
+//! that line and the map grows for as long as the program runs.
 //!
 //! The react-egui version has no such field and no such line. Each `<Card>`
 //! holds its own state, and the pass-end sweep frees it when the card stops
 //! being drawn. That is the trade the two files are here to price: the react
 //! side pays with a scope and an id per card, the plain side pays with the
 //! bookkeeping below.
+//!
+//! Two smaller entries on the same bill. A card is dragged and dropped on by
+//! its *whole rectangle*, and here that rectangle is only known once the card
+//! has been drawn — so it is remembered from the frame before, in the same map.
+//! taffy has already worked it out for the other version. And the field that is
+//! opened focused and selected needs its id known one frame ahead, which is the
+//! `fresh` field; over there it is a `use_state` inside the editor itself.
 //!
 //! Everything else — the drag session, the undo stacks, the debounce — is the
 //! same code the hooks contain, moved into `PlainState`. Those are not the
@@ -34,8 +41,8 @@ use std::collections::HashMap;
 
 use serde::{Deserialize, Serialize};
 
-use crate::board::{Board, CardId, ColumnId, DropTarget, Label, Msg, reduce, visible};
-use crate::look::{Theme, ghost};
+use crate::board::{Board, CardId, ColumnId, DropTarget, Msg, reduce, visible};
+use crate::look::{PLACEHOLDER_H, Theme, ghost, placeholder};
 
 /// The key the standalone binary stores the board under.
 pub const STORAGE_KEY: &str = "board_plain";
@@ -47,16 +54,22 @@ const DEPTH: usize = 64;
 
 /// The height of a column's footer, which is also its "drop at the end" zone.
 const FOOTER_H: f32 = 26.0;
-const SLOT_PAD: f32 = 4.0;
 
-/// One card's own state. The react-egui version has this too — as three
+/// The space between two cards. Drawn by the gap that sits between them rather
+/// than by the column's item spacing, for the reason [`drop_gap`] gives.
+const CARD_GAP: f32 = 6.0;
+
+/// One card's own state. The react-egui version has this too — as two
 /// `use_identity` hooks inside `<Card>`, where nothing else can see them.
 #[derive(Clone, Debug, Default)]
 struct CardUi {
     editing: bool,
-    expanded: bool,
     draft_title: String,
-    draft_body: String,
+    /// Where the card was drawn last frame. Immediate mode draws a card before
+    /// it knows how big it is, and the background that senses the drag has to
+    /// be registered *before* the widgets on top of it, so it senses last
+    /// frame's rectangle. The other version reads the one taffy already has.
+    rect: Option<egui::Rect>,
 }
 
 /// Everything the plain version keeps between frames.
@@ -83,8 +96,9 @@ pub struct PlainState {
     query: String,
     #[serde(skip)]
     typed_at: f64,
+    /// `None` shows every card, `Some(true)` only the ticked ones.
     #[serde(skip)]
-    label: Option<Label>,
+    filter: Option<bool>,
 
     /// The drag session: `use_dnd` written out.
     #[serde(skip)]
@@ -96,15 +110,25 @@ pub struct PlainState {
     #[serde(skip)]
     pointer: Option<egui::Pos2>,
 
-    /// Which column is being renamed, and to what.
+    /// Which column is being renamed, and to what. And which column is having a
+    /// card added to it, and what is being typed as its title.
     ///
-    /// One at a time, unlike the react-egui version, where each `<Column>` has
-    /// a `use_state` of its own and two could be open at once. A second map
-    /// here would be a second thing to sweep, for a case nobody asked for —
-    /// which is exactly the choice a caller is forced to make when the state
-    /// of the parts has to live in the whole.
+    /// One at a time each, unlike the react-egui version, where every
+    /// `<Column>` has a `use_state` of its own and two could be open at once. A
+    /// map here would be another thing to sweep, for a case nobody asked for —
+    /// which is exactly the choice a caller is forced to make when the state of
+    /// the parts has to live in the whole.
     #[serde(skip)]
     renaming: Option<(ColumnId, String)>,
+    #[serde(skip)]
+    adding: Option<(ColumnId, String)>,
+
+    /// The one-line editor that should take focus and select its text on the
+    /// next frame. `<TitleEdit>` keeps this as a `use_state` of its own and
+    /// never has to name the field; here the field has to be named, so its id
+    /// is spelled out at both ends.
+    #[serde(skip)]
+    fresh: Option<egui::Id>,
 
     #[serde(skip)]
     dark: bool,
@@ -120,12 +144,14 @@ impl Default for PlainState {
             search: String::new(),
             query: String::new(),
             typed_at: f64::NEG_INFINITY,
-            label: None,
+            filter: None,
             carrying: None,
             slots: Vec::new(),
             hovered: None,
             pointer: None,
             renaming: None,
+            adding: None,
+            fresh: None,
             dark: true,
         }
     }
@@ -272,7 +298,7 @@ pub fn ui(ui: &mut egui::Ui, state: &mut PlainState) {
     }
 }
 
-/// The search box, the label filter, the counts and the history buttons.
+/// The search box, the done filter, the counts and the history buttons.
 fn toolbar(
     ui: &mut egui::Ui,
     state: &mut PlainState,
@@ -298,15 +324,15 @@ fn toolbar(
             .changed();
         state.debounce(ui.ctx(), typed);
 
-        for tag in Label::ALL {
-            let text = egui::RichText::new(tag.name())
-                .small()
-                .color(theme.label(tag));
+        // Two chips, one per answer to the only question a card now has.
+        for (name, value) in [("open", false), ("done", true)] {
+            let text = egui::RichText::new(name).small().color(theme.accent());
             if ui
-                .selectable_label(state.label == Some(tag), text)
+                .selectable_label(state.filter == Some(value), text)
                 .clicked()
             {
-                state.label = (state.label != Some(tag)).then_some(tag);
+                // Clicking the chip that is already on clears the filter.
+                state.filter = (state.filter != Some(value)).then_some(value);
             }
         }
 
@@ -315,7 +341,7 @@ fn toolbar(
         // right-to-left `Ui` filling the rest of the row.
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             let label = if state.dark { "light" } else { "dark" };
-            if icon_button(ui, label, true) {
+            if icon_button(ui, label, None, true) {
                 state.dark = !state.dark;
                 ui.ctx().set_visuals(if state.dark {
                     egui::Visuals::dark()
@@ -323,8 +349,8 @@ fn toolbar(
                     egui::Visuals::light()
                 });
             }
-            *redo = icon_button(ui, "redo", !state.future.is_empty());
-            *undo = icon_button(ui, "undo", !state.past.is_empty());
+            *redo = icon_button(ui, "redo", None, !state.future.is_empty());
+            *undo = icon_button(ui, "undo", None, !state.past.is_empty());
         });
     });
 }
@@ -333,11 +359,11 @@ fn toolbar(
 fn columns(ui: &mut egui::Ui, state: &mut PlainState, theme: Theme, pending: &mut Vec<Msg>) {
     let ids: Vec<ColumnId> = state.board.columns.iter().map(|column| column.id).collect();
     let query = state.query.clone();
-    let label = state.label;
+    let filter = state.filter;
 
     ui.columns(ids.len(), |uis| {
         for (ui, id) in uis.iter_mut().zip(ids) {
-            column(ui, state, theme, id, &query, label, pending);
+            column(ui, state, theme, id, &query, filter, pending);
         }
     });
 }
@@ -349,7 +375,7 @@ fn column(
     theme: Theme,
     id: ColumnId,
     query: &str,
-    label: Option<Label>,
+    filter: Option<bool>,
     pending: &mut Vec<Msg>,
 ) {
     let Some(index) = state.board.columns.iter().position(|c| c.id == id) else {
@@ -357,33 +383,45 @@ fn column(
     };
     let name = state.board.columns[index].name.clone();
     let total = state.board.columns[index].cards.len();
-    let shown = visible(&state.board.columns[index], query, label);
+    let shown = visible(&state.board.columns[index], query, filter);
+
+    // Where the card in hand would land, unless that is where it already is: a
+    // drop that moves nothing gets no gap opened for it.
+    let carried = state.carrying;
+    let carried_at = carried.and_then(|card| shown.iter().position(|shown| *shown == card));
+    let gap = state
+        .hovered
+        .filter(|target| target.column == id)
+        .filter(|target| {
+            target.before != carried
+                && carried_at.is_none_or(|i| target.before != shown.get(i + 1).copied())
+        })
+        .map(|target| target.before);
 
     ui.spacing_mut().item_spacing.y = 6.0;
     ui.horizontal(|ui| {
         ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
         ui.spacing_mut().item_spacing.x = 4.0;
-        match &mut state.renaming {
-            Some((renaming, draft)) if *renaming == id => {
-                let edit = ui.add(egui::TextEdit::singleline(draft));
-                if edit.lost_focus() && ui.input(|i| i.key_pressed(egui::Key::Enter)) {
-                    pending.push(Msg::RenameColumn {
-                        column: id,
-                        name: draft.clone(),
-                    });
-                    state.renaming = None;
-                }
+        let renaming_here = matches!(&state.renaming, Some((column, _)) if *column == id);
+        if renaming_here {
+            let (_, mut draft) = state.renaming.take().expect("just looked");
+            let field = egui::Id::new(("board_plain/rename", id));
+            match title_edit(ui, &mut state.fresh, field, &mut draft, "column name") {
+                Edited::Typing => state.renaming = Some((id, draft)),
+                Edited::Commit(name) => pending.push(Msg::RenameColumn { column: id, name }),
+                Edited::Cancel => {}
             }
-            _ => {
-                ui.label(egui::RichText::new(&name).strong().color(theme.accent()));
-            }
+        } else {
+            ui.label(egui::RichText::new(&name).strong().color(theme.accent()));
         }
         // The same reading order as the react-egui column header, where the
         // name has `grow={1.0}` and pushes the rest to the right.
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
             ui.label(format!("{}/{}", shown.len(), total));
-            if icon_button(ui, "rename", true) {
+            // While the name is an editor there is nothing left to rename.
+            if !renaming_here && icon_button(ui, "rename", None, true) {
                 state.renaming = Some((id, name.clone()));
+                state.fresh = Some(egui::Id::new(("board_plain/rename", id)));
             }
         });
     });
@@ -393,7 +431,16 @@ fn column(
     // version, where the footer is inside the `<ScrollArea>` too.
     egui::ScrollArea::vertical().id_salt(id).show(ui, |ui| {
         ui.set_min_width(ui.available_width());
+        // No item spacing: the space between two cards is the closed gap that
+        // sits between them. See [`drop_gap`].
+        ui.spacing_mut().item_spacing.y = 0.0;
+
         for (i, card) in shown.iter().enumerate() {
+            let target = DropTarget {
+                column: id,
+                before: Some(*card),
+            };
+            drop_gap(ui, state, theme, target, gap == Some(Some(*card)));
             self::card(
                 ui,
                 state,
@@ -405,37 +452,85 @@ fn column(
             );
         }
         if shown.is_empty() {
+            ui.add_space(CARD_GAP);
             ui.label("nothing here");
         }
 
+        // The new card, in the same frame the saved ones wear, so that what is
+        // being typed looks like what it will become. It is not on the board
+        // until it is confirmed: an empty card put there and then taken off
+        // again would be two steps of undo for one card, and the storage would
+        // hold a nameless card if the window closed in between.
+        if matches!(&state.adding, Some((column, _)) if *column == id) {
+            let (_, mut draft) = state.adding.take().expect("just looked");
+            ui.add_space(CARD_GAP);
+            egui::Frame::new()
+                .fill(theme.card())
+                .corner_radius(4.0)
+                .inner_margin(6.0)
+                .show(ui, |ui| {
+                    ui.set_min_width(ui.available_width());
+                    let field = egui::Id::new(("board_plain/new", id));
+                    match title_edit(ui, &mut state.fresh, field, &mut draft, "new card") {
+                        Edited::Typing => state.adding = Some((id, draft)),
+                        Edited::Commit(title) => {
+                            if !title.trim().is_empty() {
+                                pending.push(Msg::AddCard { column: id, title });
+                            }
+                        }
+                        Edited::Cancel => {}
+                    }
+                });
+        }
+
+        let end = DropTarget {
+            column: id,
+            before: None,
+        };
+        drop_gap(ui, state, theme, end, gap == Some(None));
+
         let rect =
             egui::Rect::from_min_size(ui.cursor().min, egui::vec2(ui.available_width(), FOOTER_H));
-        if state.hovered
-            == Some(DropTarget {
-                column: id,
-                before: None,
-            })
-        {
-            ui.painter().hline(
-                rect.x_range(),
-                rect.top(),
-                egui::Stroke::new(2.0, theme.accent()),
-            );
-        }
         if state.carrying.is_some() {
-            state.slots.push((
-                rect,
-                DropTarget {
-                    column: id,
-                    before: None,
-                },
-            ));
+            state.slots.push((rect, end));
         }
         let button = egui::Button::new("+ card").wrap_mode(egui::TextWrapMode::Extend);
         if ui.put(rect, button).clicked() {
-            pending.push(Msg::AddCard { column: id });
+            state.adding = Some((id, String::new()));
+            state.fresh = Some(egui::Id::new(("board_plain/new", id)));
         }
     });
+}
+
+/// The space between two cards, and the gap a card in hand would drop into.
+///
+/// One of these goes in front of every card and in front of the footer, open or
+/// closed, and closed it is the column's card spacing. The react-egui version
+/// has the same rule for a reason that does not apply here — a taffy node that
+/// comes and goes has no rectangle on the frame it appears — but the two are
+/// laid out to the same numbers, so this one keeps the rule too and the same
+/// test measures both.
+fn drop_gap(
+    ui: &mut egui::Ui,
+    state: &mut PlainState,
+    theme: Theme,
+    target: DropTarget,
+    open: bool,
+) {
+    let extra = if open { PLACEHOLDER_H } else { 0.0 };
+    let size = egui::vec2(ui.available_width(), CARD_GAP + extra);
+    let (rect, response) = ui.allocate_exact_size(size, egui::Sense::hover());
+    if !open {
+        return;
+    }
+    // The spacing stays spacing: the card is drawn in what is new.
+    placeholder(ui.painter(), rect.with_min_y(rect.bottom() - extra), theme);
+    // Painted, not a widget, so the name has to be said out loud; the test asks
+    // for it to know whether a gap is open.
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(egui::WidgetType::Other, ui.is_enabled(), "drop here")
+    });
+    state.slots.push((rect, target));
 }
 
 fn card(
@@ -450,133 +545,223 @@ fn card(
     let Some(card) = state.board.card(id).cloned() else {
         return;
     };
-    let before_me = state.hovered
-        == Some(DropTarget {
-            column,
-            before: Some(id),
-        });
     let carried = state.carrying == Some(id);
+    let dragging = state.carrying.is_some();
     // Every read of a card's own state goes through the map, and every write
     // has to put it back. This is the shape all of `plain.rs` takes.
     let ui_state = state.card_ui(id).clone();
+    let field = egui::Id::new(("board_plain/title", id));
 
-    egui::Frame::new()
+    // The card is grabbed and dropped on by the whole of itself, so the drag
+    // lives on a rectangle behind the widgets rather than on the title. It is
+    // registered first, and that order is the feature: egui picks the topmost
+    // click candidate and the topmost drag candidate separately, so the
+    // checkbox and the buttons still take their clicks while a press that turns
+    // into a movement falls through to here. The rectangle is the one the last
+    // frame left behind, because this one has not been drawn yet.
+    if let Some(rect) = ui_state.rect {
+        let bg = ui.interact(
+            rect,
+            egui::Id::new(("board_plain/card", id)),
+            egui::Sense::drag(),
+        );
+        if bg.drag_started() {
+            state.carrying = Some(id);
+        }
+        if bg.contains_pointer() {
+            // `contains_pointer`, not `hovered`: the pointer is over the card
+            // even when it is over a widget drawn on top of it.
+            ui.ctx().set_cursor_icon(if dragging {
+                egui::CursorIcon::Grabbing
+            } else {
+                egui::CursorIcon::PointingHand
+            });
+        }
+    }
+
+    let drawn = egui::Frame::new()
         .fill(theme.card())
         .corner_radius(4.0)
         .inner_margin(6.0)
         .show(ui, |ui| {
             ui.set_min_width(ui.available_width());
-            ui.spacing_mut().item_spacing.y = 4.0;
             ui.horizontal(|ui| {
-                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
                 ui.spacing_mut().item_spacing.x = 6.0;
-                let chip = egui::RichText::new(card.label.name())
-                    .small()
-                    .color(theme.label(card.label));
-                if ui.selectable_label(false, chip).clicked() {
-                    pending.push(Msg::SetLabel {
+
+                // `done` is read out of the board, so the box is drawn against
+                // a copy and what comes back is a message, not a write.
+                let mut done = card.done;
+                let box_ = ui.add(egui::Checkbox::without_text(&mut done));
+                // A card is found by this name — by a screen reader, and by the
+                // test, which needs a hold on a card whose title has become an
+                // editor.
+                ui.ctx().accesskit_node_builder(box_.id, |node| {
+                    node.set_label(format!("done: {}", card.title));
+                });
+                if box_.changed() {
+                    pending.push(Msg::SetDone {
                         card: id,
-                        label: card.label.next(),
+                        done: !card.done,
                     });
                 }
 
-                let title = if carried {
-                    egui::RichText::new(&card.title).weak()
-                } else {
-                    egui::RichText::new(&card.title)
-                };
-                let handle = ui.add(
-                    egui::Label::new(title)
-                        .truncate()
-                        .sense(egui::Sense::click_and_drag()),
-                );
-                if handle.drag_started() {
-                    state.carrying = Some(id);
-                }
-                if handle.clicked() {
-                    state.card_ui(id).expanded = !ui_state.expanded;
-                }
-                if before_me {
-                    let rect = handle.rect.expand(SLOT_PAD);
-                    ui.painter().hline(
-                        rect.x_range(),
-                        rect.top(),
-                        egui::Stroke::new(2.0, theme.accent()),
-                    );
-                }
-                if state.carrying.is_some() {
-                    let (top, bottom) = handle
-                        .rect
-                        .expand(SLOT_PAD)
-                        .split_top_bottom_at_fraction(0.5);
-                    state.slots.push((
-                        top,
-                        DropTarget {
-                            column,
-                            before: Some(id),
-                        },
-                    ));
-                    state.slots.push((
-                        bottom,
-                        DropTarget {
-                            column,
-                            before: next,
-                        },
-                    ));
-                }
-
+                // The buttons are pinned to the right and the title fills what
+                // is left, which is `grow={1.0}` on the other side.
                 ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    if icon_button(ui, "x", true) {
+                    if icon_button(ui, "×", Some("remove"), true) {
                         pending.push(Msg::RemoveCard { card: id });
                     }
-                    let label = if ui_state.editing { "close" } else { "edit" };
-                    if icon_button(ui, label, true) {
+                    if icon_button(ui, "✎", Some("edit"), true) {
+                        // Opening takes a fresh copy of the saved title, so
+                        // closing the editor and opening it again starts from
+                        // what was saved rather than from an old draft.
                         let entry = state.card_ui(id);
-                        if !entry.editing {
-                            entry.draft_title = card.title.clone();
-                            entry.draft_body = card.body.clone();
-                        }
-                        entry.editing = !entry.editing;
+                        entry.draft_title = card.title.clone();
+                        entry.editing = true;
+                        state.fresh = Some(field);
                     }
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                        if ui_state.editing {
+                            title(ui, state, id, field, pending);
+                        } else {
+                            let mut text = egui::RichText::new(&card.title);
+                            if card.done {
+                                text = text.weak().strikethrough();
+                            }
+                            if carried {
+                                text = text.weak();
+                            }
+                            // Not selectable, and it senses nothing. A label
+                            // that senses a drag still starts a text selection
+                            // on the press, and egui then runs that selection
+                            // across every label the pointer passes over on its
+                            // way. The card is dragged by the background above.
+                            ui.add(egui::Label::new(text).truncate().selectable(false));
+                        }
+                    });
                 });
             });
+        })
+        .response;
 
-            if ui_state.editing {
-                let entry = state.card_ui(id);
-                ui.add(
-                    egui::TextEdit::singleline(&mut entry.draft_title)
-                        .hint_text("title")
-                        .desired_width(f32::INFINITY),
-                );
-                ui.add_sized(
-                    egui::vec2(ui.available_width(), 54.0),
-                    egui::TextEdit::multiline(&mut entry.draft_body).hint_text("body"),
-                );
-                let (title, body) = (entry.draft_title.clone(), entry.draft_body.clone());
-                ui.horizontal(|ui| {
-                    if ui.button("save").clicked() {
-                        pending.push(Msg::EditCard {
-                            card: id,
-                            title,
-                            body,
-                        });
-                        state.card_ui(id).editing = false;
-                    }
-                    if ui.button("cancel").clicked() {
-                        state.card_ui(id).editing = false;
-                    }
-                });
-            } else if ui_state.expanded && !card.body.is_empty() {
-                ui.add(egui::Label::new(&card.body).wrap());
-            }
-        });
+    state.card_ui(id).rect = Some(drawn.rect);
+    // The whole card split in two: the top half means "in front of me", the
+    // bottom half "in front of the next one", which is how a list of cards is
+    // also a list of the gaps between them.
+    if dragging {
+        let (top, bottom) = drawn.rect.split_top_bottom_at_fraction(0.5);
+        state.slots.push((
+            top,
+            DropTarget {
+                column,
+                before: Some(id),
+            },
+        ));
+        state.slots.push((
+            bottom,
+            DropTarget {
+                column,
+                before: next,
+            },
+        ));
+    }
 }
 
-/// The plain twin of `<IconButton>`.
-fn icon_button(ui: &mut egui::Ui, label: &str, enabled: bool) -> bool {
+/// The card's title while it is being edited, taken out of the map and put
+/// back — the borrow checker's way of saying that this state is the whole
+/// board's, not the card's.
+fn title(
+    ui: &mut egui::Ui,
+    state: &mut PlainState,
+    id: CardId,
+    field: egui::Id,
+    pending: &mut Vec<Msg>,
+) {
+    let mut draft = std::mem::take(&mut state.card_ui(id).draft_title);
+    let edited = title_edit(ui, &mut state.fresh, field, &mut draft, "title");
+    match edited {
+        Edited::Typing => state.card_ui(id).draft_title = draft,
+        Edited::Commit(title) => {
+            // Confirming an empty title is a cancel: a nameless card would
+            // leave nothing to click on to name it again.
+            if !title.trim().is_empty() {
+                pending.push(Msg::SetTitle { card: id, title });
+            }
+            state.card_ui(id).editing = false;
+        }
+        Edited::Cancel => state.card_ui(id).editing = false,
+    }
+}
+
+/// What a one-line editor did on this frame.
+enum Edited {
+    Typing,
+    Commit(String),
+    Cancel,
+}
+
+/// The plain twin of `<TitleEdit>`: the card's title, the column's name and the
+/// card being added are all the same three keys.
+///
+/// Enter confirms, Escape puts it back, and clicking elsewhere confirms — the
+/// last because a board is clicked around rather than tabbed through, and
+/// losing what was typed for looking away is not a thing anyone means.
+fn title_edit(
+    ui: &mut egui::Ui,
+    fresh: &mut Option<egui::Id>,
+    field: egui::Id,
+    text: &mut String,
+    name: &str,
+) -> Edited {
+    let width = ui.available_width();
+    let response = ui.add(
+        egui::TextEdit::singleline(text)
+            .id(field)
+            .desired_width(width),
+    );
+    // A nameless text field is what the gallery's a11y test counts, and the
+    // text says nothing about which of the three this one is.
+    ui.ctx()
+        .accesskit_node_builder(response.id, |node| node.set_label(name));
+
+    // Focus and select-all on the frame the field first appears; after that the
+    // caret is the user's business. Whoever opened the editor said which field
+    // it was, because in immediate mode there is no "first frame" to ask.
+    if *fresh == Some(field) {
+        response.request_focus();
+        let mut state = egui::TextEdit::load_state(ui.ctx(), field).unwrap_or_default();
+        let end = egui::text::CCursor::new(text.chars().count());
+        let all = egui::text::CCursorRange::two(egui::text::CCursor::new(0), end);
+        state.cursor.set_char_range(Some(all));
+        state.store(ui.ctx(), field);
+        *fresh = None;
+    }
+
+    if response.lost_focus() {
+        // egui hands focus back on Escape, so the two arrive together and the
+        // only question is which of them ended the edit.
+        if ui.input(|i| i.key_pressed(egui::Key::Escape)) {
+            return Edited::Cancel;
+        }
+        return Edited::Commit(text.clone());
+    }
+    Edited::Typing
+}
+
+/// The plain twin of `<IconButton>`. `name` is what the accessibility tree says
+/// when the button shows a picture instead of a word.
+fn icon_button(ui: &mut egui::Ui, label: &str, name: Option<&str>, enabled: bool) -> bool {
     let button = egui::Button::new(label)
         .small()
         .frame(false)
         .wrap_mode(egui::TextWrapMode::Extend);
-    ui.add_enabled(enabled, button).clicked()
+    let response = ui.add_enabled(enabled, button);
+    if let Some(name) = name {
+        // The widget has already written its node for this pass, so this
+        // overwrites the label egui took from the glyph.
+        ui.ctx()
+            .accesskit_node_builder(response.id, |node| node.set_label(name));
+    }
+    response.clicked()
 }
