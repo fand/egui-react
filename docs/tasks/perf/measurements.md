@@ -285,3 +285,105 @@ this frame drew invisible in a sizing pass, so it always needs a second pass;
 a node removed this frame is treated as a change, because it is already out of
 the id map when the compare runs and the compare cannot see what dropping it
 did.
+
+## After step C (egui_taffy computes the layout before drawing on a resize)
+
+Date: 2026-09-06. Same machine and conditions as above: native macOS arm64,
+Rust 1.95.0, release profile, egui 0.36.1. egui_taffy is the fork at
+`../egui_taffy`, branch `layout-first`, commit `ee07d38` ("Compute the layout
+before drawing when only the root rect resized"), which sits on top of step B's
+`d618550`, wired in through `[patch.crates-io]` in the workspace `Cargo.toml`.
+Code state: step A committed (`798f327`), the patch line, the resize guard test
+and this section uncommitted. Samples in [samples-c.csv](samples-c.csv). One
+recorded run.
+
+Reproduce:
+
+```sh
+PERF_CSV="$PWD/docs/tasks/perf/samples-c.csv" \
+  cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
+```
+
+| Scenario | Mode | Mean ms | p50 ms | p95 ms | Passes/frame | Discard frames /120 | Final rows | Row callbacks/frame |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Idle | All | 43.029 | 43.048 | 46.206 | 1.00 | 0 | 10000 | 10000.00 |
+| Idle | Virtual | 0.241 | 0.250 | 0.270 | 1.00 | 0 | 37 | 37.00 |
+| Idle | Plain | 0.123 | 0.123 | 0.143 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | All | 42.645 | 42.743 | 46.340 | 1.00 | 0 | 10000 | 10000.00 |
+| Scroll | Virtual | 0.303 | 0.306 | 0.366 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | Plain | 0.146 | 0.139 | 0.185 | 1.00 | 0 | 37 | 37.00 |
+| Filter | All | 54.006 | 19.967 | 177.632 | 1.60 | 72 | 1250–10000 | 7000.00 |
+| Filter | Virtual | 1.222 | 1.187 | 1.575 | 1.00 | 0 | 37 | 37.00 |
+| Filter | Plain | 1.065 | 1.018 | 1.376 | 1.00 | 0 | 37 | 37.00 |
+| Resize | All | 54.385 | 54.937 | 56.758 | 1.00 | 0 | 10000 | 10000.00 |
+| Resize | Virtual | 0.311 | 0.310 | 0.471 | 1.02 | 3 | 37–40 | 39.88 |
+| Resize | Plain | 0.153 | 0.145 | 0.209 | 1.00 | 0 | 37–40 | 38.90 |
+
+| Scenario | Virtual pass histogram (passes: frames) | Virtual discard requests |
+|---|---|---:|
+| Idle | 1: 120 | 0 |
+| Scroll | 1: 120 | 0 |
+| Filter | 1: 120 | 0 |
+| Resize | 1: 117, 2: 3 | 3 |
+
+### Compared with step B
+
+| Scenario | Passes/frame after B | Passes/frame after C | Virtual mean ms B → C |
+|---|---:|---:|---|
+| Idle | 1.00 | 1.00 | 0.225 → 0.241 |
+| Scroll | 1.00 | 1.00 | 0.298 → 0.303 |
+| Filter | 1.00 | 1.00 | 1.158 → 1.222 |
+| Resize | 2.98 | 1.02 | 0.649 → 0.311 |
+
+**The gate in section 0 for step C is met.** Resize drops from 2.98 to 1.02
+passes per frame. Discard frames fall from 119 to 3 and discard requests from
+4,750 to 3. Row callbacks per frame fall from 116.06 to 39.88, so every row body
+runs once instead of three times, and the Virtual mean frame time halves, 0.649
+to 0.311 ms. `All` mode gains the same way: 2.98 to 1.00 passes and 131 to 54 ms
+per frame, because its one big tree also lays out before it draws.
+
+The other three scenarios are unchanged, as expected: they were already at one
+pass and their root rect never resizes, so the early layout never runs. Their
+frame times moved 1–6% up, in the same direction as `Plain` (Idle Plain 0.113 to
+0.123 ms), so that is run-to-run variation on the machine, not the change.
+
+### The passes that remain
+
+Three Resize frames still need two passes: frames 1, 11 and 21. The window
+height cycles `800 + 2*(frame % 30)`, so the visible row count grows 37, 38, 39,
+40 on exactly those frames. Each new row is a `<VirtualList>` slot that has no
+tree yet, so a whole tree of taffy nodes is created, drawn invisible in a sizing
+pass, and has to be drawn again.
+
+Measured, not inferred: with the discard reason temporarily extended to carry
+the three flags, all three requests read
+`Taffy recalculation c=true r=false m=true` — created and moved, never removed.
+`moved` is trivially true there, because a node created this frame is compared
+against the zero layout a fresh taffy leaf has. So the single reason is
+**created**, in the row tree of a slot the taller window just added. Nothing
+discards for `removed`: when the window shrinks again at frame 30 the row count
+drops back to 37 and no slot tree is torn down, because a slot that is not drawn
+simply is not visited. And slots 37 to 39 are reused when the window grows a
+second time, which is why the three frames are the first cycle only.
+
+### Virtual against Plain
+
+| Scenario | Virtual / Plain after B | Virtual / Plain after C |
+|---|---:|---:|
+| Idle | 1.99x | 1.96x |
+| Scroll | 2.04x | 2.08x |
+| Filter | 1.14x | 1.15x |
+| Resize | 4.36x | 2.03x |
+
+Against task.md's "no more than 1.5 times the plain egui cost": Filter passes at
+1.15x. Idle (1.96x), Scroll (2.08x) and Resize (2.03x) do not. Resize is the
+scenario C moved, from 4.36x to 2.03x, and it is now in the same band as Idle
+and Scroll rather than a case of its own.
+
+The remaining gap is no longer extra passes: every scenario runs one pass per
+frame apart from three frames out of 480. It is the per-frame cost of one React
+pass against one direct egui pass, and Idle is the cleanest reading of it: 0.241
+against 0.123 ms with no discard, no node creation and no layout change on
+either side. Closing that needs a profile of the idle path (state lookup in egui
+memory, per-node `Style` comparison, the `id_to_node_id` retain sweep, hook
+overhead), which is what decision D in the plan weighs.
