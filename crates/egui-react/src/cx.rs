@@ -4,8 +4,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::panic::Location;
 
-use egui_taffy::{Tui, TuiBuilderLogic as _, taffy};
-
+use crate::engine::{self, TreeCx};
 use crate::layout::ItemStyle;
 use crate::store::Store;
 
@@ -16,12 +15,12 @@ pub(crate) fn location_key(location: &'static Location<'static>) -> (&'static st
 
 /// Where a [`Cx`] is currently drawing.
 ///
-/// Outside a `<View>` the surface is a plain egui `Ui`; inside one it is the
-/// `egui_taffy` `Tui` that owns the flex/grid node, and every direct child has
-/// to become a taffy node of its own.
+/// Outside a `<View>` the surface is a plain egui `Ui`; inside one it is a
+/// position in the layout tree (see [`crate::engine`]), and every direct child
+/// has to become a taffy node of its own.
 enum Surface<'u> {
     Ui(&'u mut egui::Ui),
-    Taffy(&'u mut Tui),
+    Tree(TreeCx<'u>),
 }
 
 /// The context passed to components and hooks.
@@ -34,7 +33,7 @@ pub struct Cx<'s, 'u> {
     pub store: &'s Store,
     surface: Surface<'u>,
     scope: egui::Id,
-    /// The id `egui_taffy` trees and nodes are keyed by.
+    /// The id layout trees and nodes are keyed by.
     ///
     /// Normally this walks in step with `scope`, so it is the same id. It parts
     /// from `scope` where a list draws the same shape in a reused slot: hook
@@ -55,11 +54,6 @@ impl<'s, 'u> Cx<'s, 'u> {
         Self::at_ui(store, ui, scope, scope)
     }
 
-    /// Build a `Cx` for a taffy node under the scope id `scope`.
-    pub fn new_taffy(store: &'s Store, tui: &'u mut Tui, scope: egui::Id) -> Self {
-        Self::at_taffy(store, tui, scope, scope)
-    }
-
     /// A `Cx` over an egui `Ui`, with both ids given.
     fn at_ui(store: &'s Store, ui: &'u mut egui::Ui, scope: egui::Id, layout: egui::Id) -> Self {
         Self {
@@ -70,11 +64,11 @@ impl<'s, 'u> Cx<'s, 'u> {
         }
     }
 
-    /// A `Cx` over a taffy node, with both ids given.
-    fn at_taffy(store: &'s Store, tui: &'u mut Tui, scope: egui::Id, layout: egui::Id) -> Self {
+    /// A `Cx` at a position in a layout tree, with both ids given.
+    fn at_tree(store: &'s Store, tree: TreeCx<'u>, scope: egui::Id, layout: egui::Id) -> Self {
         Self {
             store,
-            surface: Surface::Taffy(tui),
+            surface: Surface::Tree(tree),
             scope,
             layout,
         }
@@ -82,20 +76,27 @@ impl<'s, 'u> Cx<'s, 'u> {
 
     /// The egui `Ui` currently being drawn into.
     ///
-    /// In taffy mode this is the `Ui` of the current taffy node, so anything
-    /// drawn through it is *not* laid out by taffy. Elements use
-    /// [`Cx::leaf`] and [`Cx::container`] instead; this is the escape hatch for
-    /// user code that wants to call egui directly.
+    /// In taffy mode this is the tree's own `Ui`, so anything drawn through it
+    /// is *not* laid out by taffy. Elements use [`Cx::leaf`] and
+    /// [`Cx::container`] instead; this is the escape hatch for user code that
+    /// wants to call egui directly, and it is what a docked `<Panel>` carves
+    /// its space out of.
+    ///
+    /// "The tree's own `Ui`" is exact: a container is a rect, not a `Ui`, so
+    /// however many `<View>`s sit between the tree root and the caller, this
+    /// is the `Ui` the tree was started in. That is what makes four sibling
+    /// `<Panel>`s dock along the window's four edges instead of each carving
+    /// up its own little node.
     pub fn ui(&mut self) -> &mut egui::Ui {
         match &mut self.surface {
             Surface::Ui(ui) => ui,
-            Surface::Taffy(tui) => tui.egui_ui_mut(),
+            Surface::Tree(tree) => tree.root_ui(),
         }
     }
 
     /// Whether this `Cx` is inside a taffy container.
     pub fn in_taffy(&self) -> bool {
-        matches!(self.surface, Surface::Taffy(_))
+        matches!(self.surface, Surface::Tree(_))
     }
 
     /// The id of the current component scope; the base of every hook id.
@@ -130,13 +131,13 @@ impl<'s, 'u> Cx<'s, 'u> {
                 let mut cx = Cx::at_ui(store, ui, scope, id);
                 f(&mut cx)
             }
-            // Inside a tree the auto id prefix is the layout id's other half:
-            // it is what an unnamed node hashes into its id, so it has to move
-            // with the layout id.
-            Surface::Taffy(tui) => tui.with_auto_id_prefix(id, |tui| {
-                let mut cx = Cx::at_taffy(store, tui, scope, id);
+            // Inside a tree the layout id is what an unnamed node hashes into
+            // its key, so swapping it moves the whole subtree's nodes with it.
+            // Nothing else changes: no `Ui` is pushed.
+            Surface::Tree(tree) => {
+                let mut cx = Cx::at_tree(store, tree.reborrow(), scope, id);
                 f(&mut cx)
-            }),
+            }
         }
     }
 
@@ -144,7 +145,7 @@ impl<'s, 'u> Cx<'s, 'u> {
     pub fn ctx(&self) -> &egui::Context {
         match &self.surface {
             Surface::Ui(ui) => ui.ctx(),
-            Surface::Taffy(tui) => tui.egui_ctx(),
+            Surface::Tree(tree) => tree.ctx(),
         }
     }
 
@@ -169,13 +170,14 @@ impl<'s, 'u> Cx<'s, 'u> {
                 })
                 .inner
             }
-            // A taffy node's auto id is derived from the parent's auto id
-            // prefix, so swapping the prefix separates the egui ids of two
-            // instances of the same subtree the way `push_id` does.
-            Surface::Taffy(tui) => tui.with_auto_id_prefix(layout, |tui| {
-                let mut cx = Cx::at_taffy(store, tui, scope, layout);
+            // No `Ui` is pushed in tree mode: a node is a rect, and the only
+            // `Ui` in the tree is the root's. Deepening the two ids is what
+            // separates two instances of the same subtree — the layout id
+            // keys their nodes, and the hook scope salts their leaves' `Ui`s.
+            Surface::Tree(tree) => {
+                let mut cx = Cx::at_tree(store, tree.reborrow(), scope, layout);
                 f(&mut cx)
-            }),
+            }
         }
     }
 
@@ -224,9 +226,10 @@ impl<'s, 'u> Cx<'s, 'u> {
     /// Outside a container `style` is ignored: a plain `Ui` has nothing to
     /// apply flex item properties to.
     pub fn leaf<R>(&mut self, style: &ItemStyle, f: impl FnOnce(&mut egui::Ui) -> R) -> R {
+        let (prefix, scope) = (self.layout, self.scope);
         match &mut self.surface {
             Surface::Ui(ui) => f(ui),
-            Surface::Taffy(tui) => (&mut **tui).style(style.to_taffy()).ui(f),
+            Surface::Tree(tree) => tree.leaf(prefix, scope, style.to_taffy(), true, f),
         }
     }
 
@@ -240,27 +243,18 @@ impl<'s, 'u> Cx<'s, 'u> {
     /// size at all, so the node is sized purely by taffy: `w` / `h`, `grow`,
     /// or the remaining space in the container.
     pub fn leaf_fill<R>(&mut self, style: &ItemStyle, f: impl FnOnce(&mut egui::Ui) -> R) -> R {
+        let (prefix, scope) = (self.layout, self.scope);
         match &mut self.surface {
             Surface::Ui(ui) => f(ui),
-            Surface::Taffy(tui) => {
-                (&mut **tui)
-                    .style(style.to_taffy())
-                    .ui_manual(|ui, _container| egui_taffy::TuiContainerResponse {
-                        inner: f(ui),
-                        min_size: egui::Vec2::ZERO,
-                        intrinsic_size: None,
-                        max_size: egui::Vec2::INFINITY,
-                        infinite: egui::Vec2b::TRUE,
-                    })
-            }
+            Surface::Tree(tree) => tree.leaf(prefix, scope, style.to_taffy(), false, f),
         }
     }
 
     /// Open a taffy container and draw `f` inside it.
     ///
-    /// Outside taffy this starts a new `egui_taffy` tree in the current `Ui`;
-    /// inside taffy it adds a child node. Either way `f` receives a `Cx` in
-    /// taffy mode, so its direct children become taffy nodes.
+    /// Outside taffy this starts a new layout tree in the current `Ui`; inside
+    /// taffy it adds a child node. Either way `f` receives a `Cx` in taffy
+    /// mode, so its direct children become taffy nodes.
     pub fn container<R>(
         &mut self,
         id: egui::Id,
@@ -295,20 +289,12 @@ impl<'s, 'u> Cx<'s, 'u> {
         let scope = self.scope;
         let layout = self.layout;
         match &mut self.surface {
-            Surface::Ui(ui) => {
-                let tui = egui_taffy::tui(ui, id);
-                let tui = if all_space {
-                    tui.reserve_available_space()
-                } else {
-                    tui.reserve_available_width()
-                };
-                tui.style(style).show(|tui| {
-                    let mut cx = Cx::at_taffy(store, tui, scope, layout);
-                    f(&mut cx)
-                })
-            }
-            Surface::Taffy(tui) => (&mut **tui).id(id).style(style).add(|tui| {
-                let mut cx = Cx::at_taffy(store, tui, scope, layout);
+            Surface::Ui(ui) => engine::show(store, ui, id, style, all_space, |tree| {
+                let mut cx = Cx::at_tree(store, tree.reborrow(), scope, layout);
+                f(&mut cx)
+            }),
+            Surface::Tree(tree) => tree.container(id, style, |tree| {
+                let mut cx = Cx::at_tree(store, tree.reborrow(), scope, layout);
                 f(&mut cx)
             }),
         }
@@ -328,7 +314,7 @@ impl<'s, 'u> Cx<'s, 'u> {
     fn reborrow(&mut self) -> Surface<'_> {
         match &mut self.surface {
             Surface::Ui(ui) => Surface::Ui(ui),
-            Surface::Taffy(tui) => Surface::Taffy(tui),
+            Surface::Tree(tree) => Surface::Tree(tree.reborrow()),
         }
     }
 }

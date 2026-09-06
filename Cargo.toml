@@ -27,7 +27,17 @@ accesskit_consumer = "0.38.0"
 eframe = "0.36.1"
 # `wgpu` and `snapshot` are intentionally left off: the tests run headless.
 egui_kittest = { version = "0.36.1", default-features = false }
-egui_taffy = "0.14.0"
+# The same version and features egui_taffy 0.14.0 pulled in, so that layouts
+# come out exactly as they did before the own engine replaced it.
+taffy = { version = "0.9.2", default-features = false, features = [
+  "taffy_tree",
+  "detailed_layout_info",
+  "block_layout",
+  "content_size",
+  "flexbox",
+  "grid",
+  "std",
+] }
 # The version eframe 0.36.1 depends on. Pinned here so an example that builds
 # a render pipeline links against the same wgpu eframe does.
 wgpu = "30.0"
@@ -65,9 +75,3 @@ log = "0.4.34"
 # drop-in replacement that uses `performance.now()` there.
 web-time = "1.1.0"
 pollster = "1.0.1"
-
-# Step B of docs/tasks/perf: egui_taffy asks for a discard whenever it
-# recomputes, even when the layout came out the same. The fork skips that.
-# Remove this once the change is upstream and released.
-[patch.crates-io]
-egui_taffy = { path = "../egui_taffy" }

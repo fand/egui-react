@@ -65,8 +65,14 @@ pub fn VirtualList(
                 // occupies, because a slot is drawn on every frame: scrolling
                 // reuses its nodes instead of building a tree for each row that
                 // comes into view, measuring it in an invisible pass, and
-                // leaving it in egui memory when the row goes out again.
-                cx.scope(i, |cx| {
+                // throwing it away when the row goes out again.
+                //
+                // `scope_sharing_ui`, not `scope`: a row needs a hook scope,
+                // not an egui `Ui` of its own. The row index reaches the
+                // widgets through the hook scope, which is what salts each
+                // leaf's `Ui` inside the row's `<View>`, so a `Ui` per row
+                // would only cost a frame's worth of `Ui::new_child` calls.
+                cx.scope_sharing_ui(i, |cx| {
                     cx.with_layout_id(layout.with(("vl-slot", slot)), |cx| render(cx, i))
                 });
             }

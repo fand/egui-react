@@ -4,8 +4,11 @@ use std::any::{Any, TypeId};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::{BTreeSet, HashMap};
 use std::panic::Location;
+use std::rc::Rc;
 
 use elsa::{FrozenMap, FrozenVec};
+
+use crate::engine::Tree;
 
 /// A single hook's storage.
 ///
@@ -159,6 +162,14 @@ pub struct Store {
     persisted: RefCell<HashMap<String, String>>,
     /// Every key `use_persisted` has been called with in this process.
     persisted_keys: RefCell<BTreeSet<String>>,
+    /// One taffy tree per `<View>` root, keyed by the root's layout id.
+    ///
+    /// Here rather than in egui memory: one map lookup per tree per frame with
+    /// no lock, and [`Store::end_pass`] drops a tree an unmounted subtree left
+    /// behind instead of keeping it in egui's `IdTypeMap` forever. Each tree is
+    /// behind its own `Rc<RefCell<..>>` so that a tree opened inside a leaf of
+    /// another one does not run into the outer tree's borrow.
+    trees: RefCell<HashMap<egui::Id, Rc<RefCell<Tree>>>>,
     warn_on_collision: bool,
 }
 
@@ -192,6 +203,7 @@ impl Store {
             deferred: RefCell::new(Vec::new()),
             persisted: RefCell::new(HashMap::new()),
             persisted_keys: RefCell::new(BTreeSet::new()),
+            trees: RefCell::new(HashMap::new()),
             warn_on_collision: cfg!(debug_assertions),
         }
     }
@@ -214,7 +226,19 @@ impl Store {
     pub fn end_pass(&mut self) {
         self.run_deferred();
         self.sweep();
+        self.sweep_trees();
         self.show_collision_overlay();
+    }
+
+    /// Drop every layout tree that was not drawn this pass.
+    ///
+    /// A tree belongs to the `<View>` root that opened it, so a subtree that
+    /// unmounted takes its trees with it.
+    fn sweep_trees(&mut self) {
+        let pass = self.pass.get();
+        self.trees
+            .borrow_mut()
+            .retain(|_, tree| tree.borrow().last_visited() >= pass);
     }
 
     /// Apply everything `cx.defer` / `update_later` queued, until nothing is left.
@@ -320,6 +344,26 @@ impl Store {
     /// Whether the store holds no slots.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Number of live layout trees, one per `<View>` root drawn last pass.
+    ///
+    /// For tests: it is how a test asks "did scrolling a list build a tree per
+    /// row?" without reaching into egui memory.
+    pub fn tree_count(&self) -> usize {
+        self.trees.borrow().len()
+    }
+
+    /// The layout tree keyed by `id`, created on first use and marked as drawn
+    /// in this pass.
+    pub(crate) fn tree(&self, id: egui::Id) -> Rc<RefCell<Tree>> {
+        let pass = self.pass.get();
+        let tree = {
+            let mut trees = self.trees.borrow_mut();
+            Rc::clone(trees.entry(id).or_insert_with(crate::engine::new_tree))
+        };
+        tree.borrow_mut().visit(pass);
+        tree
     }
 
     /// Enter a `<Suspense>` boundary: push a counter of its own.

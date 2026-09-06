@@ -170,12 +170,14 @@ fn row_state_follows_the_row_not_the_slot() {
     assert!(rows_with_clicks(&harness, 3).is_empty());
 }
 
-/// Rows used to open a taffy tree keyed by their index, and egui_taffy keeps one
-/// state entry per tree in egui memory forever. Keyed by slot, a long scroll
-/// reuses the same handful of trees, so memory stops growing with the distance
-/// scrolled.
+/// Rows used to open a taffy tree keyed by their index, so every row that
+/// scrolled in built a tree of its own. Keyed by slot, a long scroll reuses the
+/// same handful of trees.
+///
+/// Both counts are checked: the store's, which is where the trees live, and
+/// egui's own memory, which is what a widget inside a row would grow.
 #[test]
-fn egui_memory_does_not_grow_with_scroll_distance() {
+fn memory_does_not_grow_with_scroll_distance() {
     let mut harness = counted_harness();
     harness.run();
     harness.run();
@@ -183,15 +185,19 @@ fn egui_memory_does_not_grow_with_scroll_distance() {
     for _ in 0..20 {
         scroll(&mut harness, ROW_H * 4.0);
     }
-    let after_short = harness.ctx.data(|d| d.len());
+    let (trees_short, data_short) = (harness.state().tree_count(), harness.ctx.data(|d| d.len()));
     for _ in 0..200 {
         scroll(&mut harness, ROW_H * 4.0);
     }
-    let after_long = harness.ctx.data(|d| d.len());
+    let (trees_long, data_long) = (harness.state().tree_count(), harness.ctx.data(|d| d.len()));
 
     assert_eq!(
-        after_short, after_long,
-        "egui memory grew from {after_short} to {after_long} entries over a longer scroll",
+        trees_short, trees_long,
+        "layout trees grew from {trees_short} to {trees_long} over a longer scroll",
+    );
+    assert_eq!(
+        data_short, data_long,
+        "egui memory grew from {data_short} to {data_long} entries over a longer scroll",
     );
 }
 

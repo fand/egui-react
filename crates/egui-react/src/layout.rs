@@ -5,8 +5,6 @@
 //! (`gap={8}`) straight to a setter, and so that the conversion to
 //! [`taffy::Style`] lives in one place.
 
-use egui_taffy::taffy;
-
 /// A length in a layout attribute.
 ///
 /// `Percent` holds a fraction, like taffy: `Length::Percent(0.5)` is `50%`.

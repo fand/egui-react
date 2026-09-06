@@ -442,3 +442,99 @@ rely on, and may need an egui change. An own thin layer over taffy could
 create one `Ui` per leaf and register a response only when the element asks,
 with an expected floor near Plain + 0.03 to 0.05 ms instead of + 0.12 ms.
 Steps B and C stand on their own and should go upstream either way.
+
+## After D1 (own layout engine, egui_taffy dropped)
+
+Date: 2026-09-06. Same machine and conditions as above: native macOS arm64,
+Rust 1.95.0, release profile, egui 0.36.1, taffy 0.9.2 as a direct dependency
+with the features egui_taffy 0.14.0 used. egui_taffy and the
+`[patch.crates-io]` line are gone; `crates/egui-react/src/engine.rs` is the
+replacement. Code state: step D1 uncommitted on top of `84ddeff`. Samples in
+[samples-d1.csv](samples-d1.csv). One recorded run.
+
+Reproduce:
+
+```sh
+PERF_CSV="$PWD/docs/tasks/perf/samples-d1.csv" \
+  cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
+```
+
+| Scenario | Mode | Mean ms | p50 ms | p95 ms | Passes/frame | Discard frames /120 | Final rows | Row callbacks/frame |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Idle | All | 26.699 | 26.355 | 29.427 | 1.00 | 0 | 10000 | 10000.00 |
+| Idle | Virtual | 0.160 | 0.162 | 0.182 | 1.00 | 0 | 37 | 37.00 |
+| Idle | Plain | 0.112 | 0.112 | 0.127 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | All | 26.950 | 26.598 | 29.860 | 1.00 | 0 | 10000 | 10000.00 |
+| Scroll | Virtual | 0.221 | 0.214 | 0.314 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | Plain | 0.139 | 0.134 | 0.189 | 1.00 | 0 | 37 | 37.00 |
+| Filter | All | 41.226 | 15.058 | 140.088 | 1.60 | 72 | 1250–10000 | 7000.00 |
+| Filter | Virtual | 1.127 | 1.099 | 1.423 | 1.00 | 0 | 37 | 37.00 |
+| Filter | Plain | 1.038 | 1.006 | 1.329 | 1.00 | 0 | 37 | 37.00 |
+| Resize | All | 38.620 | 38.182 | 41.152 | 1.00 | 0 | 10000 | 10000.00 |
+| Resize | Virtual | 0.247 | 0.241 | 0.398 | 1.10 | 12 | 37–40 | 42.80 |
+| Resize | Plain | 0.144 | 0.136 | 0.220 | 1.00 | 0 | 37–40 | 38.90 |
+
+| Scenario | Virtual pass histogram (passes: frames) | Virtual discard requests |
+|---|---|---:|
+| Idle | 1: 120 | 0 |
+| Scroll | 1: 120 | 0 |
+| Filter | 1: 120 | 0 |
+| Resize | 1: 108, 2: 12 | 12 |
+
+### Virtual against Plain
+
+| Scenario | Virtual / Plain after C | Virtual / Plain after D1 |
+|---|---:|---:|
+| Idle | 1.96x | 1.43x |
+| Scroll | 2.08x | 1.59x |
+| Filter | 1.15x | 1.09x |
+| Resize | 2.03x | 1.72x |
+
+### Compared with step C
+
+| Scenario | Passes/frame after C | Passes/frame after D1 | Virtual mean ms C → D1 |
+|---|---:|---:|---|
+| Idle | 1.00 | 1.00 | 0.241 → 0.160 |
+| Scroll | 1.00 | 1.00 | 0.303 → 0.221 |
+| Filter | 1.00 | 1.00 | 1.222 → 1.127 |
+| Resize | 1.02 | 1.10 | 0.311 → 0.247 |
+
+Plain moved 0.123 → 0.112 (Idle) and 0.153 → 0.144 (Resize), so about a tenth
+of the Virtual gain is the machine being a little quicker on this run. The rest
+is the engine: a `<Row>` used to cost nine egui `Ui`s (one per taffy node, one
+more per leaf, one for the tree, one for the row's `push_id`) and now costs
+three (the tree's, and one per leaf), because a container node is a rect and no
+longer a `Ui`. Idle Virtual lands at **0.160 ms**, under the 0.20 ms the D1 gate
+asked for, and the Idle ratio falls from 1.96x to 1.43x — under task.md's 1.5x
+for the first time. Scroll (1.59x) and Resize (1.72x) are close; Filter was
+already through at 1.15x and is now 1.09x.
+
+`All` mode gains the same way, 43 → 27 ms per frame at Idle: it is one big tree
+with the same nodes.
+
+### The one metric that moved the wrong way
+
+Resize goes from 1.02 to 1.10 passes per frame, 3 discard frames to 12. The
+cause is measured, not inferred: with the tree sweep in `Store::end_pass`
+disabled and nothing else changed, the same run gives Resize Virtual 1.02
+passes and 3 discard frames again (0.250 ms mean), and the other three
+scenarios do not move.
+
+Why: the window height cycles `800 + 2 * (frame % 30)`, so the visible row
+count runs 37, 38, 39, 40 and back, four times over 120 frames. Slots 37 to 39
+exist only at the top of each cycle. egui_taffy kept every tree in egui memory
+for ever, so those three trees were built once, in frames 1, 11 and 21, and
+reused in the three later cycles. The engine keys its trees the same way but
+drops a tree that was not drawn in the pass, so each cycle builds them again:
+3 × 4 = 12 frames where a new node has to draw in an invisible sizing pass.
+That is the same bookkeeping that makes a tree left behind by an unmounted
+subtree go away instead of growing egui's `IdTypeMap` for ever — the growth
+step A worked around.
+
+It is a trade, not a bug, and it is cheap to change: keeping a tree for a
+bounded number of passes after it was last drawn would give back the 1.02 and
+still bound the memory. That is a follow-up, not part of D1, because a
+time-to-live is a knob and picking its value from this benchmark would be
+tuning to the benchmark. Nothing else regressed: mean frame time is *better*
+on Resize too (0.311 → 0.247), because the twelve two-pass frames are cheaper
+than step C's three were.
