@@ -2158,6 +2158,8 @@ dependencies = [
  "egui-react-elements",
  "egui_kittest",
  "example-meta",
+ "wasm-bindgen-futures",
+ "web-sys",
 ]
 
 [[package]]

@@ -25,7 +25,38 @@ fn main() -> eframe::Result {
     )
 }
 
-/// The plain versions are native only. `trunk` builds the egui-react binaries,
-/// and `cargo check --target wasm32` builds every binary in the workspace.
+/// The same plain list on the web, for a like-for-like measurement against the
+/// egui-react binary (`docs/tasks/perf/measurements.md`). Build it with
+/// `trunk build --release index-plain.html` from this directory.
 #[cfg(target_arch = "wasm32")]
-fn main() {}
+fn main() {
+    use eframe::wasm_bindgen::JsCast as _;
+    use list_10k::plain::{self, PlainState};
+
+    #[derive(Default)]
+    struct PlainApp {
+        state: PlainState,
+    }
+
+    impl eframe::App for PlainApp {
+        fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+            egui::CentralPanel::default().show(ui, |ui| plain::ui(ui, &mut self.state));
+        }
+    }
+
+    let canvas = web_sys::window()
+        .and_then(|window| window.document())
+        .and_then(|document| document.get_element_by_id("egui_react_canvas"))
+        .and_then(|element| element.dyn_into::<web_sys::HtmlCanvasElement>().ok())
+        .expect("no <canvas id=\"egui_react_canvas\"> in the document");
+    wasm_bindgen_futures::spawn_local(async move {
+        eframe::WebRunner::new()
+            .start(
+                canvas,
+                eframe::WebOptions::default(),
+                Box::new(|_cc| Ok(Box::<PlainApp>::default())),
+            )
+            .await
+            .expect("could not start the web runner");
+    });
+}

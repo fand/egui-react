@@ -12,8 +12,8 @@ below is the native benchmark in [measurements.md](measurements.md), "After E1";
 | Completion criterion | Status |
 |---|---|
 | `<VirtualList>` at most 1.5x plain egui | **Pass.** Idle 1.15x, Scroll 1.30x, Filter 1.04x, Resize 1.40x, with two runs of the same build agreeing to within 0.01 ms on every figure (After E1) |
-| No PERF WARNING scrolling the web gallery at 120 Hz | **Unmeasured.** Native scrolling is one pass per frame with zero discard requests over 120 frames, which is what produced the warning; the browser was never measured |
-| Idle frame time within 8.3 ms on the web | **Unmeasured.** Native idle is 0.132 ms for `<VirtualList>`. The 16.7 ms in the symptoms below was `stable_dt`, a frame interval, not CPU time |
+| No PERF WARNING scrolling the web gallery at 120 Hz | **Pass.** Zero warnings over about 1,500 synthetic wheel frames in Chrome (measurements.md, "Web"). Chrome ran at 60 Hz on the test display, so 120 Hz itself was not exercised |
+| Idle frame time within 8.3 ms on the web | **Pass.** A drawn frame costs 1.0 ms median for `<VirtualList>` (plain egui 0.8 ms); egui web does not repaint at all when idle |
 | All existing tests and snapshots pass | **Pass.** The gallery snapshots that pass are byte-identical after D1, D2, E and E1 (15 today; the 2 board ones have no committed snapshot) |
 
 Scroll is the one scenario still over plan-E's own tighter 1.2x gate, at 1.30x.

@@ -28,5 +28,9 @@ egui-react-app.workspace = true
 egui-react-elements.workspace = true
 example-meta.workspace = true
 
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = ["Document", "Element", "HtmlCanvasElement", "Window"] }
+
 [dev-dependencies]
 egui_kittest.workspace = true

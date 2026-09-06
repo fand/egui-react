@@ -1082,3 +1082,40 @@ knob and picking its value from this benchmark would be tuning to the benchmark.
 All of that is layout work, not measurement work. The web and 120 Hz criteria in
 task.md are still unmeasured and are a separate task: everything here is native,
 and nothing recorded so far says what a browser at 120 Hz does.
+
+## Web (after E1)
+
+Date: 2026-09-06. Chrome 152 on macOS, `trunk build --release` (wasm-opt `z`),
+WebGPU, canvas 800×900 CSS px at device pixel ratio 2. Served with COOP/COEP
+so `performance.now()` is fine-grained. Measured by wrapping
+`requestAnimationFrame` and timing eframe's callback: input handling, the
+egui pass, tessellation and the WebGPU submit. GPU time and compositing are
+not included. Chrome ran `requestAnimationFrame` at 60 Hz on this display, so
+the 120 Hz criterion could only be judged against its 8.3 ms budget.
+
+Input is synthetic `WheelEvent`s dispatched to the canvas at 120 Hz for 4 s
+(about 246 frames per run): `deltaY = 0` for "repaint" (a frame that draws
+with nothing changed; egui web does not repaint at all without input, so this
+is the idle cost of a frame that has to draw) and `deltaY = 20` for scroll.
+Each mode was measured alone in the foreground tab, twice. The plain list is
+`list-10k-plain` built for the web with `index-plain.html`.
+
+| Mode | Repaint median ms | Repaint p95 | Scroll median ms | Scroll p95 | PERF WARNING |
+|---|---:|---:|---:|---:|---:|
+| egui-react `<VirtualList>`, 10,000 rows | 1.00 / 1.02 | 1.23 / 1.39 | 0.98 / 0.99 | 1.25 / 1.30 | 0 |
+| plain egui `show_rows`, 10,000 rows | 0.80 / 0.80 | 0.98 / 1.04 | 0.79 / 0.81 | 0.97 / 1.06 | 0 |
+| egui-react `<ScrollArea>` + `for`, 10,000 rows | 66.8 | 69.8 | 67.5 | 68.8 | 0 |
+
+VirtualList / plain: 1.24x on repaint, 1.23x on scroll. Both are well inside
+8.3 ms. No `PERF WARNING` was logged over about 1,500 scrolled frames in any
+run. The shared floor of about 0.7 ms per frame is eframe's web frame
+(input, texture upload, WebGPU submit); the layout layer's share is the
+0.2 ms difference, against 0.04 ms on native, so wasm runs that part about
+5x slower than native.
+
+The gallery is not usable for this comparison: with the source panel open it
+costs 10 to 11 ms per frame whatever example is shown, and the list-10k
+column is 200 px wide.
+
+task.md's two web criteria are now measured: no PERF WARNING while scrolling,
+and a drawn frame at 1.0 ms against the 8.3 ms budget.

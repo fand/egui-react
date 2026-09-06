@@ -142,6 +142,13 @@ layer cheaper (`Cx::scope`, `rsx!`, component bodies — paid by every app, not
 just lists); keep a swept tree for a grace period (the Resize 1.10 passes, open
 since D1). The web and 120-Hz criteria in task.md are still unmeasured.
 
+### Web measurement (2026-09-06)
+
+Chrome, wasm release, synthetic wheel input: `<VirtualList>` 1.0 ms per drawn
+frame vs plain 0.8 ms (1.24x), zero PERF WARNING, all-rows 67 ms. Details in
+measurements.md "Web". `list-10k-plain` now builds for the web
+(`examples/list-10k/index-plain.html`).
+
 ### Product constraint
 
 Preserve the React-like component API and declarative row layout. The user does
