@@ -537,6 +537,9 @@ fn PatchCanvas(
 
     cx.leaf_fill(&style, move |ui| {
         let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::drag());
+        // A child `Ui` inherits the parent's clip rect, not its `max_rect`, so
+        // without this a node panned past the edge paints over the palette.
+        ui.set_clip_rect(rect.intersect(ui.clip_rect()));
         let painter = ui.painter();
         painter.rect_filled(rect, 4.0, look.canvas);
         grid(painter, rect, pan, look);
@@ -560,12 +563,18 @@ fn PatchCanvas(
                 at += offset;
             }
             // The box a node is given. It draws its own frame inside and
-            // takes only the height it needs; egui clips whatever falls
-            // outside the canvas. Nothing is culled: a node that is not drawn
-            // is a node whose hooks are swept, and panning a node off the edge
-            // should not forget that it was collapsed.
+            // takes only the height it needs; the clip rect above cuts off
+            // whatever falls outside the canvas. Nothing is culled: a node that
+            // is not drawn is a node whose hooks are swept, and panning a node
+            // off the edge should not forget that it was collapsed.
             let node_rect = egui::Rect::from_min_size(at, egui::vec2(NODE_W, NODE_MAX_H));
-            ui.scope_builder(egui::UiBuilder::new().max_rect(node_rect), |ui| {
+            // `id_salt` by the node, so the widgets inside keep their egui ids
+            // when the node moves in `graph.nodes`. Without it a child `Ui`
+            // takes an id from its position in the list, and `Raise` — sent by
+            // the first frame of a header drag — would rename the header
+            // mid-drag and egui would drop the drag.
+            let builder = egui::UiBuilder::new().id_salt(node.id).max_rect(node_rect);
+            ui.scope_builder(builder, |ui| {
                 let mut cx = Cx::new(store, ui, scope);
                 // `key={node.id}`, written out. The scope chain of a node's
                 // hooks is canvas → node id → component, with nothing about

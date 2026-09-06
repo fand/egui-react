@@ -24,7 +24,11 @@ use react_egui::prelude::*;
 use react_egui_app::{root_id, root_style};
 
 /// Wide enough for the three columns, tall enough for the whole preset.
-const SIZE: egui::Vec2 = egui::vec2(1240.0, 820.0);
+///
+/// The canvas clips its nodes, and a clipped port cannot be dragged, so this
+/// also has to leave room for the node the palette drops to the right of the
+/// preset.
+const SIZE: egui::Vec2 = egui::vec2(1320.0, 820.0);
 
 /// The runner's frame, minus eframe.
 fn run_app(ui: &mut egui::Ui, store: &mut Store) {
