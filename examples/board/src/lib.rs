@@ -1,14 +1,14 @@
 //! A kanban board: cards that keep their own state while they move.
 //!
 //! Every other example holds its state in one place and draws it. This one is
-//! about the state that belongs to the *items* — the half-typed title, the
-//! body someone opened to read — and about what happens to it when the items
-//! are reordered, moved to another column, filtered away and brought back.
+//! about the state that belongs to the *items* — the half-typed title someone
+//! is in the middle of — and about what happens to it when the items are
+//! reordered, moved to another column, filtered away and brought back.
 //!
 //! Four things are on show, in the order they matter:
 //!
-//! - **A card owns its editing draft and its expanded flag.** They are
-//!   `use_identity` hooks inside `<Card>`, not entries in a map somewhere
+//! - **A card owns the title being typed into it.** `editing` and the draft
+//!   are `use_identity` hooks inside `<Card>`, not entries in a map somewhere
 //!   above it. Drag a card someone is editing into another column and the
 //!   draft goes with it, because the state is keyed by the card's id rather
 //!   than by where the card is drawn (`hooks::use_identity` explains why that
@@ -16,8 +16,9 @@
 //!   view, which unmounts it just the same — has its state dropped by the
 //!   pass-end sweep, which is the housekeeping `plain.rs` writes out by hand.
 //! - **Components of our own, composed.** `<Toolbar>`, `<Column>`, `<Card>`,
-//!   `<Chip>` and `<IconButton>` each take a `style: ItemStyle`, so the caller
-//!   decides where they sit, and report what the user did with `#[event]`.
+//!   `<TitleEdit>`, `<Placeholder>`, `<Chip>` and `<IconButton>` each take a
+//!   `style: ItemStyle`, so the caller decides where they sit, and report what
+//!   the user did with `#[event]`.
 //! - **Behaviour in custom hooks.** Undo/redo, the search debounce and the
 //!   whole drag session are in [`hooks`], written against the same public API
 //!   an application has. None of them needed a change to the library.
@@ -28,13 +29,13 @@
 //!   between carrying any of them.
 //!
 //! Which way something travels is a decision, and it is made twice here. What
-//! a component *did* goes up as an event: `<Card>` tells its column that the
-//! user saved an edit, `<Chip>` tells whoever drew it that it was clicked. A
-//! card has never heard of a board message and could be used somewhere else.
-//! What the whole tree shares comes down through the context: the theme, the
-//! drag in progress, and the `Dispatch` a column turns those events into
-//! messages with — which is what saves the four `<Column>`s in the loop from
-//! carrying four callbacks each.
+//! a component *did* goes up as an event: `<Card>` tells its column that a
+//! title was confirmed or a box was ticked, `<Chip>` tells whoever drew it that
+//! it was clicked. A card has never heard of a board message and could be used
+//! somewhere else. What the whole tree shares comes down through the context:
+//! the theme, the drag in progress, and the `Dispatch` a column turns those
+//! events into messages with — which is what saves the four `<Column>`s in the
+//! loop from carrying four callbacks each.
 //!
 //! `plain.rs` is the same board in plain egui, and the two are driven by the
 //! same test.
@@ -54,15 +55,13 @@ use board::{
     Board, Card as CardData, CardId, Column as ColumnData, ColumnId, DropTarget, Msg, reduce,
     visible,
 };
-// Shadows the `<Label>` element, which this example does not use: here a label
-// is the colour tag on a card.
-use board::Label;
 use hooks::{Dnd, Undoable, use_debounced, use_dnd, use_identity, use_undoable};
-use look::{Theme, ghost};
+use look::{PLACEHOLDER_H, Theme, ghost, placeholder};
 
 pub const META: Meta = Meta {
     name: "board",
-    summary: "Cards that keep their own editing state while they are dragged between columns.",
+    summary: "Cards that keep the title being typed into them while they are dragged between \
+              columns.",
     hooks: &[
         "use_state",
         "use_reducer",
@@ -78,7 +77,6 @@ pub const META: Meta = Meta {
         "View",
         "Text",
         "TextEdit",
-        "Button",
         "ScrollArea",
         "Frame",
         "Separator",
@@ -106,9 +104,10 @@ const DEBOUNCE: f64 = 0.3;
 /// zone. Big enough to aim at with a card in hand.
 const FOOTER_H: f32 = 26.0;
 
-/// How far outside a card's title row still counts as that card, so that the
-/// gaps between cards are not dead ground during a drag.
-const SLOT_PAD: f32 = 4.0;
+/// The space between two cards in a column. It is drawn by [`Placeholder`]
+/// rather than by the column's `gap`, because it is also the gap that opens
+/// when a card is about to land there.
+const CARD_GAP: f32 = 6.0;
 
 /// The theme, or the dark one if this is drawn outside a provider.
 ///
@@ -182,10 +181,10 @@ fn BoardView(cx: &mut Cx) {
     let actions = use_handle(cx, || dispatch.clone());
 
     let mut search = use_state(cx, String::new);
-    let mut label = use_state(cx, || None::<Label>);
+    let mut filter = use_state(cx, || None::<bool>);
     // Read once: an element may not hold a shared borrow of a state *and* a
     // handler that writes it (ARCHITECTURE 3.7), and the toolbar does both.
-    let filter = *label;
+    let done = *filter;
     // The box types on every keystroke; the columns filter on this instead.
     let live = search.clone();
     let query = use_debounced(cx, &live, DEBOUNCE);
@@ -214,13 +213,13 @@ fn BoardView(cx: &mut Cx) {
         <View direction="column" grow={1.0} w="100%" h="100%" gap={8} p={8}>
             <Toolbar
                 search={search.bind()}
-                label={&filter}
+                done={&done}
                 count={board.len()}
                 can_undo={history.can_undo()}
                 can_redo={history.can_redo()}
-                on_label={|picked: Label| {
+                on_filter={|picked: bool| {
                     // Clicking the chip that is already on clears the filter.
-                    *label = (*label != Some(picked)).then_some(picked);
+                    *filter = (*filter != Some(picked)).then_some(picked);
                 }}
                 on_undo={|| dispatch.send(Undoable::Undo)}
                 on_redo={|| dispatch.send(Undoable::Redo)}
@@ -242,8 +241,10 @@ fn BoardView(cx: &mut Cx) {
                         column={column}
                         rev={board.rev}
                         search={query.as_str()}
-                        label={&filter}
-                        on_add={|| dispatch.send(Undoable::Do(Msg::AddCard { column: column.id }))}
+                        done={&done}
+                        on_add={|title: String| {
+                            dispatch.send(Undoable::Do(Msg::AddCard { column: column.id, title }));
+                        }}
                     />
                 }
             </View>
@@ -260,7 +261,7 @@ fn BoardView(cx: &mut Cx) {
     }
 }
 
-/// The search box, the label filter, the counts and the history buttons.
+/// The search box, the done filter, the counts and the history buttons.
 ///
 /// Everything here is the *board's* state rather than the card's, so the
 /// toolbar owns none of it: it is handed what to show and reports what was
@@ -272,13 +273,13 @@ fn Toolbar(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
     search: &mut String,
-    // `&Option<Label>`, not `Option<Label>`: an `Option` prop is the *optional*
+    // `&Option<bool>`, not `Option<bool>`: an `Option` prop is the *optional*
     // kind, whose setter takes the inner value and defaults to `None`.
-    label: &Option<Label>,
+    done: &Option<bool>,
     count: usize,
     can_undo: bool,
     can_redo: bool,
-    #[event] on_label: Label,
+    #[event] on_filter: bool,
     #[event] on_undo: (),
     #[event] on_redo: (),
     #[event] on_theme: (),
@@ -289,13 +290,14 @@ fn Toolbar(
         <View style={style} direction="row" w="100%" gap={6} align="center">
             <Text size={20.0} strong color={theme.accent()}>"board"</Text>
             <TextEdit w={160.0} bind={search} hint="search"/>
-            for tag in Label::ALL {
+            // Two chips, one per answer to the only question a card now has.
+            for (name, value) in [("open", false), ("done", true)] {
                 <Chip
-                    key={tag.name()}
-                    label={tag.name()}
-                    color={theme.label(tag)}
-                    active={*label == Some(tag)}
-                    on_click={|| on_label.emit(tag)}
+                    key={name}
+                    label={name}
+                    color={theme.accent()}
+                    active={*done == Some(value)}
+                    on_click={|| on_filter.emit(value)}
                 />
             }
             <Text grow={1.0}>{format!("{count} cards")}</Text>
@@ -324,8 +326,8 @@ fn Column(
     // frame would cost more than the filtering it saves.
     rev: u64,
     search: &str,
-    label: &Option<Label>,
-    #[event] on_add: (),
+    done: &Option<bool>,
+    #[event] on_add: String,
 ) {
     let theme = use_theme(cx);
     let dnd = use_drag(cx);
@@ -333,9 +335,15 @@ fn Column(
 
     let mut renaming = use_state(cx, || false);
     let mut draft = use_state(cx, || column.name.clone());
+    // A new card is written here and only reaches the board when it is
+    // confirmed. Putting an empty one on the board to be filled in instead
+    // would cost two steps of undo for one card, and `use_persisted` would
+    // save the nameless card if the window closed in between.
+    let mut adding = use_state(cx, || false);
+    let mut new_title = use_state(cx, String::new);
 
-    let shown: &Vec<CardId> = use_memo(cx, (column.id, rev, search, label), || {
-        visible(column, search, *label)
+    let shown: &Vec<CardId> = use_memo(cx, (column.id, rev, search, done), || {
+        visible(column, search, *done)
     });
     // Each card with the one below it: dropping on the lower half of a card
     // means "in front of whatever comes next".
@@ -347,23 +355,35 @@ fn Column(
         .map(|i| cards.get(i + 1).map(|card| card.id))
         .collect();
 
-    let hovered_end = dnd.hovered()
-        == Some(DropTarget {
-            column: column.id,
-            before: None,
+    let carried = dnd.carrying();
+    let carried_at = carried.and_then(|id| cards.iter().position(|card| card.id == id));
+    // Where the card in hand would land — unless that is where it already is.
+    // A drop that moves nothing gets no gap opened for it, because the eye
+    // would read the gap as "it would go *there*" and it would not.
+    let preview = dnd
+        .hovered()
+        .filter(|target| target.column == column.id)
+        .filter(|target| {
+            target.before != carried && carried_at.is_none_or(|i| target.before != after[i])
         });
+    let gap = preview.map(|target| target.before);
+
+    let renaming_now = *renaming;
+    let adding_now = *adding;
 
     rsx! {
         <View style={style} direction="column" gap={6}>
             <View direction="row" w="100%" gap={4} align="center">
-                if *renaming {
-                    <TextEdit
+                if renaming_now {
+                    <TitleEdit
                         grow={1.0}
                         bind={draft.bind()}
-                        on_submit={|name: String| {
+                        name="column name"
+                        on_commit={|name: String| {
                             send(&actions, Msg::RenameColumn { column: column.id, name });
                             *renaming = false;
                         }}
+                        on_cancel={|| *renaming = false}
                     />
                 } else {
                     <Text grow={1.0} strong color={theme.accent()}>{column.name.as_str()}</Text>
@@ -381,8 +401,16 @@ fn Column(
             // it, a footer would be pushed off the bottom of the window; after
             // the last card, it is where the eye is anyway.
             <ScrollArea grow={1.0}>
-                <View direction="column" w="100%" gap={6} pr={4}>
+                // No `gap`: the space between two cards is the closed
+                // placeholder that lives between them, which is what lets a
+                // gap open without any node appearing or disappearing.
+                <View direction="column" w="100%" pr={4}>
                     for (i, card) in cards.iter().enumerate() {
+                        <Placeholder
+                            key={(card.id, "gap")}
+                            open={gap == Some(Some(card.id))}
+                            target={DropTarget { column: column.id, before: Some(card.id) }}
+                        />
                         // The key is the card's id. It is what tells two cards
                         // apart inside this column — and, together with
                         // `use_identity` in the card itself, what makes a
@@ -392,18 +420,48 @@ fn Column(
                             card={card}
                             column={column.id}
                             next={&after[i]}
-                            on_edit={|(title, body): (String, String)| {
-                                send(&actions, Msg::EditCard { card: card.id, title, body });
+                            on_title={|title: String| {
+                                send(&actions, Msg::SetTitle { card: card.id, title });
                             }}
-                            on_label={|label: Label| {
-                                send(&actions, Msg::SetLabel { card: card.id, label });
+                            on_done={|done: bool| {
+                                send(&actions, Msg::SetDone { card: card.id, done });
                             }}
                             on_remove={|| send(&actions, Msg::RemoveCard { card: card.id })}
                         />
                     }
                     if cards.is_empty() {
-                        <Text>"nothing here"</Text>
+                        <Text mt={CARD_GAP}>"nothing here"</Text>
                     }
+
+                    // The new card, in the same frame the saved ones wear, so
+                    // that what is being typed looks like what it will become.
+                    if adding_now {
+                        <Frame
+                            w="100%"
+                            mt={CARD_GAP}
+                            inner_margin={6.0}
+                            corner_radius={4.0}
+                            fill={theme.card()}
+                        >
+                            <TitleEdit
+                                w="100%"
+                                bind={new_title.bind()}
+                                name="new card"
+                                on_commit={|title: String| {
+                                    if !title.trim().is_empty() {
+                                        on_add.emit(title);
+                                    }
+                                    *adding = false;
+                                }}
+                                on_cancel={|| *adding = false}
+                            />
+                        </Frame>
+                    }
+
+                    <Placeholder
+                        open={gap == Some(None)}
+                        target={DropTarget { column: column.id, before: None }}
+                    />
 
                     // The footer is both the "add a card" button and the place
                     // a drag ends when it means "at the end of this column".
@@ -414,10 +472,6 @@ fn Column(
                             &ItemStyle::default().w("100%").h(FOOTER_H),
                             |ui| {
                                 let rect = ui.max_rect();
-                                if hovered_end {
-                                    let stroke = egui::Stroke::new(2.0, theme.accent());
-                                    ui.painter().hline(rect.x_range(), rect.top(), stroke);
-                                }
                                 let button = egui::Button::new("+ card")
                                     .wrap_mode(egui::TextWrapMode::Extend);
                                 (rect, ui.add_sized(rect.size(), button).clicked())
@@ -425,7 +479,8 @@ fn Column(
                         );
                         dnd.slot(rect, DropTarget { column: column.id, before: None });
                         if clicked {
-                            on_add.emit(());
+                            *new_title = String::new();
+                            *adding = true;
                         }
                     })}
                 </View>
@@ -434,12 +489,19 @@ fn Column(
     }
 }
 
-/// One card: a tag, a title that is also the drag handle, and — the point of
-/// the example — state of its own.
+/// One card: a tick box, a title that can be edited in place, and — the point
+/// of the example — state of its own.
 ///
-/// `editing`, `draft` and `expanded` belong to *this card*. Nothing above it
-/// knows they exist, nothing has to make room for them when a card is added,
-/// and nothing has to clean up after them when one is deleted.
+/// `editing` and `draft` belong to *this card*. Nothing above it knows they
+/// exist, nothing has to make room for them when a card is added, and nothing
+/// has to clean up after them when one is deleted.
+///
+/// The whole card is one `cx.leaf`, which is what `<Frame>` would have been
+/// anyway (see `containers.rs`) plus the one thing an element cannot hand
+/// back: the rectangle. Three things want it — the card is the drag handle,
+/// the card is the drop zone, and the card is what the cursor changes over —
+/// and none of them can be told where the card is by a `<View>`, which returns
+/// no `Response` (plan.md section 8.4).
 #[component]
 fn Card(
     cx: &mut Cx,
@@ -448,8 +510,8 @@ fn Card(
     column: ColumnId,
     // The card below this one; `None` at the end of the column.
     next: &Option<CardId>,
-    #[event] on_edit: (String, String),
-    #[event] on_label: Label,
+    #[event] on_title: String,
+    #[event] on_done: bool,
     #[event] on_remove: (),
 ) {
     let theme = use_theme(cx);
@@ -459,131 +521,254 @@ fn Card(
     // siblings under one parent, and a card that moves changes parents. See
     // `hooks::use_identity`.
     let mut editing = use_identity(cx, (card.id, "editing"), || false);
-    let mut expanded = use_identity(cx, (card.id, "expanded"), || false);
-    let mut draft = use_identity(cx, (card.id, "draft"), || Draft::of(card));
+    let mut draft = use_identity(cx, (card.id, "draft"), || card.title.clone());
 
-    let before_me = dnd.hovered()
-        == Some(DropTarget {
-            column,
-            before: Some(card.id),
-        });
     let carried = dnd.carrying() == Some(card.id);
-    let open = *editing;
+    let dragging = dnd.carrying().is_some();
+    let editing_now = *editing;
+    let next = *next;
+    let (store, scope) = (cx.store, cx.scope_id());
 
-    rsx! {
-        <Frame
-            style={style}
-            w="100%"
-            inner_margin={6.0}
-            corner_radius={4.0}
-            fill={theme.card()}
-        >
-            <View direction="column" w="100%" gap={4}>
-                <View direction="row" w="100%" gap={6} align="center">
-                    <Chip
-                        label={card.label.name()}
-                        color={theme.label(card.label)}
-                        on_click={|| on_label.emit(card.label.next())}
-                    />
+    cx.leaf(&style.w("100%"), move |ui| {
+        // Taken before anything is drawn, because it is what taffy gave the
+        // whole card rather than what the row of widgets ended up covering.
+        // On the very first frame the height is not right yet; from the second
+        // it is, which is the same deal the footer's `leaf_fill` takes.
+        let rect = ui.max_rect();
+        // Registered *before* the children, and that order is the feature. egui
+        // picks the topmost click candidate and the topmost drag candidate
+        // separately, so the checkbox and the buttons — which only click —
+        // still take their clicks, while a press that turns into a movement
+        // falls through to here. Pressing on the checkbox and moving therefore
+        // drags the card, which is what a hand expects and what the test does.
+        let bg = ui.interact(
+            rect,
+            egui::Id::new(("board/card", card.id)),
+            egui::Sense::drag(),
+        );
+        if bg.drag_started() {
+            dnd.pick_up(card.id);
+        }
+        if bg.contains_pointer() {
+            // `contains_pointer`, not `hovered`: the pointer is over the card
+            // even when it is over a widget drawn on top of it.
+            ui.ctx().set_cursor_icon(if dragging {
+                egui::CursorIcon::Grabbing
+            } else {
+                egui::CursorIcon::PointingHand
+            });
+        }
+        // The whole card split in two: the top half means "in front of me",
+        // the bottom half "in front of the next one", which is how a list of
+        // cards is also a list of the gaps between them.
+        let (top, bottom) = rect.split_top_bottom_at_fraction(0.5);
+        dnd.slot(
+            top,
+            DropTarget {
+                column,
+                before: Some(card.id),
+            },
+        );
+        dnd.slot(
+            bottom,
+            DropTarget {
+                column,
+                before: next,
+            },
+        );
 
-                    // The title is the drag handle, and one leaf is all a drag
-                    // needs: a rectangle to sense in and a rectangle to offer
-                    // as a target. `<Text>` would draw the same thing but hand
-                    // back no `Response`.
-                    {view(|cx| {
-                        let response = cx.leaf(
-                            &ItemStyle::default().grow(1.0).min_w(0.0),
-                            |ui| {
-                                ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
-                                let mut text = egui::RichText::new(card.title.as_str());
-                                if carried {
-                                    text = text.weak();
-                                }
-                                let label = egui::Label::new(text)
-                                    .sense(egui::Sense::click_and_drag());
-                                let response = ui.add(label);
-                                if before_me {
-                                    let stroke = egui::Stroke::new(2.0, theme.accent());
-                                    let rect = response.rect.expand(SLOT_PAD);
-                                    ui.painter().hline(rect.x_range(), rect.top(), stroke);
-                                }
-                                response
-                            },
-                        );
+        egui::Frame::default()
+            .fill(theme.card())
+            .inner_margin(6i8)
+            .corner_radius(4u8)
+            .show(ui, move |ui| {
+                let mut cx = Cx::new(store, ui, scope);
+                let row = rsx! {
+                    <View direction="row" w="100%" gap={6} align="center">
+                        {view(|cx| {
+                            let toggled = cx.leaf(&ItemStyle::default().shrink(0.0), |ui| {
+                                // `done` is a prop, so the box is drawn against
+                                // a copy: what comes back out is an event, not
+                                // a write. `<Checkbox bind>` wants the `&mut`
+                                // this card does not have.
+                                let mut done = card.done;
+                                let response = ui.add(egui::Checkbox::without_text(&mut done));
+                                // A card is found by this name — by a screen
+                                // reader, and by the test, which needs a hold
+                                // on a card whose title has become an editor.
+                                ui.ctx().accesskit_node_builder(response.id, |node| {
+                                    node.set_label(format!("done: {}", card.title));
+                                });
+                                response.changed()
+                            });
+                            if toggled {
+                                on_done.emit(!card.done);
+                            }
+                        })}
 
-                        if response.drag_started() {
-                            dnd.pick_up(card.id);
+                        if editing_now {
+                            <TitleEdit
+                                grow={1.0}
+                                min_w={0.0}
+                                bind={draft.bind()}
+                                name="title"
+                                on_commit={|title: String| {
+                                    // Confirming an empty title is a cancel:
+                                    // a nameless card would leave nothing to
+                                    // click on to name it again.
+                                    if !title.trim().is_empty() {
+                                        on_title.emit(title);
+                                    }
+                                    *editing = false;
+                                }}
+                                on_cancel={|| *editing = false}
+                            />
+                        } else {
+                            {view(|cx| {
+                                cx.leaf(&ItemStyle::default().grow(1.0).min_w(0.0), |ui| {
+                                    ui.style_mut().wrap_mode =
+                                        Some(egui::TextWrapMode::Truncate);
+                                    let mut text = egui::RichText::new(card.title.as_str());
+                                    if card.done {
+                                        text = text.weak().strikethrough();
+                                    }
+                                    if carried {
+                                        text = text.weak();
+                                    }
+                                    // Not selectable, and it senses nothing.
+                                    // A label that senses a drag still starts a
+                                    // text selection on the press, and egui
+                                    // then runs that selection across every
+                                    // label the pointer passes over on its way
+                                    // (`label_text_selection.rs`). The card is
+                                    // dragged by the background above.
+                                    ui.add(egui::Label::new(text).selectable(false));
+                                });
+                            })}
                         }
-                        if response.clicked() {
-                            *expanded = !*expanded;
-                        }
-                        // Half of the row means "in front of me", half means
-                        // "in front of the next one", which is how a list of
-                        // cards is also a list of gaps between cards.
-                        let (top, bottom) = response
-                            .rect
-                            .expand(SLOT_PAD)
-                            .split_top_bottom_at_fraction(0.5);
-                        dnd.slot(top, DropTarget { column, before: Some(card.id) });
-                        dnd.slot(bottom, DropTarget { column, before: *next });
-                    })}
 
-                    <IconButton on_click={|| {
-                        // Opening takes a fresh copy of the saved text, so
-                        // closing the editor and opening it again starts from
-                        // what was saved rather than from an old draft.
-                        if !*editing {
-                            *draft = Draft::of(card);
-                        }
-                        *editing = !*editing;
-                    }}>{if open { "close" } else { "edit" }}</IconButton>
-                    <IconButton on_click={|| on_remove.emit(())}>"x"</IconButton>
-                </View>
-
-                if open {
-                    // `bind` hands the field the only `&mut` to the draft, so
-                    // an `on_change` here could not touch it as well; the save
-                    // button is a different element, and reads it freely.
-                    <TextEdit w="100%" bind={&mut draft.bind().title} hint="title"/>
-                    <TextEdit
-                        multiline
-                        w="100%"
-                        h={54.0}
-                        bind={&mut draft.bind().body}
-                        hint="body"
-                    />
-                    <View direction="row" gap={4}>
-                        <Button on_click={|| {
-                            on_edit.emit((draft.title.clone(), draft.body.clone()));
-                            *editing = false;
-                        }}>"save"</Button>
-                        <Button on_click={|| *editing = false}>"cancel"</Button>
+                        <IconButton name="edit" on_click={|| {
+                            // Opening takes a fresh copy of the saved title, so
+                            // closing the editor and opening it again starts
+                            // from what was saved rather than from an old draft.
+                            *draft = card.title.clone();
+                            *editing = true;
+                        }}>"✎"</IconButton>
+                        <IconButton name="remove" on_click={|| on_remove.emit(())}>"×"</IconButton>
                     </View>
-                } else if *expanded && !card.body.is_empty() {
-                    <Text w="100%" wrap>{card.body.as_str()}</Text>
-                }
-            </View>
-        </Frame>
+                };
+                row.show(&mut cx);
+            });
+    });
+}
+
+/// A one-line editor that opens with its text selected: the card's title, the
+/// column's name, and the card being added are all the same three keys.
+///
+/// Enter confirms, Escape puts it back, and clicking elsewhere confirms — the
+/// last because a board is clicked around rather than tabbed through, and
+/// losing what was typed for looking away is not a thing anyone means.
+#[component]
+fn TitleEdit(
+    cx: &mut Cx,
+    #[prop(default)] style: ItemStyle,
+    bind: &mut String,
+    // The name in the accessibility tree: the text says nothing about which
+    // of the three this is, and a nameless text field is what the gallery's
+    // a11y test counts.
+    name: &str,
+    #[event] on_commit: String,
+    #[event] on_cancel: (),
+) {
+    // Focus and select-all happen once, on the frame the field appears: after
+    // that the caret is the user's business. The field is unmounted when the
+    // editor closes, so the next opening is fresh again — and so is a card that
+    // is dragged into another column, which remounts it. The draft survives
+    // that (it is a `use_identity` hook); the caret goes back to selecting
+    // everything, which is the same place it started.
+    let mut fresh = use_state(cx, || true);
+    let first = *fresh;
+
+    let response = cx.leaf(&style, |ui| {
+        let width = ui.available_width();
+        let response = ui.add(egui::TextEdit::singleline(bind).desired_width(width));
+        ui.ctx()
+            .accesskit_node_builder(response.id, |node| node.set_label(name));
+        if first {
+            response.request_focus();
+            let mut state = egui::TextEdit::load_state(ui.ctx(), response.id).unwrap_or_default();
+            let end = egui::text::CCursor::new(bind.chars().count());
+            let all = egui::text::CCursorRange::two(egui::text::CCursor::new(0), end);
+            state.cursor.set_char_range(Some(all));
+            state.store(ui.ctx(), response.id);
+        }
+        response
+    });
+    if first {
+        *fresh = false;
     }
-}
 
-/// What a card's editor is holding before it is saved.
-#[derive(Clone, Debug, PartialEq, Eq)]
-struct Draft {
-    title: String,
-    body: String,
-}
-
-impl Draft {
-    fn of(card: &CardData) -> Self {
-        Self {
-            title: card.title.clone(),
-            body: card.body.clone(),
+    if response.lost_focus() {
+        // egui hands focus back on Escape, so the two arrive together and the
+        // only question is which of them ended the edit.
+        if cx.ui().input(|i| i.key_pressed(egui::Key::Escape)) {
+            on_cancel.emit(());
+        } else {
+            on_commit.emit(bind.clone());
         }
     }
 }
 
-/// A coloured tag: the label on a card, and the filter in the toolbar.
+/// The space between two cards, and the gap a card in hand would drop into.
+///
+/// One of these sits in front of every card and in front of the footer, open
+/// or closed. **Closed it is not nothing**: it is the column's card spacing,
+/// and that is what keeps it in the tree. A gap that came and went would be a
+/// taffy node that came and went, and a node taffy has not laid out yet has an
+/// empty rectangle for one frame — the very frame the pointer needs it, since
+/// opening the gap is what pushed the card out from under the pointer. The
+/// slot would find nothing, the gap would shut, the card would come back, and
+/// the column would shake once a frame. A node that only changes height has a
+/// rectangle at every moment.
+///
+/// The open one registers itself as a drop slot for the target it is showing,
+/// which is the other half of the same argument: the pointer ends up over the
+/// gap, so the gap has to be an answer to "what is under the pointer".
+#[component]
+fn Placeholder(
+    cx: &mut Cx,
+    #[prop(default)] style: ItemStyle,
+    #[prop(default)] open: bool,
+    target: DropTarget,
+) {
+    let theme = use_theme(cx);
+    let dnd = use_drag(cx);
+    let extra = if open { PLACEHOLDER_H } else { 0.0 };
+
+    // `leaf_fill`, not `leaf`: a content-measured leaf is measured in a
+    // zero-width `Ui` on its first frame and taffy keeps it that way
+    // (ARCHITECTURE 6). Here the size is the style's — the whole width, and
+    // one card's height once there is a card to make room for.
+    let rect = cx.leaf_fill(&style.w("100%").h(CARD_GAP + extra), |ui| {
+        let rect = ui.max_rect();
+        let response = ui.allocate_rect(rect, egui::Sense::hover());
+        if open {
+            // The spacing stays spacing: the card is drawn in what is new.
+            placeholder(ui.painter(), rect.with_min_y(rect.bottom() - extra), theme);
+            // Painted, not a widget, so the name has to be said out loud; the
+            // test asks for it to know whether a gap is open.
+            response.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::WidgetType::Other, ui.is_enabled(), "drop here")
+            });
+        }
+        rect
+    });
+    if open {
+        dnd.slot(rect, target);
+    }
+}
+
+/// A small toggle: the two filters in the toolbar.
 ///
 /// `react-egui-elements` has no chip and no toggle, so this is the escape
 /// hatch, one leaf deep — and it is also the smallest example of the shape
@@ -616,6 +801,9 @@ fn IconButton(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
     #[prop(default = true)] enabled: bool,
+    // What the button is called, when what it shows is a picture. The tree
+    // says words even where the screen says a glyph.
+    name: Option<&str>,
     #[event] on_click: (),
     children: impl Into<egui::WidgetText>,
 ) {
@@ -624,7 +812,14 @@ fn IconButton(
             .small()
             .frame(false)
             .wrap_mode(egui::TextWrapMode::Extend);
-        ui.add_enabled(enabled, button).clicked()
+        let response = ui.add_enabled(enabled, button);
+        if let Some(name) = name {
+            // The widget has already written its node for this pass, so this
+            // overwrites the label egui took from the glyph.
+            ui.ctx()
+                .accesskit_node_builder(response.id, |node| node.set_label(name));
+        }
+        response.clicked()
     });
     if clicked {
         on_click.emit(());
