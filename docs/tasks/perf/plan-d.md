@@ -199,7 +199,8 @@ with its cause before updating.
 4. **Branch**: continue on `docs-perf` (PR #7 already carries A to C), or a
    new branch `layout-engine` off `docs-perf` with its own PR.
 
-Defaults if unanswered: 1(a), 2(a), 3 later, 4 new branch.
+Answered 2026-09-06: 1(a) galley + widget rect; 2(a) byte-identical, stop
+on any diff; 3 later, fork stays; 4 continue on `docs-perf` (PR #7).
 
 ## 6. Out of scope
 
