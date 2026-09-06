@@ -33,6 +33,20 @@ Plan: [docs/tasks/perf/plan.md](docs/tasks/perf/plan.md). Numbers per step in
 | B: egui_taffy fork skips discard when layout unchanged | `20a22c5` | Scroll 2.00 -> 1.00, Filter 1.60 -> 1.00 passes/frame, 0 discards. |
 | C: egui_taffy fork computes layout before drawing on root resize | `c1c417e` | Resize 2.98 -> 1.02 passes/frame. All-rows mode 131 -> 54 ms. |
 
+VirtualList mean ms per frame and passes/frame per step (Plain reference in
+the last row of each block, same run):
+
+| Scenario | Baseline | After A | After B | After C |
+|---|---:|---:|---:|---:|
+| Idle | 0.225 / 1.00 | 0.222 / 1.00 | 0.225 / 1.00 | 0.241 / 1.00 |
+| Scroll | 0.452 / 2.00 | 0.466 / 2.00 | 0.298 / 1.00 | 0.303 / 1.00 |
+| Filter | 1.528 / 1.60 | 1.263 / 1.60 | 1.158 / 1.00 | 1.222 / 1.00 |
+| Resize | 0.662 / 2.98 | 0.653 / 2.98 | 0.649 / 2.98 | 0.311 / 1.02 |
+| Plain (Idle / Scroll / Filter / Resize) | 0.124 / 0.153 / 1.286 / 0.153 | 0.114 / 0.149 / 1.021 / 0.147 | 0.113 / 0.146 / 1.014 / 0.149 | 0.123 / 0.146 / 1.065 / 0.153 |
+
+Timings drift a few percent between runs (Plain moves too); passes/frame and
+discard counts are the stable signal.
+
 Fork: `../egui_taffy` (sibling checkout, not pushed), branches
 `skip-unchanged-discard` (`d618550`, step B) and `layout-first` (`ee07d38`,
 step C, on top of B). Wired in through `[patch.crates-io]` in the workspace
