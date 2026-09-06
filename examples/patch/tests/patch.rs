@@ -231,6 +231,37 @@ fn the_second_input_is_its_own_target() {
     );
 }
 
+/// A header drag moves the node, and keeps moving it.
+///
+/// The first frame of the drag sends `Raise`, which reorders `graph.nodes`;
+/// a widget whose egui id came from its place in that order would lose the
+/// drag right there. The header names its own id, so it does not.
+#[test]
+fn dragging_a_header_moves_the_node() {
+    let mut harness = loaded();
+    let header = |harness: &Harness<'static, Store>| {
+        harness
+            .get_by_role_and_label(egui::accesskit::Role::Button, "shader1")
+            .rect()
+            .center()
+    };
+    let start = header(&harness);
+    harness.hover_at(start);
+    harness.step();
+    harness.drag_at(start);
+    harness.step();
+    // Several frames, not one: the bug this pins is a drag that begins and
+    // then stops following.
+    for step in 1..=8 {
+        harness.hover_at(start + egui::vec2(0.0, 10.0 * step as f32));
+        harness.step();
+    }
+    harness.drop_at(start + egui::vec2(0.0, 80.0));
+    settle(&mut harness);
+
+    assert_eq!(header(&harness), start + egui::vec2(0.0, 80.0));
+}
+
 /// P-3: a node's own state stays with the node.
 ///
 /// The same claim as `board`'s B-2, in a deeper tree: here the state is inside

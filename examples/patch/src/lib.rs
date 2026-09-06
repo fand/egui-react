@@ -575,11 +575,12 @@ fn PatchCanvas(
             // is not drawn is a node whose hooks are swept, and panning a node
             // off the edge should not forget that it was collapsed.
             let node_rect = egui::Rect::from_min_size(at, egui::vec2(NODE_W, NODE_MAX_H));
-            // `id_salt` by the node, so the widgets inside keep their egui ids
-            // when the node moves in `graph.nodes`. Without it a child `Ui`
-            // takes an id from its position in the list, and `Raise` — sent by
-            // the first frame of a header drag — would give the header a new id
-            // mid-drag, which egui reads as the drag having ended.
+            // `id_salt` by the node, so the child `Ui`'s id does not depend on
+            // where the node is in `graph.nodes`. That is only half of it:
+            // egui's *auto* ids inside still count from the parent's counter,
+            // so `Raise` — sent by the first frame of a header drag — would
+            // still move them. Anything in a node that has to keep its id
+            // across a reorder (the header, the sockets) names its id itself.
             let builder = egui::UiBuilder::new().id_salt(node.id).max_rect(node_rect);
             ui.scope_builder(builder, |ui| {
                 let mut cx = Cx::new(store, ui, scope);
@@ -721,8 +722,17 @@ fn NodeView(
                         let response = cx.leaf_fill(
                             &ItemStyle::default().grow(1.0).min_w(0.0).h(head_h),
                             |ui| {
-                                let (rect, response) = ui.allocate_exact_size(
+                                // A named id, not an auto one: a drag lives
+                                // as long as the widget keeps its id, and the
+                                // first frame of this drag reorders the nodes
+                                // (see `PatchCanvas`).
+                                let (rect, _) = ui.allocate_exact_size(
                                     ui.available_size(),
+                                    egui::Sense::hover(),
+                                );
+                                let response = ui.interact(
+                                    rect,
+                                    ui.id().with("header"),
                                     egui::Sense::click_and_drag(),
                                 );
                                 ui.painter().rect_filled(
@@ -897,7 +907,7 @@ fn PortDot(
         // outside it: its middle is on the node's edge, so a wire ends where
         // the node does. Only the canvas clips, so painting past the node's
         // own rectangle is allowed.
-        let (rect, placed) = ui.allocate_exact_size(egui::Vec2::splat(PORT), egui::Sense::hover());
+        let (rect, _) = ui.allocate_exact_size(egui::Vec2::splat(PORT), egui::Sense::hover());
         let centre = match side {
             Side::Left => rect.left_center(),
             Side::Right => rect.right_center(),
@@ -906,7 +916,9 @@ fn PortDot(
         // the pointer is a square around the circle rather than the space the
         // layout gave it.
         let hit = egui::Rect::from_center_size(centre, egui::Vec2::splat(PORT)).expand(PORT_PAD);
-        let response = ui.interact(hit, placed.id, egui::Sense::click_and_drag());
+        // Named for the same reason as the header: the socket's id must not
+        // depend on where its node is in the list.
+        let response = ui.interact(hit, ui.id().with(port), egui::Sense::click_and_drag());
         let hot = response.hovered() || (dragging && response.contains_pointer());
         let fill = match (connected, hot) {
             (_, true) => look.accent,
