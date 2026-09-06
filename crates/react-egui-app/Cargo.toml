@@ -29,6 +29,17 @@ egui_kittest.workspace = true
 react-egui-elements.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# The DOM mirror of the AccessKit tree. wasm only: on every other target
+# `a11y::WebA11y` is an empty plugin. `accesskit` itself comes from
+# `egui::accesskit`, so the `TreeUpdate` types cannot drift apart.
+accesskit-web.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
-web-sys = { workspace = true, features = ["Document", "Element", "HtmlCanvasElement", "Window"] }
+web-sys = { workspace = true, features = [
+    "Document",
+    "DomRect",
+    "Element",
+    "HtmlCanvasElement",
+    "Location",
+    "Window",
+] }

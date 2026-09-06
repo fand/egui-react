@@ -14,17 +14,33 @@ use react_egui::layout::ItemStyle;
 use react_egui::prelude::*;
 
 /// A clickable button.
+///
+/// `label` is the name assistive technology reads. Pass it whenever the
+/// children do not say what the button does — an icon or a single glyph like
+/// `"x"` reads as that glyph and nothing more. It only renames the accessibility
+/// node; what is drawn stays the children.
 #[component]
 pub fn Button(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
     #[prop(default = true)] enabled: bool,
+    label: Option<&str>,
     #[event] on_click: (),
     children: impl Into<egui::WidgetText>,
 ) {
     let clicked = cx.leaf(&style, |ui| {
         let button = egui::Button::new(children).wrap_mode(egui::TextWrapMode::Extend);
-        ui.add_enabled(enabled, button).clicked()
+        let response = ui.add_enabled(enabled, button);
+        if let Some(label) = label {
+            // The widget has already written its node for this pass, so this
+            // overwrites the label egui took from the children.
+            // `Response::widget_info` would work too, but it pushes a second
+            // `OutputEvent` on the frame the button is clicked.
+            // Returns `None` when accesskit is off, which is the usual case.
+            ui.ctx()
+                .accesskit_node_builder(response.id, |node| node.set_label(label));
+        }
+        response.clicked()
     });
     if clicked {
         on_click.emit(());
@@ -202,17 +218,26 @@ pub fn ComboBox<S: AsRef<str>>(
 ///
 /// The loader for the source's scheme has to be installed by the application
 /// (`egui_extras::install_image_loaders`); this element only draws.
+///
+/// `alt` is the alternative text: it names the image for assistive technology
+/// and is drawn next to the ⚠ placeholder when the image fails to load. An
+/// image without `alt` has no name at all, so pass one unless the image is
+/// decoration.
 #[component]
 pub fn Image(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
     source: egui::ImageSource<'_>,
     fit: Option<egui::Vec2>,
+    alt: Option<&str>,
 ) {
     cx.leaf(&style, |ui| {
         let mut image = egui::Image::new(source);
         if let Some(size) = fit {
             image = image.fit_to_exact_size(size);
+        }
+        if let Some(alt) = alt {
+            image = image.alt_text(alt);
         }
         ui.add(image)
     });

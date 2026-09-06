@@ -163,7 +163,7 @@ fn Row(cx: &mut Cx, index: usize, name: &str, #[event] on_remove: ()) {
         <View direction="row" gap={8} align="center" w="100%" h={ROW_H}>
             <Text w={INDEX_W}>{format!("#{index}")}</Text>
             <Text grow={1.0}>{name}</Text>
-            <Button on_click={|| on_remove.emit(())}>"x"</Button>
+            <Button label="remove" on_click={|| on_remove.emit(())}>"x"</Button>
         </View>
     }
 }
