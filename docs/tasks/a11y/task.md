@@ -54,7 +54,7 @@ react-egui の要素は egui の widget をそのまま使っているので、n
 ## 終了条件
 
 - gallery(web)の counter / todo / form を、VoiceOver でボタン名・チェック状態・テキスト欄の値が読み上げられ、Tab で移動し、Enter / Space で操作できる(目視)。
-- 上流に web adapter と eframe の差し込み口の提案が出ている(マージは条件にしない)。
+- ~~上流に web adapter と eframe の差し込み口の提案が出ている(マージは条件にしない)。~~ 2026-09-05 に取り下げ。上流には出さず、`accesskit-web` と `WebA11y` を react-egui の中で持ち続ける。
 - ARCHITECTURE.md に web の a11y の現状と方針が書かれている。
 
 ## 決めごと(着手時点での前提)

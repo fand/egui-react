@@ -519,3 +519,7 @@ counter と custom-hook のボタン。名前は空ではない(「プラス」�
 - `Role::MultilineTextInput` は `<div role="textbox">` のまま。`<textarea>` にするかは、テキスト欄の読み上げを一度見てから決める。
 - form の slider の隣に出る `SpinButton`(egui の `DragValue`)は `step` がドラッグの刻み(1.12…)になる。矢印キーで動かす分には粗すぎるので、`numeric_value_step` を使うかどうかは role ごとに分ける余地がある。
 - `aria-owns` はミラーを canvas の下に付け替えるので、canvas 自身の子(将来 eframe が何か置いたら)との順序は保証しない。
+
+### 手順 12: 上流化はしない
+
+2026-09-05 の判断で取り下げ。AccessKit(discussions#514)にも eframe にも出さない。`crates/accesskit-web` と `react_egui_app::a11y::WebA11y` は react-egui の一部として保守する。上流が同等のものを出したら乗り換える。
