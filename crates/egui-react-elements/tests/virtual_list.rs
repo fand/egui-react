@@ -236,6 +236,19 @@ fn PitchRow(cx: &mut Cx, index: usize) {
     }
 }
 
+/// A row with a widget leaf, the shape of list-10k's row: a widget has to draw
+/// to be measured, so a slot whose tree was dropped costs a sizing pass.
+#[component]
+fn ButtonRow(cx: &mut Cx, index: usize) {
+    rsx! {
+        <View direction="row" gap={8} align="center" w="100%" h={ROW_H}>
+            <Text w={80.0}>{format!("row {index}")}</Text>
+            <Text grow={1.0}>"filler"</Text>
+            <Button>"x"</Button>
+        </View>
+    }
+}
+
 /// A row that draws twice as tall as the height the list was told.
 ///
 /// `<VirtualList>` says every row must be `row_h` tall and that a taller one
@@ -255,7 +268,14 @@ fn TallRow(cx: &mut Cx, index: usize) {
 /// `item_spacing.y` is zeroed, because `show_rows` puts the rows at
 /// `row_h + item_spacing.y` and the test wants one number. `tall` swaps in a
 /// row that draws over its height.
-fn pitch_harness<'a>(discards: &Rc<Cell<usize>>, tall: bool) -> Harness<'a, Store> {
+#[derive(Clone, Copy)]
+enum RowKind {
+    Pitch,
+    Tall,
+    Button,
+}
+
+fn pitch_harness<'a>(discards: &Rc<Cell<usize>>, kind: RowKind) -> Harness<'a, Store> {
     let discards = Rc::clone(discards);
     Harness::builder()
         .with_size(egui::vec2(300.0, 300.0))
@@ -269,12 +289,10 @@ fn pitch_harness<'a>(discards: &Rc<Cell<usize>>, tall: bool) -> Harness<'a, Stor
                                 rows={ROWS}
                                 row_h={ROW_H}
                                 grow={1.0}
-                                render={|cx: &mut Cx<'_, '_>, i: usize| {
-                                    if tall {
-                                        rsx! { <TallRow index={i}/> }.show(cx);
-                                    } else {
-                                        rsx! { <PitchRow index={i}/> }.show(cx);
-                                    }
+                                render={move |cx: &mut Cx<'_, '_>, i: usize| match kind {
+                                    RowKind::Pitch => rsx! { <PitchRow index={i}/> }.show(cx),
+                                    RowKind::Tall => rsx! { <TallRow index={i}/> }.show(cx),
+                                    RowKind::Button => rsx! { <ButtonRow index={i}/> }.show(cx),
                                 }}
                             />
                         </View>
@@ -325,7 +343,7 @@ fn assert_row_pitch(tops: &[(usize, f32)]) {
 #[test]
 fn scrolling_keeps_the_rows_at_one_pitch_and_asks_for_no_second_pass() {
     let discards = Rc::new(Cell::new(0usize));
-    let mut harness = pitch_harness(&discards, false);
+    let mut harness = pitch_harness(&discards, RowKind::Pitch);
     harness.run();
     harness.run();
     assert_row_pitch(&label_tops(&harness, "row"));
@@ -359,7 +377,7 @@ fn scrolling_keeps_the_rows_at_one_pitch_and_asks_for_no_second_pass() {
 #[test]
 fn a_row_taller_than_row_h_still_advances_by_row_h() {
     let discards = Rc::new(Cell::new(0usize));
-    let mut harness = pitch_harness(&discards, true);
+    let mut harness = pitch_harness(&discards, RowKind::Tall);
     harness.run();
     harness.run();
 
@@ -412,5 +430,42 @@ fn scrolling_moves_the_window_of_rows() {
         drawn[0] > 0,
         "the visible window should have moved: {:?}",
         &drawn[..drawn.len().min(3)],
+    );
+}
+
+/// Scrolling by a fraction of a row, as a trackpad does, makes the visible
+/// range one row longer on some frames and one row shorter on others. The slot
+/// that comes and goes must keep its layout between appearances; if the store
+/// dropped it the moment it was not drawn, every reappearance would be a new
+/// tree, a sizing pass and a discard, and egui would warn about discards on
+/// consecutive frames.
+#[test]
+fn fractional_scrolling_asks_for_no_second_pass() {
+    let discards = Rc::new(Cell::new(0usize));
+    let mut harness = pitch_harness(&discards, RowKind::Button);
+    harness.run();
+    harness.run();
+
+    // The first time the extra slot appears it is a new tree and costs one
+    // sizing pass, once. That is fine; what must not happen is paying it again
+    // on every reappearance.
+    for _ in 0..10 {
+        scroll(&mut harness, ROW_H * 0.37);
+    }
+    discards.set(0);
+    let mut lengths = std::collections::BTreeSet::new();
+    for _ in 0..40 {
+        scroll(&mut harness, ROW_H * 0.37);
+        lengths.insert(label_tops(&harness, "row").len());
+    }
+    assert!(
+        lengths.len() > 1,
+        "the visible range should change length as the offset moves: {lengths:?}",
+    );
+    assert_eq!(
+        discards.get(),
+        0,
+        "fractional scrolling asked for {} extra passes",
+        discards.get(),
     );
 }

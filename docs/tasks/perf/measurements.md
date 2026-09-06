@@ -1119,3 +1119,29 @@ column is 200 px wide.
 
 task.md's two web criteria are now measured: no PERF WARNING while scrolling,
 and a drawn frame at 1.0 ms against the 8.3 ms budget.
+
+## After F (trees survive a grace period)
+
+Date: 2026-09-06. A real trackpad scrolls by fractions of a row, so
+`show_rows` hands `<VirtualList>` a range that is one row longer on some
+frames and one shorter on others. The store dropped a slot's tree the moment
+it was not drawn, so the slot at the bottom came back as a new tree on every
+second frame, drew its `<Button>` in a sizing pass and asked for a discard;
+egui then warned about `request_discard` on consecutive frames. The synthetic
+benchmark scrolled exactly one row per frame and never saw it. Trees now
+survive 120 passes without being drawn (`Store::sweep_trees`).
+
+Test: `fractional_scrolling_asks_for_no_second_pass` in
+`crates/egui-react-elements/tests/virtual_list.rs` (14 discards in 40 frames
+before, 0 after; the first appearance of a slot still costs one).
+
+| Scenario | Virtual ms | Plain ms | Ratio | Passes/frame | Discard frames |
+|---|---:|---:|---:|---:|---:|
+| Idle | 0.140 | 0.119 | 1.18x | 1.00 | 0 |
+| Scroll | 0.197 | 0.145 | 1.36x | 1.00 | 0 |
+| Filter | 1.098 | 1.051 | 1.04x | 1.00 | 0 |
+| Resize | 0.205 | 0.153 | 1.34x | 1.02 | 3 |
+
+Resize is back at 1.02 passes/frame (the D1 sweep had put it at 1.10); the
+three remaining discard frames are the first appearance of slots 38 to 40.
+Timings are within run-to-run noise of E1. Samples in `samples-f.csv`.

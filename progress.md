@@ -142,6 +142,15 @@ layer cheaper (`Cx::scope`, `rsx!`, component bodies — paid by every app, not
 just lists); keep a swept tree for a grace period (the Resize 1.10 passes, open
 since D1). The web and 120-Hz criteria in task.md are still unmeasured.
 
+### Step F: tree grace period (2026-09-06)
+
+Real trackpad scrolling still logged egui's PERF WARNING: the visible range
+alternates 37/38 rows with fractional offsets, and the store dropped the
+38th slot's tree every time it was not drawn. Trees now survive 120 passes
+(`TREE_GRACE_PASSES`). Resize back to 1.02 passes/frame. New test
+`fractional_scrolling_asks_for_no_second_pass`. See measurements.md
+"After F".
+
 ### Web measurement (2026-09-06)
 
 Chrome, wasm release, synthetic wheel input: `<VirtualList>` 1.0 ms per drawn

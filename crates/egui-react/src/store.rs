@@ -183,6 +183,13 @@ pub struct Store {
     warn_on_collision: bool,
 }
 
+/// How many passes a layout tree survives without being drawn.
+///
+/// About two seconds at 60 Hz; long enough for a scroll to bring a slot back,
+/// short enough that an unmounted subtree's trees do not linger. See
+/// `Store::sweep_trees`.
+const TREE_GRACE_PASSES: u64 = 120;
+
 /// The slot id of a `use_persisted` key.
 ///
 /// Derived from the key alone, never from the call site: a persisted value has
@@ -242,18 +249,24 @@ impl Store {
         self.show_collision_overlay();
     }
 
-    /// Drop every layout tree that was not drawn this pass.
+    /// Drop every layout tree that has not been drawn for a while.
     ///
     /// A tree belongs to the `<View>` root that opened it, so a subtree that
-    /// unmounted takes its trees with it.
+    /// unmounted takes its trees with it. It is not dropped the moment it
+    /// misses a pass, though: a `<VirtualList>` slot at the bottom of the
+    /// viewport comes and goes with every fractional scroll, and a tree that
+    /// was dropped in between has to draw its widgets in a sizing pass and ask
+    /// for a discard when it comes back, on every second frame. Keeping a tree
+    /// for [`TREE_GRACE_PASSES`] passes after its last draw costs the memory
+    /// of a few rows' layouts and nothing else.
     fn sweep_trees(&mut self) {
-        let pass = self.pass.get();
+        let keep_from = self.pass.get().saturating_sub(TREE_GRACE_PASSES);
         self.trees
             .borrow_mut()
-            .retain(|_, tree| tree.borrow().last_visited() >= pass);
+            .retain(|_, tree| tree.borrow().last_visited() >= keep_from);
         self.lite_trees
             .borrow_mut()
-            .retain(|_, tree| tree.borrow().last_visited() >= pass);
+            .retain(|_, tree| tree.borrow().last_visited() >= keep_from);
     }
 
     /// Apply everything `cx.defer` / `update_later` queued, until nothing is left.
