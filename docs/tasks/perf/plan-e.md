@@ -156,7 +156,7 @@ and write the breakdown into measurements.md; do not add a third layout path.
   VirtualList docs say rows must be uniform, so this is documented, not
   solved.
 
-## 7. Open questions
+## 7. Open questions (answered 2026-09-06: 1 rows only; 2 debug log once per slot)
 
 1. Scope: VirtualList rows only (this plan), or every tree opened with a
    fixed root size? Default: rows only; widen after E1's numbers.
