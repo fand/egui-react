@@ -10,46 +10,14 @@ use serde::{Deserialize, Serialize};
 pub type CardId = u64;
 pub type ColumnId = u64;
 
-/// A card's colour tag, and the toolbar's filter.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
-pub enum Label {
-    #[default]
-    None,
-    Red,
-    Yellow,
-    Green,
-    Blue,
-}
-
-impl Label {
-    /// Every label, in the order the toolbar lists them.
-    pub const ALL: [Self; 5] = [Self::None, Self::Red, Self::Yellow, Self::Green, Self::Blue];
-
-    pub fn name(self) -> &'static str {
-        match self {
-            Self::None => "none",
-            Self::Red => "red",
-            Self::Yellow => "yellow",
-            Self::Green => "green",
-            Self::Blue => "blue",
-        }
-    }
-
-    /// The next label round the ring, so one click on a card's chip cycles it.
-    pub fn next(self) -> Self {
-        let i = Self::ALL.iter().position(|l| *l == self).unwrap_or(0);
-        Self::ALL[(i + 1) % Self::ALL.len()]
-    }
-}
-
-/// One card. The title and the body are the *saved* text; what is being typed
-/// into them lives in the card's own UI state and never reaches this file.
+/// One card: a line of text and a tick. The title is the *saved* text; what is
+/// being typed into it lives in the card's own UI state and never reaches this
+/// file.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Card {
     pub id: CardId,
     pub title: String,
-    pub body: String,
-    pub label: Label,
+    pub done: bool,
 }
 
 /// One column: a name and the cards in it, in order.
@@ -97,17 +65,20 @@ pub struct DropTarget {
 /// board in a state with the card in neither column in between.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Msg {
+    /// Added with its title already typed. A card with an empty title never
+    /// reaches the board: the new-card editor lives in the column's own state,
+    /// so cancelling it costs no undo step and saves nothing.
     AddCard {
         column: ColumnId,
+        title: String,
     },
-    EditCard {
+    SetTitle {
         card: CardId,
         title: String,
-        body: String,
     },
-    SetLabel {
+    SetDone {
         card: CardId,
-        label: Label,
+        done: bool,
     },
     RemoveCard {
         card: CardId,
@@ -130,13 +101,12 @@ impl Board {
     /// moment it is picked, so an empty one would say nothing.
     pub fn demo() -> Self {
         let mut next_id = 0;
-        let mut card = |title: &str, body: &str, label: Label| {
+        let mut card = |title: &str, done: bool| {
             next_id += 1;
             Card {
                 id: next_id,
                 title: title.to_owned(),
-                body: body.to_owned(),
-                label,
+                done,
             }
         };
         let columns = vec![
@@ -144,52 +114,33 @@ impl Board {
                 id: 101,
                 name: String::from("backlog"),
                 cards: vec![
-                    card(
-                        "write the plan",
-                        "what the example proves, and how",
-                        Label::Blue,
-                    ),
-                    card("read the plan", "twice, then argue with it", Label::None),
-                    card("buy milk", "the shop on the corner", Label::Green),
-                    card("fix the roof", "before it rains again", Label::Red),
+                    card("write the plan", false),
+                    card("read the plan", false),
+                    card("buy milk", false),
+                    card("fix the roof", false),
                 ],
             },
             Column {
                 id: 102,
                 name: String::from("doing"),
                 cards: vec![
-                    card(
-                        "draw the board",
-                        "four columns, cards in each",
-                        Label::Yellow,
-                    ),
-                    card(
-                        "wire the drag",
-                        "pick a card up, drop it somewhere",
-                        Label::Blue,
-                    ),
-                    card("name the hooks", "undo, debounce, drag", Label::None),
+                    card("draw the board", false),
+                    card("wire the drag", false),
+                    card("name the hooks", false),
                 ],
             },
             Column {
                 id: 103,
                 name: String::from("review"),
-                cards: vec![
-                    card(
-                        "check the sweep",
-                        "state goes when a card does",
-                        Label::Green,
-                    ),
-                    card("read it back", "out loud, slowly", Label::None),
-                ],
+                cards: vec![card("check the sweep", false), card("read it back", false)],
             },
             Column {
                 id: 104,
                 name: String::from("done"),
                 cards: vec![
-                    card("choose a subject", "a kanban board it is", Label::Green),
-                    card("set the table", "columns, cards, labels", Label::Yellow),
-                    card("make the tea", "one for each column", Label::Red),
+                    card("choose a subject", true),
+                    card("set the table", true),
+                    card("make the tea", true),
                 ],
             },
         ];
@@ -250,36 +201,40 @@ impl Board {
 /// Apply one message. The only function that changes a board.
 pub fn reduce(board: &mut Board, msg: Msg) {
     let changed = match msg {
-        Msg::AddCard { column } => {
+        Msg::AddCard { column, title } => {
+            // The UI drops an empty title before it gets here, but a reducer
+            // that can be sent anything should not put a nameless card on the
+            // board either: there would be nothing to click on to name it.
+            if title.trim().is_empty() {
+                return;
+            }
             let Some(column) = board.columns.iter_mut().find(|c| c.id == column) else {
                 return;
             };
             board.next_id += 1;
             column.cards.push(Card {
                 id: board.next_id,
-                title: String::from("new card"),
-                body: String::new(),
-                label: Label::None,
+                title,
+                done: false,
             });
             true
         }
-        Msg::EditCard { card, title, body } => {
+        Msg::SetTitle { card, title } => {
             let Some((ci, ki)) = board.locate(card) else {
                 return;
             };
             let card = &mut board.columns[ci].cards[ki];
-            let changed = card.title != title || card.body != body;
+            let changed = card.title != title;
             card.title = title;
-            card.body = body;
             changed
         }
-        Msg::SetLabel { card, label } => {
+        Msg::SetDone { card, done } => {
             let Some((ci, ki)) = board.locate(card) else {
                 return;
             };
             let card = &mut board.columns[ci].cards[ki];
-            let changed = card.label != label;
-            card.label = label;
+            let changed = card.done != done;
+            card.done = done;
             changed
         }
         Msg::RemoveCard { card } => {
@@ -322,19 +277,18 @@ pub fn reduce(board: &mut Board, msg: Msg) {
     }
 }
 
-/// The cards of one column that the search text and the label filter leave
+/// The cards of one column that the search text and the done filter leave
 /// visible, in order.
-pub fn visible(column: &Column, search: &str, label: Option<Label>) -> Vec<CardId> {
+///
+/// `done`: `None` shows everything, `Some(true)` only the ticked cards,
+/// `Some(false)` only the ones still open.
+pub fn visible(column: &Column, search: &str, done: Option<bool>) -> Vec<CardId> {
     let search = search.trim().to_lowercase();
     column
         .cards
         .iter()
-        .filter(|card| label.is_none_or(|label| card.label == label))
-        .filter(|card| {
-            search.is_empty()
-                || card.title.to_lowercase().contains(&search)
-                || card.body.to_lowercase().contains(&search)
-        })
+        .filter(|card| done.is_none_or(|done| card.done == done))
+        .filter(|card| search.is_empty() || card.title.to_lowercase().contains(&search))
         .map(|card| card.id)
         .collect()
 }
@@ -343,13 +297,13 @@ pub fn visible(column: &Column, search: &str, label: Option<Label>) -> Vec<CardI
 mod tests {
     use super::*;
 
-    /// A board of two columns whose cards are `1, 2, 3` and `4, 5`.
+    /// A board of two columns whose cards are `1, 2, 3` and `4, 5`. Card 2 is
+    /// the only one that is done.
     fn board() -> Board {
         let card = |id: CardId, title: &str| Card {
             id,
             title: title.to_owned(),
-            body: String::new(),
-            label: if id == 2 { Label::Red } else { Label::None },
+            done: id == 2,
         };
         Board {
             columns: vec![
@@ -390,6 +344,16 @@ mod tests {
                 card,
                 to_column: target.column,
                 to_index,
+            },
+        );
+    }
+
+    fn add(board: &mut Board, column: ColumnId, title: &str) {
+        reduce(
+            board,
+            Msg::AddCard {
+                column,
+                title: title.to_owned(),
             },
         );
     }
@@ -472,44 +436,106 @@ mod tests {
     #[test]
     fn adding_and_removing_cards() {
         let mut board = board();
-        reduce(&mut board, Msg::AddCard { column: 20 });
+        add(&mut board, 20, "zeta");
         assert_eq!(ids(&board, 20), vec![4, 5, 6]);
+        assert_eq!(board.card(6).expect("the new card").title, "zeta");
         reduce(&mut board, Msg::RemoveCard { card: 4 });
         assert_eq!(ids(&board, 20), vec![5, 6]);
         // The id of the removed card is not handed out again.
-        reduce(&mut board, Msg::AddCard { column: 20 });
+        add(&mut board, 20, "eta");
         assert_eq!(ids(&board, 20), vec![5, 6, 7]);
     }
 
     #[test]
-    fn the_search_looks_at_the_title_and_the_body() {
+    fn a_card_with_an_empty_title_is_not_added() {
         let mut board = board();
-        board.columns[0].cards[0].body = String::from("about DELTA");
+        let rev = board.rev;
+        add(&mut board, 20, "");
+        add(&mut board, 20, "   ");
+        assert_eq!(ids(&board, 20), vec![4, 5]);
+        assert_eq!(board.rev, rev, "and the id is not spent either");
+    }
+
+    #[test]
+    fn setting_the_title_to_what_it_already_says_does_not_bump_the_revision() {
+        let mut board = board();
+        reduce(
+            &mut board,
+            Msg::SetTitle {
+                card: 1,
+                title: String::from("alpha"),
+            },
+        );
+        assert_eq!(board.rev, 0, "nothing to walk back");
+        reduce(
+            &mut board,
+            Msg::SetTitle {
+                card: 1,
+                title: String::from("alpha!"),
+            },
+        );
+        assert_eq!(board.card(1).expect("the card").title, "alpha!");
+        assert_eq!(board.rev, 1);
+    }
+
+    #[test]
+    fn ticking_a_card_is_one_change() {
+        let mut board = board();
+        reduce(
+            &mut board,
+            Msg::SetDone {
+                card: 1,
+                done: true,
+            },
+        );
+        assert!(board.card(1).expect("the card").done);
+        assert_eq!(board.rev, 1);
+        // Ticking it again says the same thing, so the history stays put.
+        reduce(
+            &mut board,
+            Msg::SetDone {
+                card: 1,
+                done: true,
+            },
+        );
+        assert_eq!(board.rev, 1);
+    }
+
+    #[test]
+    fn the_search_looks_at_the_title() {
+        let board = board();
         let column = &board.columns[0];
         assert_eq!(visible(column, "", None), vec![1, 2, 3]);
         assert_eq!(visible(column, "  BET ", None), vec![2]);
-        assert_eq!(visible(column, "delta", None), vec![1]);
+        assert_eq!(visible(column, "a", None), vec![1, 2, 3]);
         assert_eq!(visible(column, "nothing", None), Vec::<CardId>::new());
     }
 
     #[test]
-    fn the_label_filter_and_the_search_narrow_together() {
+    fn the_done_filter_and_the_search_narrow_together() {
         let board = board();
         let column = &board.columns[0];
-        assert_eq!(visible(column, "", Some(Label::Red)), vec![2]);
+        assert_eq!(visible(column, "", Some(true)), vec![2]);
+        assert_eq!(visible(column, "", Some(false)), vec![1, 3]);
+        assert_eq!(visible(column, "alpha", Some(true)), Vec::<CardId>::new());
         assert_eq!(
-            visible(column, "alpha", Some(Label::Red)),
-            Vec::<CardId>::new()
-        );
-        assert_eq!(
-            visible(&board.columns[1], "", Some(Label::Red)),
+            visible(&board.columns[1], "", Some(true)),
             Vec::<CardId>::new()
         );
     }
 
     #[test]
-    fn labels_cycle() {
-        assert_eq!(Label::None.next(), Label::Red);
-        assert_eq!(Label::Blue.next(), Label::None);
+    fn the_demo_board_has_a_done_column() {
+        let board = Board::demo();
+        assert_eq!(board.len(), 12);
+        let done = board.columns.last().expect("the last column");
+        assert_eq!(done.name, "done");
+        assert!(done.cards.iter().all(|card| card.done));
+        assert!(
+            board.columns[..3]
+                .iter()
+                .flat_map(|column| column.cards.iter())
+                .all(|card| !card.done)
+        );
     }
 }
