@@ -22,9 +22,8 @@
 //! | `<VirtualList>` | ~0.15 ms |
 //! | plain egui `show_rows` | ~0.12 ms |
 //!
-//! The switch starts off, so the first thing the example shows is the honest
-//! cost of drawing everything. Turn the count down to a few hundred and the
-//! difference disappears; that is the shape of it.
+//! The switch starts on. Turn it off to see the honest cost of drawing every
+//! row; turn the count down to a few hundred and the difference disappears.
 
 use std::collections::BTreeSet;
 
@@ -88,13 +87,13 @@ pub fn rows(count: usize, filter: &str, removed: &BTreeSet<usize>) -> Vec<(usize
 
 /// `initial_count` is the row count to open with — the default is the ten
 /// thousand in the name, and the gallery and the tests pass something smaller.
-/// `virtualise` is the switch's starting position, off by default so the first
-/// thing on screen is the cost of drawing every row.
+/// `virtualise` is the switch's starting position, on by default; turn it off
+/// to see the cost of drawing every row.
 #[component]
 pub fn App(
     cx: &mut Cx,
     #[prop(default = DEFAULT_COUNT)] initial_count: usize,
-    #[prop(default)] virtualise: bool,
+    #[prop(default = true)] virtualise: bool,
 ) {
     let mut count = use_state(cx, move || initial_count);
     let mut filter = use_state(cx, String::new);
