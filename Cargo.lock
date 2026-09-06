@@ -1130,8 +1130,6 @@ dependencies = [
 [[package]]
 name = "egui_taffy"
 version = "0.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f537afa9c2e0d0e95e7c14a0de570a7ab9ae0e4f649376d0afa39317c7d7016e"
 dependencies = [
  "egui",
  "log",

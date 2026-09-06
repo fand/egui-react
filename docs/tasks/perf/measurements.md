@@ -197,3 +197,91 @@ before. That is exactly the case step B skips the discard for. Step A's value
 is the node and memory work it removes, and it is a precondition for B: with
 per-row trees, a scrolled-in row is a `first_frame` tree that has to discard
 whatever B does.
+
+## After step B (egui_taffy skips the discard when the layout is unchanged)
+
+Date: 2026-09-06. Same machine and conditions as above: native macOS arm64,
+Rust 1.95.0, release profile, egui 0.36.1. egui_taffy is now the fork at
+`../egui_taffy`, branch `skip-unchanged-discard`, commit `d618550` ("Ask for a
+discard only when the layout changed"), wired in through `[patch.crates-io]` in
+the workspace `Cargo.toml`. Code state: step A committed (`798f327`), the patch
+line and this section uncommitted. Samples in [samples-b.csv](samples-b.csv).
+One recorded run.
+
+Reproduce:
+
+```sh
+PERF_CSV="$PWD/docs/tasks/perf/samples-b.csv" \
+  cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
+```
+
+| Scenario | Mode | Mean ms | p50 ms | p95 ms | Passes/frame | Discard frames /120 | Final rows | Row callbacks/frame |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| Idle | All | 39.096 | 38.780 | 41.543 | 1.00 | 0 | 10000 | 10000.00 |
+| Idle | Virtual | 0.225 | 0.229 | 0.257 | 1.00 | 0 | 37 | 37.00 |
+| Idle | Plain | 0.113 | 0.113 | 0.127 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | All | 39.217 | 38.892 | 42.506 | 1.00 | 0 | 10000 | 10000.00 |
+| Scroll | Virtual | 0.298 | 0.283 | 0.483 | 1.00 | 0 | 37 | 37.00 |
+| Scroll | Plain | 0.146 | 0.130 | 0.314 | 1.00 | 0 | 37 | 37.00 |
+| Filter | All | 50.293 | 18.436 | 166.957 | 1.60 | 72 | 1250–10000 | 7000.00 |
+| Filter | Virtual | 1.158 | 1.142 | 1.442 | 1.00 | 0 | 37 | 37.00 |
+| Filter | Plain | 1.014 | 0.968 | 1.303 | 1.00 | 0 | 37 | 37.00 |
+| Resize | All | 131.082 | 130.828 | 136.556 | 2.98 | 119 | 10000 | 29833.33 |
+| Resize | Virtual | 0.649 | 0.660 | 0.718 | 2.98 | 119 | 37–40 | 116.06 |
+| Resize | Plain | 0.149 | 0.141 | 0.205 | 1.00 | 0 | 37–40 | 38.90 |
+
+| Scenario | Virtual pass histogram (passes: frames) | Virtual discard requests |
+|---|---|---:|
+| Idle | 1: 120 | 0 |
+| Scroll | 1: 120 | 0 |
+| Filter | 1: 120 | 0 |
+| Resize | 1: 1, 3: 119 | 4750 |
+
+### Compared with step A
+
+| Scenario | Passes/frame after A | Passes/frame after B | Virtual mean ms A → B |
+|---|---:|---:|---|
+| Idle | 1.00 | 1.00 | 0.222 → 0.225 |
+| Scroll | 2.00 | 1.00 | 0.466 → 0.298 |
+| Filter | 1.60 | 1.00 | 1.263 → 1.158 |
+| Resize | 2.98 | 2.98 | 0.653 → 0.649 |
+
+**The gate in section 0 for step B is met.** Scroll and Filter are both at one
+pass per frame, with zero discard requests over the 120 measured frames, down
+from 4,440 and 2,136. Row callbacks follow: Scroll 74.00 to 37.00 and Filter
+59.20 to 37.00 per frame, so every row body now runs once. Scroll Virtual mean
+frame time drops 36% and is now 2.04x Plain, against 3.13x after A. Filter loses
+its extra passes but only 8% of its time, because most of that scenario is the
+shared 10,000-item cache rebuild, which both modes pay.
+
+Resize is untouched, as expected: it is not the same problem. There the layout
+really does change every frame, so the compare in the fork finds a difference
+and asks for the discard the old code asked for anyway. That is step C.
+
+Filter in `All` mode still runs 1.60 passes: the filter adds and removes rows,
+so nodes are created and removed in the one big tree, and both are reasons to
+discard.
+
+### One deviation from the plan
+
+Plan section 3.2 says to compare the whole `taffy::Layout`. That does not work:
+`Layout` carries `content_size`, and for a leaf that is simply what the leaf
+measured. On a scroll frame the row's text leaf measures a different width every
+frame while its box stays put, so a whole-`Layout` compare reports a change on
+every frame and nothing improves. Measured on the fork's own row-shaped test
+tree: between two frames only `content_size` moved, 50.0 to 60.0, on the growing
+leaf; `location`, `size`, `border`, `padding`, `margin`, `scrollbar_size` and
+`order` were identical on all four nodes, including the root.
+
+So the fork compares every field except `content_size` on every node, and
+`content_size` as well on the two nodes egui_taffy reads it from: the root,
+where it is the space the tree allocates in the surrounding `Ui`
+(`TuiInitializer::show`, `src/lib.rs:137`), and any node with `overflow: scroll`,
+where it is the size of the scrolled content (`src/lib.rs:466`). On any other
+node nothing reads it.
+
+The other two discard reasons are kept as the plan describes: a node created
+this frame drew invisible in a sizing pass, so it always needs a second pass;
+a node removed this frame is treated as a change, because it is already out of
+the id map when the compare runs and the compare cannot see what dropping it
+did.

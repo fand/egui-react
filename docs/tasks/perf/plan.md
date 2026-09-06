@@ -148,6 +148,13 @@ after compute:
 
 - `Layout` holds floats; compare with exact equality. A recompute that yields
   the same floats is exactly the case to skip; rounding is not the problem here.
+- Found during implementation: `content_size` on a leaf is just what the leaf
+  measured, so it changes whenever a label gets wider and would defeat the
+  check. Compare every other field on every node; compare `content_size` only
+  on the root and on `overflow: scroll` nodes, the two places egui_taffy reads
+  it (`lib.rs:137`, `lib.rs:466`).
+- A node removed this frame also forces a discard: it was drawn at its old
+  place before the sweep dropped it.
 - `first_frame` nodes drew invisible, so they always need the second pass.
   Track a `created_this_frame: bool` on `TaffyState`, set in `add_child_node`,
   cleared in `recalculate`.

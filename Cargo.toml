@@ -65,3 +65,9 @@ log = "0.4.34"
 # drop-in replacement that uses `performance.now()` there.
 web-time = "1.1.0"
 pollster = "1.0.1"
+
+# Step B of docs/tasks/perf: egui_taffy asks for a discard whenever it
+# recomputes, even when the layout came out the same. The fork skips that.
+# Remove this once the change is upstream and released.
+[patch.crates-io]
+egui_taffy = { path = "../egui_taffy" }
