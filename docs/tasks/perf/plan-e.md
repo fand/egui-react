@@ -51,6 +51,16 @@ struct LiteTree {
     sizes: Vec<Vec2>,       // last measured size per widget leaf index
     fallback: bool,         // this slot uses taffy
 }
+```
+
+**Deviation E1 made here.** `rects` holds each node's rect relative to the
+corner of the rect the row was given, not in screen space. A scrolled row is
+the same layout at another place, so screen rects would differ on every
+scrolled frame and the "did anything move?" comparison would ask for a discard
+every frame. The screen position is added back when a leaf draws and when a
+text paints.
+
+```rust
 struct LiteNode {
     parent: Option<usize>,
     kind: Kind,             // Container(ContainerStyle) | Text(galley, job hash) | Leaf
@@ -101,15 +111,33 @@ parent node's content box for nested `<View>`s):
   difference of rounded edges. Do the same so rects match taffy exactly.
 
 Not supported (fall back to taffy): `display` grid or block, `wrap`,
-`align_content`, `align: baseline`, `col_span` / `row_span`, percent
-`basis` on a column whose container height is auto. `<View>` nesting is
-supported at any depth as long as every level is in the subset.
+`align_content`, `align: baseline`, `col_span` / `row_span`, an `auto` margin.
+`<View>` nesting is supported at any depth as long as every level is in the
+subset.
 
-The solver is one file, `crates/egui-react/src/engine/lite.rs`, about 250
-lines, with the flex algorithm spelled out in comments step by step (the
-CSS spec's 9.2 to 9.7 in order: basis, hypothetical size, free space,
-grow/shrink with min/max clamping and re-freezing, main positions with
-justify, cross size and align).
+**Deviation E1 made here.** A percentage `basis` against a container whose main
+size is not definite is *in* the subset, not a fallback as this section first
+had it. taffy resolves it to "measure the content", which is one line in the
+solver, and the parity corpus has a case for it
+(`percent_basis_without_a_main_size`). What did move to the fallback list
+instead is an `auto` margin, which absorbs free space and would need a second
+distribution step.
+
+The solver is one file, `crates/egui-react/src/engine/lite.rs`, with the flex
+algorithm spelled out in comments step by step (the CSS spec's 9.2 to 9.7 in
+order: basis, hypothetical size, free space, grow/shrink with min/max clamping
+and re-freezing, main positions with justify, cross size and align).
+
+**The size estimate here was wrong.** "About 250 lines" became about 1,650
+lines of code (2,169 with the comments). Four things the estimate left out, all
+of them needed to match taffy rect for rect: measuring a node's min-content and
+max-content size, which is a second pass of the same algorithm; taffy's
+rounding, which is cumulative from the root, so a nested container's children
+round against the already rounded parent; hypothetical sizes, kept per item
+through the whole grow/shrink step; and the re-freezing loop, which redoes the
+distribution every time an item hits a min or a max. None of it is optional —
+the parity test compares exact rects — and none of it is expensive at run time:
+E1's solver is 0.36 µs a scrolled row.
 
 ## 4. Parity with taffy
 
@@ -137,6 +165,14 @@ in which case the case is listed here with the reason and the taffy result.
 |---|---|---|
 | E1 | `lite.rs` solver + `LiteTree`, `Cx` lite mode behind `with_root_size`, fallback flag, parity test corpus, texts and widgets through it. | Parity test green on the whole corpus; all tests; snapshots byte-identical; benchmark "After E1": Idle and Scroll VirtualList at or below 1.2x Plain, passes unchanged (1.00 / 1.00 / 1.00 / 1.10). |
 | E2 | Docs: ARCHITECTURE 6 (lite path and its subset), VirtualList doc comment (what falls back), measurements Summary and What remains, progress. | — |
+
+**E1 is done** (`65d0274`), and the gate is partly met. Idle 1.15x passes,
+Filter 1.04x and Resize 1.40x came along, the passes per frame are
+1.00 / 1.00 / 1.00 / 1.10 as asked, the parity corpus is equal on all 18 trees,
+and the snapshots are byte-identical. **Scroll misses at 1.30x** (1.33x on a
+second run). Per the rule below that bought exactly one profile and no further
+optimisation; the breakdown is in measurements.md, "Where the scrolled frame's
+0.95 µs per row goes".
 
 If E1 lands at 1.2x to 1.3x, profile once more before touching anything else
 and write the breakdown into measurements.md; do not add a third layout path.

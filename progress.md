@@ -78,7 +78,7 @@ Plan: [docs/tasks/perf/plan-d.md](docs/tasks/perf/plan-d.md). Numbers in
 | D2: `<Text>` is a galley on the node, not a `Label` in a `Ui` | `bf8d2f2` | A row costs 2. Idle 0.153 ms, 1.32x. All-rows idle 27 -> 22 ms. |
 | D3: docs (ARCHITECTURE 3.1 / 5.3 / 6 / 7 / 11, README, task.md result, this block) | this commit | – |
 | D2b: text selection back on the engine's `<Text>` | `dfc5dfc` | Idle 0.152 ms, 1.29x. Selection costs nothing measurable. |
-| E: a fixed root rect for `<VirtualList>` rows (`Cx::with_root_size`) | uncommitted | Rows now sit at the `row_h` pitch `show_rows` reserved (list-10k: 20, was 18). No timing change: the scrolled-frame recompute was never the root rect (traced). |
+| E: a fixed root rect for `<VirtualList>` rows (`Cx::with_root_size`) | `fcb8697` | Rows now sit at the `row_h` pitch `show_rows` reserved (list-10k: 20, was 18). No timing change: the scrolled-frame recompute was never the root rect (traced). See the next block. |
 
 After D2b, VirtualList / Plain: Idle **1.29x**, Filter **1.07x**, Scroll 1.61x,
 Resize 1.58x. Two of the four are through task.md's 1.5x; the other two miss by
@@ -101,6 +101,46 @@ Fork: `../egui_taffy` is no longer a dependency of anything here. Its two
 branches stay as the source of possible upstream PRs — `skip-unchanged-discard`
 (`d618550`, step B) and `layout-first` (`ee07d38`, step C). Both fixes are built
 into the engine.
+
+### Steps E and E1-E2 done (2026-09-06)
+
+Plan: [docs/tasks/perf/plan-e.md](docs/tasks/perf/plan-e.md). Numbers in
+[measurements.md](docs/tasks/perf/measurements.md) ("After E", "After E1",
+"Summary D", "What remains").
+
+| Step | Commit | Result |
+|---|---|---|
+| E: a fixed root rect for `<VirtualList>` rows (`Cx::with_root_size`) | `fcb8697` | Rows sit at the `row_h` pitch `show_rows` reserved (list-10k: 20 apart, was 18). No timing change. |
+| Plan E written, then its two open questions answered (rows only; one debug log per slot) | `e0c148f`, `b0f2ba1` | – |
+| E1: rows laid out by a solver of our own, `crates/egui-react/src/engine/lite.rs` | `65d0274` | Idle 0.145 -> 0.132 ms, Scroll 0.219 -> 0.184, Resize 0.240 -> 0.203. |
+| E2: docs (ARCHITECTURE 3.1 / 6 / 7 / 11, VirtualList doc comment, plan-e, measurements, task.md result, this block) | this commit | – |
+
+After E1, VirtualList / Plain: Idle **1.15x**, Scroll **1.30x**, Filter
+**1.04x**, Resize **1.40x**. All four are through task.md's 1.5x for the first
+time; two runs of the same build agree to within 0.01 ms on every Virtual
+figure. Passes per frame are unchanged at 1.00 everywhere except Resize at
+1.10. The parity corpus (18 row trees, `crates/egui-react/tests/lite_parity.rs`)
+is rect-equal against taffy on every node, and the gallery snapshots are
+byte-identical.
+
+E1's own gate asked for Scroll at or below 1.2x as well, and 1.30x misses it.
+Per the plan that bought one profile and nothing else: of the 0.95 µs a
+scrolled row costs over a plain egui row, 0.36 µs is solving, 0.23 µs is
+building the node vector, and 0.36 µs is the component layer, the app's root
+tree and the extra galley work (measurements.md, "Where the scrolled frame's
+0.95 µs per row goes").
+
+What falls back to taffy, per slot and for good, with one `log::debug!` naming
+the attribute: `display="grid"` or `"block"`, `wrap`, `align_content`, a
+`baseline` align or `align_self`, `col_span` / `row_span`, an `auto` margin.
+Everything else a `<View>` and `<ItemStyle>` can express is solved by the lite
+path, at any depth of nesting.
+
+Follow-ups, none done (measurements.md, "What remains"): skip the solve when
+the text that changed cannot move any box (the Scroll cost); make the component
+layer cheaper (`Cx::scope`, `rsx!`, component bodies — paid by every app, not
+just lists); keep a swept tree for a grace period (the Resize 1.10 passes, open
+since D1). The web and 120-Hz criteria in task.md are still unmeasured.
 
 ### Product constraint
 

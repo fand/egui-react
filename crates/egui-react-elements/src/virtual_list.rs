@@ -32,7 +32,20 @@ use egui_react::prelude::*;
 /// and hold state: each row is entered under `cx.scope(i, ..)`, so row 7 keeps
 /// its own state as it scrolls in and out — the same keying `key={i}` gives a
 /// `for` loop. The layout underneath is keyed the other way, by the slot the
-/// row sits in, so that scrolling reuses the same handful of taffy trees.
+/// row sits in, so that scrolling reuses the same handful of row layouts.
+///
+/// Rows are laid out by the lite solver, not by taffy: a row is a single-line
+/// flex box, and a retained tree for it costs more than its layout does
+/// (`crates/egui-react/src/engine/lite.rs`, ARCHITECTURE section 6). The
+/// solver covers `display` flex or none, both directions and their reverses,
+/// `justify` and `align` other than `baseline`, `gap`, the `w` / `h` / `min` /
+/// `max` sizes, `grow` / `shrink` / `basis`, and margins and padding, all in
+/// points or percent, at any depth of `<View>`. A row that uses anything else
+/// — `display="grid"` or `"block"`, `wrap`, `align_content`, a `baseline`
+/// align, `col_span` / `row_span`, an `auto` margin — falls back to taffy,
+/// that slot alone and for good. It still lays out the same; it is only
+/// slower. To tell, read the log at `debug` level: the fallback prints once
+/// per slot and names the attribute that caused it.
 ///
 /// **Every row must be `row_h` tall.** That is what lets `show_rows` work out
 /// the range without measuring anything, and it is the one thing this element
@@ -73,7 +86,7 @@ pub fn VirtualList(
             let mut cx = Cx::new(store, ui, scope);
             for (slot, i) in range.enumerate() {
                 // Hooks are keyed by the row index, so row 7 keeps its state
-                // wherever it sits. The taffy tree is keyed by the slot the row
+                // wherever it sits. The layout is keyed by the slot the row
                 // occupies, because a slot is drawn on every frame: scrolling
                 // reuses its nodes instead of building a tree for each row that
                 // comes into view, measuring it in an invisible pass, and

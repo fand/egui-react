@@ -2,24 +2,25 @@
 
 ## Result (2026-09-06)
 
-Done in seven steps: A (slot-keyed `<VirtualList>` row trees), B and C (an
+Done in eight steps: A (slot-keyed `<VirtualList>` row trees), B and C (an
 egui_taffy fork), D1, D2 and D2b (an own layout engine over taffy, replacing
-egui_taffy), D3 (docs), E (a fixed root rect for `<VirtualList>` rows). Every
-number below is the native benchmark in [measurements.md](measurements.md),
-"After E"; "Summary D" there has the whole sequence and what remains.
+egui_taffy), D3 (docs), E (a fixed root rect for `<VirtualList>` rows), E1 (a
+row laid out by a flex solver of our own instead of a taffy tree). Every number
+below is the native benchmark in [measurements.md](measurements.md), "After E1";
+"Summary D" there has the whole sequence and what remains.
 
 | Completion criterion | Status |
 |---|---|
-| `<VirtualList>` at most 1.5x plain egui | **Partly.** Idle 1.27x pass, Filter 1.06x pass. Scroll and Resize miss by about 0.1x: 1.51x / 1.58x on the recorded run, 1.63x / 1.51x on a second run of the same build (After E) |
+| `<VirtualList>` at most 1.5x plain egui | **Pass.** Idle 1.15x, Scroll 1.30x, Filter 1.04x, Resize 1.40x, with two runs of the same build agreeing to within 0.01 ms on every figure (After E1) |
 | No PERF WARNING scrolling the web gallery at 120 Hz | **Unmeasured.** Native scrolling is one pass per frame with zero discard requests over 120 frames, which is what produced the warning; the browser was never measured |
-| Idle frame time within 8.3 ms on the web | **Unmeasured.** Native idle is 0.145 ms for `<VirtualList>`. The 16.7 ms in the symptoms below was `stable_dt`, a frame interval, not CPU time |
-| All existing tests and snapshots pass | **Pass.** The gallery snapshots that pass are byte-identical after D1, D2 and E (15 today; the 2 board ones have no committed snapshot) |
+| Idle frame time within 8.3 ms on the web | **Unmeasured.** Native idle is 0.132 ms for `<VirtualList>`. The 16.7 ms in the symptoms below was `stable_dt`, a frame interval, not CPU time |
+| All existing tests and snapshots pass | **Pass.** The gallery snapshots that pass are byte-identical after D1, D2, E and E1 (15 today; the 2 board ones have no committed snapshot) |
 
-The two scenarios that miss, and the candidate follow-ups for them, are in
-measurements.md under "Summary D". One of those follow-ups became step E: it
-put the rows at the pitch `show_rows` reserved but changed no timing, because
-the scrolled-frame recompute comes from the row's text, not from its root rect.
-The others are not done.
+Scroll is the one scenario still over plan-E's own tighter 1.2x gate, at 1.30x.
+It was profiled once for that reason and left there: measurements.md, "Where the
+scrolled frame's 0.95 µs per row goes", and "What remains" for the two
+candidates that come out of it. Neither is done, and the web criteria above are
+a separate task.
 
 ## Objective
 
@@ -54,7 +55,7 @@ Direct egui row layout is not the intended production solution.
 ## Causes (from the egui_taffy 0.14 source; superseded, kept as context)
 
 Written before any measurement, against a dependency that is gone: egui_taffy
-was replaced by `crates/egui-react/src/engine.rs` in step D. Read with
+was replaced by `crates/egui-react/src/engine/` in step D. Read with
 measurements.md next to it. Where each item stands: (1) and (2) were real and
 are fixed (steps B, C and A; the created / removed / moved rule is now in
 ARCHITECTURE 5.3); (3) was the largest cost and was the reason for step D,

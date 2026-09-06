@@ -1047,38 +1047,38 @@ noise on every scenario.
 
 ### What remains
 
-Idle and Filter are through the criterion. Scroll (1.51x and 1.63x on the two E
-runs) and Resize (1.58x, 1.51x) sit around a tenth over it.
+After E1 all four scenarios are through task.md's 1.5x: Idle 1.15x, Scroll
+1.30x, Filter 1.04x, Resize 1.40x. Scroll is the only one still over plan-E's
+own 1.2x gate, and it was profiled once for that reason ("Where the scrolled
+frame's 0.95 µs per row goes"). That profile is what the two candidates below
+come from. Neither is done, and neither should start without a reason beyond
+this benchmark.
 
-**Scroll** is the per-frame recompute of every row tree, and step E showed what
-makes it recompute. It is not the root rect — that is fixed now, and the trace
-in "After E" shows it was already constant on this benchmark's frames. It is
-`dirty`: scrolling by one row gives every one of the 37 slots a different row's
-text, `set_text` writes a new job onto the `<Text>` node, and the tree has to
-be laid out again. The result is right, so the discard is still skipped (step
-B), but idle 0.145 against scroll 0.219 ms is that computation plus the new
-galleys — 0.074 ms for 37 trees, about 0.002 ms each. Removing it means not
-re-laying-out a row whose text changed but whose boxes cannot move, which is a
-different piece of work from anything done so far. **Resize** is the 1.10 passes
-per frame: the tree sweep in `Store::end_pass` drops a tree nothing drew in the
-pass, and the resize scenario grows and shrinks the visible row count four
-times, so the three extra slot trees are rebuilt on every cycle — 12 two-pass
-frames instead of egui_taffy's 3 (measured, "The one metric that moved the wrong
-way" above).
+- **Do not solve a row again when the text that changed cannot move any box.**
+  A scrolled frame solves every row because each slot shows a different row's
+  text, so the node vector differs from the last frame's — 0.36 µs a row, 38%
+  of the whole gap. In the list-10k row the changed text sits in a node with
+  `grow`, whose box is decided by the container and not by what it measures, so
+  the solve produces the boxes the row already had. Skipping it needs a rule
+  for which nodes a measurement can move, and getting that rule wrong leaves a
+  wrong picture on screen, so it is a bigger change than E1 was.
+- **Make the component layer cheaper.** The next 0.21 µs a row is not layout at
+  all: one `Cx::scope` per element, the `rsx!` closures and the `<Row>` /
+  `<Text>` bodies. The step C attribution measured `Cx::scope` alone at
+  28.2 µs/frame. Nothing in plan D or E touched it, and it is paid by every
+  element in every app, not only by list rows.
 
-Candidate follow-ups, none done:
+Still open from D1, unchanged: **keep a swept tree for a grace period** instead
+of dropping it in the pass it was not drawn. That is the Resize 1.10 passes per
+frame — the visible row count grows and shrinks four times and the three extra
+slot trees are rebuilt each cycle. It was left out because a time-to-live is a
+knob and picking its value from this benchmark would be tuning to the benchmark.
 
-- **Keep a swept tree for a grace period** instead of dropping it in the pass
-  it was not drawn. That gives Resize its 1.02 passes back and still bounds the
-  memory. It was left out of D1 because a time-to-live is a knob and picking
-  its value from this benchmark would be tuning to the benchmark.
-- **Do not lay a row out again when only a galley changed size inside a node
-  that cannot move.** That is the Scroll cost as traced in "After E". It needs
-  a rule about which nodes a measurement can move, and getting it wrong leaves
-  a wrong picture on screen, so it is a bigger change than E was.
 - ~~Give `<VirtualList>` rows a fixed rect~~ — that was step E. It fixed the row
   pitch and cost nothing, but the scroll time did not move, because the root
   rect was not the trigger.
+- ~~Lay the rows out without a taffy tree~~ — that was step E1.
 
 All of that is layout work, not measurement work. The web and 120 Hz criteria in
-task.md are still unmeasured and are a separate task.
+task.md are still unmeasured and are a separate task: everything here is native,
+and nothing recorded so far says what a browser at 120 Hz does.
