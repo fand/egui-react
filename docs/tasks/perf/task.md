@@ -1,5 +1,23 @@
 # Task: perf (layout frame cost, schedule TBD)
 
+## Result (2026-09-06)
+
+Done in six steps: A (slot-keyed `<VirtualList>` row trees), B and C (an
+egui_taffy fork), D1 and D2 (an own layout engine over taffy, replacing
+egui_taffy), D3 (docs). Every number below is the native benchmark in
+[measurements.md](measurements.md), "After D2"; "Summary D" there has the whole
+sequence and what remains.
+
+| Completion criterion | Status |
+|---|---|
+| `<VirtualList>` at most 1.5x plain egui | **Partly.** Idle 1.32x pass, Filter 1.07x pass. Scroll 1.59x and Resize 1.59x miss by 0.09x |
+| No PERF WARNING scrolling the web gallery at 120 Hz | **Unmeasured.** Native scrolling is one pass per frame with zero discard requests over 120 frames, which is what produced the warning; the browser was never measured |
+| Idle frame time within 8.3 ms on the web | **Unmeasured.** Native idle is 0.153 ms for `<VirtualList>`. The 16.7 ms in the symptoms below was `stable_dt`, a frame interval, not CPU time |
+| All existing tests and snapshots pass | **Pass.** The 13 gallery snapshots that passed before are byte-identical after D1 and after D2 |
+
+The two scenarios that miss, and the two candidate follow-ups for them, are in
+measurements.md under "Summary D". Neither was done.
+
 ## Objective
 
 Bring react-egui's per-frame cost closer to plain egui while preserving the React-like component API and declarative row layout. Investigate layout passes and per-element overhead through measurement.
@@ -30,7 +48,16 @@ Direct egui row layout is not the intended production solution.
 
 `<VirtualList>` removes the dependency on row count, but even a dozen or so visible rows cost twice as much as plain egui.
 
-## Causes (from the egui_taffy 0.14 source)
+## Causes (from the egui_taffy 0.14 source; superseded, kept as context)
+
+Written before any measurement, against a dependency that is gone: egui_taffy
+was replaced by `crates/egui-react/src/engine.rs` in step D. Read with
+measurements.md next to it. Where each item stands: (1) and (2) were real and
+are fixed (steps B, C and A; the created / removed / moved rule is now in
+ARCHITECTURE 5.3); (3) was the largest cost and was the reason for step D,
+though the profile named per-node `Ui` construction rather than hashing or
+store lookups; (4) never happened — idle was one pass per frame from the first
+recording on.
 
 1. **Two-pass layout.** egui_taffy draws children to measure their sizes, computes the taffy layout, then uses `request_discard` to draw the same frame again if the result differs from the previous one (`egui_taffy/src/lib.rs`, line 632: recompute when `taffy.dirty(node) || state.last_size != root_rect.size()`; line 712: `request_discard`). New nodes, changes in measured sizes, and changes in the root size mark the layout dirty. Plain egui uses one pass.
 2. **New trees always trigger a discard.** With no measurements available, the first pass is always dirty. Each `<VirtualList>` row creates a small taffy tree through `<View>`, so scrolling creates new trees as rows are replaced, triggering a discard every frame. This directly causes the PERF WARNING.

@@ -5,8 +5,8 @@ use egui_react::prelude::*;
 /// Where the children are drawn while the boundary is suspended.
 ///
 /// Far off screen and large enough that nothing wraps differently there than it
-/// will once the children become visible. Fixed, so that `egui_taffy` measures
-/// the same box on every pass and does not ask for a pass of its own.
+/// will once the children become visible. Fixed, so that the layout engine
+/// measures the same box on every pass and does not ask for a pass of its own.
 const OFFSCREEN_RECT: egui::Rect = egui::Rect {
     min: egui::pos2(-1.0e5, -1.0e5),
     max: egui::pos2(-1.0e5 + 4096.0, -1.0e5 + 4096.0),

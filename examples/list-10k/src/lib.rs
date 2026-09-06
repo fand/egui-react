@@ -12,14 +12,15 @@
 //! next to it does the same thing with `ScrollArea::show_rows`, which is what
 //! `<VirtualList>` wraps.
 //!
-//! Three ways to draw the same list, measured at ten thousand rows (see
-//! tasks/examples/plan.md section 8 for the method):
+//! Three ways to draw the same list, measured at ten thousand rows, idle
+//! (`tests/scenarios.rs`; conditions and the other scenarios are in
+//! docs/tasks/perf/measurements.md):
 //!
 //! | | frame |
 //! |---|---|
-//! | `<ScrollArea>` + `for` | ~85 ms |
-//! | `<VirtualList>` | ~0.2 ms |
-//! | plain egui `show_rows` | ~0.2 ms |
+//! | `<ScrollArea>` + `for` | ~22 ms |
+//! | `<VirtualList>` | ~0.15 ms |
+//! | plain egui `show_rows` | ~0.12 ms |
 //!
 //! The switch starts off, so the first thing the example shows is the honest
 //! cost of drawing everything. Turn the count down to a few hundred and the

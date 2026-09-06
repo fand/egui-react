@@ -369,7 +369,7 @@ fn Column(
     let gap = preview.map(|target| target.before);
 
     // The gaps are animated, but not in the layout: a taffy node whose height
-    // changed makes egui_taffy lay the column out again and ask egui for a
+    // changed makes the layout engine lay the column out again and ask egui for a
     // second pass, every frame, for as long as the animation runs. So the
     // layout jumps to where it will end up, and what slides is the picture —
     // each card below a gap is drawn shifted by however far its gap still has

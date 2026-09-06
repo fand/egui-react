@@ -1,5 +1,10 @@
 # Plan: examples
 
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
+> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
+> section 6), which ports its measure function and node rules, so the layout
+> behaviour described here still holds unless ARCHITECTURE says otherwise.
+
 The plan for expanding the examples and for a gallery page where you can try every example in the browser. The design rationale is in [docs/ARCHITECTURE.md](../../ARCHITECTURE.md). This document sets the implementation steps and how to verify them. If a decision during implementation departs from this document, update it, and update ARCHITECTURE.md too if the change matters for the design.
 
 ## 0. Overview

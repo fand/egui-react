@@ -1,4 +1,4 @@
-//! [`View`] and [`Text`]: the flex/grid primitives.
+//! [`View()`] and [`Text()`]: the flex/grid primitives.
 
 use egui_react::layout::{Align, ContainerStyle, Direction, Display, Gap, ItemStyle, Justify};
 use egui_react::prelude::*;

@@ -1,6 +1,6 @@
 //! The root container fills the window.
 //!
-//! `reserve_available_space` hands egui_taffy the window's size as available
+//! `reserve_available_space` hands the layout engine the window's size as available
 //! space but leaves the root node's own size at `auto`, so without the 100%
 //! minimums in `root_style` taffy sizes that node by its content. `grow` then
 //! has no free space to claim and `justify="center"` has nothing to centre in,

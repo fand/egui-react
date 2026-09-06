@@ -587,8 +587,8 @@ fn dragging_selects_no_text<S>(harness: &mut Harness<'_, S>) {
 /// B-13: the gap slides open without the column being laid out twice a frame.
 ///
 /// The animation is in the picture, not in the layout: a taffy node whose
-/// height moved would make egui_taffy relayout and ask egui for a second pass,
-/// every frame the gap was moving, which egui flags as a performance bug on
+/// height moved would make the layout engine relayout and ask egui for a second
+/// pass, every frame the gap was moving, which egui flags as a performance bug on
 /// screen. So while the gap is opening, each frame is one pass — except the
 /// frame the layout itself changes, which is one relayout and is allowed.
 ///

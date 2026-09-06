@@ -1,5 +1,10 @@
 # Plan: board
 
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
+> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
+> section 6), which ports its measure function and node rules, so the layout
+> behaviour described here still holds unless ARCHITECTURE says otherwise.
+
 > Reworked in v2. The diff is in [board-v2/plan.md](../board-v2/plan.md). The text below is the record from that time, so do not rewrite it.
 
 The task definition is in [task.md](task.md). The design rationale is in [docs/ARCHITECTURE.md](../../ARCHITECTURE.md). If you decide to depart from this during implementation, update this document, and update ARCHITECTURE.md too if it matters for the design.

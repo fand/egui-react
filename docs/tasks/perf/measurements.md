@@ -647,3 +647,72 @@ is then right on its first frame and costs one pass
 still costs two, as before: that widget has to draw to be measured. This is why
 the twelve Resize frames are unchanged — a new `<VirtualList>` slot draws a
 `<Button>`.
+
+## Summary D
+
+Every number is already above; this is the whole sequence in one place.
+`<VirtualList>` mean ms and passes per frame, one recorded run per step, all on
+the same machine. Timings drift a few percent between runs and `Plain` drifts
+with them, so passes per frame and the ratio are the stable signal.
+
+| Scenario | Baseline | A | B | C | D1 | D2 |
+|---|---:|---:|---:|---:|---:|---:|
+| Idle | 0.225 / 1.00 | 0.222 / 1.00 | 0.225 / 1.00 | 0.241 / 1.00 | 0.160 / 1.00 | 0.153 / 1.00 |
+| Scroll | 0.452 / 2.00 | 0.466 / 2.00 | 0.298 / 1.00 | 0.303 / 1.00 | 0.221 / 1.00 | 0.214 / 1.00 |
+| Filter | 1.528 / 1.60 | 1.263 / 1.60 | 1.158 / 1.00 | 1.222 / 1.00 | 1.127 / 1.00 | 1.094 / 1.00 |
+| Resize | 0.662 / 2.98 | 0.653 / 2.98 | 0.649 / 2.98 | 0.311 / 1.02 | 0.247 / 1.10 | 0.211 / 1.10 |
+
+`Plain` on the same runs, mean ms (one pass per frame throughout):
+
+| Scenario | Baseline | A | B | C | D1 | D2 |
+|---|---:|---:|---:|---:|---:|---:|
+| Idle | 0.124 | 0.114 | 0.113 | 0.123 | 0.112 | 0.116 |
+| Scroll | 0.153 | 0.149 | 0.146 | 0.146 | 0.139 | 0.135 |
+| Filter | 1.286 | 1.021 | 1.014 | 1.065 | 1.038 | 1.025 |
+| Resize | 0.153 | 0.147 | 0.149 | 0.153 | 0.144 | 0.133 |
+
+`<VirtualList>` / `Plain`, against task.md's 1.5x:
+
+| Scenario | Baseline | A | B | C | D1 | D2 |
+|---|---:|---:|---:|---:|---:|---:|
+| Idle | 1.81x | 1.95x | 1.99x | 1.96x | 1.43x | **1.32x** |
+| Scroll | 2.95x | 3.13x | 2.04x | 2.08x | 1.59x | 1.59x |
+| Filter | 1.19x | 1.24x | 1.14x | 1.15x | 1.09x | **1.07x** |
+| Resize | 4.33x | 4.44x | 4.36x | 2.03x | 1.72x | 1.59x |
+
+Steps: A slot-keyed `<VirtualList>` row trees; B the egui_taffy fork skips the
+discard when the layout did not move; C the same fork computes the layout
+before drawing on a root resize; D1 the own engine over taffy, with B and C
+built in and a container node as a rect instead of a `Ui`; D2 `<Text>` as a
+galley on the node instead of a `Label` in a `Ui`.
+
+### What remains
+
+Idle and Filter are through the criterion. Scroll and Resize sit at 1.59x, a
+tenth over it, and each has one identified cause.
+
+**Scroll** is the per-frame recompute of every row tree. A row inside a
+`ScrollArea` is handed a rect that runs from the row down to the bottom of the
+viewport, so its root rect is a different height on every scrolled frame and
+every one of the 37 trees recomputes, even though the layout that comes out is
+the one the nodes were already drawn with. The discard is skipped (step B), but
+the computation is not: idle 0.153 against scroll 0.214 ms is that
+computation, 0.061 ms for 37 trees. **Resize** is the 1.10 passes per frame:
+the tree sweep in `Store::end_pass` drops a tree nothing drew in the pass, and
+the resize scenario grows and shrinks the visible row count four times, so the
+three extra slot trees are rebuilt on every cycle — 12 two-pass frames instead
+of egui_taffy's 3 (measured, "The one metric that moved the wrong way" above).
+
+Two candidate follow-ups, neither done:
+
+- **Keep a swept tree for a grace period** instead of dropping it in the pass
+  it was not drawn. That gives Resize its 1.02 passes back and still bounds the
+  memory. It was left out of D1 because a time-to-live is a knob and picking
+  its value from this benchmark would be tuning to the benchmark.
+- **Give `<VirtualList>` rows a fixed rect**, so a row's tree is not handed a
+  root rect whose height depends on where the row sits in the viewport, and the
+  scroll frames stop recomputing. `<VirtualList>` already knows the row height,
+  which is what makes this possible.
+
+Both are layout work, not measurement work. The web and 120 Hz criteria in
+task.md are still unmeasured and are a separate task.

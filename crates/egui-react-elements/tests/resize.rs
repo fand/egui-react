@@ -2,7 +2,7 @@
 //! scratch.
 //!
 //! This is a guard, not a regression test: it pins the *result* of a resize so
-//! that changes to when `egui_taffy` computes its layout cannot quietly move
+//! that changes to when the layout engine computes its layout cannot quietly move
 //! anything. A `grow` child is what makes the layout depend on the window: it
 //! takes whatever space the rest leaves, so both the window width and the
 //! window height show up in a rect a test can read.

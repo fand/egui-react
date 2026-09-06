@@ -47,20 +47,23 @@ Drawing cost cannot be cut, so only heavy derived values are cached by hand with
 The context passed to components and hooks. It holds the following.
 
 - `store: &'s Store`: a shared reference to the hooks state store. The lifetime `'s` is independent of the `&mut Cx` borrow, and the handles that hooks return carry this `'s`.
-- `surface: Surface<'u>`: the current drawing target. Either `Surface::Ui(&mut egui::Ui)` or `Surface::Taffy(&mut egui_taffy::Tui)`. Whether we are inside a taffy container is this enum itself (see section 6). The field is private; the `cx.ui()` method returns the current `&mut egui::Ui` (`tui.egui_ui_mut()` for Taffy).
-- `scope: Id`: the Id of the current component scope. The base for deriving hook Ids.
+- `surface: Surface<'u>`: the current drawing target. Either `Surface::Ui(&mut egui::Ui)` or `Surface::Tree(TreeCx)`, a position in a layout tree (section 6). Whether we are inside a taffy container is this enum itself. The field is private; the `cx.ui()` method returns the current `&mut egui::Ui` (in tree mode, the one `Ui` the tree was started in).
+- `scope: Id`: the Id of the current component scope. The base for deriving hook Ids, and the salt for the `Ui` of every leaf.
+- `layout: Id`: the Id the next tree or node is keyed by. It walks in step with `scope` and is normally the same Id. It parts from `scope` only where a list draws the same shape in a reused slot: hook state has to follow the row, while the taffy nodes have to stay with the slot so that scrolling reuses them. `cx.with_layout_id(id, f)` swaps it; `<VirtualList>` is the only caller.
 
 The main methods are below.
 
 | Method | Meaning |
 |---|---|
-| `ui() -> &mut egui::Ui` | The current `Ui`. In Taffy mode, an escape hatch that does not get taffy placement |
-| `ctx() -> &egui::Context` / `scope_id() -> Id` / `in_taffy() -> bool` | Accessors |
-| `scope(source, f)` | Goes one level deeper in component scope. Ui mode uses `ui.push_id`, Taffy mode uses `tui.with_auto_id_prefix`. In both cases the hook Ids and the egui widget Ids split at the same time |
+| `ui() -> &mut egui::Ui` | The current `Ui`. In tree mode, the tree's own `Ui`: an escape hatch that does not get taffy placement, and what a docked `<Panel>` carves its space out of |
+| `ctx() -> &egui::Context` / `scope_id() -> Id` / `layout_id() -> Id` / `in_taffy() -> bool` | Accessors |
+| `scope(source, f)` | Goes one level deeper in component scope. Both Ids deepen. Ui mode also calls `ui.push_id`; tree mode pushes no `Ui`, because a node is a rect |
 | `hook_scope(location, f)` | Scope for a custom hook. Does not touch egui Ids |
-| `leaf(&ItemStyle, f)` | Draws one egui widget. In Taffy mode it becomes a taffy leaf via `tui.style(style.to_taffy()).ui(f)`; in Ui mode it is `f(ui)` (`style` is ignored) |
+| `with_layout_id(id, f)` | Replaces the layout Id, leaving the hook scope and the egui Id stack alone. For list elements only |
+| `leaf(&ItemStyle, f)` | Draws one egui widget. In tree mode it is a taffy leaf with one child `Ui` of the tree's own; in Ui mode it is `f(ui)` (`style` is ignored) |
+| `text(&ItemStyle, WidgetText, wrap)` | Static text. In tree mode the galley is laid out by the engine's measure function and painted straight onto the tree's `Ui`, with no `Ui` and no `Label` of its own; in Ui mode it is `ui.add(Label::new(text))` |
 | `leaf_fill(&ItemStyle, f)` | Same as `leaf` but does not report content size (`min_size = 0`, `infinite`). For widgets like `ScrollArea` that "fill the given space and return that size". Placing one with `leaf` locks it to the size of the first frame. taffy decides the size from `w` / `h` / `grow` / remaining space |
-| `container(id, taffy::Style, f)` | Creates a taffy node and draws inside it with a Taffy-mode `Cx`. In Ui mode this is `egui_taffy::tui(ui, id).reserve_available_width()`; in Taffy mode it adds a child node |
+| `container(id, taffy::Style, f)` | Creates a taffy node and draws inside it with a tree-mode `Cx`. In Ui mode it starts a new tree in the current `Ui`, reserving the available width; in tree mode it adds a child node. `root_container` is the same, reserving both axes |
 | `defer(f)` | Pushes onto the deferred queue that runs at the end of the pass (see 5.5). `f` is `'static` |
 
 When entering an egui container closure (`ui.vertical(|ui| ..)` etc.), rebuild `Cx::new(store, ui, scope)` with the inner `Ui` as before. No implicit globals or thread-locals. `cx` is always passed around explicitly.
@@ -118,7 +121,7 @@ cx.scope((file!(), line!(), column!(), 3usize, key), |cx| {
 });
 ```
 
-`scope` goes one level deeper in `cx.scope` and at the same time calls `ui.push_id` (`tui.with_auto_id_prefix` in Taffy mode). This keeps both the hook Ids and the egui widget Ids stable per component instance. The Id material is the `rsx!` call site, the element's sequence number within that `rsx!`, and `key`. A function item's type cannot be named, so the Props type is inferred from the `Fn` bound of `props_builder<P: Props, F: Fn(&mut Cx, P)>(_: &F) -> P::Builder`. The user only needs to `use` `Counter`.
+`scope` goes one level deeper in `cx.scope` and at the same time calls `ui.push_id` (in tree mode there is no `Ui` to push; the deeper scope Id salts the leaves' `Ui`s instead). This keeps both the hook Ids and the egui widget Ids stable per component instance. The Id material is the `rsx!` call site, the element's sequence number within that `rsx!`, and `key`. A function item's type cannot be named, so the Props type is inferred from the `Fn` bound of `props_builder<P: Props, F: Fn(&mut Cx, P)>(_: &F) -> P::Builder`. The user only needs to `use` `Counter`.
 
 If every element created a child `Ui`, egui containers that carve space out of the parent `Ui` (docked panels) and ones that rewrite the parent `Ui` (`Grid`'s `Ui::end_row`) would not work. So there is `#[component(shares_ui)]`. A component marked with it still gets a deeper hook scope as usual, but skips `Ui::push_id` and draws directly into the parent `Ui`. The implementation is `const SHARES_UI: bool` on `Props` (default `false`; `#[component(shares_ui)]` sets it to `true`), and `rsx!` routes element calls through `::egui_react::__private::enter_scope(cx, source, props, Name)`. `enter_scope` looks at `P::SHARES_UI` and picks `cx.scope` or `cx.scope_sharing_ui`. `Panel` / `CentralPanel` / `Row` use this.
 
@@ -258,7 +261,17 @@ At the end of the pass, list the slots whose `last_visited` is older than the cu
 
 ### 5.3 Multi-pass
 
-egui_taffy calls `request_discard` when layout changes, which runs a second pass within the same frame. egui's `Context::run` passes `new_input.take()` for each pass, and `RawInput::take` moves the events out with `events: core::mem::take(&mut self.events)`. **The second pass runs with empty events, so handlers fire only once** (confirmed in the egui source). No state rollback or journal is needed. Effects whose deps did not change do not re-run on the second pass. However, an effect whose deps derive from state that a handler changed in the first pass, and which is placed before the handler, does run on the second pass because the deps really changed. This is just "the one run that would have happened next frame" pulled forward into the second pass of the same frame; one deps change means one run (confirmed by the spike test). The runner sets `Options::max_passes = 3`. It is 3 rather than 2 because a `<View>` inside an egui container (`ScrollArea` etc.) inside a `<View>` becomes a separate egui_taffy tree, and the inner tree only learns the size the outer tree settled on in pass 2 during pass 3. If the pass budget runs out and the discard is refused, the runner calls `request_repaint` to converge on the next frame (otherwise it stays stuck on the old layout until the next input). Use `egui::Context::current_pass_index()` to check the pass count.
+The layout engine calls `request_discard` when the frame on screen is now wrong, which runs a second pass within the same frame. It asks for one only for these three reasons (section 6):
+
+- a **created** node that had to draw to be measured. A new node has no layout, so its first draw happens in an invisible sizing `Ui` at a zero rect. That is a measurement, not a picture, so the frame has to be drawn again. A container draws nothing of its own and a `<Text>` is measured rather than drawn, so neither sets this;
+- a **removed** node. It was part of the tree the surviving nodes were drawn with, and it is out of the id map before the comparison runs, so the comparison cannot tell what dropping it did;
+- a **moved** node. The layout of every node is copied before the computation and compared with the result, field by field. `content_size` is compared only on the root (where it is the space the tree takes in the surrounding `Ui`) and on `overflow: scroll` nodes; anywhere else it is just what the node measured, and a wider label inside a node that grows to fill its row must not cost a pass.
+
+A recomputation on its own is not a reason. A tree recomputes whenever it is dirty or its root rect changed size, and both happen constantly on frames where the result is the layout the nodes were already drawn with — a row inside a `ScrollArea` gets a shorter root rect on every scrolled frame. When only the root rect resized, the engine computes the layout *before* drawing, so children draw at their new places in the same pass. A tree of `<View>` and `<Text>` alone therefore settles in one pass even on its very first frame: a galley is laid out inside the measure function, so nothing has to draw to be measured.
+
+egui's `Context::run` passes `new_input.take()` for each pass, and `RawInput::take` moves the events out with `events: core::mem::take(&mut self.events)`. **The second pass runs with empty events, so handlers fire only once** (confirmed in the egui source). No state rollback or journal is needed. Effects whose deps did not change do not re-run on the second pass. However, an effect whose deps derive from state that a handler changed in the first pass, and which is placed before the handler, does run on the second pass because the deps really changed. This is just "the one run that would have happened next frame" pulled forward into the second pass of the same frame; one deps change means one run (confirmed by the spike test).
+
+The runner sets `Options::max_passes = 3`. It stays 3 rather than 2 because a widget leaf still needs the sizing pass on its first frame: a `<View>` inside an egui container (`ScrollArea` etc.) inside a `<View>` is a separate tree, and if a new `<Button>` appears in it, the inner tree measures in one pass and needs another, on top of the pass the outer tree took to settle. If the pass budget runs out and the discard is refused, the runner calls `request_repaint` to converge on the next frame (otherwise it stays stuck on the old layout until the next input). Use `egui::Context::current_pass_index()` to check the pass count.
 
 ### 5.4 Flow of one frame
 
@@ -293,7 +306,7 @@ When a handler or effect rewrites state, widgets drawn earlier in the same compo
 
 - **Counter stack** `Store` holds a `RefCell<Vec<usize>>` in the same shape as `provide_context`. `begin_suspense` pushes 0, `end_suspense` returns the pushed count (= the number of `use_future`s that were `Pending` inside), and `note_pending` adds 1 to the nearest (= innermost) counter. With nesting, the inner one consumes its own count, so the outer one does not count it. The stack is cleared in `begin_pass`. Only these 3 methods are added to core; the boundary itself lives in elements (an "element that wraps children", like `Collapsing`).
 - **Initial state is suspended** The first time, draw offscreen, then switch to visible if there is no `Pending`. This is so that when `max_passes` runs out and `request_discard` is refused, what shows is `fallback` rather than half-drawn children.
-- **Children are drawn while suspended too** They are drawn into an offscreen invisible `Ui` (`egui::Ui::new(ctx, id, UiBuilder::new().max_rect(fixed offscreen rect).invisible().sizing_pass())`). Hooks run, and futures start and complete. The rect is a fixed value so egui_taffy sees the same size every pass and does not issue useless `request_discard`s. `invisible()` disables both drawing and interaction, so the children's handlers do not fire offscreen. However, egui creates accessibility nodes for widgets regardless of visibility, so screen readers and `egui_kittest` see suspended children as "nodes at offscreen coordinates".
+- **Children are drawn while suspended too** They are drawn into an offscreen invisible `Ui` (`egui::Ui::new(ctx, id, UiBuilder::new().max_rect(fixed offscreen rect).invisible().sizing_pass())`). Hooks run, and futures start and complete. The rect is a fixed value so the layout engine sees the same size every pass and does not issue useless `request_discard`s. `invisible()` disables both drawing and interaction, so the children's handlers do not fire offscreen. However, egui creates accessibility nodes for widgets regardless of visibility, so screen readers and `egui_kittest` see suspended children as "nodes at offscreen coordinates".
 - **Children scope** Both suspended and visible paths use the `scope_id()` of `Suspense` itself (the third argument of `Cx::new(store, &mut ui, scope)`). The hook slots having the same Id on both paths is what preserves state and futures across the switch. `fallback` is drawn into the same `cx`, but the `rsx!` element Ids differ by line and column, so it does not collide with children.
 - **The switch happens within the same frame** At the moment of the switch, flip the state with `Handle::set` and redo the same frame with `request_discard`. Neither half-drawn children nor a one-frame gap between fallback and children is visible. `Handle::set` calls `request_repaint`, but it is only called at the switch, so it does not repaint every frame while suspended. If `max_passes` (runner default 3) runs out and the discard is refused, the runner calls `request_repaint` and it settles on the next frame.
 - **`shares_ui`** `Suspense` creates no `Ui` / leaf of its own; it streams children and fallback into the parent surface (Ui or Taffy) as-is. Placed inside a `<View>`, the children's `<View>` become children of the parent's taffy tree.
@@ -301,7 +314,7 @@ When a handler or effect rewrites state, widgets drawn earlier in the same compo
 
 ## 6. Layout
 
-To make Flexbox / Grid a first-class citizen, egui_taffy is used (0.14, for egui 0.36 and taffy 0.9). As in React Native, "`<View>` is a taffy node, egui widgets are leaves".
+To make Flexbox / Grid a first-class citizen, layout runs on [taffy](https://github.com/DioxusLabs/taffy) (0.9) through a layout engine of our own, `crates/egui-react/src/engine.rs`. As in React Native, "`<View>` is a taffy node, egui widgets are leaves". It replaced `egui_taffy` 0.14 in 2026-09; the reason and the numbers are in the decision log (section 11), and `docs/tasks/perf/` has the measurements.
 
 ```rust
 <View direction="row" justify="space-between" align="center" gap={8} p={12}>
@@ -310,10 +323,21 @@ To make Flexbox / Grid a first-class citizen, egui_taffy is used (0.14, for egui
 </View>
 ```
 
-- `Cx` holds "are we inside a taffy container now" as `Surface` (3.1). `cx.leaf(&style, f)` is `tui.style(style.to_taffy()).ui(f)` inside, and goes to the bare `ui` outside. `cx.container(id, style, f)` adds a child node inside, and starts a new `egui_taffy::tui(..)` tree outside; in both cases `f` gets a Taffy-mode `Cx`.
-- A `container` directly under Ui mode defaults to `reserve_available_width()`; only the runner's root uses `reserve_available_space()`. `grow` and `justify="space-between"` distribute leftover space, so they have no effect unless the `<View>` itself has a width (`w`). `reserve_available_space()` only tells egui_taffy "this much space is available"; the root node's own `size` stays `auto`. Without it, the root node shrinks to its content and two things break. (a) `<View grow={1.0} justify="center">` has no room to grow into and nothing to center against, and the app huddles in the top left. (b) Children that do not fit do not shrink. The parent grows to fit its content, so no overflow occurs, the premise for `flex-shrink` disappears, and rows spill past the right edge of the window. So the runner's root item style sets `w` to `100%` (the window width is fixed, so this is a definite value) and `min_h` to `100%` (vertically, grow if the content is taller) (section 7).
-- egui's standard containers such as `<Vertical>` / `<Horizontal>` / `<Grid>` remain as leaves, as an escape hatch where performance matters. When called from Taffy mode, these egui-native containers behave as a single leaf, and the children inside are drawn in Ui mode. Only `ScrollArea` is placed with `leaf_fill` (3.1). It is a widget that fills the given space, so a leaf measured by content would lock it to the size of the first frame. Give a `ScrollArea` inside a `<View>` either `grow` or `h`. **The max-content of `leaf_fill` is exactly "the height of the current tree's root rect"** (egui_taffy's measure reads `infinite` that way), so inside a `<View direction="column">` with no definite height, neither `grow` nor `basis={0}` works, and the `ScrollArea` asks for "the whole window height" rather than "what is left after siblings". A screen with a `ScrollArea` under a toolbar becomes taller than the window by that much, and since the runner's root item style is `min_h: 100%` (section 7) with the height itself auto, the overflow is not clipped and extends downward. Either give it a definite height, or arrange things so nothing sits at the bottom edge that would get pushed out (`examples/board` puts the column's `+ card` at the end inside the `ScrollArea`. `docs/tasks/board/plan.md` 8.3).
-- Every leaf that carries text sets wrap to `Extend` (`Text` `Label` `Button` `Checkbox` `Slider` `ComboBox` labels, the `Collapsing` header). egui_taffy measures a leaf as "the size it was drawn at last time" and returns that single value to taffy as both min-content and max-content. The first draw happens in a `Ui` of width 0, so a wrapping widget reports "one character wide" there, the node is locked at that narrow width, and the label stacks one character per line. Leaves with `grow` or `w` are unaffected because taffy decides their width. Widgets with a `wrap_mode` builder (`Button` / `Label`) use it; those without (`Checkbox` / `Slider` / `ComboBox` / `CollapsingHeader`) set it on the leaf `Ui`'s `style.wrap_mode`. `Collapsing` restores the original value before entering the body (what the children draw is the caller's business).
+The engine in five lines:
+
+- **One taffy tree per `<View>` root.** A `<View>` in a plain `Ui` starts a tree; a `<View>` inside one adds a node. Trees live in the `Store`, keyed by `Cx::layout_id()`, not in egui memory: one map lookup per frame, and `Store::end_pass` drops a tree that nothing drew in the pass, so a tree left behind by an unmounted subtree goes away instead of growing egui's `IdTypeMap` for ever.
+- **A node is a rect, not a `Ui`.** A container node creates no `Ui`, registers no widget and returns no response — egui-react paints nothing on a `<View>`, so nothing is lost. Only a widget leaf gets a `Ui`, one, a child of the tree's own. A `<Text>` gets none at all. A `<Row>` of a `<View>` with two `<Text>` and a `<Button>` costs two `Ui`s; under egui_taffy it cost nine.
+- **Node key = layout id + child index; `Ui` salt = hook scope.** The two Ids part only inside `<VirtualList>` (3.1): the rows' nodes are keyed by the *slot* on screen, so scrolling reuses them, while the leaf `Ui`s are salted by the hook scope, so widget ids stay with the row. That is also why `VirtualList` needs no `push_id` of its own.
+- **`<Text>` is measured, not drawn.** Its layout job is built once from the tree's `Ui` style, the galley is laid out inside taffy's measure function at the width the node is given, and painted onto the tree's `Ui` into a `Shape` slot claimed in draw order and filled in after the layout is final. The widget rect and the `WidgetInfo` that `egui::Label` registers are still made, so hover, `egui_kittest` label queries and screen readers still find the text. **What is dropped is `Label`'s text selection: a `<Text>` inside a `<View>` cannot be selected with the mouse** (a `<Label>` still can, it is an ordinary leaf).
+- **Passes.** The created / removed / moved rule and the layout-first computation on a root resize are in 5.3.
+
+The rest, unchanged by the engine:
+
+- `Cx` holds "are we inside a taffy container now" as `Surface` (3.1). `cx.leaf(&style, f)` becomes a taffy leaf inside and goes to the bare `ui` outside. `cx.container(id, style, f)` adds a child node inside, and starts a new tree outside; in both cases `f` gets a tree-mode `Cx`.
+
+- A `container` directly under Ui mode reserves only the available width; only the runner's root reserves both axes (`root_container`). `grow` and `justify="space-between"` distribute leftover space, so they have no effect unless the `<View>` itself has a width (`w`). Reserving space only tells the engine "this much space is available"; the root node's own `size` stays `auto`. Without it, the root node shrinks to its content and two things break. (a) `<View grow={1.0} justify="center">` has no room to grow into and nothing to center against, and the app huddles in the top left. (b) Children that do not fit do not shrink. The parent grows to fit its content, so no overflow occurs, the premise for `flex-shrink` disappears, and rows spill past the right edge of the window. So the runner's root item style sets `w` to `100%` (the window width is fixed, so this is a definite value) and `min_h` to `100%` (vertically, grow if the content is taller) (section 7).
+- egui's standard containers such as `<Vertical>` / `<Horizontal>` / `<Grid>` remain as leaves, as an escape hatch where performance matters. When called from Taffy mode, these egui-native containers behave as a single leaf, and the children inside are drawn in Ui mode. Only `ScrollArea` is placed with `leaf_fill` (3.1). It is a widget that fills the given space, so a leaf measured by content would lock it to the size of the first frame. Give a `ScrollArea` inside a `<View>` either `grow` or `h`. **The max-content of `leaf_fill` is exactly "the height of the current tree's root rect"** (the engine's measure function reads `infinite` that way, as egui_taffy's did), so inside a `<View direction="column">` with no definite height, neither `grow` nor `basis={0}` works, and the `ScrollArea` asks for "the whole window height" rather than "what is left after siblings". A screen with a `ScrollArea` under a toolbar becomes taller than the window by that much, and since the runner's root item style is `min_h: 100%` (section 7) with the height itself auto, the overflow is not clipped and extends downward. Either give it a definite height, or arrange things so nothing sits at the bottom edge that would get pushed out (`examples/board` puts the column's `+ card` at the end inside the `ScrollArea`. `docs/tasks/board/plan.md` 8.3).
+- Every leaf that carries text sets wrap to `Extend` (`Text` `Label` `Button` `Checkbox` `Slider` `ComboBox` labels, the `Collapsing` header). The engine measures a widget leaf as "the size it was drawn at last time" and returns that single value to taffy as both min-content and max-content. (`<Text>` no longer goes through this: the engine lays its galley out itself and knows its real width. The `Extend` default stays, because it is also what `<Text>` means without `wrap`.) The first draw happens in a `Ui` of width 0, so a wrapping widget reports "one character wide" there, the node is locked at that narrow width, and the label stacks one character per line. Leaves with `grow` or `w` are unaffected because taffy decides their width. Widgets with a `wrap_mode` builder (`Button` / `Label`) use it; those without (`Checkbox` / `Slider` / `ComboBox` / `CollapsingHeader`) set it on the leaf `Ui`'s `style.wrap_mode`. `Collapsing` restores the original value before entering the body (what the children draw is the caller's business).
 - Both `<Text>` and `<Label>` can switch to egui's default wrapping with the `wrap` attribute. Wrapping needs a width, so use it together with `w` or (inside a container with a definite width) `grow`. The only difference between the two is that `Text` has `size` / `color` / `strong`.
 - The root panel is wrapped by default in a `<View>` with `direction="column"`.
 
@@ -347,7 +371,7 @@ A generic element like `<Provide value={handle}>` cannot be provided for the con
 
 ### Layout attributes
 
-They live in `egui_react::layout`. taffy types come from `egui_taffy::taffy`, re-exported as `egui_react::taffy`.
+They live in `egui_react::layout`. taffy is a direct dependency, re-exported as `egui_react::taffy`.
 
 - `Length`: `Px(f32)` / `Percent(f32)` (a 0.0 to 1.0 fraction, as in taffy) / `Auto`. `From<f32>` and `From<i32>` give `Px`; `From<&str>` parses `"auto"` / `"50%"` / `"12px"` / `"12"` and panics on anything else.
 - `ItemStyle`: the item-side attributes every element accepts. `w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl col_span row_span`. Setters take `impl Into<Length>`, so `rsx!` can pass number literals and string literals as-is. The `m` / `p` shorthands go "all -> `x` / `y` -> each side", and the more specific one wins. `to_taffy()` turns it into a `taffy::Style`.
@@ -360,7 +384,7 @@ Rejected alternative: egui_flex. It stops at egui 0.35, has no `justify-content`
 ## 7. Crate layout
 
 ```
-egui-react/            core: View, Cx, Store, State, Handle, Dispatch, hooks, sweep, deferred queue, persistence
+egui-react/            core: View, Cx, Store, State, Handle, Dispatch, hooks, sweep, deferred queue, persistence, the layout engine over taffy (`engine.rs`)
 egui-react-macros/     rsx! (based on rstml 0.13), #[component], #[hook]
 egui-react-elements/   wrappers for egui widgets / containers. View / Text sit on taffy
 egui-react-app/        run(Options, |_cx| rsx!{ <App/> }). Wraps eframe and absorbs native / wasm / Android. The iOS runner also lives here
@@ -378,7 +402,7 @@ What `egui_react_app::run(Options, root)` does in one frame is the following.
 
 `root` is called every pass, and the `View` it returns cannot borrow anything created inside `root` (an `rsx!` that borrows a hook guard would return a value that borrows a local). Put hooks in components and write the root as `|_cx| rsx!{ <App/> }`.
 
-egui is pinned to the 0.36 series. Since egui 0.35, `eframe::App::ui` takes `&mut Ui`, so the runner wraps that directly in `Cx`. `egui-react` (core) has `egui_taffy` as a normal dependency. This is because `Surface` in `Cx` must know `Tui`, and it builds as-is on the wasm target too. In addition, as the future execution mechanism it has `pollster` on native (`cfg(not(target_arch = "wasm32"))`) and `wasm-bindgen-futures` on wasm (`cfg(target_arch = "wasm32")`).
+egui is pinned to the 0.36 series. Since egui 0.35, `eframe::App::ui` takes `&mut Ui`, so the runner wraps that directly in `Cx`. `egui-react` (core) depends on `taffy` directly (0.9.2, no default features, with `taffy_tree` / `detailed_layout_info` / `block_layout` / `content_size` / `flexbox` / `grid` / `std` — the set egui_taffy 0.14 pulled in, kept so layouts come out the same), because it owns the layout engine (section 6); there is no `egui_taffy` and no `[patch.crates-io]`. taffy is pure Rust and builds as-is on the wasm target. In addition, as the future execution mechanism it has `pollster` on native (`cfg(not(target_arch = "wasm32"))`) and `wasm-bindgen-futures` on wasm (`cfg(target_arch = "wasm32")`).
 
 ## 8. Platforms
 
@@ -405,7 +429,7 @@ The following were confirmed with hand-written expansions without the macro (PR1
 - A guard can be returned through `#[hook]` (the lifetime `'s` is independent of `&mut Cx`).
 - The fused closure expansion compiles, and the `Handler` trait can call `FnMut()` / `FnMut(A)` uniformly.
 - The `Handle` from `use_context` and the parent's guard can coexist.
-- On egui_taffy's second pass, the click handler fires only once and the effect does not re-run.
+- On a layout second pass, the click handler fires only once and the effect does not re-run.
 - Id collision detection catches a missing `#[hook]` and a missing `key`.
 - The sweep drops the state of a component removed by `if` and runs its cleanup.
 - A new `Cx` can be created inside an egui container closure (`ui.vertical`), and hooks work there.
@@ -421,7 +445,7 @@ The following were confirmed with hand-written expansions without the macro (PR1
 | callback props | Fuse `on_*` into an enum | Return events as return value / hand-written single `callback` | Borrowed payloads, multiple events, verbosity |
 | effect timing | Immediately at the call site | After commit | egui has no commit, and deferring invites `'static` |
 | deps comparison | Hash | PartialEq + Clone | To allow borrowed deps |
-| Layout | egui_taffy | egui_flex | No justify / shrink, slow to track egui |
+| Layout | taffy, through our own engine (see below) | egui_flex | No justify / shrink, slow to track egui |
 | Multi-pass handling | Not needed | Snapshot rollback | Confirmed egui empties events on the second pass |
 | Where the store lives | The runner's `App` | `Context::data()` | Testability |
 | `Handler` implementation | Two blanket impls coexist via marker type argument | Pick `call0` / `call1` by argument count | The marker is always inferred, and the macro emits only one form |
@@ -429,3 +453,24 @@ The following were confirmed with hand-written expansions without the macro (PR1
 | future executor | One thread + `pollster` | Require tokio | Small dependency, enough for futures that just wait. Apps that need tokio can use `Handle::current()` inside the future |
 | Representation of async results | `std::task::Poll<T>` | Custom `Loading` / `Ready` / `Error` enum | It is in std, and errors can be `T = Result<..>`. Does not add more state kinds |
 | Suspense implementation | Offscreen drawing + counter + `request_discard` | Rollback via panic / `catch_unwind` | Rust has no cheap rollback. The child exits with a one-line let-else |
+
+### Own layout engine over taffy, replacing egui_taffy (2026-09-06)
+
+Measured, in `docs/tasks/perf/`. The benchmark is a list of 37 visible rows drawn three ways at 10,000 source rows: `<VirtualList>`, `<ScrollArea>` + `for` over every row, and plain egui `ScrollArea::show_rows` as the reference. Four scenarios: idle, scrolling, filter edits, window resize.
+
+The starting point was `<VirtualList>` at about 2x plain egui, with extra layout passes on three of the four scenarios. Three steps fixed the passes:
+
+- **A** keys a `<VirtualList>` row's tree by the slot on screen rather than by the row index. Passes did not move, but egui memory stopped growing with the scroll distance (85 entries against 771).
+- **B**, in an egui_taffy fork, asks for a discard only when the layout actually moved. Scroll 2.00 → 1.00 and Filter 1.60 → 1.00 passes per frame, 6,576 discard requests → 0.
+- **C**, in the same fork, computes the layout before drawing when only the root rect resized. Resize 2.98 → 1.02 passes per frame, and the all-rows mode 131 → 54 ms.
+
+That left every scenario at one pass and the gap still at about 2x. A Time Profiler run said why: taffy's own algorithm costs nothing at idle (no sample lands in a `taffy::` frame) and egui_taffy's per-tree bookkeeping is 9%. About 80% is egui_taffy building one egui `Ui` per taffy node and a second one per leaf — **nine `Ui`s per row against four in plain egui**, a ratio of 2.25 against the measured 1.94x. That is egui_taffy's design, not a bug: its backgrounds, interactive containers and sticky scrolling need those `Ui`s. egui-react uses none of them, and egui_taffy was called from one file (`cx.rs`).
+
+So it was replaced by `crates/egui-react/src/engine.rs` (section 6), which ports egui_taffy's measure function, node reuse rule and sweep, builds B and C in, and makes a container node a rect instead of a `Ui`:
+
+- **D1**, the engine: a row costs three `Ui`s instead of nine. Idle 0.241 → 0.160 ms, 1.96x → 1.43x of plain egui.
+- **D2**, `<Text>` as a galley on the node: a row costs two. Idle 0.153 ms, 1.32x; Filter 1.07x; Scroll and Resize 1.59x, a tenth over the 1.5x the task asked for. All-rows idle 43 → 22 ms.
+
+Snapshots stayed byte-identical through both steps. What was given up: `Label`'s text selection on a `<Text>` inside a `<View>` (section 6), and the engine drops a tree nothing drew in the pass, which costs 12 two-pass frames out of 120 in the resize scenario where egui_taffy's for-ever cache cost 3. Both are recorded in `docs/tasks/perf/measurements.md` with the follow-ups.
+
+B and C were also prototyped as egui_taffy fork commits and are worth upstreaming on their own: `../egui_taffy` (sibling checkout, not pushed), branches `skip-unchanged-discard` (`d618550`) and `layout-first` (`ee07d38`, on top of it). They are kept for that, and nothing in this repository depends on them.

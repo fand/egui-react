@@ -1,5 +1,5 @@
-# egui / eframe / egui_kittest 0.36 and egui_taffy 0.14 all declare
-# rust-version = "1.95", so the toolchain is pinned to that release.
+# egui / eframe / egui_kittest 0.36 all declare rust-version = "1.95", so the
+# toolchain is pinned to that release.
 [toolchain]
 channel = "1.95"
 components = ["rustfmt", "clippy"]

@@ -50,8 +50,8 @@ discard counts are the stable signal.
 Fork: `../egui_taffy` (sibling checkout, not pushed), branches
 `skip-unchanged-discard` (`d618550`, step B) and `layout-first` (`ee07d38`,
 step C, on top of B). Wired in through `[patch.crates-io]` in the workspace
-`Cargo.toml` on this branch only; CI and a fresh clone need the sibling checkout
-or the patch removed.
+`Cargo.toml` while steps B and C were measured. Step D1 removed both the patch
+and the egui_taffy dependency, so a fresh clone needs neither.
 
 After C, VirtualList / Plain: Idle 1.96x, Scroll 2.08x, Filter 1.15x, Resize
 2.03x. Only Filter meets task.md's 1.5x. The remaining gap is per-frame
@@ -59,11 +59,40 @@ overhead at one pass, not extra passes. Profiled (measurements.md, "Idle gap
 attribution"): taffy itself costs nothing at idle; ~80% of the gap is
 egui_taffy creating one or two egui `Ui`s per taffy node (9 `Ui`s per row vs
 4 in Plain). Decision D (keep egui_taffy and upstream B + C, or replace it
-with an own layer over taffy) is open for the user; plan section 5 lists the
-criteria and the profile favours the own layer.
+with an own layer over taffy) was open at this point; plan section 5 lists the
+criteria and the profile favours the own layer. Decided in the next block.
 
 Known pre-existing: `cargo fmt --all -- --check` fails on ~30 untouched files
 (import order); the two board gallery snapshots are missing.
+
+### Steps D1-D3 done (2026-09-06)
+
+Decision D was taken: replace egui_taffy with an own layout engine over taffy.
+Plan: [docs/tasks/perf/plan-d.md](docs/tasks/perf/plan-d.md). Numbers in
+[measurements.md](docs/tasks/perf/measurements.md) ("After D1", "After D2",
+"Summary D").
+
+| Step | Commit | Result |
+|---|---|---|
+| D1: `crates/egui-react/src/engine.rs`, `Cx` on it, trees in the `Store`, egui_taffy and `[patch]` removed | `5a9f04a` | A row costs 3 egui `Ui`s instead of 9. Idle 0.241 -> 0.160 ms, 1.96x -> 1.43x Plain. |
+| D2: `<Text>` is a galley on the node, not a `Label` in a `Ui` | `bf8d2f2` | A row costs 2. Idle 0.153 ms, 1.32x. All-rows idle 27 -> 22 ms. |
+| D3: docs (ARCHITECTURE 3.1 / 5.3 / 6 / 7 / 11, README, task.md result, this block) | this commit | – |
+
+After D2, VirtualList / Plain: Idle **1.32x**, Filter **1.07x**, Scroll 1.59x,
+Resize 1.59x. Two of the four are through task.md's 1.5x; the other two miss by
+0.09x. Passes per frame: 1.00 everywhere except Resize at 1.10. Gallery
+snapshots byte-identical through both steps. The web and 120-Hz criteria are
+still unmeasured.
+
+Follow-ups, neither done (measurements.md, "What remains"): keep a swept tree
+for a grace period, which gives Resize back its 1.02 passes; give
+`<VirtualList>` rows a fixed rect, so a scrolled frame stops recomputing all 37
+row trees.
+
+Fork: `../egui_taffy` is no longer a dependency of anything here. Its two
+branches stay as the source of possible upstream PRs — `skip-unchanged-discard`
+(`d618550`, step B) and `layout-first` (`ee07d38`, step C). Both fixes are built
+into the engine.
 
 ### Product constraint
 
