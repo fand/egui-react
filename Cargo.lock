@@ -494,6 +494,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "board"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui_kittest",
+ "example-meta",
+ "react-egui",
+ "react-egui-app",
+ "react-egui-elements",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.20.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1436,6 +1451,7 @@ dependencies = [
 name = "gallery"
 version = "0.1.0"
 dependencies = [
+ "board",
  "clock",
  "counter",
  "custom-hook",

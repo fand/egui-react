@@ -31,6 +31,7 @@ react-egui-app.workspace = true
 react-egui-elements.workspace = true
 example-meta.workspace = true
 
+board = { path = "../board" }
 clock = { path = "../clock" }
 counter = { path = "../counter" }
 custom-hook = { path = "../custom-hook" }

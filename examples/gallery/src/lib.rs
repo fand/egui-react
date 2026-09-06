@@ -11,6 +11,7 @@ use example_meta::Meta;
 use react_egui::prelude::*;
 use react_egui_elements::prelude::*;
 
+use board::App as BoardApp;
 use clock::App as ClockApp;
 use counter::App as CounterApp;
 use custom_hook::App as CustomHookApp;
@@ -32,6 +33,7 @@ use todo::App as TodoApp;
 /// pointer.
 pub const EXAMPLES: &[Meta] = &[
     showcase::META,
+    board::META,
     counter::META,
     todo::META,
     form::META,
@@ -208,6 +210,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
     rsx! {
         if plain {
             match name {
+                "board" => { <BoardPlain/> }
                 "todo" => { <TodoPlain/> }
                 "form" => { <FormPlain/> }
                 "list-10k" => { <ListPlain/> }
@@ -216,6 +219,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
             }
         } else {
             match name {
+                "board" => { <BoardApp/> }
                 "counter" => { <CounterApp/> }
                 "todo" => { <TodoApp/> }
                 "form" => { <FormApp/> }
@@ -259,6 +263,7 @@ macro_rules! plain_example {
     };
 }
 
+plain_example!(BoardPlain, board::plain);
 plain_example!(CounterPlain, counter::plain);
 plain_example!(TodoPlain, todo::plain);
 plain_example!(FormPlain, form::plain);
