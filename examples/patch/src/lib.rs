@@ -681,6 +681,9 @@ fn NodeView(
 
     let open = !*collapsed;
     let editing = *renaming;
+    // The drag handle is one line of text tall, plus a little air. Taffy needs
+    // the number before the strip is drawn, so it is asked for here.
+    let head_h = cx.ui().text_style_height(&egui::TextStyle::Body) + 4.0;
     // What the pointer is over, in words. Node-local state doing a job: the
     // node is the only thing that knows which of its own ports is hot.
     let hint = match *hovered {
@@ -723,19 +726,59 @@ fn NodeView(
                             }}
                         />
                     } else {
-                        // The title is the drag handle, and one leaf is all a
-                        // drag needs. `<Text>` would draw the same thing and
-                        // hand back no `Response` (board 8.4).
+                        // The header strip is the drag handle, and one leaf is
+                        // all a drag needs. `<Text>` would draw the same thing
+                        // and hand back no `Response` (board 8.4).
+                        //
+                        // `leaf_fill`, so the strip is the whole width taffy
+                        // gives it rather than the width of the name: a node is
+                        // grabbed by its header, not by its title.
                         {view(|cx| {
-                            let response = cx.leaf(
-                                &ItemStyle::default().grow(1.0).min_w(0.0),
+                            let response = cx.leaf_fill(
+                                &ItemStyle::default().grow(1.0).min_w(0.0).h(head_h),
                                 |ui| {
-                                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Truncate);
-                                    let label = egui::Label::new(
+                                    let (rect, response) = ui.allocate_exact_size(
+                                        ui.available_size(),
+                                        egui::Sense::click_and_drag(),
+                                    );
+                                    ui.painter().rect_filled(
+                                        rect,
+                                        3.0,
+                                        look.edge.gamma_multiply(0.35),
+                                    );
+                                    let galley = egui::WidgetText::from(
                                         egui::RichText::new(node.name.as_str()).strong(),
                                     )
-                                    .sense(egui::Sense::click_and_drag());
-                                    ui.add(label)
+                                    .into_galley(
+                                        ui,
+                                        Some(egui::TextWrapMode::Truncate),
+                                        (rect.width() - 8.0).max(0.0),
+                                        egui::TextStyle::Body,
+                                    );
+                                    let at = egui::pos2(
+                                        rect.left() + 4.0,
+                                        rect.center().y - galley.size().y * 0.5,
+                                    );
+                                    ui.painter().galley(at, galley, ui.visuals().text_color());
+                                    // A painted title is not a widget, so the
+                                    // name has to be said out loud — it is what
+                                    // a screen reader, and every test here,
+                                    // looks the node up by.
+                                    response.widget_info(|| {
+                                        egui::WidgetInfo::labeled(
+                                            egui::WidgetType::Button,
+                                            ui.is_enabled(),
+                                            node.name.as_str(),
+                                        )
+                                    });
+                                    // What the pointer says it can do, and then
+                                    // that it is doing it.
+                                    if response.dragged() {
+                                        ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                                        response
+                                    } else {
+                                        response.on_hover_cursor(egui::CursorIcon::Grab)
+                                    }
                                 },
                             );
                             if response.drag_started() {
