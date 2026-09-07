@@ -2,8 +2,9 @@
 
 Closing notes for PR #7 (`docs-perf`). The full record is in
 [task.md](task.md) (criteria and result), [measurements.md](measurements.md)
-(every number), the plans (`plan.md`, `plan-d.md`, `plan-e.md`), and the
-repository's `progress.md`. This file is the short version.
+(every number), the plans (`plan.md`, `plan-d.md`, `plan-e.md`), and
+[progress.md](progress.md) (steps, commits, how it is built, reproduction).
+This file is the short version.
 
 ## Result
 

@@ -188,7 +188,7 @@ Unit tests for `board.rs` are in section 1.
 - The doc at the top of `plain.rs` likewise.
 - Add one line, "Reworked in v2. The diff is in [board-v2/plan.md](../board-v2/plan.md)", to the scope (card item) of `docs/tasks/board/task.md` and to the top of `docs/tasks/board/plan.md`. Do not rewrite the body of the v1 plan (it is the record from that time).
 - Update the board row in the README examples table with the new description.
-- Add v2 to the board row in `progress.md`.
+- Add v2 to the board row in `handoff.md` (was the root `progress.md`).
 
 Things that were tempting to add to elements (not added. Record only):
 
