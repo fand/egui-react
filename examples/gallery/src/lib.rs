@@ -8,7 +8,7 @@
 
 use std::sync::Arc;
 
-use egui_extras::syntax_highlighting::{CodeTheme, highlight};
+mod highlight;
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
 use example_meta::Meta;
@@ -294,17 +294,21 @@ plain_example!(LayoutPlain, layout::plain);
 /// `pub` for `tests/bench.rs`, which times this column on its own.
 #[component]
 pub fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
-    let source = if plain {
-        meta.plain.unwrap_or(meta.source)
-    } else {
-        meta.source
-    };
     let file = if plain { "plain.rs" } else { "lib.rs" };
     let link = format!("{REPO}/{}/src/{file}", meta.name);
+    // What is shown, and counted: the source minus the gallery's own plumbing.
+    let (react, plain_source) = use_memo(cx, meta.name, || {
+        (shown_source(meta.source), meta.plain.map(shown_source))
+    });
+    let source: &str = if plain {
+        plain_source.as_deref().unwrap_or(react)
+    } else {
+        react
+    };
     let mut lines = use_state(cx, || None::<(GalleyKey, CodeLines)>);
     let lines: &CodeLines = code_lines(cx.ui(), lines.bind(), (meta.name, plain), source);
-    let react_lines = format!("{} lines", meta.source.lines().count());
-    let plain_lines = meta.plain.map_or(String::new(), |p| {
+    let react_lines = format!("{} lines", react.lines().count());
+    let plain_lines = plain_source.as_deref().map_or(String::new(), |p| {
         format!("{} lines plain", p.lines().count())
     });
 
@@ -338,23 +342,65 @@ pub fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
             </View>
             // One row per line, and only the rows in view are drawn: a
             // selectable label reports every row of its galley to accesskit
-            // each frame, so a label per line keeps that to a screenful. The
-            // outer scroll area is the sideways one; the list scrolls down.
-            <ScrollArea grow={1.0} horizontal vertical={false}>
-                <VirtualList
-                    w={lines.width}
-                    rows={lines.galleys.len()}
-                    row_h={lines.row_h}
-                    render={|cx: &mut Cx<'_, '_>, row: usize| {
-                        let galley = lines.galleys[row].clone();
-                        cx.leaf(&ItemStyle::default(), |ui| {
-                            ui.add(egui::Label::new(galley).selectable(true));
-                        });
-                    }}
-                />
-            </ScrollArea>
+            // each frame, so a label per line keeps that to a screenful.
+            // The row is a bare leaf, drawn straight into the list (a `<View>`
+            // per row measured at twice the cost), so its height is the
+            // galley's: every line's job asks for one row's height even when
+            // the line is blank. The list is as wide as the widest line, so
+            // the sideways scroll range is the same whichever rows are in view.
+            <VirtualList
+                grow={1.0}
+                horizontal
+                rows={lines.galleys.len()}
+                row_h={lines.row_h}
+                render={|cx: &mut Cx<'_, '_>, row: usize| {
+                    let galley = lines.galleys[row].clone();
+                    cx.leaf(&ItemStyle::default(), |ui| {
+                        ui.set_min_width(lines.width);
+                        ui.add(egui::Label::new(galley).selectable(true));
+                    });
+                }}
+            />
         </View>
     }
+}
+
+/// The source as the code column shows it: the example, without the gallery's
+/// own plumbing.
+///
+/// Dropped: the crate doc comment at the top (`//!` — design notes, for the
+/// repository, not for a pane next to the running example), the `META` block
+/// and its import, and anything between a `// gallery:hide` line and the next
+/// `// gallery:show` (the standalone binary's root in list-10k, say). Runs of
+/// blank lines that leaves behind are folded into one.
+pub fn shown_source(source: &str) -> String {
+    let mut out = String::new();
+    let mut lines = source.lines().peekable();
+    while lines.peek().is_some_and(|l| l.starts_with("//!")) {
+        lines.next();
+    }
+    let mut hidden = false;
+    let mut in_meta = false;
+    let mut blank = true;
+    for line in lines {
+        match line.trim() {
+            "// gallery:hide" => hidden = true,
+            "// gallery:show" => hidden = false,
+            _ if hidden => {}
+            "use example_meta::Meta;" => {}
+            _ if in_meta => in_meta = line != "};",
+            _ if line.starts_with("pub const META: Meta = Meta {") => in_meta = true,
+            "" if blank => {}
+            _ => {
+                blank = line.is_empty();
+                out.push_str(line);
+                out.push('\n');
+            }
+        }
+    }
+    out.truncate(out.trim_end().len());
+    out.push('\n');
+    out
 }
 
 /// What the cached code lines were laid out for. A new key means a new layout.
@@ -377,12 +423,12 @@ struct CodeLines {
 
 /// The lines of the source as galleys, from the cache or laid out now.
 ///
-/// `code_view_ui` highlights and lays out from scratch every frame: it hashes
-/// the whole source for the highlight cache, then hashes the `LayoutJob` (a
-/// section per token) for the galley cache. A `Label` handed an `Arc<Galley>`
-/// does neither. The source is highlighted whole and the job cut at each
-/// newline, so a block comment or a multi-line string is coloured the same as
-/// it would be in one piece.
+/// `egui_extras::code_view_ui` highlights and lays out from scratch every
+/// frame: it hashes the whole source for the highlight cache, then hashes the
+/// `LayoutJob` (a section per token) for the galley cache. A `Label` handed an
+/// `Arc<Galley>` does neither. The source is highlighted whole and the job cut
+/// at each newline, so a block comment or a multi-line string is coloured the
+/// same as it would be in one piece.
 fn code_lines<'a>(
     ui: &mut egui::Ui,
     cache: &'a mut Option<(GalleyKey, CodeLines)>,
@@ -398,14 +444,19 @@ fn code_lines<'a>(
         ui.fonts(|f| f.font_image_size()),
     );
     if cache.as_ref().is_none_or(|(k, _)| *k != key) {
-        let theme = CodeTheme::from_style(ui.style());
-        let job = highlight(ui.ctx(), ui.style(), &theme, source, "rs");
+        let job = highlight::highlight(source, ui.visuals().dark_mode, font_id.clone());
         let (galleys, row_h) = ui.fonts_mut(|fonts| {
+            let row_h = fonts.row_height(&font_id);
             let galleys: Vec<Arc<egui::Galley>> = split_lines(&job)
                 .into_iter()
-                .map(|job| fonts.layout_job(job))
+                .map(|mut job| {
+                    // A blank line has no glyph to be tall by; the list still
+                    // moves on by what this galley measures.
+                    job.first_row_min_height = row_h;
+                    fonts.layout_job(job)
+                })
                 .collect();
-            (galleys, fonts.row_height(&font_id))
+            (galleys, row_h)
         });
         let width = galleys.iter().map(|g| g.size().x).fold(0.0, f32::max);
         *cache = Some((
@@ -552,14 +603,28 @@ fn set_hash(_name: &str) {}
 mod tests {
     use super::*;
 
+    /// The header, the `META` block and the hidden region go; the rest stays,
+    /// with no run of blank lines.
+    #[test]
+    fn shown_source_drops_the_plumbing() {
+        let shown = shown_source(list_10k::META.source);
+        assert!(!shown.contains("//!"), "{shown}");
+        assert!(!shown.contains("pub const META"), "{shown}");
+        assert!(!shown.contains("example_meta"), "{shown}");
+        assert!(!shown.contains("fn Compare"), "{shown}");
+        assert!(!shown.contains("fn PlainApp"), "{shown}");
+        assert!(shown.contains("pub fn App"), "{shown}");
+        assert!(shown.contains("pub fn Row"), "{shown}");
+        assert!(!shown.contains("\n\n\n"), "{shown}");
+        assert!(!shown.starts_with('\n'), "{shown:?}");
+        assert!(shown.ends_with("}\n"), "{shown:?}");
+    }
+
     /// Every line of the source comes out, in order, with its text intact.
     #[test]
     fn split_lines_keeps_every_line() {
         for meta in EXAMPLES {
-            let ctx = egui::Context::default();
-            let style = ctx.global_style();
-            let theme = CodeTheme::from_style(&style);
-            let job = highlight(&ctx, &style, &theme, meta.source, "rs");
+            let job = highlight::highlight(meta.source, true, egui::FontId::monospace(12.0));
             let lines = split_lines(&job);
             let texts: Vec<&str> = lines.iter().map(|l| l.text.as_str()).collect();
             let expected: Vec<&str> = meta.source.lines().collect();

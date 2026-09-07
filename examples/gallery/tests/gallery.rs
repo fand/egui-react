@@ -5,7 +5,7 @@ use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
 use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
-use gallery::App;
+use gallery::{App, shown_source};
 
 /// The runner's frame, minus eframe: one pass inside the real root container,
 /// so the gallery's three columns are sized the way they are under
@@ -127,7 +127,10 @@ fn every_column_stays_inside_the_window() {
     );
 
     // The code column is the last one, and it starts well right of the list.
-    let lines = format!("{} lines", layout::META.source.lines().count());
+    let lines = format!(
+        "{} lines",
+        shown_source(layout::META.source).lines().count()
+    );
     let lines = harness.get_by_label(&lines).rect();
     assert!(
         lines.left() > 700.0,
@@ -228,8 +231,12 @@ fn a_drag_across_code_lines_copies_them() {
             _ => None,
         })
         .expect("nothing was copied");
-    // More than one label's text, joined at the line break.
+    // More than one label's text, joined at the line break, and each piece is
+    // a piece of what the column shows.
+    let shown = shown_source(patch::META.source);
     let lines: Vec<&str> = copied.lines().collect();
     assert!(lines.len() >= 2, "copied: {copied:?}");
-    assert!(lines[1].starts_with("//!"), "copied: {copied:?}");
+    for line in &lines {
+        assert!(shown.contains(line), "not from the shown source: {line:?}");
+    }
 }

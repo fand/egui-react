@@ -6,10 +6,10 @@
 //! ```
 //!
 //! Times `Harness::step` (layout + tessellation, no GPU), like list-10k's
-//! bench. The panes are private to the gallery, so the code and list panes
-//! are rebuilt here the way `lib.rs` draws them.
+//! bench. The list pane is private to the gallery, so it is rebuilt here the
+//! way `lib.rs` draws it. The `code_view_ui` breakdown that found the cost is
+//! in docs/tasks/code-pane/measurements.md; the code it timed is gone.
 
-use egui_extras::syntax_highlighting::{CodeTheme, code_view_ui, highlight};
 use egui_kittest::Harness;
 use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
@@ -105,73 +105,6 @@ fn code_pane(meta: &'static Meta) -> f64 {
     })
 }
 
-/// The code column as `code_view_ui` drew it before step 1, in pieces: the
-/// breakdown behind docs/tasks/code-pane/measurements.md.
-fn code_variant(meta: &'static Meta, variant: &'static str) -> f64 {
-    bench(move |cx| {
-        let view = rsx! {
-            <View direction="row" grow={1.0} gap={8}>
-                <View w={200.0} shrink={0.0}/>
-                <View grow={1.0} min_w={0.0}/>
-                <View direction="column" w="40%" min_w={360.0} shrink={0.0} gap={6}>
-                    <View direction="row" gap={8} align="center" w="100%">
-                        <Text>"123 lines"</Text>
-                        <Text grow={1.0}>"45 lines plain"</Text>
-                    </View>
-                    <ScrollArea grow={1.0} horizontal>
-                        {view(move |cx| {
-                            cx.leaf_fill(&ItemStyle::default(), |ui| match variant {
-                                "highlight only" => {
-                                    let theme = CodeTheme::from_style(ui.style());
-                                    let _ = highlight(ui.ctx(), ui.style(), &theme, meta.source, "rs");
-                                }
-                                "label unselectable" => {
-                                    let theme = CodeTheme::from_style(ui.style());
-                                    let job = highlight(ui.ctx(), ui.style(), &theme, meta.source, "rs");
-                                    ui.add(egui::Label::new(job).selectable(false));
-                                }
-                                "plain monospace selectable" => {
-                                    ui.add(egui::Label::new(egui::RichText::new(meta.source).monospace()).selectable(true));
-                                }
-                                "galley unselectable" | "galley selectable" => {
-                                    // The galley kept across frames: no hash of the
-                                    // source, no hash of the job, no clone.
-                                    thread_local! {
-                                        static GALLEY: std::cell::RefCell<Option<(&'static str, std::sync::Arc<egui::Galley>)>> = const { std::cell::RefCell::new(None) };
-                                    }
-                                    let galley = GALLEY.with(|g| {
-                                        let mut g = g.borrow_mut();
-                                        if g.as_ref().is_none_or(|(name, _)| *name != meta.name) {
-                                            let theme = CodeTheme::from_style(ui.style());
-                                            let mut job = highlight(ui.ctx(), ui.style(), &theme, meta.source, "rs");
-                                            job.wrap.max_width = f32::INFINITY;
-                                            *g = Some((meta.name, ui.fonts_mut(|f| f.layout_job(job))));
-                                        }
-                                        g.as_ref().unwrap().1.clone()
-                                    });
-                                    ui.add(egui::Label::new(galley).selectable(variant == "galley selectable"));
-                                }
-                                "plain monospace click sense" => {
-                                    ui.add(egui::Label::new(egui::RichText::new(meta.source).monospace()).selectable(false).sense(egui::Sense::click_and_drag()));
-                                }
-                                "plain monospace" => {
-                                    ui.add(egui::Label::new(egui::RichText::new(meta.source).monospace()).selectable(false));
-                                }
-                                "empty" => {}
-                                _ => {
-                                    let theme = CodeTheme::from_style(ui.style());
-                                    code_view_ui(ui, &theme, meta.source, "rs");
-                                }
-                            });
-                        })}
-                    </ScrollArea>
-                </View>
-            </View>
-        };
-        view.show(cx);
-    })
-}
-
 /// The running example in the centre column, with the other two as empty
 /// boxes of the same size.
 fn running_pane(name: &'static str) -> f64 {
@@ -254,27 +187,5 @@ fn report() {
             running_pane(name),
             list,
         );
-    }
-
-    for name in ["list-10k", "patch"] {
-        let meta = find(name).unwrap();
-        println!();
-        println!(
-            "code pane variants ({name}, {} lines):",
-            meta.source.lines().count()
-        );
-        for variant in [
-            "code_view_ui",
-            "label unselectable",
-            "galley selectable",
-            "galley unselectable",
-            "plain monospace selectable",
-            "plain monospace click sense",
-            "plain monospace",
-            "highlight only",
-            "empty",
-        ] {
-            println!("{variant:>24} {:>6.2} ms", code_variant(meta, variant));
-        }
     }
 }

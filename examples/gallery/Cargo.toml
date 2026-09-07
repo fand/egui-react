@@ -25,7 +25,6 @@ snapshot = ["egui_kittest/snapshot", "egui_kittest/wgpu"]
 [dependencies]
 eframe.workspace = true
 egui.workspace = true
-egui_extras.workspace = true
 egui-react.workspace = true
 egui-react-app.workspace = true
 egui-react-elements.workspace = true

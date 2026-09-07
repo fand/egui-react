@@ -114,3 +114,18 @@ Selection: a drag from one line to the next selects across labels and copy
 joins them (`tests/gallery.rs`, `a_drag_across_code_lines_copies_them`). A
 selection whose end scrolls off screen is dropped by egui, as with any
 `show_rows` list of labels.
+
+## After the follow-up (own highlighter, trimmed source, sideways `<VirtualList>`)
+
+Same protocol. The code pane is the same cost as after step 2; the row count
+in view is what it costs, and that did not change.
+
+| example | lines shown | full (a11y) | code (a11y) | full (native) | code (native) |
+|---|---|---|---|---|---|
+| list-10k | 104 | 0.40 | 0.07 | 0.26 | 0.05 |
+| patch | 1578 | 0.42 | 0.08 | 0.27 | 0.05 |
+
+Tried and dropped: a `<View>` per row to pin the row height (a bare leaf takes
+the height of what it draws, and a blank line's galley had none) measured
+twice the pane cost (0.10 native, 0.16 with accesskit). The blank line gets
+its height from the job's `first_row_min_height` instead, at no cost.
