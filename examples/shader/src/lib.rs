@@ -54,8 +54,8 @@ pub const META: Meta = Meta {
 #[component]
 pub fn App(cx: &mut Cx) {
     let mut speed = use_state(cx, || 1.0f32);
-    let mut mass = use_state(cx, || 0.85f32);
-    let mut bloom = use_state(cx, || 1.0f32);
+    let mut mass = use_state(cx, || 1.0f32);
+    let mut bloom = use_state(cx, || 1.5f32);
     // Degrees, because that is what a slider labelled "tilt" should show; the
     // shader gets radians.
     let mut tilt = use_state(cx, || 22.0f32);

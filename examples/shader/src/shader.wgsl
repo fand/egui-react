@@ -36,11 +36,10 @@ const STEPS: i32 = 190;
 const DISK_OUTER: f32 = 9.0;
 
 // The framing, before any drag: close in, a few degrees above the disk, the
-// camera rolled so the disk runs up and to the right, and the hole off to the
-// right of centre so the near side of the disk can sweep in from the left.
+// hole in the middle of the picture, and the camera rolled (by the tilt
+// slider) so the disk runs diagonally across it.
 const CAM_DISTANCE: f32 = 10.5;
 const PITCH: f32 = 0.08;
-const HOLE_OFFSET: f32 = 0.6;
 // Larger is a narrower field of view.
 const FOCAL: f32 = 1.5;
 
@@ -264,7 +263,7 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let up = level_right * sin(u.tilt) + level_up * cos(u.tilt);
 
     var pos = cam;
-    var vel = normalize(fwd * FOCAL + right * (p.x - HOLE_OFFSET) + up * p.y);
+    var vel = normalize(fwd * FOCAL + right * p.x + up * p.y);
 
     let rs = max(u.mass, 0.02);
     // The innermost stable circular orbit sits at 3 * rs, so that is where the
