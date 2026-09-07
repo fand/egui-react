@@ -51,6 +51,12 @@ use egui_react::prelude::*;
 /// the range without measuring anything, and it is the one thing this element
 /// cannot check for you: a row that draws taller will overlap the next.
 ///
+/// The pitch is exactly `row_h`: `show_rows` itself would add the `Ui`'s
+/// `item_spacing.y` between rows, and this element zeroes it, so the gap
+/// between rows is the row's own business (an `h` shorter than `row_h`, or
+/// padding). A plain `show_rows` list with `item_spacing.y = gap` and
+/// `row_height = h` matches a `<VirtualList row_h={h + gap}>`.
+///
 /// The row's rect is the list's, not the row's: each row is laid out into a
 /// rect exactly `row_h` tall, and the list moves on by exactly `row_h`
 /// whatever the row drew. So the rows always sit where `show_rows` put them —
@@ -74,6 +80,9 @@ pub fn VirtualList(
     let layout = cx.layout_id();
     let mut render = render;
     cx.leaf_fill(&style, move |ui| {
+        // `show_rows` places the rows `row_h + item_spacing.y` apart. The
+        // element promises `row_h`, so the spacing goes.
+        ui.spacing_mut().item_spacing.y = 0.0;
         egui::ScrollArea::vertical().show_rows(ui, row_h, rows, move |ui, range| {
             // The rect every row's tree is laid out into, and the room it
             // takes. Fixed, so a row moves the cursor on by exactly the height

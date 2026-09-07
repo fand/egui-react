@@ -265,9 +265,10 @@ fn TallRow(cx: &mut Cx, index: usize) {
 
 /// A list whose rows sit at exactly `ROW_H` and that counts discard requests.
 ///
-/// `item_spacing.y` is zeroed, because `show_rows` puts the rows at
-/// `row_h + item_spacing.y` and the test wants one number. `tall` swaps in a
-/// row that draws over its height.
+/// `item_spacing.y` is left at egui's default on purpose: `show_rows` would put
+/// the rows at `row_h + item_spacing.y`, and the element promises `row_h`, so
+/// the pitch assertions cover that. `tall` swaps in a row that draws over its
+/// height.
 #[derive(Clone, Copy)]
 enum RowKind {
     Pitch,
@@ -281,7 +282,6 @@ fn pitch_harness<'a>(discards: &Rc<Cell<usize>>, kind: RowKind) -> Harness<'a, S
         .with_size(egui::vec2(300.0, 300.0))
         .build_ui_state(
             move |ui, store: &mut Store| {
-                ui.spacing_mut().item_spacing.y = 0.0;
                 run_app(ui, store, |cx| {
                     rsx! {
                         <View direction="column" w="100%" h={280.0}>
