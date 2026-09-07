@@ -37,6 +37,12 @@
 //!   database (a `System` name finds any face the database has), so this
 //!   chain never has to fall through to egui's font for Japanese; the report
 //!   shows the same key for both.
+//! - `code`: the monospace chain, and the `default_monospace`. Latin comes
+//!   from egui's Hack (behind the `monospace` generic), and the subset stands
+//!   behind it for the kana and kanji that Hack does not have, so the source
+//!   pane of the gallery, which draws this file in `FontFamily::Monospace`,
+//!   shows the sample strings instead of boxes. A monospace CJK font would
+//!   keep the columns aligned; this one only keeps them readable.
 //!
 //! The report table under the samples is the point of the example: it lists,
 //! for every entry of every chain, the face it resolved to (with the family
@@ -67,7 +73,7 @@ const NOTO_SANS_JP_SUBSET: &[u8] = include_bytes!("../fonts/NotoSansJP-Subset.tt
 pub const WEB_FONT_URL: &str = "fonts/NotoSansJP-Regular.otf";
 
 /// The stacks, in the order the buttons show them.
-pub const STACKS: [&str; 3] = ["bundled", "web", "system"];
+pub const STACKS: [&str; 4] = ["bundled", "web", "system", "code"];
 
 /// What is drawn with the selected stack. Every character is in the subset.
 pub const SAMPLES: [&str; 5] = [
@@ -116,7 +122,16 @@ pub fn build_fonts() -> Fonts {
                 FontSource::Generic(Generic::SansSerif),
             ],
         )
+        .stack(
+            "code",
+            [
+                FontSource::Generic(Generic::Monospace),
+                FontSource::Bundled(NOTO_SANS_JP_SUBSET),
+                FontSource::Generic(Generic::SansSerif),
+            ],
+        )
         .default_proportional("bundled")
+        .default_monospace("code")
 }
 
 #[component]

@@ -65,14 +65,18 @@ fn the_example_draws_japanese_with_the_bundled_stack() {
         other => panic!("the bundled subset did not load: {other:?}"),
     }
 
-    // And egui can draw Japanese with it, which it cannot with its own fonts.
+    // And egui can draw Japanese with it, which it cannot with its own fonts
+    // (`FontDefinitions::default()` has no CJK face; see the theme example).
     let has_japanese = |family: FontFamily| {
         harness
             .ctx
             .fonts_mut(|f| f.has_glyphs(&FontId::new(20.0, family), "日本語"))
     };
     assert!(has_japanese(FontFamily::Name("bundled".into())));
-    assert!(!has_japanese(FontFamily::Monospace));
+    // The monospace default too: the gallery's source pane draws this file in
+    // `Monospace`, and the sample strings in it must not come out as boxes.
+    assert!(has_japanese(FontFamily::Monospace));
+    assert!(has_japanese(FontFamily::Name("code".into())));
 
     // Picking another stack changes what the samples are drawn with.
     harness.get_by_label("web").click();
