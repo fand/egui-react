@@ -207,7 +207,7 @@ Each step ends with the listed checks green: `cargo fmt --all --check`, `cargo c
 
 ### Step 4: `Url` source
 
-- `fonts/url.rs`: on first sight of a `Url`, `ehttp::fetch` (callback form, works on both targets without an executor). On completion: sniff the magic, decode WOFF2 with `wuff` if the feature is on (else `Failed("woff2 feature is off")`), `db.load_font_source(Source::Binary(..))`, remember the `ID`s, re-`apply`, `ctx.request_repaint()`. Errors go to the report and `log::warn!`. One in-flight fetch per URL.
+- `fonts/url.rs`: on first sight of a `Url`, `ehttp::fetch` (callback form, works on both targets without an executor). On completion: sniff the magic, decode WOFF2 with `wuff` if the feature is on (else `Failed("woff2 feature is off")`), `db.load_font_source(Source::Binary(..))`, remember the `ID`s, re-`apply`, `ctx.request_repaint()`. Errors go to the report and `log::warn!`. One in-flight fetch per URL. As built, the same feature also decodes WOFF (version 1), since `wuff` ships both decoders and the zlib side costs little.
 - Native test with a local `std::net::TcpListener` serving a font file (ehttp uses ureq natively, so this is a real round trip): the chain reports `Pending` after the first `apply`, `Loaded` after the callback, and the definitions changed exactly once.
 - wasm: `cargo check`; the example is the test.
 

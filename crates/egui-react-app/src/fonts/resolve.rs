@@ -34,6 +34,8 @@ impl SourceKey {
 pub(super) enum Loaded {
     /// The fetch has been started and has not answered.
     Pending,
+    /// The fetch or the decode failed; the message goes to the report.
+    Failed(String),
     /// The faces fontdb found in the bytes (empty when it could parse none).
     /// `static_bytes` is the blob itself when it is compiled in, so that the
     /// `FontData` can borrow it instead of copying a font that already sits
@@ -226,6 +228,7 @@ fn resolve_blob(
 ) -> Outcome {
     match loaded {
         None | Some(Loaded::Pending) => Outcome::Pending,
+        Some(Loaded::Failed(reason)) => Outcome::Failed(reason.clone()),
         Some(Loaded::Faces { ids, static_bytes }) => {
             let Some(id) = best_of(input.db, ids, stack.weight, stack.style) else {
                 return Outcome::Invalid(String::from("no font face could be parsed"));
@@ -602,6 +605,27 @@ mod tests {
             ],
         )]);
         assert_eq!(out.report[0].entries[0].1, Outcome::Pending);
+        assert_eq!(family(&out.definitions, "web")[0], HACK);
+    }
+
+    #[test]
+    fn a_failed_url_is_skipped_and_carries_its_reason() {
+        let mut fx = Fixture::new();
+        fx.loaded.insert(
+            SourceKey::Url("fonts/x.ttf".into()),
+            Loaded::Failed(String::from("HTTP 404 Not Found")),
+        );
+        let out = fx.resolve(&[FontStack::new(
+            "web",
+            [
+                FontSource::Url("fonts/x.ttf".into()),
+                FontSource::Bundled(HACK_REGULAR),
+            ],
+        )]);
+        assert_eq!(
+            out.report[0].entries[0].1,
+            Outcome::Failed("HTTP 404 Not Found".into())
+        );
         assert_eq!(family(&out.definitions, "web")[0], HACK);
     }
 

@@ -56,6 +56,7 @@
 //! it.
 
 mod resolve;
+mod url;
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -486,10 +487,6 @@ impl Fonts {
         // to keep drawing with: nothing here is half-written across a call.
         self.0.lock().unwrap_or_else(PoisonError::into_inner)
     }
-
-    /// Step 4 replaces this with the `ehttp` fetch; until then a URL stays
-    /// `Pending`.
-    fn start_fetch(&self, _url: String) {}
 }
 
 impl Inner {
