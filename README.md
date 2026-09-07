@@ -69,6 +69,7 @@ Every example but one runs in the browser in the [gallery](https://fand.github.i
 | `shell` | Docked panels, a floating window, and an editor in what is left. | – (standalone) | [lib.rs](examples/shell/src/lib.rs) | – |
 | `layout` | Every flex and grid attribute `<View>` understands, one section each. | [#layout](https://fand.github.io/egui-react/#layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
 | `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [#fetch](https://fand.github.io/egui-react/#fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |
+| `font` | CSS-style font chains: a bundled subset, a 9.6 MB web font fetched on demand, and the installed fonts, with what each entry resolved to. | [#font](https://fand.github.io/egui-react/#font) | [lib.rs](examples/font/src/lib.rs) | – |
 
 Run one natively, or in a browser with [trunk](https://trunkrs.dev/):
 
@@ -84,6 +85,8 @@ The gallery runs the same way, and takes the name of the example to open first:
 cargo run -p gallery todo
 trunk serve --config examples/gallery/Trunk.toml
 ```
+
+A font an app bundles with `include_bytes!` goes into the wasm (`examples/font` ships a 433 KB subset of Noto Sans JP for that reason and its `fonts/README.md` says how it was cut); the full 9.6 MB font the same example fetches at run time is not committed, a pre-build hook in its `Trunk.toml` (and the gallery's) downloads it the first time trunk builds.
 
 ## Testing
 

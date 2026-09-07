@@ -228,6 +228,15 @@ Each step ends with the listed checks green: `cargo fmt --all --check`, `cargo c
 - `META` with `hooks: ["use_state"]`, `elements: ["View", "Text", "Button"]`; added to `EXAMPLES` in the gallery and to the README table. `theme` may get its Japanese locale back in a follow-up now that the gallery has a CJK font; not in this task.
 - kittest: the example renders and the report table lists the three stacks.
 
+As built (2026-09-07), where it departs from the above:
+
+- The `Fonts` is a `LazyLock` static (`font::fonts()`), applied from `setup` in `main.rs` and once more from a `use_effect` on `App`'s first frame, because the gallery runs `App` in its own runner with no per-example `setup`. The second `apply` is a no-op when the first happened (the definitions are equal). On the frame that applies, the names are not registered yet, so the samples use `"proportional"` for that one frame rather than trigger `<Text font>`'s warning.
+- Natively the `Url` entry is `Failed` (a relative URL has no base for ureq), not read from the example directory; the report shows it, which is the honest answer for a source that is about HTTP. The web font is the variable `NotoSansJP[wght].ttf` from google/fonts (9.6 MB, downloaded by `fonts/fetch-web-font.sh` from the trunk `pre_build` hooks of the example and of the gallery, gitignored); its default instance is Thin (`fvar` default `wght` 100, `usWeightClass` 100) and epaint draws the default instance, so the `web` stack is lighter than the other two.
+- `system` also names `"Noto Sans JP"`, which matches the bundled subset already in the database, by design of `System` (any face the database has).
+- The Local Font Access click uses `egui_react::spawn` (`spawn_local` on wasm, a thread on native) and reports back through a `Dispatch`, so the example has no `cfg` block, only a `cfg!` for the button's note.
+- One kittest, not several: the static is per process and `apply` calls `set_fonts` only when the definitions changed, so a second `Context` in the same process would not receive them. It also asserts `has_glyphs("日本語")` on the `bundled` family, which works here because the subset has neither U+FFFD nor `◻` and the replacement glyph therefore comes from a later face (see the step 1 note on `has_glyphs`).
+- The Chromium round trip (permission prompt, `system` resolved from the grant) was not run in this environment; it is described in the module doc and remains a manual check.
+
 ### Step 7: docs
 
 - ARCHITECTURE.md section 8: one bullet "Fonts", stating that text is rasterized by epaint from bytes, that the runner's `fonts` module resolves CSS-like chains into `FontDefinitions` through one `fontdb::Database`, which sources exist per target, and the two panics the design guards against. Section 7's crate list gets `fonts` after `run(..)`.
