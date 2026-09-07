@@ -42,9 +42,9 @@
 //!
 //! No `Panel`, so the gallery can run it in a column of its own.
 
-use example_meta::Meta;
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
+use example_meta::Meta;
 
 pub mod board;
 pub mod hooks;

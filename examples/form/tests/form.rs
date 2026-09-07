@@ -2,10 +2,10 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
-use form::App;
-use form::plain::{self, PlainState};
 use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
+use form::App;
+use form::plain::{self, PlainState};
 
 const SIZE: egui::Vec2 = egui::vec2(420.0, 420.0);
 

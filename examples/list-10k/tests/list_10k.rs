@@ -2,10 +2,10 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
-use list_10k::App;
-use list_10k::plain::{self, PlainState};
 use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
+use list_10k::App;
+use list_10k::plain::{self, PlainState};
 
 const SIZE: egui::Vec2 = egui::vec2(520.0, 520.0);
 /// Small enough that a test frame is quick; the slider still reaches 10k.

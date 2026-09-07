@@ -1,8 +1,8 @@
 //! Runs the `patch` example on its own; the app itself is in `lib.rs`.
 
-use patch::{App, gpu};
 use egui_react::prelude::*;
 use egui_react_app::{Options, run};
+use patch::{App, gpu};
 
 fn main() -> eframe::Result {
     run(

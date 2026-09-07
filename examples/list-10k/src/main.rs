@@ -3,9 +3,9 @@
 //! rather than a second binary (`list-10k-plain` still exists for a build with
 //! no egui-react in it at all).
 
-use list_10k::Compare;
 use egui_react::prelude::*;
 use egui_react_app::{Options, run};
+use list_10k::Compare;
 
 fn main() -> eframe::Result {
     run(

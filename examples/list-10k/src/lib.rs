@@ -22,9 +22,9 @@
 
 use std::collections::BTreeSet;
 
-use example_meta::Meta;
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
+use example_meta::Meta;
 
 pub mod plain;
 
@@ -34,7 +34,14 @@ pub const META: Meta = Meta {
     name: "list-10k",
     summary: "Ten thousand rows, and what drawing all of them costs.",
     hooks: &["use_state", "use_memo"],
-    elements: &["View", "Text", "Slider", "TextEdit", "Button", "VirtualList"],
+    elements: &[
+        "View",
+        "Text",
+        "Slider",
+        "TextEdit",
+        "Button",
+        "VirtualList",
+    ],
     source: include_str!("lib.rs"),
     plain: Some(include_str!("plain.rs")),
 };

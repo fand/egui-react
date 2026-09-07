@@ -3,9 +3,9 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
-use gallery::App;
 use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
+use gallery::App;
 
 /// The runner's frame, minus eframe: one pass inside the real root container,
 /// so the gallery's three columns are sized the way they are under

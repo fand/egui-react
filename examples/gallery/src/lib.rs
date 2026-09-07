@@ -7,9 +7,9 @@
 //! them and the new example starts clean.
 
 use egui_extras::syntax_highlighting::{CodeTheme, code_view_ui};
-use example_meta::Meta;
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
+use example_meta::Meta;
 
 use board::App as BoardApp;
 use clock::App as ClockApp;

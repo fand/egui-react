@@ -24,9 +24,9 @@
 //! allocate-and-paint dance for you, with `on_paint` / `on_drag` / `on_hover`,
 //! and will be the way to reach wgpu.
 
-use example_meta::Meta;
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
+use example_meta::Meta;
 
 pub const META: Meta = Meta {
     name: "escape-hatch",

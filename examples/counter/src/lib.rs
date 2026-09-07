@@ -1,8 +1,8 @@
 //! The smallest egui-react app: one piece of state and two handlers.
 
-use example_meta::Meta;
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
+use example_meta::Meta;
 
 pub mod plain;
 

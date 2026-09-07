@@ -4,9 +4,9 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
-use escape_hatch::App;
 use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
+use escape_hatch::App;
 
 fn harness<'a>() -> Harness<'a, Store> {
     Harness::builder()

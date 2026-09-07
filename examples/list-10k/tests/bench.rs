@@ -16,10 +16,10 @@
 //! row is measured in `scenarios.rs`, which builds that list itself.)
 
 use egui_kittest::Harness;
-use list_10k::App;
-use list_10k::plain::{self, PlainState};
 use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
+use list_10k::App;
+use list_10k::plain::{self, PlainState};
 
 const SIZE: egui::Vec2 = egui::vec2(600.0, 800.0);
 const WARMUP: usize = 5;
