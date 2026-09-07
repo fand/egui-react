@@ -19,6 +19,9 @@ snapshot = ["egui_kittest/snapshot", "egui_kittest/wgpu"]
 [dependencies]
 egui.workspace = true
 egui-react.workspace = true
+# `<Text font="..">` with a name nothing registered warns once instead of
+# reaching egui, which would panic.
+log.workspace = true
 
 [dev-dependencies]
 egui_kittest.workspace = true

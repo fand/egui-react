@@ -1,8 +1,10 @@
 //! `fonts::Fonts` end to end, through egui: a stack applied before the first
-//! frame is a `FontFamily::Name` egui can lay text out with.
+//! frame is a `FontFamily::Name` egui can lay text out with, and `<Text font>`
+//! draws with it.
 
 use egui::FontFamily;
 use egui_kittest::Harness;
+use egui_kittest::kittest::Queryable as _;
 use egui_react::prelude::*;
 use egui_react_app::fonts::{FontSource, Fonts, Generic, Outcome};
 use egui_react_app::{root_id, root_style};
@@ -13,6 +15,7 @@ use epaint_default_fonts::HACK_REGULAR;
 fn App(cx: &mut Cx) {
     rsx! {
         <View direction="column" gap={8} p={12}>
+            <Text font="code">"code text"</Text>
             <Text>"plain text"</Text>
         </View>
     }
@@ -28,6 +31,23 @@ fn run_app(ui: &mut egui::Ui, store: &mut Store) {
         cx.root_container(root_id(), root_style(), |cx| view.show(cx));
     }
     store.end_pass();
+}
+
+/// Recursively find the galley that draws `text`.
+fn galley_of(
+    shapes: &[egui::epaint::ClippedShape],
+    text: &str,
+) -> Option<std::sync::Arc<egui::Galley>> {
+    fn walk(shape: &egui::Shape, text: &str) -> Option<std::sync::Arc<egui::Galley>> {
+        match shape {
+            egui::Shape::Text(t) if t.galley.text() == text => {
+                Some(std::sync::Arc::clone(&t.galley))
+            }
+            egui::Shape::Vec(v) => v.iter().find_map(|s| walk(s, text)),
+            _ => None,
+        }
+    }
+    shapes.iter().find_map(|c| walk(&c.shape, text))
 }
 
 #[test]
@@ -77,6 +97,17 @@ fn a_bundled_stack_is_a_family_egui_can_use() {
         }
     );
     assert_eq!(fonts.generation(), 1);
+
+    // And `<Text font="code">` drew with it, while the plain one did not.
+    harness.get_by_label("code text");
+    let shapes = &harness.output().shapes;
+    let code_galley = galley_of(shapes, "code text").expect("the code text was painted");
+    assert_eq!(code_galley.job.sections[0].format.font_id.family, code);
+    let plain_galley = galley_of(shapes, "plain text").expect("the plain text was painted");
+    assert_eq!(
+        plain_galley.job.sections[0].format.font_id.family,
+        FontFamily::Proportional
+    );
 }
 
 #[test]

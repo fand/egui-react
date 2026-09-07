@@ -1141,6 +1141,7 @@ dependencies = [
  "egui",
  "egui-react",
  "egui_kittest",
+ "log",
 ]
 
 [[package]]
