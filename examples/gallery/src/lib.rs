@@ -17,6 +17,7 @@ use counter::App as CounterApp;
 use custom_hook::App as CustomHookApp;
 use escape_hatch::App as EscapeHatchApp;
 use fetch::App as FetchApp;
+use font::App as FontApp;
 use form::App as FormApp;
 use layout::App as LayoutApp;
 use list_10k::App as ListApp;
@@ -47,6 +48,7 @@ pub const EXAMPLES: &[Meta] = &[
     list_10k::META,
     layout::META,
     fetch::META,
+    font::META,
 ];
 
 /// Where the source links point.
@@ -237,6 +239,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "list-10k" => { <ListApp initial_count={1_000}/> }
                 "layout" => { <LayoutApp/> }
                 "fetch" => { <FetchApp/> }
+                "font" => { <FontApp/> }
                 _ => { <ShowcaseApp/> }
             }
         }

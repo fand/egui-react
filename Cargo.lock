@@ -1532,6 +1532,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "77ce24cb58228fbb8aa041425bb1050850ac19177686ea6e0f41a70416f56fdb"
 
 [[package]]
+name = "font"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
+ "egui_kittest",
+ "example-meta",
+]
+
+[[package]]
 name = "font-types"
 version = "0.12.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1687,6 +1700,7 @@ dependencies = [
  "escape-hatch",
  "example-meta",
  "fetch",
+ "font",
  "form",
  "layout",
  "list-10k",

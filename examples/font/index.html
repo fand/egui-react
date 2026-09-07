@@ -3,11 +3,11 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
-    <title>egui-react: gallery</title>
-    <link data-trunk rel="rust" href="Cargo.toml" data-bin="gallery" data-wasm-opt="z" />
-    <!-- The font example's web font, at the same relative URL it fetches when it
-         runs on its own. Downloaded by the pre-build hook in Trunk.toml. -->
-    <link data-trunk rel="copy-file" href="../font/fonts/NotoSansJP-Regular.ttf" data-target-path="fonts" />
+    <title>egui-react: font</title>
+    <link data-trunk rel="rust" href="Cargo.toml" data-bin="font" data-wasm-opt="z" />
+    <!-- The `web` stack's font, served same-origin as `fonts/NotoSansJP-Regular.ttf`.
+         Downloaded by the pre-build hook in Trunk.toml; see fonts/fetch-web-font.sh. -->
+    <link data-trunk rel="copy-file" href="fonts/NotoSansJP-Regular.ttf" data-target-path="fonts" />
     <style>
       html,
       body {
