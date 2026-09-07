@@ -130,6 +130,7 @@ pub fn App(cx: &mut Cx, #[prop(default = DEFAULT_COUNT)] initial_count: usize) {
     }
 }
 
+// gallery:hide
 /// The standalone binary's root: [`App`] or the plain egui list, switched at
 /// the top of the window, so the two can be compared without a second window.
 /// Each keeps its own state; both open at a hundred thousand rows.
@@ -163,6 +164,7 @@ pub fn PlainApp(cx: &mut Cx) {
         plain::ui(ui, state.bind());
     });
 }
+// gallery:show
 
 /// One row, built by `<VirtualList>` for each row in view.
 #[component]

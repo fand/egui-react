@@ -61,16 +61,25 @@ use egui_react::prelude::*;
 /// rect exactly `row_h` tall, and the list moves on by exactly `row_h`
 /// whatever the row drew. So the rows always sit where `show_rows` put them —
 /// a row that draws shorter leaves a gap under itself instead of pulling the
-/// whole list up, and one that draws taller reaches into the next row.
+/// whole list up, and one that draws taller reaches into the next row. That
+/// rect is the root of the row's `<View>`; a row that is a bare leaf, with no
+/// `<View>` around it, draws straight into the list and takes whatever height
+/// it drew, so give such a row a `<View h={row_h}>` if its height can vary.
 ///
 /// The size comes from the style, not the content (`leaf_fill`), so give it
 /// `grow` or an `h`; with neither it fills the window on that axis.
+///
+/// `horizontal` lets the list scroll sideways as well. A row is then laid out
+/// as wide as the viewport, not as wide as the content: give a row that is
+/// meant to reach past the edge a `w` of its own (and `shrink={0}`), and the
+/// scroll range follows what the rows in view drew.
 #[component]
 pub fn VirtualList(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
     rows: usize,
     row_h: f32,
+    #[prop(default)] horizontal: bool,
     // The bound is spelled out rather than elided. `#[component]` rewrites an
     // elided lifetime in a prop to the props struct's own, and a closure taking
     // a `Cx` has to be callable with whatever lifetimes the row's `Cx` has.
@@ -83,13 +92,22 @@ pub fn VirtualList(
         // `show_rows` places the rows `row_h + item_spacing.y` apart. The
         // element promises `row_h`, so the spacing goes.
         ui.spacing_mut().item_spacing.y = 0.0;
-        egui::ScrollArea::vertical().show_rows(ui, row_h, rows, move |ui, range| {
+        egui::ScrollArea::new([horizontal, true]).show_rows(ui, row_h, rows, move |ui, range| {
             // The rect every row's tree is laid out into, and the room it
             // takes. Fixed, so a row moves the cursor on by exactly the height
             // `show_rows` worked the visible range out from, and so a row
             // tree's root size does not move with the scroll offset. See
             // `Cx::with_root_size`.
-            let row_size = egui::vec2(ui.available_width(), row_h);
+            //
+            // On a sideways-scrolling list the width egui offers is infinite;
+            // the viewport's is what a row of `w="100%"` should mean.
+            let row_w = ui.available_width();
+            let row_w = if row_w.is_finite() {
+                row_w
+            } else {
+                ui.clip_rect().width()
+            };
+            let row_size = egui::vec2(row_w, row_h);
             // The same shape as any container element: rebuild a `Cx` around
             // the `Ui` egui handed back, then enter a scope per row.
             let mut cx = Cx::new(store, ui, scope);
