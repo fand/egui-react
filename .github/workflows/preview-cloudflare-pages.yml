@@ -81,13 +81,4 @@ jobs:
           header: cf-preview
           message: |
             🚀 **Cloudflare Pages preview** — ${{ github.event.pull_request.head.sha }}
-
-            | Page | URL |
-            | --- | --- |
-            | Gallery | ${{ steps.deploy.outputs.pages-deployment-alias-url }} |
-            | showcase | ${{ steps.deploy.outputs.pages-deployment-alias-url }}/#showcase |
-            | board | ${{ steps.deploy.outputs.pages-deployment-alias-url }}/#board |
-            | patch | ${{ steps.deploy.outputs.pages-deployment-alias-url }}/#patch |
-            | list-10k | ${{ steps.deploy.outputs.pages-deployment-alias-url }}/#list-10k |
-
-            <sub>This branch URL stays the same across pushes. Latest deploy: ${{ steps.deploy.outputs.deployment-url }}</sub>
+            ${{ steps.deploy.outputs.pages-deployment-alias-url }}
