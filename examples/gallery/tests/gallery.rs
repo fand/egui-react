@@ -174,3 +174,62 @@ fn toggled(harness: &Harness<'_, Store>, label: &str) -> bool {
     use egui_kittest::kittest::NodeT as _;
     harness.get_by_label(label).accesskit_node().toggled() == Some(egui::accesskit::Toggled::True)
 }
+
+/// The code is one selectable label per line. A drag that starts on one line
+/// and ends on another selects across them, and copy joins the lines: egui's
+/// `multi_widget_text_select`, which is on by default.
+#[test]
+fn a_drag_across_code_lines_copies_them() {
+    // `patch` rather than the default: it has no plain version, so the code
+    // column is the line-count row and then the lines, with no toggle row to
+    // work around. It also animates, hence `run_steps` and not `run`.
+    let mut harness = Harness::builder()
+        .with_size(egui::vec2(WIDTH, HEIGHT))
+        .build_ui_state(
+            |ui, store: &mut Store| {
+                store.begin_pass(ui.ctx());
+                {
+                    let store: &Store = store;
+                    let mut cx = Cx::new(store, ui, root_id());
+                    let view = rsx! { <App start="patch"/> };
+                    cx.root_container(root_id(), root_style(), |cx| view.show(cx));
+                }
+                store.end_pass();
+            },
+            Store::new(),
+        );
+    harness.run_steps(3);
+
+    // The pane is the right 40% of the window; a Monospace row is 15 points
+    // at this style, and the first one starts 36 points down.
+    let x = WIDTH * 0.6 + 40.0;
+    let line = |i: f32| egui::pos2(x, 36.0 + 15.0 * i + 7.0);
+
+    harness.hover_at(line(1.0));
+    harness.step();
+    harness.drag_at(line(1.0));
+    harness.step();
+    harness.hover_at(line(3.0));
+    harness.step();
+    harness.step();
+    harness.drop_at(line(3.0));
+    harness.step();
+
+    harness.input_mut().events.push(egui::Event::Copy);
+    harness.step();
+
+    let copied = harness
+        .output()
+        .platform_output
+        .commands
+        .iter()
+        .find_map(|c| match c {
+            egui::OutputCommand::CopyText(text) => Some(text.clone()),
+            _ => None,
+        })
+        .expect("nothing was copied");
+    // More than one label's text, joined at the line break.
+    let lines: Vec<&str> = copied.lines().collect();
+    assert!(lines.len() >= 2, "copied: {copied:?}");
+    assert!(lines[1].starts_with("//!"), "copied: {copied:?}");
+}

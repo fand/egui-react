@@ -76,3 +76,41 @@ Without accesskit:
 Native: the two hashes are gone and the pane no longer scales with the
 source (patch 0.67 → 0.07). With accesskit the `TextRun` rebuild of every
 row is what is left (patch 2.25 → 1.56); step 2 is for that.
+
+## After step 2 (one galley per line, drawn through `<VirtualList>`)
+
+With accesskit:
+
+| example | lines | full | code | running | list |
+|---|---|---|---|---|---|
+| counter | 32 | 0.21 | 0.04 | 0.01 | 0.09 |
+| list-10k | 177 | 0.39 | 0.07 | 0.23 | 0.09 |
+| showcase | 341 | 0.18 | 0.07 | 0.02 | 0.09 |
+| board | 894 | 0.35 | 0.09 | 0.17 | 0.09 |
+| patch | 1661 | 0.40 | 0.09 | 0.21 | 0.09 |
+
+Without accesskit:
+
+| example | lines | full | code | running | list |
+|---|---|---|---|---|---|
+| counter | 32 | 0.11 | 0.03 | 0.01 | 0.07 |
+| list-10k | 177 | 0.27 | 0.04 | 0.15 | 0.07 |
+| showcase | 341 | 0.12 | 0.04 | 0.01 | 0.07 |
+| board | 894 | 0.26 | 0.07 | 0.13 | 0.07 |
+| patch | 1661 | 0.27 | 0.05 | 0.13 | 0.07 |
+
+The pane costs the same whatever the source length: about 60 rows are on
+screen, and only those are laid out, painted and reported to accesskit.
+With accesskit, patch 1.56 → 0.09; the gallery frame for patch 2.81 → 0.40
+over the two steps. Native is flat at 0.04–0.07 for every example.
+
+What is left, native, list-10k: the list with rows that draw nothing costs
+0.01; the other 0.03–0.04 is sixty selectable `Label`s (an interact and a
+text-selection pass each), which is what egui's own `show_rows` of labels
+costs too. Drawing the label straight into the row `Ui` instead of through
+`cx.leaf` measured the same (0.05 both), so the row stays a leaf.
+
+Selection: a drag from one line to the next selects across labels and copy
+joins them (`tests/gallery.rs`, `a_drag_across_code_lines_copies_them`). A
+selection whose end scrolls off screen is dropped by egui, as with any
+`show_rows` list of labels.

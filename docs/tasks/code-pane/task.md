@@ -1,5 +1,15 @@
 # Task: gallery code pane cost
 
+## Result (2026-09-07)
+
+Both steps done; numbers in [measurements.md](measurements.md).
+
+| Completion criterion | Status |
+|---|---|
+| Code pane for `patch` under 0.2 ms with accesskit | **Pass.** 0.09 ms, from 2.25 |
+| Code pane for `list-10k` under 0.03 ms native, flat in source length | **Flat: pass.** 0.04–0.07 for every example, from 0.08 (list-10k) and 0.67 (patch). **0.03: miss** at 0.04; the rest is sixty selectable labels, the same as plain `show_rows` |
+| Selection and copy still work | **Pass**, by test (`a_drag_across_code_lines_copies_them`). One trade-off: a selection whose end scrolls off screen is dropped, as in any `show_rows` list |
+
 ## Problem
 
 The gallery draws the selected example's source in the right column with
