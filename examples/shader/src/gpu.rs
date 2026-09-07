@@ -6,22 +6,23 @@ use egui_wgpu::CallbackTrait;
 
 /// What the shader reads, laid out the way WGSL expects it.
 ///
-/// `vec2<f32>` is 8-byte aligned in a uniform block, so `resolution` lands at
-/// offset 8 and `mouse` at 16; the tail padding takes the block to a multiple
-/// of 16, which is what a uniform binding has to be.
+/// Four scalars first, so that the `vec2<f32>`s — 8-byte aligned in a uniform
+/// block — land at offsets 16 and 24 with no gap; the tail padding takes the
+/// block to a multiple of 16, which is what a uniform binding has to be.
 #[repr(C)]
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Uniform {
     time: f32,
     mass: f32,
+    bloom: f32,
+    tilt: f32,
     resolution: [f32; 2],
     mouse: [f32; 2],
     /// 1.0 when the target format encodes sRGB on write, 0.0 when it does not.
     /// The shader works in linear light and has to do the encoding itself in
-    /// the second case. This one used to be padding, so the block is the same
-    /// size it always was.
+    /// the second case.
     srgb_target: f32,
-    _padding: f32,
+    _padding: [f32; 3],
 }
 
 /// The pipeline and its uniform buffer, parked in `callback_resources`.
@@ -141,6 +142,10 @@ pub struct ShaderCallback {
     pub time: f32,
     /// The Schwarzschild radius in scene units, straight off the mass slider.
     pub mass: f32,
+    /// Strength and spread of the disk's glow; 1.0 is the default look.
+    pub bloom: f32,
+    /// The camera's roll about the view axis, in radians.
+    pub tilt: f32,
     /// The canvas size in physical pixels.
     pub resolution: egui::Vec2,
     /// Where dragging has turned the camera, in pixels.
@@ -163,10 +168,12 @@ impl CallbackTrait for ShaderCallback {
                 bytemuck::bytes_of(&Uniform {
                     time: self.time,
                     mass: self.mass,
+                    bloom: self.bloom,
+                    tilt: self.tilt,
                     resolution: [self.resolution.x, self.resolution.y],
                     mouse: [self.mouse.x, self.mouse.y],
                     srgb_target: if res.srgb_target { 1.0 } else { 0.0 },
-                    _padding: 0.0,
+                    _padding: [0.0; 3],
                 }),
             );
         }

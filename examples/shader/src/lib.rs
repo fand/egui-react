@@ -21,9 +21,10 @@
 //! egui will run it inside its own render pass with the viewport and scissor
 //! already set to the rect.
 //!
-//! State is the point of the example. `speed`, `mass` and `paused` are
-//! `use_state` like anywhere else, and the values are copied into the callback
-//! struct, written to a uniform buffer in `prepare`, and read by the WGSL.
+//! State is the point of the example. `speed`, `mass`, `bloom`, `tilt` and
+//! `paused` are `use_state` like anywhere else, and the values are copied into
+//! the callback struct, written to a uniform buffer in `prepare`, and read by
+//! the WGSL.
 //! Moving a slider changes a number in a hook and the picture changes; nothing
 //! in between has to be told. `mass` is the one to try first: it is the
 //! Schwarzschild radius the shader traces photons around, so it sets the size
@@ -49,11 +50,15 @@ pub const META: Meta = Meta {
     plain: None,
 };
 
-/// The shader canvas, two sliders and a pause box.
+/// The shader canvas, four sliders and a pause box.
 #[component]
 pub fn App(cx: &mut Cx) {
     let mut speed = use_state(cx, || 1.0f32);
-    let mut mass = use_state(cx, || 0.7f32);
+    let mut mass = use_state(cx, || 0.85f32);
+    let mut bloom = use_state(cx, || 1.0f32);
+    // Degrees, because that is what a slider labelled "tilt" should show; the
+    // shader gets radians.
+    let mut tilt = use_state(cx, || 22.0f32);
     let mut paused = use_state(cx, || false);
     let mut mouse = use_state(cx, || egui::Vec2::ZERO);
 
@@ -70,6 +75,8 @@ pub fn App(cx: &mut Cx) {
     // is a separate closure that would otherwise hold a borrow across them.
     let speed_value = *speed;
     let mass_value = *mass;
+    let bloom_value = *bloom;
+    let tilt_value = tilt.to_radians();
     let mouse_value = *mouse;
     let points_to_pixels = cx.ctx().pixels_per_point();
 
@@ -96,6 +103,8 @@ pub fn App(cx: &mut Cx) {
                         gpu::ShaderCallback {
                             time: time * speed_value,
                             mass: mass_value,
+                            bloom: bloom_value,
+                            tilt: tilt_value,
                             resolution,
                             mouse: mouse_value * points_to_pixels,
                         },
@@ -104,6 +113,8 @@ pub fn App(cx: &mut Cx) {
             />
             <View direction="row" gap={12} align="center" wrap>
                 <Slider bind={mass.bind()} range={0.1..=2.0} label="mass"/>
+                <Slider bind={bloom.bind()} range={0.0..=4.0} label="bloom"/>
+                <Slider bind={tilt.bind()} range={-60.0..=60.0} label="tilt"/>
                 <Slider bind={speed.bind()} range={0.0..=4.0} label="speed"/>
                 <Checkbox bind={paused.bind()} label="pause"/>
             </View>

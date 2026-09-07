@@ -2,20 +2,28 @@
 //
 // One fullscreen triangle, and for every pixel of it a photon traced backwards
 // from the camera through curved space. What the photon runs into on the way —
-// the accretion disk, the sky, or the horizon — is the colour of the pixel.
+// the accretion disk, the sky, or the horizon — is the colour of the pixel,
+// plus the glow of the disk it gathered along its path, which is how the
+// picture gets a bloom without a second pass.
 
 struct Uniform {
     time: f32,
     // The Schwarzschild radius in scene units. The slider writes it, and it
     // sets both the size of the shadow and how hard the light bends.
     mass: f32,
+    // How strong and how wide the disk's glow is; 1.0 is the default look.
+    bloom: f32,
+    // The camera's roll about the view axis, in radians.
+    tilt: f32,
     resolution: vec2<f32>,
     mouse: vec2<f32>,
     // 1.0 when egui is drawing into an sRGB surface format, 0.0 when it is
     // not. `gpu::setup` reads it off the render state; see the end of
     // `fs_main` for what it is for.
     srgb_target: f32,
-    _pad: f32,
+    _pad0: f32,
+    _pad1: f32,
+    _pad2: f32,
 };
 
 @group(0) @binding(0) var<uniform> u: Uniform;
@@ -26,7 +34,15 @@ struct Uniform {
 const STEPS: i32 = 190;
 // The disk's outer edge, in scene units. Its inner edge follows the mass.
 const DISK_OUTER: f32 = 9.0;
-const CAM_DISTANCE: f32 = 17.0;
+
+// The framing, before any drag: close in, a few degrees above the disk, the
+// camera rolled so the disk runs up and to the right, and the hole off to the
+// right of centre so the near side of the disk can sweep in from the left.
+const CAM_DISTANCE: f32 = 10.5;
+const PITCH: f32 = 0.08;
+const HOLE_OFFSET: f32 = 0.6;
+// Larger is a narrower field of view.
+const FOCAL: f32 = 1.5;
 
 struct VertexOut {
     @builtin(position) position: vec4<f32>,
@@ -98,7 +114,7 @@ fn fbm2(p0: vec2<f32>) -> f32 {
 fn sky(dir: vec3<f32>) -> vec3<f32> {
     var col = vec3<f32>(0.0);
     var scale = 130.0;
-    var weight = 2.2;
+    var weight = 1.4;
     for (var i = 0; i < 2; i++) {
         let s = dir * scale;
         let cell = floor(s);
@@ -120,7 +136,7 @@ fn sky(dir: vec3<f32>) -> vec3<f32> {
     // near-black rather than a flat wash over the whole sky.
     let dust = fbm2(dir.xz * 2.2 + 3.0) * fbm2(dir.yx * 1.9 + 8.0);
     let cloud = smoothstep(0.22, 0.55, dust);
-    return col + vec3<f32>(0.004, 0.006, 0.018) + vec3<f32>(0.075, 0.045, 0.13) * cloud;
+    return col + vec3<f32>(0.008, 0.006, 0.006) + vec3<f32>(0.05, 0.03, 0.025) * cloud;
 }
 
 /// One layer of the disk's gas, wound up by `age` seconds of Keplerian shear.
@@ -129,7 +145,7 @@ fn sky(dir: vec3<f32>) -> vec3<f32> {
 /// by an angle that depends on its own radius is what turns plain noise into
 /// spiral arms, and it costs one sin and one cos.
 fn gas(p: vec3<f32>, radius: f32, age: f32) -> f32 {
-    let a = -age * 1.6 / pow(radius, 1.5);
+    let a = -age * 2.0 / pow(radius, 1.5);
     let c = cos(a);
     let s = sin(a);
     let q = vec2<f32>(p.x * c - p.z * s, p.x * s + p.z * c);
@@ -138,6 +154,40 @@ fn gas(p: vec3<f32>, radius: f32, age: f32) -> f32 {
 
 /// How long a layer of gas is wound before it is started over, in seconds.
 const CHURN: f32 = 7.0;
+
+/// Signed distance from `p` to the disk: a flat annulus in the y = 0 plane
+/// between `inner` and `DISK_OUTER`. Inside the annulus, the distance is the
+/// height above the plane; beyond an edge, the distance to that edge.
+fn disk_sdf(p: vec3<f32>, inner: f32) -> f32 {
+    let radius = length(p.xz);
+    let outside = max(max(inner - radius, radius - DISK_OUTER), 0.0);
+    return length(vec2<f32>(outside, p.y));
+}
+
+/// The disk's glow at `p`, for one step of length `dt`.
+///
+/// Bloom is normally a second pass over the finished picture, and this
+/// example wants to stay one pass. So instead the glow is accumulated along
+/// the ray, as a light that falls off with the square of the distance to the
+/// disk's surface: integrated over a ray that passes the disk at distance b,
+/// that comes to pi / b, which is the halo a real bloom would give. It has one
+/// thing a post-process cannot: the ray is bent, so the glow is lensed with the
+/// rest of the picture and the halo goes round the shadow with it.
+fn glow(p: vec3<f32>, dt: f32, inner: f32) -> vec3<f32> {
+    // The bloom slider widens the falloff as well as brightening it: a
+    // distance divided by `spread` reaches the same brightness `spread` times
+    // further out, and the integral along the ray grows with its square.
+    let spread = 0.7 + 0.6 * u.bloom;
+    let d = disk_sdf(p, inner) / spread;
+    // Colour it by the temperature of the nearest gas, so the glow is white
+    // near the hole and orange out at the rim, and let it fade with the rim.
+    let f = clamp((length(p.xz) - inner) / (DISK_OUTER - inner), 0.0, 1.0);
+    let heat = pow(1.0 - f, 2.6);
+    let col = mix(vec3<f32>(1.0, 0.56, 0.32), vec3<f32>(1.0, 0.95, 0.88), heat);
+    let rim = smoothstep(1.0, 0.72, f);
+    // The small constant caps the brightness at the surface itself.
+    return col * (0.25 + 2.0 * heat) * rim * dt / (d * d + 0.06);
+}
 
 /// The accretion disk, sampled where a ray crossed the y = 0 plane.
 ///
@@ -167,7 +217,7 @@ fn disk(p: vec3<f32>, ray_dir: vec3<f32>, t: f32, rs: f32, inner: f32) -> vec3<f
     // Soft at both edges, so the disk does not end on a hard circle.
     let edge = smoothstep(0.0, 0.09, f) * smoothstep(1.0, 0.72, f);
     let heat = pow(1.0 - f, 2.6);
-    var col = mix(vec3<f32>(1.0, 0.30, 0.05), vec3<f32>(1.0, 0.95, 0.88), heat);
+    var col = mix(vec3<f32>(1.0, 0.52, 0.28), vec3<f32>(1.0, 0.96, 0.90), heat);
 
     // Relativistic beaming. The gas orbits at a good fraction of c, and the
     // half of the disk turning towards the camera comes out brighter and bluer
@@ -201,17 +251,20 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     // starts just above the disk plane, which is the angle that shows both the
     // far side lensed over the top and the near side under the shadow.
     let yaw = u.mouse.x / size.y * 2.4;
-    let pitch = clamp(0.15 + u.mouse.y / size.y * 2.4, -1.45, 1.45);
+    let pitch = clamp(PITCH + u.mouse.y / size.y * 2.4, -1.45, 1.45);
     let cam = vec3<f32>(sin(yaw) * cos(pitch), sin(pitch), cos(yaw) * cos(pitch))
         * CAM_DISTANCE;
 
     let fwd = normalize(-cam);
-    let right = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), fwd));
-    let up = cross(fwd, right);
+    let level_right = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), fwd));
+    let level_up = cross(fwd, level_right);
+    // Roll the frame about the view axis, so that what is level in the world
+    // runs diagonally across the picture. The tilt slider sets the angle.
+    let right = level_right * cos(u.tilt) - level_up * sin(u.tilt);
+    let up = level_right * sin(u.tilt) + level_up * cos(u.tilt);
 
     var pos = cam;
-    // 1.7 is the focal length: larger is a narrower field of view.
-    var vel = normalize(fwd * 1.7 + right * p.x + up * p.y);
+    var vel = normalize(fwd * FOCAL + right * (p.x - HOLE_OFFSET) + up * p.y);
 
     let rs = max(u.mass, 0.02);
     // The innermost stable circular orbit sits at 3 * rs, so that is where the
@@ -224,6 +277,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     let h2 = dot(hv, hv);
 
     var color = vec3<f32>(0.0);
+    // The bloom, kept apart from the colour until the ray's fate is known:
+    // see below the loop.
+    var halo = vec3<f32>(0.0);
     var escaped = false;
 
     for (var i = 0; i < STEPS; i++) {
@@ -244,10 +300,11 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         // resolved without spending the budget out in the empty part...
         var dt = clamp(0.08 * r, 0.02, 1.0);
         // ...and a shorter one near the disk plane, where the crossing below
-        // is found by interpolating across a single step.
-        if abs(pos.y) < 1.5 && r < DISK_OUTER + 1.0 {
-            dt = min(dt, 0.15);
-        }
+        // is found by interpolating across a single step. The blend is smooth:
+        // a hard switch in the step size prints a seam into the photon ring
+        // wherever an orbit crosses it.
+        let near_disk = smoothstep(2.5, 1.0, abs(pos.y)) * smoothstep(DISK_OUTER + 3.0, DISK_OUTER, r);
+        dt = mix(dt, min(dt, 0.15), near_disk);
 
         // Null geodesics in Schwarzschild, written in Cartesian coordinates: a
         // central pull that falls off as 1/r^5 rather than 1/r^2. Circular
@@ -255,6 +312,9 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
         // thin bright ring that hugs the shadow is light that went round it.
         let acc = -1.5 * h2 * rs * pos / (r2 * r2 * r);
         let next = pos + vel * dt + 0.5 * acc * dt * dt;
+
+        // The bloom, gathered along the way; see `glow`.
+        halo = halo + glow(pos, dt, inner);
 
         // The disk lies in y = 0, so a step that changes the sign of y crossed
         // it. The disk is thin and see-through, and a lensed ray can cross it
@@ -272,6 +332,12 @@ fn fs_main(in: VertexOut) -> @location(0) vec4<f32> {
     if escaped {
         color = color + sky(normalize(vel));
     }
+    // A ray that fell in gathered glow on the way, and near the edge of the
+    // shadow it gathered a lot: it went round and round the photon sphere
+    // first. Keeping all of it would fill the shadow with light, dropping all
+    // of it would cut the halo off dead at the edge. A fraction of it leaves
+    // the shadow a dark haze that brightens towards its rim.
+    color = color + halo * select(0.45, 1.0, escaped) * 0.005 * u.bloom;
 
     var c = tonemap(color);
     // Everything above is linear light. egui takes the surface format the
