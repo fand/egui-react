@@ -1,4 +1,5 @@
-//! Plan test C-2: the slider moves `speed`, and `pause` stops the repaints.
+//! Plan test C-2: the sliders move their state, and `pause` stops the
+//! repaints.
 //!
 //! Headless, like every other example test. The `<Canvas>` pushes an
 //! `egui_wgpu::Callback` onto the painter, but the harness's default renderer
@@ -31,34 +32,66 @@ fn harness<'a>() -> Harness<'a, Store> {
         )
 }
 
-/// The slider's own reading. The canvas has no text to check, so the value is
+/// A slider's own reading. The canvas has no text to check, so the value is
 /// read from the accessibility tree rather than from the picture.
-fn speed(harness: &Harness<'_, Store>) -> f64 {
+///
+/// There are two sliders now, so the role alone no longer picks one out;
+/// `<Slider label>` becomes the node's name, which does.
+fn slider_value(harness: &Harness<'_, Store>, label: &str) -> f64 {
     harness
-        .get_by_role(egui::accesskit::Role::Slider)
+        .get_by_role_and_label(egui::accesskit::Role::Slider, label)
         .accesskit_node()
         .numeric_value()
-        .expect("the speed slider should report its value")
+        .unwrap_or_else(|| panic!("the {label} slider should report its value"))
+}
+
+/// Focus a slider and nudge it right. Dragging is fiddly headless; focusing and
+/// nudging is the stable way.
+fn nudge(harness: &mut Harness<'_, Store>, label: &str) {
+    harness
+        .get_by_role_and_label(egui::accesskit::Role::Slider, label)
+        .focus();
+    harness.step();
+    harness.key_press(egui::Key::ArrowRight);
+    // One pass to apply the write, one to draw with it.
+    harness.step();
+    harness.step();
 }
 
 #[test]
 fn the_slider_moves_the_speed() {
     let mut harness = harness();
     harness.step();
-    assert_eq!(speed(&harness), 1.0);
+    assert_eq!(slider_value(&harness, "speed"), 1.0);
 
-    // Dragging is fiddly headless; focusing and nudging is the stable way.
-    harness.get_by_role(egui::accesskit::Role::Slider).focus();
-    harness.step();
-    harness.key_press(egui::Key::ArrowRight);
-    // One pass to apply the write, one to draw with it.
-    harness.step();
-    harness.step();
+    nudge(&mut harness, "speed");
 
     assert!(
-        speed(&harness) > 1.0,
+        slider_value(&harness, "speed") > 1.0,
         "the slider did not change the speed: {}",
-        speed(&harness),
+        slider_value(&harness, "speed"),
+    );
+}
+
+/// The second slider is wired the same way, and moving it must not disturb the
+/// first: two `use_state` hooks in one component, each with its own slot.
+#[test]
+fn the_other_slider_moves_the_mass_and_nothing_else() {
+    let mut harness = harness();
+    harness.step();
+    let before = slider_value(&harness, "mass");
+
+    nudge(&mut harness, "mass");
+
+    assert!(
+        slider_value(&harness, "mass") > before,
+        "the slider did not change the mass: {}",
+        slider_value(&harness, "mass"),
+    );
+    assert_eq!(
+        slider_value(&harness, "speed"),
+        1.0,
+        "moving the mass slider moved the speed as well",
     );
 }
 
@@ -101,7 +134,9 @@ fn the_controls_stay_below_the_canvas() {
     let mut harness = harness();
     harness.step();
 
-    let slider = harness.get_by_role(egui::accesskit::Role::Slider).rect();
+    let slider = harness
+        .get_by_role_and_label(egui::accesskit::Role::Slider, "speed")
+        .rect();
     let pause = harness.get_by_label("pause").rect();
     assert!(
         slider.bottom() <= HEIGHT && pause.bottom() <= HEIGHT,
