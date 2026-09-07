@@ -113,18 +113,19 @@ fn fbm2(p0: vec2<f32>) -> f32 {
 fn sky(dir: vec3<f32>) -> vec3<f32> {
     var col = vec3<f32>(0.0);
     var scale = 130.0;
-    var weight = 1.4;
+    var weight = 1.8;
     for (var i = 0; i < 2; i++) {
         let s = dir * scale;
         let cell = floor(s);
-        let mag = smoothstep(0.994, 1.0, hash31(cell));
+        let mag = smoothstep(0.986, 1.0, hash31(cell));
         // Put the star at the centre of its cell and fall off with the
         // distance to it. Lighting the whole cell instead would draw the
         // lattice: every star would come out as the same little square.
         let d = length(s - cell - 0.5);
         let point = pow(smoothstep(0.62, 0.0, d), 2.5);
         let tint = hash31(cell + 17.0);
-        let star = mix(vec3<f32>(0.62, 0.76, 1.0), vec3<f32>(1.0, 0.86, 0.62), tint);
+        // Blue-white through to a pale cream: cool, with only a few warm ones.
+        let star = mix(vec3<f32>(0.55, 0.70, 1.0), vec3<f32>(0.95, 0.93, 0.85), tint * tint);
         col = col + star * mag * point * weight;
         scale = scale * 2.4;
         weight = weight * 0.3;
@@ -135,7 +136,7 @@ fn sky(dir: vec3<f32>) -> vec3<f32> {
     // near-black rather than a flat wash over the whole sky.
     let dust = fbm2(dir.xz * 2.2 + 3.0) * fbm2(dir.yx * 1.9 + 8.0);
     let cloud = smoothstep(0.22, 0.55, dust);
-    return col + vec3<f32>(0.008, 0.006, 0.006) + vec3<f32>(0.05, 0.03, 0.025) * cloud;
+    return col + vec3<f32>(0.004, 0.006, 0.016) + vec3<f32>(0.03, 0.045, 0.11) * cloud;
 }
 
 /// One layer of the disk's gas, wound up by `age` seconds of Keplerian shear.
