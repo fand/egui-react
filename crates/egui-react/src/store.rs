@@ -181,6 +181,17 @@ pub struct Store {
     /// test, which draws the same row both ways.
     force_taffy_rows: Cell<bool>,
     warn_on_collision: bool,
+    /// Which fonts egui had on the last pass that looked, as a fingerprint of
+    /// `FontDefinitions`, and how many times it has changed. A `<Text>` galley
+    /// carries texture coordinates into the glyph atlas of the `Fonts` that
+    /// laid it out, and `Context::set_fonts` builds a new `Fonts` with a new
+    /// atlas at the start of the next pass, so a galley cached across that
+    /// boundary paints the wrong pixels. The engine keys its galley cache on
+    /// the generation; see [`Store::note_fonts`].
+    fonts_fingerprint: Cell<u64>,
+    fonts_generation: Cell<u64>,
+    /// The pass `note_fonts` last ran in, so it runs once per pass.
+    fonts_noted_pass: Cell<u64>,
 }
 
 /// How many passes a layout tree survives without being drawn.
@@ -196,6 +207,12 @@ const TREE_GRACE_PASSES: u64 = 120;
 /// to survive edits to the source (3.4).
 pub(crate) fn persisted_id(key: &str) -> egui::Id {
     egui::Id::new(("egui_react_persisted", key))
+}
+
+/// Where [`Store::note_fonts`] publishes the fonts generation in egui's data,
+/// for the layout engine's galley cache.
+pub(crate) fn fonts_generation_id() -> egui::Id {
+    egui::Id::new("egui_react_fonts_generation")
 }
 
 impl Default for Store {
@@ -224,7 +241,56 @@ impl Store {
             lite_trees: RefCell::new(HashMap::new()),
             force_taffy_rows: Cell::new(false),
             warn_on_collision: cfg!(debug_assertions),
+            fonts_fingerprint: Cell::new(0),
+            fonts_generation: Cell::new(0),
+            fonts_noted_pass: Cell::new(0),
         }
+    }
+
+    /// Notice a change of fonts, once per pass.
+    ///
+    /// Called from the root [`crate::Cx`] rather than from [`Store::begin_pass`]
+    /// because reading the fonts needs a running pass (`Context::fonts` has
+    /// nothing to give before the first `Context::run`), and a `Ui` is the
+    /// proof of one. The fingerprint is over the font names, the `Arc`s that
+    /// hold their bytes and the family lists: `set_fonts` is a no-op when the
+    /// definitions are equal, and any definitions that are not equal differ in
+    /// one of those. It is a few dozen small hashes per pass.
+    ///
+    /// The generation is also written to egui's data under
+    /// [`fonts_generation_id`], which is where the layout engine reads it
+    /// from: it has the `Ui` and not the store.
+    pub(crate) fn note_fonts(&self, ctx: &egui::Context) {
+        if self.fonts_noted_pass.get() == self.pass.get() {
+            return;
+        }
+        self.fonts_noted_pass.set(self.pass.get());
+        let fingerprint = ctx.fonts(|fonts| {
+            use std::hash::{Hash as _, Hasher as _};
+            let definitions = fonts.definitions();
+            let mut hasher = std::collections::hash_map::DefaultHasher::new();
+            for (name, data) in &definitions.font_data {
+                name.hash(&mut hasher);
+                std::sync::Arc::as_ptr(data).hash(&mut hasher);
+            }
+            for (family, list) in &definitions.families {
+                family.hash(&mut hasher);
+                list.hash(&mut hasher);
+            }
+            hasher.finish()
+        });
+        if fingerprint != self.fonts_fingerprint.get() {
+            self.fonts_fingerprint.set(fingerprint);
+            self.fonts_generation.set(self.fonts_generation.get() + 1);
+        }
+        let generation = self.fonts_generation.get();
+        ctx.data_mut(|d| d.insert_temp(fonts_generation_id(), generation));
+    }
+
+    /// How many times the fonts have changed since the store was created,
+    /// counting the first ones seen. For tests and diagnostics.
+    pub fn fonts_generation(&self) -> u64 {
+        self.fonts_generation.get()
     }
 
     /// Start a new pass: bump the pass counter and adopt `ctx` for repaints.

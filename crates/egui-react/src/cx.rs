@@ -59,6 +59,9 @@ impl<'s, 'u> Cx<'s, 'u> {
     /// an element that re-enters inside a reused list slot puts the slot's
     /// layout id back with [`Cx::with_layout_id`].
     pub fn new(store: &'s Store, ui: &'u mut egui::Ui, scope: egui::Id) -> Self {
+        // Once per pass, before any `<Text>` reaches for its cached galley: a
+        // `Ui` is the proof of a running pass, which the fonts lookup needs.
+        store.note_fonts(ui.ctx());
         Self::at_ui(store, ui, scope, scope, None)
     }
 

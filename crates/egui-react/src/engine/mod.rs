@@ -139,16 +139,24 @@ struct TextCtx {
     /// Wrap to the width the node is given, or run on (`Extend`)?
     wrap: bool,
     /// The last galley, with the wrap width and the pixels per point it was
-    /// laid out for, both as bits so they compare exactly.
-    galley: Option<(u32, u32, Arc<Galley>)>,
+    /// laid out for (both as bits so they compare exactly) and the fonts
+    /// generation it was laid out under. A galley holds texture coordinates
+    /// into the glyph atlas of the `Fonts` that made it; after `set_fonts`
+    /// there is a new `Fonts` with a new atlas, and the old galley would paint
+    /// whatever now sits at those coordinates.
+    galley: Option<(u32, u32, u64, Arc<Galley>)>,
 }
 
 impl TextCtx {
     /// The galley for `wrap_width`, laid out only if the cache does not have it.
     fn galley(&mut self, fonts: Fonts<'_>, wrap_width: f32) -> Arc<Galley> {
-        let key = (wrap_width.to_bits(), fonts.pixels_per_point.to_bits());
-        if let Some((width, ppp, galley)) = &self.galley
-            && (*width, *ppp) == key
+        let key = (
+            wrap_width.to_bits(),
+            fonts.pixels_per_point.to_bits(),
+            fonts.generation,
+        );
+        if let Some((width, ppp, generation, galley)) = &self.galley
+            && (*width, *ppp, *generation) == key
         {
             return Arc::clone(galley);
         }
@@ -159,27 +167,37 @@ impl TextCtx {
         // epaint keeps its own galley cache behind this, so a miss here is not
         // necessarily a re-layout.
         let galley = fonts.ctx.fonts_mut(|fonts| fonts.layout_job(job));
-        self.galley = Some((key.0, key.1, Arc::clone(&galley)));
+        self.galley = Some((key.0, key.1, key.2, Arc::clone(&galley)));
         galley
     }
 }
 
 /// What laying a galley out needs.
 ///
-/// The pixels per point is carried rather than read from the context, because
-/// reading it takes egui's lock and this is on the per node path.
+/// The pixels per point and the fonts generation are carried rather than read
+/// from the context, because reading them takes egui's lock and this is on
+/// the per node path.
 #[derive(Clone, Copy)]
 struct Fonts<'a> {
     ctx: &'a egui::Context,
     pixels_per_point: f32,
+    /// How many times the fonts have changed, as the root `Cx` noted it this
+    /// pass ([`crate::store::Store::note_fonts`]). Part of the galley cache
+    /// key: a galley outlives the `Fonts` that laid it out only as garbage.
+    generation: u64,
 }
 
 impl<'a> Fonts<'a> {
     /// Read from a `Ui`, which keeps the pixels per point on its painter.
     fn of(ui: &'a egui::Ui) -> Self {
+        let generation = ui
+            .ctx()
+            .data(|d| d.get_temp::<u64>(crate::store::fonts_generation_id()))
+            .unwrap_or(0);
         Self {
             ctx: ui.ctx(),
             pixels_per_point: ui.pixels_per_point(),
+            generation,
         }
     }
 }

@@ -306,12 +306,17 @@ impl Face {
 }
 
 /// Put one face into `defs.font_data` under `"{post_script_name}#{index}"`,
-/// copying and checking the bytes only the first time this key is seen.
+/// copying and checking the bytes only the first time this face is seen.
 ///
-/// Two files that declare the same PostScript name share one key, and the
-/// first one wins; that is the same font under two paths in every case met
-/// so far, and one key per name is what keeps `set_fonts` from holding two
-/// copies of it.
+/// The same file reached twice (two stacks naming it, or a system path and a
+/// URL serving the same bytes) shares one key and one copy, which is what
+/// keeps `set_fonts` from holding the font twice. Two *different* files that
+/// declare the same PostScript name do not: a subset of Noto Sans JP compiled
+/// in and the full font fetched later both call themselves
+/// `NotoSansJP-Regular`, and a chain that names the full one has to get it.
+/// The second and later distinct files under a name get `~2`, `~3`, .. after
+/// the key. "Same file" is decided by the bytes, compared only when the names
+/// collide.
 fn register(
     db: &fontdb::Database,
     id: fontdb::ID,
@@ -322,46 +327,74 @@ fn register(
     let info = db
         .face(id)
         .ok_or_else(|| String::from("the face is no longer in the database"))?;
-    let key = format!("{}#{}", info.post_script_name, info.index);
+    let base = format!("{}#{}", info.post_script_name, info.index);
+    let index = info.index;
     let family = info
         .families
         .first()
         .map(|(name, _)| name.clone())
         .unwrap_or_else(|| info.post_script_name.clone());
 
-    if !defs.font_data.contains_key(&key) {
-        let data = match font_data.get(&key) {
-            Some(data) => Arc::clone(data),
+    let (key, data) = match static_bytes {
+        Some(bytes) => keyed(font_data, &base, bytes, index, || {
+            check(bytes, index)?;
+            Ok(Cow::Borrowed(bytes))
+        })?,
+        None => db
+            .with_face_data(id, |bytes, index| {
+                keyed(font_data, &base, bytes, index, || {
+                    // Check before copying, so a rejected face costs no
+                    // allocation; the copy is what epaint needs, since
+                    // `FontData` owns or borrows `'static`.
+                    check(bytes, index)?;
+                    Ok(Cow::Owned(bytes.to_vec()))
+                })
+            })
+            .ok_or_else(|| format!("{base}: the font file could not be read"))??,
+    };
+    defs.font_data.entry(key.clone()).or_insert(data);
+    Ok(Face { key, family })
+}
+
+/// The key for `bytes` under `base`: the cached entry that holds these very
+/// bytes, or the first free `base`, `base~2`, `base~3`, .. filled with what
+/// `make` produces (checked and copied only then).
+fn keyed(
+    font_data: &mut HashMap<String, Arc<FontData>>,
+    base: &str,
+    bytes: &[u8],
+    index: u32,
+    make: impl FnOnce() -> Result<Cow<'static, [u8]>, String>,
+) -> Result<(String, Arc<FontData>), String> {
+    let mut key = base.to_owned();
+    let mut n = 1u32;
+    loop {
+        match font_data.get(&key) {
+            Some(data) if data.index == index && same_bytes(&data.font, bytes) => {
+                return Ok((key, Arc::clone(data)));
+            }
+            Some(_) => {
+                n += 1;
+                key = format!("{base}~{n}");
+            }
             None => {
-                let font: Cow<'static, [u8]> = match static_bytes {
-                    Some(bytes) => {
-                        check(bytes, info.index).map_err(|e| format!("{key}: {e}"))?;
-                        Cow::Borrowed(bytes)
-                    }
-                    None => {
-                        // Check before copying, so a rejected face costs no
-                        // allocation; the copy is what epaint needs, since
-                        // `FontData` owns or borrows `'static`.
-                        let copied = db
-                            .with_face_data(id, |bytes, index| {
-                                check(bytes, index).map(|()| bytes.to_vec())
-                            })
-                            .ok_or_else(|| format!("{key}: the font file could not be read"))?;
-                        Cow::Owned(copied.map_err(|e| format!("{key}: {e}"))?)
-                    }
-                };
+                let font = make().map_err(|e| format!("{key}: {e}"))?;
                 let data = Arc::new(FontData {
                     font,
-                    index: info.index,
+                    index,
                     tweak: Default::default(),
                 });
                 font_data.insert(key.clone(), Arc::clone(&data));
-                data
+                return Ok((key, data));
             }
-        };
-        defs.font_data.insert(key.clone(), data);
+        }
     }
-    Ok(Face { key, family })
+}
+
+/// Pointer equality first: a compiled-in blob is the same static every time,
+/// and a file is compared in full only when two different files share a name.
+fn same_bytes(a: &[u8], b: &[u8]) -> bool {
+    std::ptr::eq(a, b) || a == b
 }
 
 /// The check epaint's `Fonts::new` makes, before egui makes it and panics,
@@ -655,6 +688,32 @@ mod tests {
             family(&out.definitions, "empty"),
             FontDefinitions::default().families[&FontFamily::Proportional]
         );
+    }
+
+    /// A subset compiled in and the full font fetched later declare the same
+    /// PostScript name. They are different files, so they must not share a
+    /// key: the chain that names the second one has to get the second one.
+    #[test]
+    fn two_files_with_one_postscript_name_get_two_keys() {
+        // The same font with a byte appended: fontdb and skrifa read the
+        // table directory and never look at the tail, so it is "a different
+        // file that calls itself Hack-Regular".
+        let mut other = HACK_REGULAR.to_vec();
+        other.push(0);
+        let other: &'static [u8] = Box::leak(other.into_boxed_slice());
+        let mut fx = Fixture::new().with_bundled(other);
+        let out = fx.resolve(&[
+            FontStack::new("a", [FontSource::Bundled(HACK_REGULAR)]),
+            FontStack::new("b", [FontSource::Bundled(other)]),
+        ]);
+        assert_eq!(family(&out.definitions, "a")[0], HACK);
+        assert_eq!(family(&out.definitions, "b")[0], "Hack-Regular#0~2");
+        assert_eq!(
+            out.definitions.font_data["Hack-Regular#0~2"].font.len(),
+            HACK_REGULAR.len() + 1,
+            "the second key holds the second file's bytes"
+        );
+        assert_eq!(fx.font_data.len(), 2);
     }
 
     /// The installed fonts, on whatever machine runs the tests. A runner with
