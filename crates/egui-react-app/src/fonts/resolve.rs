@@ -361,10 +361,36 @@ fn register(
     Ok(Face { key, family })
 }
 
-/// The check epaint's `Fonts::new` makes, before egui makes it and panics.
+/// The check epaint's `Fonts::new` makes, before egui makes it and panics,
+/// plus the one thing epaint 0.36 accepts and then cannot draw.
+///
+/// epaint draws outlines only: `FontFace::new` (`epaint/src/text/font.rs`)
+/// keeps skrifa's `charmap()` and `outline_glyphs()` and nothing else,
+/// `allocate_glyph_uncached` gives up when `outline_glyphs.get(id)` has
+/// nothing, and `has_glyph` asks the charmap alone. A bitmap-only emoji font
+/// (Apple Color Emoji is `sbix`, Noto Color Emoji is `CBDT`, both with an
+/// empty or absent `glyf`) therefore claims every emoji and draws nothing for
+/// it, and the chain never falls through to NotoEmoji. Such a face is
+/// rejected here, as `Invalid` with the reason. `COLR` fonts pass: their base
+/// glyphs are outlines and draw in one colour. This is the one place that
+/// knows what the renderer can draw; it goes when the renderer changes.
 fn check(bytes: &[u8], index: u32) -> Result<(), String> {
-    skrifa::FontRef::from_index(bytes, index)
+    use skrifa::MetadataProvider as _;
+    let font = skrifa::FontRef::from_index(bytes, index)
         .map_err(|err| format!("skrifa cannot parse it: {err}"))?;
+    if font.outline_glyphs().format().is_none() {
+        return Err(String::from(
+            "no outline glyphs (a bitmap or colour-only font); epaint 0.36 draws outlines only",
+        ));
+    }
+    for tag in [b"CBDT", b"sbix"] {
+        if font.table_data(skrifa::Tag::new(tag)).is_some() {
+            return Err(format!(
+                "bitmap emoji font ({}); epaint 0.36 draws outlines only",
+                str::from_utf8(tag).unwrap_or("?")
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -635,5 +661,39 @@ mod tests {
             );
         };
         eprintln!("sans-serif resolved to {family:?} ({key})");
+    }
+
+    /// A table directory with these tables and nothing else: enough for
+    /// skrifa to open, which is all the outline check needs.
+    fn sfnt(tables: &[(&[u8; 4], &[u8])]) -> Vec<u8> {
+        let mut out = Vec::new();
+        out.extend_from_slice(&0x0001_0000u32.to_be_bytes());
+        out.extend_from_slice(&(tables.len() as u16).to_be_bytes());
+        out.extend_from_slice(&[0u8; 6]);
+        let mut offset = 12 + 16 * tables.len() as u32;
+        let mut data = Vec::new();
+        for (tag, bytes) in tables {
+            out.extend_from_slice(*tag);
+            out.extend_from_slice(&0u32.to_be_bytes());
+            out.extend_from_slice(&offset.to_be_bytes());
+            out.extend_from_slice(&(bytes.len() as u32).to_be_bytes());
+            offset += bytes.len() as u32;
+            data.extend_from_slice(bytes);
+        }
+        out.extend_from_slice(&data);
+        out
+    }
+
+    #[test]
+    fn the_outline_check_keeps_outline_emoji_and_rejects_bitmap_only_fonts() {
+        // egui's own emoji fonts are outlines and must stay usable.
+        assert_eq!(check(epaint_default_fonts::NOTO_EMOJI_REGULAR, 0), Ok(()));
+        assert_eq!(check(epaint_default_fonts::EMOJI_ICON, 0), Ok(()));
+        // A font that only has bitmaps has nothing epaint can draw.
+        let bitmap_only = sfnt(&[(b"CBDT", &[0u8; 8]), (b"CBLC", &[0u8; 8])]);
+        let err = check(&bitmap_only, 0).unwrap_err();
+        assert!(err.contains("outline"), "{err}");
+        // And garbage is a parse error, not a panic.
+        assert!(check(b"nope", 0).is_err());
     }
 }
