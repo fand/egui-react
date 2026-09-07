@@ -13,10 +13,15 @@ use egui_wgpu::CallbackTrait;
 #[derive(Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Uniform {
     time: f32,
-    speed: f32,
+    mass: f32,
     resolution: [f32; 2],
     mouse: [f32; 2],
-    _padding: [f32; 2],
+    /// 1.0 when the target format encodes sRGB on write, 0.0 when it does not.
+    /// The shader works in linear light and has to do the encoding itself in
+    /// the second case. This one used to be padding, so the block is the same
+    /// size it always was.
+    srgb_target: f32,
+    _padding: f32,
 }
 
 /// The pipeline and its uniform buffer, parked in `callback_resources`.
@@ -28,6 +33,10 @@ pub struct ShaderResources {
     pipeline: wgpu::RenderPipeline,
     bind_group: wgpu::BindGroup,
     buffer: wgpu::Buffer,
+    /// Decided once, when the render state is known, and passed along to every
+    /// frame's uniform. The app has no business knowing about it, so it lives
+    /// here rather than on [`ShaderCallback`].
+    srgb_target: bool,
 }
 
 /// Build the pipeline and hand it to the renderer. Call once, from
@@ -118,6 +127,7 @@ pub fn setup(cc: &eframe::CreationContext<'_>) {
             pipeline,
             bind_group,
             buffer,
+            srgb_target: render_state.target_format.is_srgb(),
         });
 }
 
@@ -129,11 +139,11 @@ pub fn setup(cc: &eframe::CreationContext<'_>) {
 pub struct ShaderCallback {
     /// Seconds, already multiplied by `speed` and frozen while paused.
     pub time: f32,
-    /// The slider's value, so the shader can colour by it too.
-    pub speed: f32,
+    /// The Schwarzschild radius in scene units, straight off the mass slider.
+    pub mass: f32,
     /// The canvas size in physical pixels.
     pub resolution: egui::Vec2,
-    /// Where dragging has pushed the pattern, in pixels.
+    /// Where dragging has turned the camera, in pixels.
     pub mouse: egui::Vec2,
 }
 
@@ -152,10 +162,11 @@ impl CallbackTrait for ShaderCallback {
                 0,
                 bytemuck::bytes_of(&Uniform {
                     time: self.time,
-                    speed: self.speed,
+                    mass: self.mass,
                     resolution: [self.resolution.x, self.resolution.y],
                     mouse: [self.mouse.x, self.mouse.y],
-                    _padding: [0.0; 2],
+                    srgb_target: if res.srgb_target { 1.0 } else { 0.0 },
+                    _padding: 0.0,
                 }),
             );
         }
