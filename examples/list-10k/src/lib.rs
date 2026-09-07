@@ -7,7 +7,7 @@
 //! with `ScrollArea::show_rows`, which is what `<VirtualList>` wraps. What
 //! drawing every row would cost instead is measured in `tests/scenarios.rs`
 //! (about 22 ms a frame at ten thousand rows, against 0.14 ms here; conditions
-//! in docs/tasks/perf/measurements.md).
+//! in docs/tasks/list-perf/measurements.md).
 //!
 //! The rows in view are the element's business: `render` is called with the
 //! index of each row that is on screen, as react-virtualized calls

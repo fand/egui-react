@@ -26,7 +26,7 @@ fn main() -> eframe::Result {
 }
 
 /// The same plain list on the web, for a like-for-like measurement against the
-/// egui-react binary (`docs/tasks/perf/measurements.md`). Build it with
+/// egui-react binary (`docs/tasks/list-perf/measurements.md`). Build it with
 /// `trunk build --release index-plain.html` from this directory.
 #[cfg(target_arch = "wasm32")]
 fn main() {

@@ -26,7 +26,7 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for design decisions. This docu
 | PR7 | 6.5(canvas) | `docs/tasks/canvas/` |
 | PR8 | 6.6 | `docs/tasks/board/`, `docs/tasks/patch/` |
 
-Plan phase 8 (release preparation) separately after PR4. Web accessibility (`docs/tasks/a11y/`) is a candidate for later work; timing is undecided. Layout frame cost (`docs/tasks/perf/`) was done in 2026-09: egui_taffy is gone, replaced by our own layout engine over taffy (ARCHITECTURE section 6), so the phase 0 and phase 4 lines below name a dependency the library no longer has. Only the web / 120-Hz half of that task is left.
+Plan phase 8 (release preparation) separately after PR4. Web accessibility (`docs/tasks/a11y/`) is a candidate for later work; timing is undecided. Layout frame cost (`docs/tasks/list-perf/`) was done in 2026-09: egui_taffy is gone, replaced by our own layout engine over taffy (ARCHITECTURE section 6), so the phase 0 and phase 4 lines below name a dependency the library no longer has. Its criteria are met; what is left (a VirtualList redesign, the scroll gap, the filter at 100k) is listed in `docs/tasks/list-perf/retrospective.md`.
 
 ## Phases
 

@@ -11,7 +11,7 @@ frame. Timings are machine-dependent, not regression thresholds.
 From the repository root:
 
 ```sh
-PERF_CSV="$PWD/docs/tasks/perf/samples.csv" \
+PERF_CSV="$PWD/docs/tasks/list-perf/samples.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 ```
 
@@ -132,7 +132,7 @@ in [samples-a.csv](samples-a.csv). One recorded run.
 Reproduce:
 
 ```sh
-PERF_CSV="$PWD/docs/tasks/perf/samples-a.csv" \
+PERF_CSV="$PWD/docs/tasks/list-perf/samples-a.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 ```
 
@@ -211,7 +211,7 @@ One recorded run.
 Reproduce:
 
 ```sh
-PERF_CSV="$PWD/docs/tasks/perf/samples-b.csv" \
+PERF_CSV="$PWD/docs/tasks/list-perf/samples-b.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 ```
 
@@ -300,7 +300,7 @@ recorded run.
 Reproduce:
 
 ```sh
-PERF_CSV="$PWD/docs/tasks/perf/samples-c.csv" \
+PERF_CSV="$PWD/docs/tasks/list-perf/samples-c.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 ```
 
@@ -455,7 +455,7 @@ replacement. Code state: step D1 uncommitted on top of `84ddeff`. Samples in
 Reproduce:
 
 ```sh
-PERF_CSV="$PWD/docs/tasks/perf/samples-d1.csv" \
+PERF_CSV="$PWD/docs/tasks/list-perf/samples-d1.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 ```
 
@@ -553,7 +553,7 @@ every Virtual figure.
 Reproduce:
 
 ```sh
-PERF_CSV="$PWD/docs/tasks/perf/samples-d2.csv" \
+PERF_CSV="$PWD/docs/tasks/list-perf/samples-d2.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 ```
 
@@ -668,7 +668,7 @@ build agreed to within 0.006 ms on every Virtual figure but Resize, which moved
 Reproduce:
 
 ```sh
-PERF_CSV="$PWD/docs/tasks/perf/samples-d2b.csv" \
+PERF_CSV="$PWD/docs/tasks/list-perf/samples-d2b.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 ```
 
@@ -750,7 +750,7 @@ B and C rules, the other elements and the benchmark are untouched.
 Reproduce:
 
 ```sh
-PERF_CSV="$PWD/docs/tasks/perf/samples-e.csv" \
+PERF_CSV="$PWD/docs/tasks/list-perf/samples-e.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 ```
 
@@ -870,7 +870,7 @@ layout paths are untouched.
 Reproduce:
 
 ```sh
-PERF_CSV="$PWD/docs/tasks/perf/samples-e1.csv" \
+PERF_CSV="$PWD/docs/tasks/list-perf/samples-e1.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 ```
 

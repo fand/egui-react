@@ -25,7 +25,7 @@ egui row layout is a reference only.
 Run from the repository root, release only:
 
 ```sh
-PERF_CSV="$PWD/docs/tasks/perf/samples-<step>.csv" \
+PERF_CSV="$PWD/docs/tasks/list-perf/samples-<step>.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 cargo test --release -p list-10k --test list_10k
 cargo test -p egui-react --test multi_pass

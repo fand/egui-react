@@ -3,10 +3,11 @@
 ## Performance work (2026-09-06)
 
 PR: https://github.com/fand/egui-react/pull/7, branch `docs-perf`, base `main`.
-24 commits on top of main, none pushed yet. Plans: `docs/tasks/perf/plan.md`
+24 commits on top of main, none pushed yet. Plans: `docs/tasks/list-perf/plan.md`
 (A to C), `plan-d.md` (D), `plan-e.md` (E). Every number is in
-`docs/tasks/perf/measurements.md`; the task's result table is at the top of
-`docs/tasks/perf/task.md`.
+`docs/tasks/list-perf/measurements.md`; the task's result table is at the top of
+`docs/tasks/list-perf/task.md`; lessons and remaining work, short, in
+`docs/tasks/list-perf/retrospective.md`.
 
 ### What was done, in order
 
@@ -144,7 +145,7 @@ From the repository root:
 
 ```sh
 RUST_LOG=egui_react=debug cargo run --release -p list-10k   # logs each discard
-PERF_CSV="$PWD/docs/tasks/perf/samples-<tag>.csv" \
+PERF_CSV="$PWD/docs/tasks/list-perf/samples-<tag>.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings

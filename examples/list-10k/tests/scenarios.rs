@@ -1,6 +1,6 @@
 //! Matched CPU benchmark: real React Row/VirtualList, shared controls and input.
 //! Run: cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
-//! No GPU, window scheduling, or AccessKit. See docs/tasks/perf/measurements.md.
+//! No GPU, window scheduling, or AccessKit. See docs/tasks/list-perf/measurements.md.
 use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
 use egui_react_elements::prelude::*;

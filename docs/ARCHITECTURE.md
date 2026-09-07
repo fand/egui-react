@@ -319,7 +319,7 @@ When a handler or effect rewrites state, widgets drawn earlier in the same compo
 
 ## 6. Layout
 
-To make Flexbox / Grid a first-class citizen, layout runs on [taffy](https://github.com/DioxusLabs/taffy) (0.9) through a layout engine of our own, `crates/egui-react/src/engine/mod.rs`. As in React Native, "`<View>` is a taffy node, egui widgets are leaves". It replaced `egui_taffy` 0.14 in 2026-09; the reason and the numbers are in the decision log (section 11), and `docs/tasks/perf/` has the measurements.
+To make Flexbox / Grid a first-class citizen, layout runs on [taffy](https://github.com/DioxusLabs/taffy) (0.9) through a layout engine of our own, `crates/egui-react/src/engine/mod.rs`. As in React Native, "`<View>` is a taffy node, egui widgets are leaves". It replaced `egui_taffy` 0.14 in 2026-09; the reason and the numbers are in the decision log (section 11), and `docs/tasks/list-perf/` has the measurements.
 
 ```rust
 <View direction="row" justify="space-between" align="center" gap={8} p={12}>
@@ -473,7 +473,7 @@ The following were confirmed with hand-written expansions without the macro (PR1
 
 ### Own layout engine over taffy, replacing egui_taffy (2026-09-06)
 
-Measured, in `docs/tasks/perf/`. The benchmark is a list of 37 visible rows drawn three ways at 10,000 source rows: `<VirtualList>`, `<ScrollArea>` + `for` over every row, and plain egui `ScrollArea::show_rows` as the reference. Four scenarios: idle, scrolling, filter edits, window resize.
+Measured, in `docs/tasks/list-perf/`. The benchmark is a list of 37 visible rows drawn three ways at 10,000 source rows: `<VirtualList>`, `<ScrollArea>` + `for` over every row, and plain egui `ScrollArea::show_rows` as the reference. Four scenarios: idle, scrolling, filter edits, window resize.
 
 The starting point was `<VirtualList>` at about 2x plain egui, with extra layout passes on three of the four scenarios. Three steps fixed the passes:
 
@@ -490,7 +490,7 @@ So it was replaced by `crates/egui-react/src/engine.rs` (section 6), which ports
 
 - **D2b**, text selection back on the engine's `<Text>`: it follows `interaction.selectable_labels` as `Label` does, and is not selectable on the one frame it is created (section 6).
 
-Snapshots stayed byte-identical through all three steps. What was given up: the engine drops a tree nothing drew in the pass, which costs 12 two-pass frames out of 120 in the resize scenario where egui_taffy's for-ever cache cost 3. It is recorded in `docs/tasks/perf/measurements.md` with the follow-ups.
+Snapshots stayed byte-identical through all three steps. What was given up: the engine drops a tree nothing drew in the pass, which costs 12 two-pass frames out of 120 in the resize scenario where egui_taffy's for-ever cache cost 3. It is recorded in `docs/tasks/list-perf/measurements.md` with the follow-ups.
 
 Two more steps took the `<VirtualList>` row itself:
 

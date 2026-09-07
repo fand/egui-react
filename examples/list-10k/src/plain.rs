@@ -8,7 +8,7 @@
 //!
 //! `<VirtualList>` wraps this exact call, so the egui-react version does the
 //! same thing. At ten thousand rows: 0.14 ms a frame through `<VirtualList>`,
-//! 0.12 ms here (docs/tasks/perf/measurements.md); drawing every row instead
+//! 0.12 ms here (docs/tasks/list-perf/measurements.md); drawing every row instead
 //! would be about 22 ms. What is left between the first two is the layout of
 //! the rows that *are* on screen.
 //!
