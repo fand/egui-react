@@ -6,7 +6,9 @@
 //! makes the previous example's hooks unreachable; the pass-end sweep drops
 //! them and the new example starts clean.
 
-use egui_extras::syntax_highlighting::{CodeTheme, code_view_ui};
+use std::sync::Arc;
+
+use egui_extras::syntax_highlighting::{CodeTheme, highlight};
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
 use example_meta::Meta;
@@ -288,8 +290,10 @@ plain_example!(LayoutPlain, layout::plain);
 /// The toggle lives here because the line counts are the point of it: the two
 /// versions draw the same thing, and the numbers next to the buttons say what
 /// that costs in each.
+///
+/// `pub` for `tests/bench.rs`, which times this column on its own.
 #[component]
-fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
+pub fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
     let source = if plain {
         meta.plain.unwrap_or(meta.source)
     } else {
@@ -297,6 +301,7 @@ fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
     };
     let file = if plain { "plain.rs" } else { "lib.rs" };
     let link = format!("{REPO}/{}/src/{file}", meta.name);
+    let mut galley = use_state(cx, || None::<(GalleyKey, Arc<egui::Galley>)>);
     let react_lines = format!("{} lines", meta.source.lines().count());
     let plain_lines = meta.plain.map_or(String::new(), |p| {
         format!("{} lines plain", p.lines().count())
@@ -336,12 +341,53 @@ fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
                     // the scroll area's width rather than be measured by its
                     // longest line.
                     cx.leaf_fill(&ItemStyle::default(), |ui| {
-                        let theme = CodeTheme::from_style(ui.style());
-                        code_view_ui(ui, &theme, source, "rs");
+                        let galley = code_galley(ui, galley.bind(), (meta.name, plain), source);
+                        ui.add(egui::Label::new(galley).selectable(true));
                     });
                 })}
             </ScrollArea>
         </View>
+    }
+}
+
+/// What a cached code galley was laid out for. A new key means a new layout.
+///
+/// The source is named, not hashed: hashing 66 KB a frame was the cost this
+/// cache is here to remove. The atlas size is in because a galley stores atlas
+/// pixel coordinates: growing the atlas keeps them, a reset changes the size.
+type GalleyKey = ((&'static str, bool), bool, f32, f32, [usize; 2]);
+
+/// The highlighted source as one galley, laid out once per [`GalleyKey`].
+///
+/// `code_view_ui` does the same highlight and layout, but from scratch every
+/// frame: it hashes the whole source for the highlight cache, then hashes the
+/// `LayoutJob` (a section per token) for the galley cache. A `Label` handed an
+/// `Arc<Galley>` does neither.
+fn code_galley(
+    ui: &mut egui::Ui,
+    cache: &mut Option<(GalleyKey, Arc<egui::Galley>)>,
+    which: (&'static str, bool),
+    source: &str,
+) -> Arc<egui::Galley> {
+    let font_id = egui::TextStyle::Monospace.resolve(ui.style());
+    let key: GalleyKey = (
+        which,
+        ui.visuals().dark_mode,
+        font_id.size,
+        ui.pixels_per_point(),
+        ui.fonts(|f| f.font_image_size()),
+    );
+    match cache {
+        Some((k, galley)) if *k == key => galley.clone(),
+        _ => {
+            let theme = CodeTheme::from_style(ui.style());
+            let mut job = highlight(ui.ctx(), ui.style(), &theme, source, "rs");
+            // The pane scrolls sideways; a long line is not wrapped.
+            job.wrap.max_width = f32::INFINITY;
+            let galley = ui.fonts_mut(|f| f.layout_job(job));
+            *cache = Some((key, galley.clone()));
+            galley
+        }
     }
 }
 
