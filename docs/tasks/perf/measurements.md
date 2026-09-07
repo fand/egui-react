@@ -1145,3 +1145,86 @@ before, 0 after; the first appearance of a slot still costs one).
 Resize is back at 1.02 passes/frame (the D1 sweep had put it at 1.10); the
 three remaining discard frames are the first appearance of slots 38 to 40.
 Timings are within run-to-run noise of E1. Samples in `samples-f.csv`.
+
+## After G (a text or container that only resizes costs no pass)
+
+Date: 2026-09-06. The benchmark's fixture never drew the example's header, so
+it never saw this: a `<Text>` whose width changes from frame to frame (the
+"last frame N ms (M fps)" readout while scrolling, any counter or clock) was a
+"moved" node on both layout paths, because a node's `size` was part of the
+comparison, and so asked for a discard on every frame it changed. So did the
+row around it when the row shrinks to fit. Both paths now judge a `<Text>` by
+its paint anchor (top of its content rect and the `halign` edge, plus the
+width when it wraps) and a container by its location alone; a widget leaf is
+still compared field by field. The root's `content_size` is no longer
+compared either: `show` reads it after the comparison to reserve the tree's
+space, so it is never a frame behind.
+
+Test: `crates/egui-react-elements/tests/text_width.rs`. A label alternating
+between `iii` and `WWWWWWWWWW` over 10 frames asked for 9 discards before on
+the taffy path and 9 in a `<VirtualList>` row; 0 after on both. The guard,
+the same label with a `<Button>` after it, still asks for 9. (Two numbers
+with the same digit count would not have shown this: egui's digits are all one
+width, which is also why "16.7 ms (60 fps)" and "8.3 ms (120 fps)" are the
+same width and the fixture's frame readout is stable most of the time.)
+
+The reason handed to `request_discard` now names the node, e.g.
+`egui-react: layout changed: the text "last frame 9.8 ms…" moved [[12.0 12.0] -
+[119.0 27.0]] -> [[12.0 12.0] - [231.0 27.0]]`; egui shows it in the PERF
+WARNING overlay and the engine logs it at `debug`, and `egui-react-app::run`
+installs `env_logger` / `WebLogger` so the log reaches a terminal or the
+browser console. `RUST_LOG=egui_react=debug cargo run --release -p list-10k`
+is the way to find the cause of any warning that remains on a real device.
+
+Native benchmark, same fixture as before (`samples-g.csv`):
+
+| Scenario | Virtual ms | Plain ms | Ratio | Passes/frame | Discard frames |
+|---|---:|---:|---:|---:|---:|
+| Idle | 0.138 | 0.119 | 1.16x | 1.00 | 0 |
+| Scroll | 0.191 | 0.140 | 1.36x | 1.00 | 0 |
+| Filter | 1.090 | 1.044 | 1.04x | 1.00 | 0 |
+| Resize | 0.211 | 0.163 | 1.29x | 1.02 | 3 |
+
+Within run-to-run noise of F, as expected: the fixture has no resizing text.
+All-rows mode idle 22.8 ms, unchanged. Gallery snapshots byte-identical (the
+two board ones still have no committed snapshot).
+
+Web check of the same build (Chrome, `trunk build --release`, `WebLogger` on):
+531 frames of trackpad-shaped synthetic wheel input, fractional deltas with a
+ramp, a jittered hold and a 0.93 momentum decay, three flicks in alternating
+directions. The console logged one discard in all of it, `row layout changed:
+a widget drew for the first time`, the slot at the bottom appearing for the
+first time; the 37 at startup are the rows' first frame. No three-in-a-row, so
+no PERF WARNING. A real trackpad on native is still the check that has not
+been made; the log line above is what to look for.
+
+`cargo run -p list-10k` now opens `list_10k::Compare`, which adds a "plain
+egui" checkbox above the list: on, the window shows `plain.rs` in the same
+place at the same size, each version with its own frame readout, so the two
+can be compared without a second binary.
+
+The "plain egui" switch showed a pitch difference at once: `<VirtualList>` rows
+sat 23 pt apart, the plain rows 20. `show_rows` adds the `Ui`'s `item_spacing.y`
+(egui's default is 3) to the row height it is given; the plain version sets it
+to `ROW_GAP` and passes `ROW_H`, the element passed `ROW_H + ROW_GAP` and left
+the spacing alone. The element now zeroes `item_spacing.y` before `show_rows`,
+so the pitch is exactly `row_h` as its doc promised. The tests and the
+benchmark fixture had set the spacing to zero themselves and so never saw it;
+the tests no longer do, and assert the pitch. With 20 pt rows the 900 px web
+window and the 800 pt native fixture draw more rows than before (the fixture is
+unaffected: it zeroed the spacing already).
+
+## 100k
+
+Date: 2026-09-07. list-10k now opens with 100,000 rows. `tests/bench.rs`
+(release, 600×800, CPU per frame): VirtualList 0.25 / 0.22 / 0.20 / 0.18 ms at
+100 / 1k / 10k / 100k rows, plain 0.18 / 0.16 / 0.14 / 0.14 ms. Web (Chrome,
+wasm release, 800×900, 120 Hz this time), eframe callback timed through a
+`requestAnimationFrame` wrapper: scrolling near the top 1.1 ms median (p95
+1.6), a jump to the bottom (2,000,000 pt) 2.2 ms, scrolling near the bottom
+1.2 ms, a filter keystroke 22 ms max — that is `rows()` rebuilding 100,000
+`String`s inside the `use_memo`, the same in the plain version. The one
+discard logged during the run was real: `showing 100000` becoming `showing
+50000` lost a digit and moved the frame-time label 7 pt left. Candidates for
+the filter: keep names built once and filter to a `Vec<usize>`, or narrow the
+previous result when the filter only grew.
