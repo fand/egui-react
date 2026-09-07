@@ -56,6 +56,25 @@ bytemuck = { version = "1.25", features = ["derive"] }
 # features: `syntect` would make the wasm much bigger and the built-in
 # highlighter is enough.
 egui_extras = { version = "0.36.1", default-features = false }
+# The one place font bytes live on every target (`egui_react_app::fonts`): the
+# installed fonts on native, the bundled / fetched / granted bytes on wasm. Its
+# matching is a port of font-kit's CSS Fonts Level 3 algorithm and it is pure
+# Rust, so neither the wasm build nor CI needs anything extra. Default features
+# off here so that the wasm target can leave `fs` / `memmap` / `fontconfig` out;
+# the runner turns them on for native.
+fontdb = { version = "0.24", default-features = false }
+# The parser epaint 0.36.1 reads fonts with, at the version in Cargo.lock. The
+# resolver runs `FontRef::from_index` on every face before handing it to egui,
+# so bytes epaint would panic on end up in the report instead.
+skrifa = "0.44"
+# WOFF / WOFF2 decoding for `fonts::FontSource::Url`, behind the runner's
+# `woff2` feature: the Brotli tables are not small, and a font served next to
+# `index.html` is normally a TTF.
+wuff = "0.2"
+# The bytes egui ships (Hack, Ubuntu-Light, the two emoji fonts). Tests only:
+# they stand in for "a font the app bundled" and "a font installed on the
+# device" without reading anything from disk.
+epaint_default_fonts = "0.36.1"
 rstml = "0.13.0"
 syn = { version = "3.0.5", features = ["full", "extra-traits", "visit", "visit-mut", "parsing", "printing", "proc-macro"] }
 quote = "1.0.47"
@@ -67,6 +86,9 @@ wasm-bindgen = "0.2.106"
 wasm-bindgen-test = "0.3.56"
 wasm-bindgen-futures = "0.4.56"
 web-sys = "0.3.83"
+# `navigator.fonts` has no web-sys binding, so the Local Font Access source
+# reaches it with `Reflect::get` and `Function::call0`.
+js-sys = "0.3.83"
 trybuild = "1.0.120"
 ehttp = "0.7.1"
 elsa = "1.11.2"

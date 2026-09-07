@@ -11,6 +11,12 @@ rust-version.workspace = true
 name = "egui_react_app"
 path = "src/lib.rs"
 
+[features]
+# WOFF and WOFF2 fonts for `fonts::FontSource::Url`. Off by default: the
+# Brotli tables add to the wasm, and a font hosted next to `index.html` is a
+# TTF. Without it a `.woff2` response is reported as `Failed`, never a panic.
+woff2 = ["dep:wuff"]
+
 # eframe 0.36's own default features include `wgpu` and not `glow`, so this
 # renders with wgpu already; glow is the opt-in one now. There is no feature
 # here to choose between them, because there is nothing to choose.
@@ -23,28 +29,45 @@ eframe = { workspace = true, features = ["persistence"] }
 egui.workspace = true
 log.workspace = true
 egui-react.workspace = true
+# The `Url` font source: native via ureq on a thread, wasm via `fetch`, one
+# callback either way, so the source needs no executor.
+ehttp.workspace = true
+skrifa.workspace = true
+wuff = { workspace = true, optional = true }
 
 [dev-dependencies]
 egui_kittest.workspace = true
 egui-react-elements.workspace = true
+epaint_default_fonts.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # `run` installs it when nothing else has: `RUST_LOG=egui_react=debug` then
 # prints every layout discard with what caused it.
 env_logger.workspace = true
+# The installed fonts: `load_system_fonts` reads the OS font directories, and
+# on Linux fontconfig's `<alias>` entries for the generic families.
+fontdb = { workspace = true, features = ["fs", "memmap", "fontconfig"] }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+# wasm cannot read files, so only the in-memory database: no `fs`, no `memmap`.
+fontdb = { workspace = true, features = ["std"] }
 # The DOM mirror of the AccessKit tree. wasm only: on every other target
 # `a11y::WebA11y` is an empty plugin. `accesskit` itself comes from
 # `egui::accesskit`, so the `TreeUpdate` types cannot drift apart.
 accesskit-web.workspace = true
+js-sys.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
 web-sys = { workspace = true, features = [
+    "Blob",
     "Document",
     "DomRect",
     "Element",
     "HtmlCanvasElement",
     "Location",
+    "Navigator",
+    "PermissionState",
+    "PermissionStatus",
+    "Permissions",
     "Window",
 ] }
