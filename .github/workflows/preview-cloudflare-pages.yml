@@ -1,0 +1,84 @@
+name: Deploy PR Preview to Cloudflare Pages
+
+# Builds the example gallery for every pull request and publishes it as a
+# branch deployment of the `egui-react` Cloudflare Pages project, then posts
+# the preview URL as a sticky comment on the PR. The production site stays on
+# GitHub Pages (see pages.yml); this is preview only.
+#
+# Setup, once per repository:
+#   - Create a Cloudflare Pages project named `egui-react` (Direct Upload).
+#   - Add the repository secrets CLOUDFLARE_API_TOKEN (Cloudflare Pages: Edit)
+#     and CLOUDFLARE_ACCOUNT_ID.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+env:
+  CARGO_TERM_COLOR: always
+
+# A newer push to the same PR supersedes the running build.
+concurrency:
+  group: cf-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  deploy-preview:
+    name: trunk build (gallery) + deploy
+    # Fork PRs don't get secrets, so skip the deploy.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # The same headers ci.yml / pages.yml install. A wasm-only build should
+      # not need them, but a deploy is a bad place to find out otherwise.
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install --no-install-recommends -y \
+            libgtk-3-dev \
+            libxkbcommon-dev \
+            libwayland-dev \
+            libxcb-render0-dev \
+            libxcb-shape0-dev \
+            libxcb-xfixes0-dev \
+            libxkbcommon-x11-dev \
+            libssl-dev
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95"
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - uses: jetli/trunk-action@v0.5.1
+        with:
+          version: latest
+
+      # Unlike GitHub Pages, the preview is served from the domain root, so no
+      # `--public-url` here. `dist = "dist"` in Trunk.toml is relative to the
+      # config file.
+      - name: trunk build
+        run: trunk build --release --config examples/gallery/Trunk.toml
+
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy examples/gallery/dist --project-name=egui-react --branch=${{ github.head_ref }}
+
+      - name: Comment preview URL on PR
+        uses: marocchino/sticky-pull-request-comment@v3
+        with:
+          header: cf-preview
+          message: |
+            🚀 **Cloudflare Pages preview** — ${{ github.event.pull_request.head.sha }}
+            ${{ steps.deploy.outputs.pages-deployment-alias-url }}
