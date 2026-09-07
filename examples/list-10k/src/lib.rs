@@ -1,29 +1,24 @@
-//! What a long list costs, told honestly.
+//! A hundred thousand rows through `<VirtualList>` (the name is history).
 //!
-//! egui-react draws every row. `for` in `rsx!` is a real loop, each row is a
-//! `<View>` with three children, and taffy lays out all of them whether they
-//! are on screen or not. At ten thousand rows that is around forty thousand
-//! taffy nodes per frame, and the frame time says so.
+//! `<VirtualList>` draws only the rows the viewport can see — around forty of
+//! them — and reserves the height of the rest, so the frame time does not
+//! depend on the count. That is the standard immediate-mode answer to a long
+//! list; the plain egui version next to it (`plain.rs`) does the same thing
+//! with `ScrollArea::show_rows`, which is what `<VirtualList>` wraps. What
+//! drawing every row would cost instead is measured in `tests/scenarios.rs`
+//! (about 22 ms a frame at ten thousand rows, against 0.14 ms here; conditions
+//! in docs/tasks/perf/measurements.md).
 //!
-//! The `virtualise` switch turns on `<VirtualList>`, which draws only the rows
-//! the viewport can see — around forty of them — and reserves the height of the
-//! rest. That is the standard immediate-mode answer to a long list, and the
-//! frame time stops depending on the count entirely. The plain egui version
-//! next to it does the same thing with `ScrollArea::show_rows`, which is what
-//! `<VirtualList>` wraps.
+//! The rows in view are the element's business: `render` is called with the
+//! index of each row that is on screen, as react-virtualized calls
+//! `rowRenderer`. What the app owns is the data — `filtered` is the rows that
+//! survive the filter and the removals, and it is memoised because building
+//! ten thousand `String`s every frame would cost more than drawing them.
 //!
-//! Three ways to draw the same list, measured at ten thousand rows, idle
-//! (`tests/scenarios.rs`; conditions and the other scenarios are in
-//! docs/tasks/perf/measurements.md):
-//!
-//! | | frame |
-//! |---|---|
-//! | `<ScrollArea>` + `for` | ~22 ms |
-//! | `<VirtualList>` | ~0.15 ms |
-//! | plain egui `show_rows` | ~0.12 ms |
-//!
-//! The switch starts on. Turn it off to see the honest cost of drawing every
-//! row; turn the count down to a few hundred and the difference disappears.
+//! Run on its own (`cargo run -p list-10k`), the window has a switch at the
+//! top, "plain egui": it swaps the whole list for the `plain.rs` version, so
+//! the two can be compared in the same window at the same size. The gallery
+//! has its own plain/react switch, so `<App>` itself does not carry this one.
 
 use std::collections::BTreeSet;
 
@@ -33,20 +28,13 @@ use egui_react_elements::prelude::*;
 
 pub mod plain;
 
+use plain::PlainState;
+
 pub const META: Meta = Meta {
     name: "list-10k",
     summary: "Ten thousand rows, and what drawing all of them costs.",
     hooks: &["use_state", "use_memo"],
-    elements: &[
-        "View",
-        "Text",
-        "Slider",
-        "TextEdit",
-        "Checkbox",
-        "Button",
-        "ScrollArea",
-        "VirtualList",
-    ],
+    elements: &["View", "Text", "Slider", "TextEdit", "Button", "VirtualList"],
     source: include_str!("lib.rs"),
     plain: Some(include_str!("plain.rs")),
 };
@@ -58,10 +46,11 @@ pub const WORDS: [&str; 8] = [
 
 /// How many rows the example opens with.
 ///
-/// Ten thousand is the name of the example, and the point of it. The gallery
-/// and the snapshot pass a smaller number, because a gallery that freezes for a
-/// second when you click it is not showing anything useful.
-pub const DEFAULT_COUNT: usize = 10_000;
+/// A hundred thousand: ten times the name, because the point is that the count
+/// does not matter to the frame. It matters to the filter, which rebuilds the
+/// row list on every keystroke (about 20 ms at this size). The gallery and the
+/// snapshot pass a smaller number to match the plain column next to them.
+pub const DEFAULT_COUNT: usize = 100_000;
 
 /// The height of one row, and the gap under it. The plain version needs both as
 /// numbers; here they are the row's natural height and a `gap` attribute.
@@ -85,78 +74,90 @@ pub fn rows(count: usize, filter: &str, removed: &BTreeSet<usize>) -> Vec<(usize
         .collect()
 }
 
-/// `initial_count` is the row count to open with — the default is the ten
-/// thousand in the name, and the gallery and the tests pass something smaller.
-/// `virtualise` is the switch's starting position, on by default; turn it off
-/// to see the cost of drawing every row.
+/// `initial_count` is the row count to open with — a hundred thousand by
+/// default; the gallery and the tests pass something smaller.
 #[component]
-pub fn App(
-    cx: &mut Cx,
-    #[prop(default = DEFAULT_COUNT)] initial_count: usize,
-    #[prop(default = true)] virtualise: bool,
-) {
+pub fn App(cx: &mut Cx, #[prop(default = DEFAULT_COUNT)] initial_count: usize) {
     let mut count = use_state(cx, move || initial_count);
     let mut filter = use_state(cx, String::new);
     let mut removed = use_state(cx, BTreeSet::<usize>::new);
-    let mut virtualise = use_state(cx, move || virtualise);
 
     let frame_ms = cx.ui().input(|i| i.stable_dt) * 1000.0;
 
     // Building ten thousand strings on every frame would be a bigger cost than
     // drawing them. The deps are what the list depends on; removals only ever
     // grow, so their count is enough to notice one.
-    let visible = use_memo(cx, (*count, filter.as_str(), removed.len()), || {
+    let filtered = use_memo(cx, (*count, filter.as_str(), removed.len()), || {
         rows(*count, filter.as_str(), &removed)
     });
-    let shown = visible.len();
-    let virtual_rows = *virtualise;
+    let shown = filtered.len();
 
     rsx! {
         <View direction="column" gap={8} p={12} grow={1.0}>
             <Text size={22.0} strong>"list-10k"</Text>
 
-            <Slider bind={count.bind()} range={100..=10_000} label="rows"/>
+            <Slider bind={count.bind()} range={100..=100_000} label="rows"/>
             <TextEdit w={220.0} bind={filter.bind()} hint="filter"/>
             <View direction="row" gap={8} align="center">
-                <Checkbox bind={virtualise.bind()} label="virtualise"/>
                 <Text>{format!("showing {shown}")}</Text>
                 // Not a benchmark: one frame, as egui measured it, including
                 // whatever else the machine was doing.
                 <Text>{format!("last frame {frame_ms:.1} ms ({:.0} fps)", 1000.0 / frame_ms.max(0.001))}</Text>
             </View>
 
-            if virtual_rows {
-                // Render by index: only the rows in view are ever built.
-                <VirtualList
-                    grow={1.0}
-                    rows={shown}
-                    row_h={ROW_H + ROW_GAP}
-                    render={|cx: &mut Cx<'_, '_>, row: usize| {
-                        let (i, name) = &visible[row];
-                        rsx! { <Row index={*i} name={name.as_str()} on_remove={|| {
-                            removed.insert(*i);
-                        }}/> }
-                        .show(cx);
-                    }}
-                />
+            // Render by index: only the rows in view are ever built, and the
+            // element decides which those are.
+            <VirtualList
+                grow={1.0}
+                rows={shown}
+                row_h={ROW_H + ROW_GAP}
+                render={|cx: &mut Cx<'_, '_>, row: usize| {
+                    let (i, name) = &filtered[row];
+                    rsx! { <Row index={*i} name={name.as_str()} on_remove={|| {
+                        removed.insert(*i);
+                    }}/> }
+                    .show(cx);
+                }}
+            />
+        </View>
+    }
+}
+
+/// The standalone binary's root: [`App`] or the plain egui list, switched at
+/// the top of the window, so the two can be compared without a second window.
+/// Each keeps its own state; both open at a hundred thousand rows.
+#[component]
+pub fn Compare(cx: &mut Cx) {
+    let mut plain = use_state(cx, || false);
+    let show_plain = *plain;
+
+    rsx! {
+        <View direction="column" grow={1.0}>
+            <View direction="row" gap={8} align="center" pl={12} pt={12}>
+                <Checkbox bind={plain.bind()} label="plain egui"/>
+                <Text>{if show_plain { "plain.rs: egui by hand" } else { "lib.rs: egui-react" }}</Text>
+            </View>
+            if show_plain {
+                <PlainApp/>
             } else {
-                <ScrollArea grow={1.0}>
-                    <View direction="column" gap={ROW_GAP} w="100%">
-                        // Every one of these is laid out, on screen or not.
-                        for (i, name) in visible.iter() {
-                            <Row key={i} index={*i} name={name.as_str()} on_remove={|| {
-                                removed.insert(*i);
-                            }}/>
-                        }
-                    </View>
-                </ScrollArea>
+                <App/>
             }
         </View>
     }
 }
 
-/// One row. The same component either way: what changes is who calls it, a
-/// `for` loop over every row or `<VirtualList>` over the ones in view.
+/// [`plain::ui`] as a component: one `use_state` for its whole state, drawn
+/// into a leaf that fills the rest of the window. What the gallery does for
+/// every plain example.
+#[component]
+pub fn PlainApp(cx: &mut Cx) {
+    let mut state = use_state(cx, PlainState::default);
+    cx.leaf_fill(&ItemStyle::default().grow(1.0), |ui| {
+        plain::ui(ui, state.bind());
+    });
+}
+
+/// One row, built by `<VirtualList>` for each row in view.
 #[component]
 pub fn Row(cx: &mut Cx, index: usize, name: &str, #[event] on_remove: ()) {
     rsx! {
