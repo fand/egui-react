@@ -17,14 +17,14 @@
 //!   `set_fonts` is per `egui::Context` and there is one of those, which is
 //!   what the egui API does and the example does not hide it.
 //! - `web`: the full Noto Sans JP fetched from the example's own origin,
-//!   `Url("fonts/NotoSansJP-Regular.ttf")`. trunk copies the file next to
-//!   `index.html`; a pre-build hook downloads it (9.6 MB, so it is not
+//!   `Url("fonts/NotoSansJP-Regular.otf")`. trunk copies the file next to
+//!   `index.html`; a pre-build hook downloads it (4.5 MB, so it is not
 //!   committed). The entry is `Pending` on the first frame and `Loaded` once
 //!   the bytes arrive, and the subset stands behind it in the chain so the
-//!   text is readable meanwhile. The file is the variable font from
-//!   google/fonts, whose default instance is Thin (`wght` 100); epaint draws
-//!   the default instance, so this stack is visibly lighter than the other
-//!   two. Natively the same relative URL has no server to point at, so ehttp
+//!   text is readable meanwhile. The file is the static Regular OTF from
+//!   notofonts/noto-cjk, not the variable font from google/fonts: epaint
+//!   draws a variable font's default instance, which for that file is Thin.
+//!   Natively the same relative URL has no server to point at, so ehttp
 //!   reports it as `Failed` and the chain draws with the subset; the report
 //!   shows that too.
 //! - `system`: fonts installed on the machine, by family name. Native reads
@@ -64,7 +64,7 @@ pub const META: Meta = Meta {
 const NOTO_SANS_JP_SUBSET: &[u8] = include_bytes!("../fonts/NotoSansJP-Subset.ttf");
 
 /// Where the `web` stack fetches the full font from: next to `index.html`.
-pub const WEB_FONT_URL: &str = "fonts/NotoSansJP-Regular.ttf";
+pub const WEB_FONT_URL: &str = "fonts/NotoSansJP-Regular.otf";
 
 /// The stacks, in the order the buttons show them.
 pub const STACKS: [&str; 3] = ["bundled", "web", "system"];

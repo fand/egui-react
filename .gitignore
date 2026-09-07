@@ -1,5 +1,5 @@
 target/
 dist/
-# The `font` example's web font, 9.6 MB, downloaded by a trunk pre-build hook
+# The `font` example's web font, 4.5 MB, downloaded by a trunk pre-build hook
 # (examples/font/fonts/fetch-web-font.sh).
-examples/font/fonts/NotoSansJP-Regular.ttf
+examples/font/fonts/NotoSansJP-Regular.otf

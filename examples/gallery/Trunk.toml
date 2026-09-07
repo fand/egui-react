@@ -3,7 +3,7 @@ target = "index.html"
 dist = "dist"
 
 # The `font` example's web font, served same-origin as
-# `fonts/NotoSansJP-Regular.ttf` (the `copy-file` link in index.html). Not
+# `fonts/NotoSansJP-Regular.otf` (the `copy-file` link in index.html). Not
 # committed, so the same hook as examples/font/Trunk.toml downloads it first.
 [[hooks]]
 stage = "pre_build"

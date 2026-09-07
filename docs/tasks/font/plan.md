@@ -43,7 +43,7 @@ The shape in one sentence: **a `fontdb::Database` is the single place font bytes
 **(b) Web font over HTTP.** `ehttp::fetch` (already a workspace dependency; `examples/fetch` uses it, native via ureq on a thread, wasm via `fetch`) returns the bytes; the resolver loads them into the database and re-applies. Until they arrive the chain draws with whatever is behind them, which is why the bundled fallbacks stay at the tail. Details:
 
 - **Formats.** skrifa reads TTF / OTF / TTC. WOFF and WOFF2 are wrappers with compression, and skrifa does not read them. Google Fonts' CSS API serves WOFF2 only, but the raw files in the google/fonts GitHub repository and most self-hosted fonts are TTF. For WOFF2, `wuff` 0.2.9 (pure Rust, MIT, depends on `brotli-decompressor` and `flate2` only, so it builds for wasm) decodes to OTF bytes; it goes behind a `woff2` feature because Brotli tables are not small. Detection is by the first four bytes (`wOF2` / `wOFF` / `OTTO` / `\0\1\0\0` / `true` / `ttcf`). If `wuff` chokes on a real Google Fonts file, `woff2-patched` 0.4.0 is the fallback.
-- **CORS.** A cross-origin fetch from wasm needs `Access-Control-Allow-Origin`. `raw.githubusercontent.com` and `fonts.gstatic.com` send `*`; an app's own origin is the normal case. Same-origin relative URLs (`fonts/NotoSansJP-Regular.ttf` next to `index.html`, copied by trunk with `data-trunk rel="copy-file"`) are the recommended default and what the example uses, so the gallery does not depend on a third party being up.
+- **CORS.** A cross-origin fetch from wasm needs `Access-Control-Allow-Origin`. `raw.githubusercontent.com` and `fonts.gstatic.com` send `*`; an app's own origin is the normal case. Same-origin relative URLs (`fonts/NotoSansJP-Regular.otf` next to `index.html`, copied by trunk with `data-trunk rel="copy-file"`) are the recommended default and what the example uses, so the gallery does not depend on a third party being up.
 - **`@font-face` cannot help.** The CSS Font Loading API (`document.fonts`, `FontFace`) loads fonts into the browser's own engine and never exposes the bytes, so it cannot feed epaint. Ruled out.
 
 **(c) Local Font Access API.** `navigator.fonts.query()` resolves to an array of `FontData { postscriptName, fullName, family, style, blob() }`. Facts checked:
@@ -113,14 +113,14 @@ Fonts::new()
         FontSource::System("Hiragino Sans".into()),
         FontSource::System("Yu Gothic UI".into()),
         FontSource::System("Noto Sans CJK JP".into()),
-        FontSource::Url("fonts/NotoSansJP-Regular.ttf".into()),
+        FontSource::Url("fonts/NotoSansJP-Regular.otf".into()),
         FontSource::Generic(Generic::SansSerif),
     ])
     .default_proportional("jp")   // widgets and plain <Text> use it too
     .apply(&cc.egui_ctx);
 ```
 
-A string form for the literal case, parsed once: `Fonts::css("jp", r#""Hiragino Sans", "Yu Gothic UI", url(fonts/NotoSansJP-Regular.ttf), sans-serif"#)`. Quoted or bare names become `System`, `url(..)` becomes `Url`, the five CSS generics become `Generic`. Bundled bytes have no string form.
+A string form for the literal case, parsed once: `Fonts::css("jp", r#""Hiragino Sans", "Yu Gothic UI", url(fonts/NotoSansJP-Regular.otf), sans-serif"#)`. Quoted or bare names become `System`, `url(..)` becomes `Url`, the five CSS generics become `Generic`. Bundled bytes have no string form.
 
 `Fonts` is `Clone` (it is the `Arc`), so the app can keep one in a `use_context` or a static and call `request_local_fonts` / `report()` from components.
 
@@ -223,7 +223,7 @@ Each step ends with the listed checks green: `cargo fmt --all --check`, `cargo c
 
 - Layout: a title, three buttons for the sample stack (`bundled` / `web` / `system`), a sample paragraph in Japanese and English drawn with `<Text font=..>`, and a table of the current `report()` (source → outcome), which is the part that teaches what a chain did.
 - `bundled`: one small OFL font shipped in `examples/font/fonts/` (under 500 KB; a Latin + kana subset of Noto Sans JP made with `pyftsubset` and committed, with `OFL.txt` next to it). It is also the `default_proportional`, so the whole example UI is in it.
-- `web`: `Url("fonts/NotoSansJP-Regular.ttf")` served same-origin by trunk (`<link data-trunk rel="copy-file" ..>`; the file is not committed, `Trunk.toml` has a pre-build hook that downloads it, and the native binary reads the same relative path from the example directory). Shows the Pending → Loaded transition live.
+- `web`: `Url("fonts/NotoSansJP-Regular.otf")` served same-origin by trunk (`<link data-trunk rel="copy-file" ..>`; the file is not committed, `Trunk.toml` has a pre-build hook that downloads it, and the native binary reads the same relative path from the example directory). Shows the Pending → Loaded transition live.
 - `system`: `["Hiragino Sans", "Yu Gothic UI", "Noto Sans CJK JP", sans-serif]`. Native: through `load_system_fonts`. wasm: a "use my fonts" button, disabled with a one-line reason on browsers without the API, which calls `request_local_fonts` and then shows the same chain resolved from the grant.
 - `META` with `hooks: ["use_state"]`, `elements: ["View", "Text", "Button"]`; added to `EXAMPLES` in the gallery and to the README table. `theme` may get its Japanese locale back in a follow-up now that the gallery has a CJK font; not in this task.
 - kittest: the example renders and the report table lists the three stacks.
@@ -231,7 +231,7 @@ Each step ends with the listed checks green: `cargo fmt --all --check`, `cargo c
 As built (2026-09-07), where it departs from the above:
 
 - The `Fonts` is a `LazyLock` static (`font::fonts()`), applied from `setup` in `main.rs` and once more from a `use_effect` on `App`'s first frame, because the gallery runs `App` in its own runner with no per-example `setup`. The second `apply` is a no-op when the first happened (the definitions are equal). On the frame that applies, the names are not registered yet, so the samples use `"proportional"` for that one frame rather than trigger `<Text font>`'s warning.
-- Natively the `Url` entry is `Failed` (a relative URL has no base for ureq), not read from the example directory; the report shows it, which is the honest answer for a source that is about HTTP. The web font is the variable `NotoSansJP[wght].ttf` from google/fonts (9.6 MB, downloaded by `fonts/fetch-web-font.sh` from the trunk `pre_build` hooks of the example and of the gallery, gitignored); its default instance is Thin (`fvar` default `wght` 100, `usWeightClass` 100) and epaint draws the default instance, so the `web` stack is lighter than the other two.
+- Natively the `Url` entry is `Failed` (a relative URL has no base for ureq), not read from the example directory; the report shows it, which is the honest answer for a source that is about HTTP. The web font is the static `NotoSansJP-Regular.otf` from notofonts/noto-cjk (`Sans/SubsetOTF/JP`, 4.5 MB, downloaded by `fonts/fetch-web-font.sh` from the trunk `pre_build` hooks of the example and of the gallery, gitignored). The variable `NotoSansJP[wght].ttf` from google/fonts was tried first and rejected: its default instance is Thin (`fvar` default `wght` 100) and epaint draws a variable font's default instance, so the `web` stack came out visibly lighter than the other two.
 - `system` also names `"Noto Sans JP"`, which matches the bundled subset already in the database, by design of `System` (any face the database has).
 - The Local Font Access click uses `egui_react::spawn` (`spawn_local` on wasm, a thread on native) and reports back through a `Dispatch`, so the example has no `cfg` block, only a `cfg!` for the button's note.
 - One kittest, not several: the static is per process and `apply` calls `set_fonts` only when the definitions changed, so a second `Context` in the same process would not receive them. It also asserts `has_glyphs("日本語")` on the `bundled` family, which works here because the subset has neither U+FFFD nor `◻` and the replacement glyph therefore comes from a later face (see the step 1 note on `has_glyphs`).
@@ -253,7 +253,7 @@ fn main() -> eframe::Result {
         .stack("jp", [
             FontSource::System("Hiragino Sans".into()),
             FontSource::System("Yu Gothic UI".into()),
-            FontSource::Url("fonts/NotoSansJP-Regular.ttf".into()),
+            FontSource::Url("fonts/NotoSansJP-Regular.otf".into()),
             FontSource::Bundled(include_bytes!("../fonts/kana.ttf")),
             FontSource::Generic(Generic::SansSerif),
         ])

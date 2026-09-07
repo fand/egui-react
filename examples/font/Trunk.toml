@@ -3,8 +3,8 @@ target = "index.html"
 dist = "dist"
 
 # The `web` stack fetches the full Noto Sans JP from the example's own origin
-# (`fonts/NotoSansJP-Regular.ttf`, copied next to `index.html` by the
-# `copy-file` link). The file is 9.6 MB, so it is not committed: this hook
+# (`fonts/NotoSansJP-Regular.otf`, copied next to `index.html` by the
+# `copy-file` link). The file is 4.5 MB, so it is not committed: this hook
 # downloads it once, before the build, if it is not there yet.
 # `TRUNK_SOURCE_DIR` is the directory of `index.html`; trunk also runs hooks
 # from the directory of this file, so `.` is the same place.
