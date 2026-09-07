@@ -8,6 +8,7 @@
 mod context;
 mod cx;
 mod dispatch;
+mod engine;
 mod events;
 mod future;
 mod hooks;
@@ -34,7 +35,7 @@ pub use view::{View, view};
 pub use egui_react_macros::{component, hook, rsx};
 
 /// The taffy types the layout attributes convert into.
-pub use egui_taffy::taffy;
+pub use taffy;
 
 #[doc(hidden)]
 pub mod __private {

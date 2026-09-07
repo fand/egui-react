@@ -2,7 +2,7 @@
 //!
 //! Every widget that carries text sets [`egui::TextWrapMode::Extend`]. A taffy
 //! leaf is measured from the size it reported the last time it was drawn, and
-//! egui_taffy hands that one value back as both the min- and the max-content
+//! the engine hands that one value back as both the min- and the max-content
 //! size. The first draw happens in a zero-width `Ui`, so a widget left to wrap
 //! reports one character wide, taffy keeps the node that narrow, and the label
 //! ends up written downwards one letter per line. Where the widget has no

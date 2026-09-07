@@ -31,11 +31,37 @@ use egui_react::prelude::*;
 /// `render` is an ordinary component body. It may open a `<View>`, call hooks,
 /// and hold state: each row is entered under `cx.scope(i, ..)`, so row 7 keeps
 /// its own state as it scrolls in and out — the same keying `key={i}` gives a
-/// `for` loop.
+/// `for` loop. The layout underneath is keyed the other way, by the slot the
+/// row sits in, so that scrolling reuses the same handful of row layouts.
+///
+/// Rows are laid out by the lite solver, not by taffy: a row is a single-line
+/// flex box, and a retained tree for it costs more than its layout does
+/// (`crates/egui-react/src/engine/lite.rs`, ARCHITECTURE section 6). The
+/// solver covers `display` flex or none, both directions and their reverses,
+/// `justify` and `align` other than `baseline`, `gap`, the `w` / `h` / `min` /
+/// `max` sizes, `grow` / `shrink` / `basis`, and margins and padding, all in
+/// points or percent, at any depth of `<View>`. A row that uses anything else
+/// — `display="grid"` or `"block"`, `wrap`, `align_content`, a `baseline`
+/// align, `col_span` / `row_span`, an `auto` margin — falls back to taffy,
+/// that slot alone and for good. It still lays out the same; it is only
+/// slower. To tell, read the log at `debug` level: the fallback prints once
+/// per slot and names the attribute that caused it.
 ///
 /// **Every row must be `row_h` tall.** That is what lets `show_rows` work out
 /// the range without measuring anything, and it is the one thing this element
 /// cannot check for you: a row that draws taller will overlap the next.
+///
+/// The pitch is exactly `row_h`: `show_rows` itself would add the `Ui`'s
+/// `item_spacing.y` between rows, and this element zeroes it, so the gap
+/// between rows is the row's own business (an `h` shorter than `row_h`, or
+/// padding). A plain `show_rows` list with `item_spacing.y = gap` and
+/// `row_height = h` matches a `<VirtualList row_h={h + gap}>`.
+///
+/// The row's rect is the list's, not the row's: each row is laid out into a
+/// rect exactly `row_h` tall, and the list moves on by exactly `row_h`
+/// whatever the row drew. So the rows always sit where `show_rows` put them —
+/// a row that draws shorter leaves a gap under itself instead of pulling the
+/// whole list up, and one that draws taller reaches into the next row.
 ///
 /// The size comes from the style, not the content (`leaf_fill`), so give it
 /// `grow` or an `h`; with neither it fills the window on that axis.
@@ -51,14 +77,40 @@ pub fn VirtualList(
     render: impl for<'a, 's, 'u> FnMut(&'a mut Cx<'s, 'u>, usize),
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
+    let layout = cx.layout_id();
     let mut render = render;
     cx.leaf_fill(&style, move |ui| {
+        // `show_rows` places the rows `row_h + item_spacing.y` apart. The
+        // element promises `row_h`, so the spacing goes.
+        ui.spacing_mut().item_spacing.y = 0.0;
         egui::ScrollArea::vertical().show_rows(ui, row_h, rows, move |ui, range| {
+            // The rect every row's tree is laid out into, and the room it
+            // takes. Fixed, so a row moves the cursor on by exactly the height
+            // `show_rows` worked the visible range out from, and so a row
+            // tree's root size does not move with the scroll offset. See
+            // `Cx::with_root_size`.
+            let row_size = egui::vec2(ui.available_width(), row_h);
             // The same shape as any container element: rebuild a `Cx` around
             // the `Ui` egui handed back, then enter a scope per row.
             let mut cx = Cx::new(store, ui, scope);
-            for i in range {
-                cx.scope(i, |cx| render(cx, i));
+            for (slot, i) in range.enumerate() {
+                // Hooks are keyed by the row index, so row 7 keeps its state
+                // wherever it sits. The layout is keyed by the slot the row
+                // occupies, because a slot is drawn on every frame: scrolling
+                // reuses its nodes instead of building a tree for each row that
+                // comes into view, measuring it in an invisible pass, and
+                // throwing it away when the row goes out again.
+                //
+                // `scope_sharing_ui`, not `scope`: a row needs a hook scope,
+                // not an egui `Ui` of its own. The row index reaches the
+                // widgets through the hook scope, which is what salts each
+                // leaf's `Ui` inside the row's `<View>`, so a `Ui` per row
+                // would only cost a frame's worth of `Ui::new_child` calls.
+                cx.scope_sharing_ui(i, |cx| {
+                    cx.with_layout_id(layout.with(("vl-slot", slot)), |cx| {
+                        cx.with_root_size(row_size, |cx| render(cx, i))
+                    })
+                });
             }
         });
     });

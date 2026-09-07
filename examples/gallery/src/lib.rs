@@ -7,9 +7,9 @@
 //! them and the new example starts clean.
 
 use egui_extras::syntax_highlighting::{CodeTheme, code_view_ui};
-use example_meta::Meta;
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
+use example_meta::Meta;
 
 use board::App as BoardApp;
 use clock::App as ClockApp;
@@ -231,9 +231,9 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "custom-hook" => { <CustomHookApp/> }
                 "escape-hatch" => { <EscapeHatchApp/> }
                 "shader" => { <ShaderApp/> }
-                // A thousand, not the ten thousand the binary opens with: at
-                // 10k a frame takes ~85ms, and the gallery around it would
-                // crawl too. The slider still reaches 10k for anyone curious.
+                // A thousand, not the hundred thousand the binary opens with,
+                // to match the plain column next to it (`ListPlain`). The rows
+                // are virtualised, so the slider still reaches 100k at no cost.
                 "list-10k" => { <ListApp initial_count={1_000}/> }
                 "layout" => { <LayoutApp/> }
                 "fetch" => { <FetchApp/> }

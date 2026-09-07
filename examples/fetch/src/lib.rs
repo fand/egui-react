@@ -3,9 +3,9 @@
 //! The same code runs natively (`ehttp` uses ureq on a thread of its own) and
 //! in a browser (`ehttp` uses the fetch API on the browser's event loop).
 
-use example_meta::Meta;
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
+use example_meta::Meta;
 
 pub const META: Meta = Meta {
     name: "fetch",

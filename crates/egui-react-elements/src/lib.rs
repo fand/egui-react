@@ -3,7 +3,8 @@
 //! Three families, all `#[component]` functions:
 //!
 //! - [`View`](view::View) and [`Text`](view::Text), the flex/grid primitives
-//!   built on `egui_taffy`.
+//!   built on egui-react's own layout engine over taffy (`cx.container`,
+//!   `cx.text`).
 //! - Widgets ([`Button`](widgets::Button), [`TextEdit`](widgets::TextEdit), ..),
 //!   which draw one egui widget through `cx.leaf`.
 //! - Containers ([`ScrollArea`](containers::ScrollArea),

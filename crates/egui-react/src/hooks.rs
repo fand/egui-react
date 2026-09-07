@@ -83,9 +83,9 @@ pub fn use_memo<'s, D: Hash, T: 'static>(
 /// survive that (3.4). Two calls with the same key therefore share one value,
 /// and calling it twice in one pass is a collision like any other.
 ///
-/// The value is restored by [`Store::load_persisted`] before the first pass and
-/// written back by [`Store::save_persisted`]; the runner wires both to eframe's
-/// storage.
+/// The value is restored by [`crate::Store::load_persisted`] before the first
+/// pass and written back by [`crate::Store::save_persisted`]; the runner wires
+/// both to eframe's storage.
 #[track_caller]
 pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(
     cx: &mut Cx<'s, '_>,

@@ -28,6 +28,11 @@ egui-react.workspace = true
 egui_kittest.workspace = true
 egui-react-elements.workspace = true
 
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# `run` installs it when nothing else has: `RUST_LOG=egui_react=debug` then
+# prints every layout discard with what caused it.
+env_logger.workspace = true
+
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # The DOM mirror of the AccessKit tree. wasm only: on every other target
 # `a11y::WebA11y` is an empty plugin. `accesskit` itself comes from

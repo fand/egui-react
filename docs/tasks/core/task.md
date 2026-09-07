@@ -1,5 +1,10 @@
 # Task: core (PR2 = Phase 2 + 3 + 4 + 5)
 
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
+> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
+> section 6), which ports its measure function and node rules, so the layout
+> behaviour described here still holds unless ARCHITECTURE says otherwise.
+
 ## Goal
 
 Build the API that users actually write on top of the core that spike (PR1) verified. This means the rest of the hooks (`use_memo` / `use_reducer` / `defer` / `update_later` / `use_persisted`), the three macros (`rsx!` / `#[component]` / `#[hook]`), elements and layout, and the runner. When this is done, the examples run on native and wasm, and later PRs (async, mobile) only need to add a runner layer and one hook.

@@ -8,22 +8,23 @@ use common::run_app;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
 use egui_react::prelude::*;
-use egui_react::taffy;
 
 /// The style `<View direction=".." gap={..}>` will build in phase 4.
-fn container_style(direction: &str) -> taffy::Style {
-    ContainerStyle::default()
-        .direction(direction)
-        .gap(4.0)
-        .merge(&ItemStyle::default())
+fn container_style(direction: &str) -> ContainerStyle {
+    ContainerStyle::default().direction(direction).gap(4.0)
 }
 
 fn three_leaves(cx: &mut Cx<'_, '_>, direction: &str) {
-    cx.container(egui::Id::new("row"), container_style(direction), |cx| {
-        for label in ["one", "two", "three"] {
-            cx.leaf(&ItemStyle::default(), |ui| ui.label(label));
-        }
-    });
+    cx.container(
+        egui::Id::new("row"),
+        &container_style(direction),
+        &ItemStyle::default(),
+        |cx| {
+            for label in ["one", "two", "three"] {
+                cx.leaf(&ItemStyle::default(), |ui| ui.label(label));
+            }
+        },
+    );
 }
 
 fn harness_for(direction: &'static str) -> Harness<'static, Store> {
@@ -74,29 +75,39 @@ fn hooks_work_inside_nested_containers() {
     let mut harness = Harness::new_ui_state(
         |ui, store: &mut Store| {
             run_app(ui, store, |cx| {
-                cx.container(egui::Id::new("outer"), container_style("column"), |cx| {
-                    let mut outer = use_state(cx, || 0i32);
-                    cx.leaf(&ItemStyle::default(), |ui| {
-                        if ui.button("outer +").clicked() {
-                            *outer += 1;
-                        }
-                    });
-                    cx.leaf(&ItemStyle::default(), |ui| {
-                        ui.label(format!("outer: {}", *outer))
-                    });
-
-                    cx.container(egui::Id::new("inner"), container_style("row"), |cx| {
-                        let mut inner = use_state(cx, || 100i32);
+                cx.container(
+                    egui::Id::new("outer"),
+                    &container_style("column"),
+                    &ItemStyle::default(),
+                    |cx| {
+                        let mut outer = use_state(cx, || 0i32);
                         cx.leaf(&ItemStyle::default(), |ui| {
-                            if ui.button("inner +").clicked() {
-                                *inner += 1;
+                            if ui.button("outer +").clicked() {
+                                *outer += 1;
                             }
                         });
                         cx.leaf(&ItemStyle::default(), |ui| {
-                            ui.label(format!("inner: {}", *inner))
+                            ui.label(format!("outer: {}", *outer))
                         });
-                    });
-                });
+
+                        cx.container(
+                            egui::Id::new("inner"),
+                            &container_style("row"),
+                            &ItemStyle::default(),
+                            |cx| {
+                                let mut inner = use_state(cx, || 100i32);
+                                cx.leaf(&ItemStyle::default(), |ui| {
+                                    if ui.button("inner +").clicked() {
+                                        *inner += 1;
+                                    }
+                                });
+                                cx.leaf(&ItemStyle::default(), |ui| {
+                                    ui.label(format!("inner: {}", *inner))
+                                });
+                            },
+                        );
+                    },
+                );
             });
         },
         Store::new(),
@@ -141,10 +152,15 @@ fn scope_separates_hook_and_egui_ids_inside_taffy() {
     let mut harness = Harness::new_ui_state(
         |ui, store: &mut Store| {
             run_app(ui, store, |cx| {
-                cx.container(egui::Id::new("root"), container_style("column"), |cx| {
-                    cx.scope("first", section);
-                    cx.scope("second", section);
-                });
+                cx.container(
+                    egui::Id::new("root"),
+                    &container_style("column"),
+                    &ItemStyle::default(),
+                    |cx| {
+                        cx.scope("first", section);
+                        cx.scope("second", section);
+                    },
+                );
             });
         },
         Store::new(),
@@ -174,11 +190,16 @@ fn scope_inside_taffy_records_no_collision() {
         move |ui, store: &mut Store| {
             let seen = std::rc::Rc::clone(&seen_in_app);
             run_app(ui, store, |cx| {
-                cx.container(egui::Id::new("root"), container_style("column"), |cx| {
-                    cx.scope("first", section);
-                    cx.scope("second", section);
-                    seen.set(cx.store.collisions().len());
-                });
+                cx.container(
+                    egui::Id::new("root"),
+                    &container_style("column"),
+                    &ItemStyle::default(),
+                    |cx| {
+                        cx.scope("first", section);
+                        cx.scope("second", section);
+                        seen.set(cx.store.collisions().len());
+                    },
+                );
             });
         },
         Store::new(),

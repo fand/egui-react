@@ -13,7 +13,7 @@ path = "src/lib.rs"
 
 [dependencies]
 egui.workspace = true
-egui_taffy.workspace = true
+taffy.workspace = true
 elsa.workspace = true
 log.workspace = true
 egui-react-macros.workspace = true

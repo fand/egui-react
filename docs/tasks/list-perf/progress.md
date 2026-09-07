@@ -1,0 +1,163 @@
+# list-perf: progress and handoff
+
+Moved here from the repository root's `progress.md` when the task closed.
+
+PR: https://github.com/fand/egui-react/pull/7, branch `docs-perf`, base `main`.
+Plans: `plan.md` (A to C), `plan-d.md` (D), `plan-e.md` (E). Every number is
+in `measurements.md`; the task's result table is at the top of `task.md`;
+lessons and remaining work, short, in `retrospective.md`.
+
+## What was done, in order
+
+| Step | Commit | Change | Effect |
+|---|---|---|---|
+| Benchmark | `2c1a3ac` | `examples/list-10k/tests/scenarios.rs`: Idle / Scroll / Filter / Resize × all rows / VirtualList / plain, CPU time and passes per frame | Baseline: VirtualList 1.8x to 4.3x plain, extra passes on three scenarios |
+| A | `798f327` | VirtualList row trees keyed by slot (`Cx::with_layout_id`) | No tree per scrolled row; egui memory stops growing. Passes unchanged |
+| B | `20a22c5` | egui_taffy fork: no discard when the layout did not move | Scroll and Filter 1 pass/frame |
+| C | `c1c417e` | egui_taffy fork: compute before drawing when only the root resized | Resize 2.98 to 1.02 passes/frame |
+| D1 | `5a9f04a` | Own engine over taffy (`crates/egui-react/src/engine/mod.rs`); egui_taffy and the `[patch]` removed. A node is a rect; one `Ui` per widget leaf | Idle 1.96x to 1.43x |
+| D2 | `bf8d2f2` | `<Text>` painted as a galley, no `Ui` (`Cx::text`) | Idle 1.32x |
+| D2b | `dfc5dfc` | Text selection restored through `LabelSelectionState`, `selectable` prop | No measurable cost |
+| E | `fcb8697` | VirtualList rows get a fixed root rect (`Cx::with_root_size`) | Row pitch bug fixed (rows were 18 pt apart under a 20 pt reservation). Scroll unchanged |
+| E1 | `65d0274` | VirtualList rows laid out by a single-line flex solver (`engine/lite.rs`), taffy as per-row fallback; parity test over 18 row trees | Idle 1.15x, Scroll 1.30x |
+| Web | `57d4f8b` | Chrome measurement; `list-10k-plain` builds for the web | 1.0 ms vs 0.8 ms per drawn frame, 0 PERF WARNING |
+| `43d1cc4` | | list-10k starts with virtualise on | Gallery snapshot updated |
+| F | `4be1a36` | Trees survive 120 passes without being drawn (`TREE_GRACE_PASSES`) | Real trackpad scrolling no longer discards every other frame; Resize back to 1.02 |
+| G | (this commit) | A `<Text>` counts as moved only when its paint anchor moves; a container only when its corner moves. Discard reasons name the node. `list-10k` gets a "plain egui" switch | A label that changes every frame (frame time, fps) no longer costs a pass on either path; the PERF WARNING overlay and `RUST_LOG=egui_react=debug` say which node asked for the pass |
+
+## Results
+
+Native, VirtualList mean ms per frame (ratio to plain), 37 visible rows of 10,000:
+
+| Scenario | Baseline | Now (after G) | Passes/frame now |
+|---|---:|---:|---:|
+| Idle | 0.225 (1.81x) | 0.138 (1.16x) | 1.00 |
+| Scroll | 0.452 (2.95x) | 0.191 (1.36x) | 1.00 |
+| Filter | 1.528 (1.19x) | 1.090 (1.04x) | 1.00 |
+| Resize | 0.662 (4.33x) | 0.211 (1.29x) | 1.02 |
+
+All-rows mode (10,000 `<Row>`s through taffy): 44 ms to 22 ms at idle.
+Web (Chrome, wasm release, 800×900): VirtualList 1.0 ms per drawn frame,
+plain 0.8 ms (1.24x), all rows 67 ms, zero `PERF WARNING` over synthetic
+whole-row, fractional and momentum-style scrolling. Chrome ran at 60 Hz on
+the test display, so 120 Hz was not exercised. Gallery snapshots stayed
+byte-identical through every step except the deliberate list-10k default
+change. Ratios move by a few percent between runs; passes and discard counts
+are the stable signal.
+
+task.md criteria: 1.5x on all four scenarios met; no PERF WARNING met; web
+frame within 8.3 ms met. Plan E's own tighter 1.2x gate is missed on Scroll
+(1.36x), see "What remains".
+
+## How it is built now
+
+- `engine/mod.rs`: one taffy tree per `<View>` root, kept in the `Store`.
+  Containers are rects; only widget leaves get a `Ui`; `<Text>` is measured
+  inside taffy's measure function and painted as a galley. Discard only when
+  a node was created (drew in a sizing pass), removed, or moved; layout is
+  computed before drawing when only the root rect resized. Trees not drawn
+  for 120 passes are swept.
+- "Moved" depends on what the node is (`finish` in `mod.rs`, `lay_out` in
+  `lite.rs`, ARCHITECTURE.md 5.3): a widget leaf on any field of its layout;
+  a `<Text>` on its paint anchor (top of the content rect and the `halign`
+  edge, plus the width if it wraps), never on its size alone; a container on
+  its location alone, the root included. Test:
+  `crates/egui-react-elements/tests/text_width.rs`.
+- The reason handed to `request_discard` names the cause: `egui-react: layout
+  changed: the text "last frame 9.8 ms…" moved [..] -> [..]`, `a widget drew
+  for the first time`, `a node was removed`. egui puts it in the PERF WARNING
+  overlay; the engine also logs it at `debug`. `egui-react-app::run` installs
+  `env_logger` (native, when no logger is set) and eframe's `WebLogger`
+  (web), so `RUST_LOG=egui_react=debug cargo run -p list-10k` prints one line
+  per discard.
+- `engine/lite.rs`: rows opened with `Cx::with_root_size` (VirtualList) use a
+  single-line flexbox solver over a `Vec` of nodes rebuilt per frame; no
+  `HashMap`, no `taffy::Style`. Rows using `wrap`, grid, block,
+  `align_content`, baseline, spans or auto margins fall back to taffy per
+  slot with one `debug` log. `tests/lite_parity.rs` asserts rect equality
+  with taffy on 18 row trees.
+- `Cx`: `layout_id` / `with_layout_id` (node keys vs hook scope),
+  `with_root_size`, `text`; `container` takes `(&ContainerStyle, &ItemStyle)`;
+  `in_taffy` means "inside a `<View>`" on either path.
+- egui_taffy is gone from the workspace; `taffy` 0.9 is a direct dependency.
+  The fork `../egui_taffy` (branches `skip-unchanged-discard` d618550,
+  `layout-first` ee07d38, not pushed) is kept only as the source of possible
+  upstream PRs for B and C. Decision: file them later.
+
+## Behaviour changes to know about
+
+- `<Text>` inside a `<View>` is selectable per `selectable_labels`, as
+  `Label`; a text created this frame is not selectable for that one frame.
+- list-10k has no "virtualise" switch any more: `<App>` always draws through
+  `<VirtualList>` (the all-rows list lives only in `tests/scenarios.rs`, as its
+  own fixture). The filtered data is named `filtered`, not `visible`: the rows
+  in view are the element's business, the data is the app's. `Checkbox` and
+  `ScrollArea` left the example's META, and `tests/bench.rs` lost its
+  all-rows column.
+- VirtualList rows land at the pitch `show_rows` reserved (was 2 pt short
+  per row).
+- `Cx::container` signature changed; `Cx::new_taffy` removed; `<View>` passes
+  styles by reference.
+- `<VirtualList>` rows sit exactly `row_h` apart. `show_rows` adds the `Ui`'s
+  `item_spacing.y` (egui default 3) to the pitch, so list-10k's rows were 23 pt
+  apart against the plain version's 20; the element now zeroes that spacing.
+  Tests and the benchmark fixture had zeroed it themselves, which is why they
+  never saw it. Gallery list-10k snapshot updated for it.
+- list-10k opens with 100,000 rows (slider to 100k). Frame cost is flat
+  (native 0.18 ms vs plain 0.14 ms at 100k; web scroll 1.1 ms/frame at top
+  and bottom, 2,000,000 pt offset fine); a filter keystroke rebuilds the row
+  list and costs about 22 ms at this size. measurements.md, "100k".
+- `cargo run -p list-10k` opens `list_10k::Compare`: a "plain egui" checkbox
+  at the top swaps the whole list for `plain.rs`, so both versions can be
+  compared in one window (each shows its own "last frame" readout). The
+  gallery still mounts `<App>` and uses its own plain switch;
+  `list-10k-plain` remains for a build with no egui-react in it.
+- `egui-react-app::run` installs a logger when the app has none: `env_logger`
+  on native (filter `error` unless `RUST_LOG` is set), `WebLogger` at `debug`
+  on the web.
+
+## What remains
+
+- Scroll at 1.36x: each slot's text changes, the lite solver re-solves the
+  row (about 360 ns/row) although fixed-width and `grow` columns cannot
+  move. Candidate: skip the solve when no box can move. Second candidate:
+  cheaper component layer (`Cx::scope`, props, about 200 ns/row).
+- Gallery costs 10 to 11 ms per frame whatever example is shown: the source
+  panel draws the whole highlighted file every frame. Separate issue; a
+  row-virtualised source view would fix it. Also seen: at 800 px width the
+  source panel overlaps the example column, and the showcase heading renders
+  garbled glyphs.
+- Real trackpad scrolling after F and G was verified with synthetic events
+  only; check on a device. If the PERF WARNING still shows while scrolling,
+  its overlay now names the node that asked for the pass, and
+  `RUST_LOG=egui_react=debug cargo run -p list-10k` logs one line per
+  discard with the old and new rect. That is the "operation log" to read
+  before profiling anything.
+- Upstream PRs for B and C from the fork: not filed.
+- Pre-existing, untouched: `cargo fmt --all -- --check` fails on ~30 files
+  (import order); the two board gallery snapshots were never generated.
+
+## Reproduction
+
+From the repository root:
+
+```sh
+RUST_LOG=egui_react=debug cargo run --release -p list-10k   # logs each discard
+PERF_CSV="$PWD/docs/tasks/list-perf/samples-<tag>.csv" \
+  cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo check --workspace --target wasm32-unknown-unknown
+cargo test -p gallery --features snapshot
+cd examples/list-10k && trunk build --release            # egui-react list
+cd examples/list-10k && trunk build --release index-plain.html   # plain list
+```
+
+The web measurement method (rAF wrapper, COOP/COEP server, synthetic wheel
+events) is described in measurements.md, "Web".
+
+## Product constraint
+
+Preserve the React-like component API and declarative row layout. Direct
+egui row layout stays a benchmark reference, not the production path; the
+lite solver keeps the `<View>` / `<Text>` / `<Button>` row as written.

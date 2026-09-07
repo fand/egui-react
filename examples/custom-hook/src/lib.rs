@@ -9,9 +9,9 @@
 //! no macro beyond `#[hook]`, and it composes with the built-in hooks because
 //! it *is* the built-in hooks.
 
-use example_meta::Meta;
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
+use example_meta::Meta;
 
 pub mod hooks;
 

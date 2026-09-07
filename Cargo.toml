@@ -27,7 +27,17 @@ accesskit_consumer = "0.38.0"
 eframe = "0.36.1"
 # `wgpu` and `snapshot` are intentionally left off: the tests run headless.
 egui_kittest = { version = "0.36.1", default-features = false }
-egui_taffy = "0.14.0"
+# The same version and features egui_taffy 0.14.0 pulled in, so that layouts
+# come out exactly as they did before the own engine replaced it.
+taffy = { version = "0.9.2", default-features = false, features = [
+  "taffy_tree",
+  "detailed_layout_info",
+  "block_layout",
+  "content_size",
+  "flexbox",
+  "grid",
+  "std",
+] }
 # The version eframe 0.36.1 depends on. Pinned here so an example that builds
 # a render pipeline links against the same wgpu eframe does.
 wgpu = "30.0"
@@ -61,6 +71,7 @@ trybuild = "1.0.120"
 ehttp = "0.7.1"
 elsa = "1.11.2"
 log = "0.4.34"
+env_logger = "0.11"
 # `std::time::SystemTime::now()` panics on wasm32-unknown-unknown; this is the
 # drop-in replacement that uses `performance.now()` there.
 web-time = "1.1.0"

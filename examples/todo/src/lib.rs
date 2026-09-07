@@ -3,9 +3,9 @@
 //! Quit and restart it and the list is still there (native; the value is kept
 //! in eframe's storage under the `"egui_react"` key).
 
-use example_meta::Meta;
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
+use example_meta::Meta;
 use serde::{Deserialize, Serialize};
 
 pub mod plain;

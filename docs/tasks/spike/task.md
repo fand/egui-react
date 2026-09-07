@@ -1,5 +1,10 @@
 # Task: spike (PR1 = Phase 0 + 1)
 
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
+> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
+> section 6), which ports its measure function and node rules, so the layout
+> behaviour described here still holds unless ARCHITECTURE says otherwise.
+
 ## Goal
 
 Confirm, with hand-written code and tests and no macros, that the design in [docs/ARCHITECTURE.md](../../ARCHITECTURE.md) holds up on Rust's borrow rules and egui's execution model. If any assumption breaks here, fix ARCHITECTURE.md before moving on with implementation. At the same time, set up the Cargo workspace and CI that later PRs build on.

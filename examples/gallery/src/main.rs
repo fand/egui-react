@@ -1,9 +1,9 @@
 //! Runs the gallery; the page itself is in `lib.rs`.
 
-use gallery::{App, initial_example};
 use egui_react::prelude::*;
 use egui_react_app::a11y::WebA11y;
 use egui_react_app::{Options, run};
+use gallery::{App, initial_example};
 
 fn main() -> eframe::Result {
     // Read once, before the first pass: the root closure runs every pass and

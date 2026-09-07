@@ -16,9 +16,9 @@
 
 use std::time::Duration;
 
-use example_meta::Meta;
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
+use example_meta::Meta;
 
 pub const META: Meta = Meta {
     name: "clock",

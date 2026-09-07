@@ -4,8 +4,12 @@ use std::any::{Any, TypeId};
 use std::cell::{Cell, Ref, RefCell, RefMut};
 use std::collections::{BTreeSet, HashMap};
 use std::panic::Location;
+use std::rc::Rc;
 
 use elsa::{FrozenMap, FrozenVec};
+
+use crate::engine::Tree;
+use crate::engine::lite::LiteTree;
 
 /// A single hook's storage.
 ///
@@ -159,8 +163,32 @@ pub struct Store {
     persisted: RefCell<HashMap<String, String>>,
     /// Every key `use_persisted` has been called with in this process.
     persisted_keys: RefCell<BTreeSet<String>>,
+    /// One taffy tree per `<View>` root, keyed by the root's layout id.
+    ///
+    /// Here rather than in egui memory: one map lookup per tree per frame with
+    /// no lock, and [`Store::end_pass`] drops a tree an unmounted subtree left
+    /// behind instead of keeping it in egui's `IdTypeMap` forever. Each tree is
+    /// behind its own `Rc<RefCell<..>>` so that a tree opened inside a leaf of
+    /// another one does not run into the outer tree's borrow.
+    trees: RefCell<HashMap<egui::Id, Rc<RefCell<Tree>>>>,
+    /// One lite row per `<VirtualList>` slot, keyed the same way.
+    ///
+    /// A slot that fell back to taffy keeps its (empty) entry here, because
+    /// that is where the "this row is on the taffy path" flag lives; it is what
+    /// makes the fallback stick instead of being decided again every frame.
+    lite_trees: RefCell<HashMap<egui::Id, Rc<RefCell<LiteTree>>>>,
+    /// Draw every row through taffy, whatever its styles say. For the parity
+    /// test, which draws the same row both ways.
+    force_taffy_rows: Cell<bool>,
     warn_on_collision: bool,
 }
+
+/// How many passes a layout tree survives without being drawn.
+///
+/// About two seconds at 60 Hz; long enough for a scroll to bring a slot back,
+/// short enough that an unmounted subtree's trees do not linger. See
+/// `Store::sweep_trees`.
+const TREE_GRACE_PASSES: u64 = 120;
 
 /// The slot id of a `use_persisted` key.
 ///
@@ -192,6 +220,9 @@ impl Store {
             deferred: RefCell::new(Vec::new()),
             persisted: RefCell::new(HashMap::new()),
             persisted_keys: RefCell::new(BTreeSet::new()),
+            trees: RefCell::new(HashMap::new()),
+            lite_trees: RefCell::new(HashMap::new()),
+            force_taffy_rows: Cell::new(false),
             warn_on_collision: cfg!(debug_assertions),
         }
     }
@@ -214,7 +245,28 @@ impl Store {
     pub fn end_pass(&mut self) {
         self.run_deferred();
         self.sweep();
+        self.sweep_trees();
         self.show_collision_overlay();
+    }
+
+    /// Drop every layout tree that has not been drawn for a while.
+    ///
+    /// A tree belongs to the `<View>` root that opened it, so a subtree that
+    /// unmounted takes its trees with it. It is not dropped the moment it
+    /// misses a pass, though: a `<VirtualList>` slot at the bottom of the
+    /// viewport comes and goes with every fractional scroll, and a tree that
+    /// was dropped in between has to draw its widgets in a sizing pass and ask
+    /// for a discard when it comes back, on every second frame. Keeping a tree
+    /// for [`TREE_GRACE_PASSES`] passes after its last draw costs the memory
+    /// of a few rows' layouts and nothing else.
+    fn sweep_trees(&mut self) {
+        let keep_from = self.pass.get().saturating_sub(TREE_GRACE_PASSES);
+        self.trees
+            .borrow_mut()
+            .retain(|_, tree| tree.borrow().last_visited() >= keep_from);
+        self.lite_trees
+            .borrow_mut()
+            .retain(|_, tree| tree.borrow().last_visited() >= keep_from);
     }
 
     /// Apply everything `cx.defer` / `update_later` queued, until nothing is left.
@@ -320,6 +372,72 @@ impl Store {
     /// Whether the store holds no slots.
     pub fn is_empty(&self) -> bool {
         self.len() == 0
+    }
+
+    /// Number of live layout trees, one per `<View>` root drawn last pass.
+    ///
+    /// For tests: it is how a test asks "did scrolling a list build a tree per
+    /// row?" without reaching into egui memory.
+    pub fn tree_count(&self) -> usize {
+        // A slot that fell back is counted once, by its taffy tree: its lite
+        // entry holds the flag and nothing else.
+        self.trees.borrow().len() + self.lite_row_count()
+    }
+
+    /// How many `<VirtualList>` rows were laid out without taffy last pass.
+    ///
+    /// For `tests/lite_parity.rs`, which has to know that the row it compared
+    /// really took the lite path.
+    #[doc(hidden)]
+    pub fn lite_row_count(&self) -> usize {
+        self.lite_trees
+            .borrow()
+            .values()
+            .filter(|tree| !tree.borrow().fallen_back())
+            .count()
+    }
+
+    /// Draw every `<VirtualList>` row through taffy, whatever its styles allow.
+    ///
+    /// For `tests/lite_parity.rs`, which draws one row both ways and compares
+    /// the rects. Nothing in the library reads it but
+    /// [`crate::Cx::container`].
+    #[doc(hidden)]
+    pub fn force_taffy_rows(&self, force: bool) {
+        self.force_taffy_rows.set(force);
+    }
+
+    /// Whether rows are being forced onto the taffy path.
+    pub(crate) fn taffy_rows_forced(&self) -> bool {
+        self.force_taffy_rows.get()
+    }
+
+    /// The lite row keyed by `id`, created on first use and marked as drawn in
+    /// this pass.
+    pub(crate) fn lite_tree(&self, id: egui::Id) -> Rc<RefCell<LiteTree>> {
+        let pass = self.pass.get();
+        let tree = {
+            let mut trees = self.lite_trees.borrow_mut();
+            Rc::clone(
+                trees
+                    .entry(id)
+                    .or_insert_with(crate::engine::lite::new_tree),
+            )
+        };
+        tree.borrow_mut().visit(pass);
+        tree
+    }
+
+    /// The layout tree keyed by `id`, created on first use and marked as drawn
+    /// in this pass.
+    pub(crate) fn tree(&self, id: egui::Id) -> Rc<RefCell<Tree>> {
+        let pass = self.pass.get();
+        let tree = {
+            let mut trees = self.trees.borrow_mut();
+            Rc::clone(trees.entry(id).or_insert_with(crate::engine::new_tree))
+        };
+        tree.borrow_mut().visit(pass);
+        tree
     }
 
     /// Enter a `<Suspense>` boundary: push a counter of its own.

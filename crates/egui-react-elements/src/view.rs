@@ -1,4 +1,4 @@
-//! [`View`] and [`Text`]: the flex/grid primitives.
+//! [`View()`] and [`Text()`]: the flex/grid primitives.
 
 use egui_react::layout::{Align, ContainerStyle, Direction, Display, Gap, ItemStyle, Justify};
 use egui_react::prelude::*;
@@ -39,9 +39,10 @@ pub fn View(
         gap: (gap.column, gap.row),
         cols,
     };
-    let taffy_style = container.merge(&style);
-    let id = cx.scope_id();
-    cx.container(id, taffy_style, |cx| children.show(cx));
+    // The layout id, not the hook scope: inside a reused list slot the two
+    // differ, and the tree has to stay with the slot.
+    let id = cx.layout_id();
+    cx.container(id, &container, &style, |cx| children.show(cx));
 }
 
 /// A text leaf.
@@ -49,7 +50,17 @@ pub fn View(
 /// The wrap mode defaults to `Extend`, so a `<Text>` inside a `<View>` reports
 /// its full width to taffy instead of collapsing into one character per line.
 /// Pass `wrap` to get egui's usual wrapping.
+///
+/// Inside a `<View>` this is a taffy node holding a galley rather than an
+/// `egui::Label` in a `Ui` of its own; see [`Cx::text`]. Outside one it is
+/// `ui.add(egui::Label::new(..))` and nothing else.
+///
+/// `selectable` is `egui::Label::selectable`: leave it off to follow the
+/// style's `interaction.selectable_labels`, which is what a `Label` does. A
+/// `<Text>` drawn for the first time is not selectable until the next frame,
+/// because its place on screen is only known once the layout is computed.
 #[component]
+#[allow(clippy::too_many_arguments)]
 pub fn Text(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
@@ -57,6 +68,7 @@ pub fn Text(
     color: Option<egui::Color32>,
     #[prop(default)] strong: bool,
     #[prop(default)] wrap: bool,
+    selectable: Option<bool>,
     children: impl Into<egui::WidgetText>,
 ) {
     let mut text: egui::WidgetText = children.into();
@@ -69,12 +81,5 @@ pub fn Text(
     if strong {
         text = text.strong();
     }
-    let wrap_mode = if wrap {
-        egui::TextWrapMode::Wrap
-    } else {
-        egui::TextWrapMode::Extend
-    };
-    cx.leaf(&style, |ui| {
-        ui.add(egui::Label::new(text).wrap_mode(wrap_mode))
-    });
+    cx.text(&style, text, wrap, selectable);
 }

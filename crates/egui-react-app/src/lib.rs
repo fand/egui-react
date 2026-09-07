@@ -25,9 +25,9 @@ pub fn root_id() -> egui::Id {
 
 /// The taffy style of the root container: a column that fills the window.
 ///
-/// `reserve_available_space` tells egui_taffy how much room there is, but it
-/// leaves the root node's own `size` at `auto`, so taffy would size that node
-/// by its content. Two things go wrong then. A `<View grow={1.0}
+/// `reserve_available_space` tells the layout engine how much room there is,
+/// but it leaves the root node's own `size` at `auto`, so taffy would size that
+/// node by its content. Two things go wrong then. A `<View grow={1.0}
 /// justify="center">` child finds no free space to grow into and nothing to be
 /// centred in, so the app sits in the window's top-left corner. And a child
 /// too wide to fit never has to shrink, because a content-sized parent simply
@@ -55,12 +55,12 @@ pub struct Options {
     pub title: String,
     /// How many passes egui may run for one frame.
     ///
-    /// `egui_taffy` asks for another pass whenever a layout changes, and a
-    /// `<View>` inside an egui container inside a `<View>` is a second taffy
-    /// tree that only learns its new size in the pass after the outer one, so
-    /// each level of nesting needs one more pass. The default is 3, one more
-    /// than egui's own; deeper nesting settles on the next frame instead (the
-    /// runner requests a repaint when a discard was refused).
+    /// The layout engine asks for another pass when a node was created, removed
+    /// or moved. A `<View>` inside an egui container inside a `<View>` is a
+    /// second taffy tree that only learns its new size in the pass after the
+    /// outer one, so each level of nesting can need one more pass. The default
+    /// is 3, one more than egui's own; deeper nesting settles on the next frame
+    /// instead (the runner requests a repaint when a discard was refused).
     pub max_passes: usize,
     /// Whether `use_persisted` is saved to and loaded from eframe's storage.
     pub persist: bool,
@@ -214,6 +214,10 @@ mod platform {
         V: View + 'static,
         F: FnMut(&mut Cx<'_, '_>) -> V + 'static,
     {
+        // Only when the app installed no logger of its own. The default filter
+        // is `error`, so nothing prints unless `RUST_LOG` asks for it;
+        // `RUST_LOG=egui_react=debug` prints each layout discard and its cause.
+        let _ = env_logger::try_init();
         let title = options.title.clone();
         let native = options.native.clone();
         let mut options = options;
@@ -240,6 +244,9 @@ mod platform {
         V: View + 'static,
         F: FnMut(&mut Cx<'_, '_>) -> V + 'static,
     {
+        // `log` to the browser console, as the eframe template does; `debug`
+        // so that the layout engine's discard reasons show up there.
+        eframe::WebLogger::init(log::LevelFilter::Debug).ok();
         let canvas = web_sys::window()
             .and_then(|window| window.document())
             .and_then(|document| document.get_element_by_id(&options.canvas_id))

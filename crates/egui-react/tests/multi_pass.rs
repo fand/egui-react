@@ -11,7 +11,6 @@ use std::rc::Rc;
 use common::run_app;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
-use egui_taffy::TuiBuilderLogic as _;
 use egui_react::prelude::*;
 
 /// Counters shared between the test body and the app closure.
@@ -87,9 +86,9 @@ fn manual_discard_runs_two_passes_but_one_handler() {
     assert!(harness.query_by_label("count: 1").is_some());
 }
 
-/// The same check, but with `egui_taffy` deciding to run the second pass: a
-/// click makes the label wider, taffy notices the layout changed and calls
-/// `request_discard` itself.
+/// The same check, but with the layout engine deciding to run the second pass:
+/// a click makes the label wider, the engine notices the layout changed and
+/// calls `request_discard` itself.
 fn taffy_body(cx: &mut Cx<'_, '_>, counters: &Rc<Counters>) {
     let effect_counters = Rc::clone(counters);
     use_effect(cx, (), move || {
@@ -99,28 +98,20 @@ fn taffy_body(cx: &mut Cx<'_, '_>, counters: &Rc<Counters>) {
     });
 
     let mut count = use_state(cx, || 0i32);
-    let (store, scope) = (cx.store, cx.scope_id());
-    egui_taffy::tui(cx.ui(), egui::Id::new("flex"))
-        .reserve_available_space()
-        .style(egui_taffy::taffy::Style {
-            display: egui_taffy::taffy::Display::Flex,
-            flex_direction: egui_taffy::taffy::FlexDirection::Row,
-            ..Default::default()
-        })
-        .show(|tui| {
-            tui.ui(|ui| {
-                let mut cx = Cx::new(store, ui, scope);
-                if cx.ui().button("bump").clicked() {
-                    *count += 1;
-                    counters.clicks.set(counters.clicks.get() + 1);
-                }
-            });
-            tui.ui(|ui| {
-                let mut cx = Cx::new(store, ui, scope);
-                // The width of this leaf depends on the state.
-                cx.ui().label("wide ".repeat(*count as usize + 1));
-            });
+    let style = ContainerStyle::default().direction("row");
+    cx.container(egui::Id::new("flex"), &style, &ItemStyle::default(), |cx| {
+        cx.leaf(&ItemStyle::default(), |ui| {
+            if ui.button("bump").clicked() {
+                *count += 1;
+                counters.clicks.set(counters.clicks.get() + 1);
+            }
         });
+        cx.leaf(&ItemStyle::default(), |ui| {
+            // The width of this leaf depends on the state, so a click moves
+            // the layout and the engine asks for another pass.
+            ui.label("wide ".repeat(*count as usize + 1));
+        });
+    });
 }
 
 #[test]
@@ -159,7 +150,7 @@ fn taffy_discard_runs_two_passes_but_one_handler() {
     assert_eq!(
         counters.max_pass_index.get(),
         1,
-        "egui_taffy must have asked for a second pass"
+        "the layout engine must have asked for a second pass"
     );
     assert_eq!(counters.clicks.get(), 1, "the handler must fire once");
     assert_eq!(counters.effects.get(), 1, "the effect must not re-run");

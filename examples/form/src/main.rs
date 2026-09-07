@@ -1,8 +1,8 @@
 //! Runs the `form` example on its own; the app itself is in `lib.rs`.
 
-use form::App;
 use egui_react::prelude::*;
 use egui_react_app::{Options, run};
+use form::App;
 
 fn main() -> eframe::Result {
     run(

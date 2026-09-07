@@ -3,6 +3,11 @@
 //! In taffy mode these behave as leaves: the container occupies one taffy node
 //! and everything inside it is laid out by egui, not by taffy. That is the
 //! documented escape hatch for places where flex layout is not wanted.
+//!
+//! Each of them re-enters with a fresh [`Cx`] around the `Ui` egui handed back.
+//! They carry `cx.layout_id()` over that gap: inside a `<VirtualList>` row it is
+//! the slot's id, and a `<View>` under one of these containers has to key its
+//! taffy tree by the slot like any other, not by the row index in `scope`.
 
 use egui_react::layout::ItemStyle;
 use egui_react::prelude::*;
@@ -55,6 +60,7 @@ pub fn ScrollArea(
     children: impl View,
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
+    let layout = cx.layout_id();
     // `leaf_fill`, not `leaf`: a scroll area fills whatever it is given and
     // reports that back as its content size, so a content-measured leaf would
     // pin it at its first-frame size forever. Inside a `<View>` it is sized by
@@ -66,7 +72,7 @@ pub fn ScrollArea(
         }
         area.show(ui, move |ui| {
             let mut cx = Cx::new(store, ui, scope);
-            children.show(&mut cx);
+            cx.with_layout_id(layout, |cx| children.show(cx));
         });
     });
 }
@@ -81,6 +87,7 @@ pub fn Collapsing(
     children: impl View,
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
+    let layout = cx.layout_id();
     cx.leaf(&style, move |ui| {
         // The header has no `wrap_mode` builder, so the mode goes on the leaf's
         // `Ui` (see the `widgets` module docs). The body puts it back: what the
@@ -93,7 +100,7 @@ pub fn Collapsing(
             .show(ui, move |ui| {
                 ui.style_mut().wrap_mode = outer;
                 let mut cx = Cx::new(store, ui, scope);
-                children.show(&mut cx);
+                cx.with_layout_id(layout, |cx| children.show(cx));
             });
     });
 }
@@ -110,6 +117,7 @@ pub fn Frame(
     children: impl View,
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
+    let layout = cx.layout_id();
     cx.leaf(&style, move |ui| {
         let mut frame = egui::Frame::default();
         if let Some(fill) = fill {
@@ -126,7 +134,7 @@ pub fn Frame(
         }
         frame.show(ui, move |ui| {
             let mut cx = Cx::new(store, ui, scope);
-            children.show(&mut cx);
+            cx.with_layout_id(layout, |cx| children.show(cx));
         });
     });
 }
@@ -152,6 +160,7 @@ pub fn Window(
     children: impl View,
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
+    let layout = cx.layout_id();
     let ctx = cx.ctx().clone();
     let mut window = egui::Window::new(title).id(scope).resizable(resizable);
     if let Some(open) = open {
@@ -167,7 +176,7 @@ pub fn Window(
     }
     window.show(&ctx, move |ui| {
         let mut cx = Cx::new(store, ui, scope);
-        children.show(&mut cx);
+        cx.with_layout_id(layout, |cx| children.show(cx));
     });
 }
 
@@ -196,6 +205,7 @@ pub fn Panel(
     children: impl View,
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
+    let layout = cx.layout_id();
     let show = move |ui: &mut egui::Ui| {
         let mut panel = match side {
             Side::Left => egui::Panel::left(scope),
@@ -209,7 +219,7 @@ pub fn Panel(
         }
         panel.show(ui, move |ui| {
             let mut cx = Cx::new(store, ui, scope);
-            children.show(&mut cx);
+            cx.with_layout_id(layout, |cx| children.show(cx));
         });
     };
 
@@ -229,10 +239,11 @@ pub fn Panel(
 #[component(shares_ui)]
 pub fn CentralPanel(cx: &mut Cx, #[prop(default)] style: ItemStyle, children: impl View) {
     let (store, scope) = (cx.store, cx.scope_id());
+    let layout = cx.layout_id();
     let show = move |ui: &mut egui::Ui| {
         egui::CentralPanel::default().show(ui, move |ui| {
             let mut cx = Cx::new(store, ui, scope);
-            children.show(&mut cx);
+            cx.with_layout_id(layout, |cx| children.show(cx));
         });
     };
 
@@ -247,10 +258,11 @@ pub fn CentralPanel(cx: &mut Cx, #[prop(default)] style: ItemStyle, children: im
 #[component]
 pub fn Vertical(cx: &mut Cx, #[prop(default)] style: ItemStyle, children: impl View) {
     let (store, scope) = (cx.store, cx.scope_id());
+    let layout = cx.layout_id();
     cx.leaf(&style, move |ui| {
         ui.vertical(move |ui| {
             let mut cx = Cx::new(store, ui, scope);
-            children.show(&mut cx);
+            cx.with_layout_id(layout, |cx| children.show(cx));
         });
     });
 }
@@ -259,10 +271,11 @@ pub fn Vertical(cx: &mut Cx, #[prop(default)] style: ItemStyle, children: impl V
 #[component]
 pub fn Horizontal(cx: &mut Cx, #[prop(default)] style: ItemStyle, children: impl View) {
     let (store, scope) = (cx.store, cx.scope_id());
+    let layout = cx.layout_id();
     cx.leaf(&style, move |ui| {
         ui.horizontal(move |ui| {
             let mut cx = Cx::new(store, ui, scope);
-            children.show(&mut cx);
+            cx.with_layout_id(layout, |cx| children.show(cx));
         });
     });
 }
@@ -277,6 +290,7 @@ pub fn Grid(
     children: impl View,
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
+    let layout = cx.layout_id();
     cx.leaf(&style, move |ui| {
         let mut grid = egui::Grid::new(scope).striped(striped);
         if let Some(cols) = cols {
@@ -284,7 +298,7 @@ pub fn Grid(
         }
         grid.show(ui, move |ui| {
             let mut cx = Cx::new(store, ui, scope);
-            children.show(&mut cx);
+            cx.with_layout_id(layout, |cx| children.show(cx));
         });
     });
 }

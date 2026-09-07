@@ -4,13 +4,13 @@
 //! out which ones the viewport covers, and calls back with just that range. The
 //! rest of the list costs nothing but a reserved height. That is the standard
 //! immediate-mode answer to a long list, and it is why the frame time here does
-//! not move when the count goes from a hundred to ten thousand.
+//! not move when the count goes from a hundred to a hundred thousand.
 //!
-//! `<VirtualList>` wraps this exact call, so the egui-react version can do the
-//! same thing — turn on `virtualise` and its frame time flattens too. At ten
-//! thousand rows: 85ms drawing every row, 0.3ms through `<VirtualList>`, 0.2ms
-//! here. What is left between the last two is the taffy nodes for the rows that
-//! *are* on screen.
+//! `<VirtualList>` wraps this exact call, so the egui-react version does the
+//! same thing. At ten thousand rows: 0.14 ms a frame through `<VirtualList>`,
+//! 0.12 ms here (docs/tasks/list-perf/measurements.md); drawing every row instead
+//! would be about 22 ms. What is left between the first two is the layout of
+//! the rows that *are* on screen.
 //!
 //! The other half of the difference is `use_memo`, written out by hand: the
 //! rows are rebuilt only when the count, the filter or the removals change.
@@ -67,7 +67,7 @@ pub fn ui(ui: &mut egui::Ui, state: &mut PlainState) {
         ui.spacing_mut().item_spacing.y = 8.0;
         ui.label(egui::RichText::new("list-10k").size(22.0).strong());
 
-        ui.add(egui::Slider::new(&mut state.count, 100..=10_000).text("rows"));
+        ui.add(egui::Slider::new(&mut state.count, 100..=100_000).text("rows"));
         ui.add(
             egui::TextEdit::singleline(&mut state.filter)
                 .desired_width(220.0)
@@ -86,9 +86,9 @@ pub fn ui(ui: &mut egui::Ui, state: &mut PlainState) {
         // The gap between rows is the scroll area's own item spacing, because
         // `show_rows` adds it to the row height when it works out the range.
         ui.spacing_mut().item_spacing.y = ROW_GAP;
-        let visible = state.rows();
-        egui::ScrollArea::vertical().show_rows(ui, ROW_H, visible.len(), |ui, range| {
-            for (i, name) in &visible[range] {
+        let filtered = state.rows();
+        egui::ScrollArea::vertical().show_rows(ui, ROW_H, filtered.len(), |ui, range| {
+            for (i, name) in &filtered[range] {
                 ui.horizontal(|ui| {
                     // A column of its own width, like the other version's
                     // `<Text w={INDEX_W}>`. `add_sized` would centre the text

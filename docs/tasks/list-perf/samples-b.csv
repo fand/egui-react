@@ -1,0 +1,1989 @@
+scenario,mode,frame,pass,frame_cpu_ms,submitted_rows,first_row,last_row,discard_requests,refused,reasons
+Idle,All,0,0,38.674333,10000,0,9999,0,false,
+Idle,All,1,0,37.859916,10000,0,9999,0,false,
+Idle,All,2,0,38.564291,10000,0,9999,0,false,
+Idle,All,3,0,38.368167,10000,0,9999,0,false,
+Idle,All,4,0,38.768916,10000,0,9999,0,false,
+Idle,All,5,0,38.217083,10000,0,9999,0,false,
+Idle,All,6,0,38.668916,10000,0,9999,0,false,
+Idle,All,7,0,38.338000,10000,0,9999,0,false,
+Idle,All,8,0,38.527417,10000,0,9999,0,false,
+Idle,All,9,0,39.394458,10000,0,9999,0,false,
+Idle,All,10,0,39.637375,10000,0,9999,0,false,
+Idle,All,11,0,38.993083,10000,0,9999,0,false,
+Idle,All,12,0,39.431791,10000,0,9999,0,false,
+Idle,All,13,0,40.863833,10000,0,9999,0,false,
+Idle,All,14,0,41.979750,10000,0,9999,0,false,
+Idle,All,15,0,40.367750,10000,0,9999,0,false,
+Idle,All,16,0,39.240583,10000,0,9999,0,false,
+Idle,All,17,0,38.435292,10000,0,9999,0,false,
+Idle,All,18,0,39.019875,10000,0,9999,0,false,
+Idle,All,19,0,38.408958,10000,0,9999,0,false,
+Idle,All,20,0,38.574625,10000,0,9999,0,false,
+Idle,All,21,0,38.611833,10000,0,9999,0,false,
+Idle,All,22,0,38.626250,10000,0,9999,0,false,
+Idle,All,23,0,38.492375,10000,0,9999,0,false,
+Idle,All,24,0,39.185958,10000,0,9999,0,false,
+Idle,All,25,0,38.001834,10000,0,9999,0,false,
+Idle,All,26,0,38.026750,10000,0,9999,0,false,
+Idle,All,27,0,37.956000,10000,0,9999,0,false,
+Idle,All,28,0,38.071250,10000,0,9999,0,false,
+Idle,All,29,0,38.812958,10000,0,9999,0,false,
+Idle,All,30,0,38.660500,10000,0,9999,0,false,
+Idle,All,31,0,38.561709,10000,0,9999,0,false,
+Idle,All,32,0,39.313750,10000,0,9999,0,false,
+Idle,All,33,0,38.585542,10000,0,9999,0,false,
+Idle,All,34,0,38.679750,10000,0,9999,0,false,
+Idle,All,35,0,38.381917,10000,0,9999,0,false,
+Idle,All,36,0,39.237792,10000,0,9999,0,false,
+Idle,All,37,0,38.735917,10000,0,9999,0,false,
+Idle,All,38,0,41.543000,10000,0,9999,0,false,
+Idle,All,39,0,41.253167,10000,0,9999,0,false,
+Idle,All,40,0,43.272291,10000,0,9999,0,false,
+Idle,All,41,0,40.230375,10000,0,9999,0,false,
+Idle,All,42,0,38.887250,10000,0,9999,0,false,
+Idle,All,43,0,38.895834,10000,0,9999,0,false,
+Idle,All,44,0,39.076459,10000,0,9999,0,false,
+Idle,All,45,0,38.240166,10000,0,9999,0,false,
+Idle,All,46,0,38.347208,10000,0,9999,0,false,
+Idle,All,47,0,40.208250,10000,0,9999,0,false,
+Idle,All,48,0,40.234375,10000,0,9999,0,false,
+Idle,All,49,0,39.267292,10000,0,9999,0,false,
+Idle,All,50,0,38.744541,10000,0,9999,0,false,
+Idle,All,51,0,37.967542,10000,0,9999,0,false,
+Idle,All,52,0,38.583083,10000,0,9999,0,false,
+Idle,All,53,0,38.333041,10000,0,9999,0,false,
+Idle,All,54,0,39.546666,10000,0,9999,0,false,
+Idle,All,55,0,39.253708,10000,0,9999,0,false,
+Idle,All,56,0,38.821125,10000,0,9999,0,false,
+Idle,All,57,0,38.779833,10000,0,9999,0,false,
+Idle,All,58,0,38.434958,10000,0,9999,0,false,
+Idle,All,59,0,38.382417,10000,0,9999,0,false,
+Idle,All,60,0,39.082500,10000,0,9999,0,false,
+Idle,All,61,0,39.387708,10000,0,9999,0,false,
+Idle,All,62,0,39.302083,10000,0,9999,0,false,
+Idle,All,63,0,39.944792,10000,0,9999,0,false,
+Idle,All,64,0,40.551500,10000,0,9999,0,false,
+Idle,All,65,0,42.909708,10000,0,9999,0,false,
+Idle,All,66,0,39.579416,10000,0,9999,0,false,
+Idle,All,67,0,38.835875,10000,0,9999,0,false,
+Idle,All,68,0,38.856792,10000,0,9999,0,false,
+Idle,All,69,0,37.773875,10000,0,9999,0,false,
+Idle,All,70,0,38.535583,10000,0,9999,0,false,
+Idle,All,71,0,38.276500,10000,0,9999,0,false,
+Idle,All,72,0,38.180042,10000,0,9999,0,false,
+Idle,All,73,0,38.224041,10000,0,9999,0,false,
+Idle,All,74,0,38.291250,10000,0,9999,0,false,
+Idle,All,75,0,38.745833,10000,0,9999,0,false,
+Idle,All,76,0,38.512708,10000,0,9999,0,false,
+Idle,All,77,0,38.240791,10000,0,9999,0,false,
+Idle,All,78,0,38.471333,10000,0,9999,0,false,
+Idle,All,79,0,38.696167,10000,0,9999,0,false,
+Idle,All,80,0,39.267958,10000,0,9999,0,false,
+Idle,All,81,0,38.724750,10000,0,9999,0,false,
+Idle,All,82,0,38.782417,10000,0,9999,0,false,
+Idle,All,83,0,38.332667,10000,0,9999,0,false,
+Idle,All,84,0,38.396792,10000,0,9999,0,false,
+Idle,All,85,0,38.920083,10000,0,9999,0,false,
+Idle,All,86,0,38.617541,10000,0,9999,0,false,
+Idle,All,87,0,38.544833,10000,0,9999,0,false,
+Idle,All,88,0,38.908458,10000,0,9999,0,false,
+Idle,All,89,0,40.991209,10000,0,9999,0,false,
+Idle,All,90,0,39.098209,10000,0,9999,0,false,
+Idle,All,91,0,42.046167,10000,0,9999,0,false,
+Idle,All,92,0,40.102125,10000,0,9999,0,false,
+Idle,All,93,0,38.777583,10000,0,9999,0,false,
+Idle,All,94,0,38.408667,10000,0,9999,0,false,
+Idle,All,95,0,38.158000,10000,0,9999,0,false,
+Idle,All,96,0,38.721291,10000,0,9999,0,false,
+Idle,All,97,0,38.486208,10000,0,9999,0,false,
+Idle,All,98,0,38.287125,10000,0,9999,0,false,
+Idle,All,99,0,38.278500,10000,0,9999,0,false,
+Idle,All,100,0,39.030000,10000,0,9999,0,false,
+Idle,All,101,0,38.928459,10000,0,9999,0,false,
+Idle,All,102,0,37.966750,10000,0,9999,0,false,
+Idle,All,103,0,39.050083,10000,0,9999,0,false,
+Idle,All,104,0,38.818084,10000,0,9999,0,false,
+Idle,All,105,0,39.282583,10000,0,9999,0,false,
+Idle,All,106,0,40.044584,10000,0,9999,0,false,
+Idle,All,107,0,38.882917,10000,0,9999,0,false,
+Idle,All,108,0,38.493833,10000,0,9999,0,false,
+Idle,All,109,0,38.202042,10000,0,9999,0,false,
+Idle,All,110,0,38.535500,10000,0,9999,0,false,
+Idle,All,111,0,39.261459,10000,0,9999,0,false,
+Idle,All,112,0,39.646792,10000,0,9999,0,false,
+Idle,All,113,0,38.780334,10000,0,9999,0,false,
+Idle,All,114,0,40.724458,10000,0,9999,0,false,
+Idle,All,115,0,40.279625,10000,0,9999,0,false,
+Idle,All,116,0,43.142542,10000,0,9999,0,false,
+Idle,All,117,0,39.479792,10000,0,9999,0,false,
+Idle,All,118,0,40.723500,10000,0,9999,0,false,
+Idle,All,119,0,39.446000,10000,0,9999,0,false,
+Idle,Virtual,0,0,0.237500,37,0,36,0,false,
+Idle,Virtual,1,0,0.185041,37,0,36,0,false,
+Idle,Virtual,2,0,0.241625,37,0,36,0,false,
+Idle,Virtual,3,0,0.234833,37,0,36,0,false,
+Idle,Virtual,4,0,0.184625,37,0,36,0,false,
+Idle,Virtual,5,0,0.241208,37,0,36,0,false,
+Idle,Virtual,6,0,0.223250,37,0,36,0,false,
+Idle,Virtual,7,0,0.198792,37,0,36,0,false,
+Idle,Virtual,8,0,0.250875,37,0,36,0,false,
+Idle,Virtual,9,0,0.255208,37,0,36,0,false,
+Idle,Virtual,10,0,0.204125,37,0,36,0,false,
+Idle,Virtual,11,0,0.251250,37,0,36,0,false,
+Idle,Virtual,12,0,0.249041,37,0,36,0,false,
+Idle,Virtual,13,0,0.191542,37,0,36,0,false,
+Idle,Virtual,14,0,0.285458,37,0,36,0,false,
+Idle,Virtual,15,0,0.256541,37,0,36,0,false,
+Idle,Virtual,16,0,0.197750,37,0,36,0,false,
+Idle,Virtual,17,0,0.248833,37,0,36,0,false,
+Idle,Virtual,18,0,0.239625,37,0,36,0,false,
+Idle,Virtual,19,0,0.216916,37,0,36,0,false,
+Idle,Virtual,20,0,0.247917,37,0,36,0,false,
+Idle,Virtual,21,0,0.225875,37,0,36,0,false,
+Idle,Virtual,22,0,0.204500,37,0,36,0,false,
+Idle,Virtual,23,0,0.244334,37,0,36,0,false,
+Idle,Virtual,24,0,0.233042,37,0,36,0,false,
+Idle,Virtual,25,0,0.190625,37,0,36,0,false,
+Idle,Virtual,26,0,0.229375,37,0,36,0,false,
+Idle,Virtual,27,0,0.220917,37,0,36,0,false,
+Idle,Virtual,28,0,0.190792,37,0,36,0,false,
+Idle,Virtual,29,0,0.244042,37,0,36,0,false,
+Idle,Virtual,30,0,0.223375,37,0,36,0,false,
+Idle,Virtual,31,0,0.188625,37,0,36,0,false,
+Idle,Virtual,32,0,0.234542,37,0,36,0,false,
+Idle,Virtual,33,0,0.217875,37,0,36,0,false,
+Idle,Virtual,34,0,0.193584,37,0,36,0,false,
+Idle,Virtual,35,0,0.231916,37,0,36,0,false,
+Idle,Virtual,36,0,0.242958,37,0,36,0,false,
+Idle,Virtual,37,0,0.193334,37,0,36,0,false,
+Idle,Virtual,38,0,0.265708,37,0,36,0,false,
+Idle,Virtual,39,0,0.235917,37,0,36,0,false,
+Idle,Virtual,40,0,0.203167,37,0,36,0,false,
+Idle,Virtual,41,0,0.242250,37,0,36,0,false,
+Idle,Virtual,42,0,0.224500,37,0,36,0,false,
+Idle,Virtual,43,0,0.195584,37,0,36,0,false,
+Idle,Virtual,44,0,0.229500,37,0,36,0,false,
+Idle,Virtual,45,0,0.218292,37,0,36,0,false,
+Idle,Virtual,46,0,0.187917,37,0,36,0,false,
+Idle,Virtual,47,0,0.233875,37,0,36,0,false,
+Idle,Virtual,48,0,0.258292,37,0,36,0,false,
+Idle,Virtual,49,0,0.197708,37,0,36,0,false,
+Idle,Virtual,50,0,0.243334,37,0,36,0,false,
+Idle,Virtual,51,0,0.229875,37,0,36,0,false,
+Idle,Virtual,52,0,0.196625,37,0,36,0,false,
+Idle,Virtual,53,0,0.230625,37,0,36,0,false,
+Idle,Virtual,54,0,0.249750,37,0,36,0,false,
+Idle,Virtual,55,0,0.222125,37,0,36,0,false,
+Idle,Virtual,56,0,0.235917,37,0,36,0,false,
+Idle,Virtual,57,0,0.226459,37,0,36,0,false,
+Idle,Virtual,58,0,0.195625,37,0,36,0,false,
+Idle,Virtual,59,0,0.228917,37,0,36,0,false,
+Idle,Virtual,60,0,0.227292,37,0,36,0,false,
+Idle,Virtual,61,0,0.213750,37,0,36,0,false,
+Idle,Virtual,62,0,0.225209,37,0,36,0,false,
+Idle,Virtual,63,0,0.260583,37,0,36,0,false,
+Idle,Virtual,64,0,0.203291,37,0,36,0,false,
+Idle,Virtual,65,0,0.225792,37,0,36,0,false,
+Idle,Virtual,66,0,0.239791,37,0,36,0,false,
+Idle,Virtual,67,0,0.194959,37,0,36,0,false,
+Idle,Virtual,68,0,0.235209,37,0,36,0,false,
+Idle,Virtual,69,0,0.256167,37,0,36,0,false,
+Idle,Virtual,70,0,0.200792,37,0,36,0,false,
+Idle,Virtual,71,0,0.230000,37,0,36,0,false,
+Idle,Virtual,72,0,0.243709,37,0,36,0,false,
+Idle,Virtual,73,0,0.192000,37,0,36,0,false,
+Idle,Virtual,74,0,0.222459,37,0,36,0,false,
+Idle,Virtual,75,0,0.229958,37,0,36,0,false,
+Idle,Virtual,76,0,0.198625,37,0,36,0,false,
+Idle,Virtual,77,0,0.219042,37,0,36,0,false,
+Idle,Virtual,78,0,0.229083,37,0,36,0,false,
+Idle,Virtual,79,0,0.191459,37,0,36,0,false,
+Idle,Virtual,80,0,0.233417,37,0,36,0,false,
+Idle,Virtual,81,0,0.258416,37,0,36,0,false,
+Idle,Virtual,82,0,0.196000,37,0,36,0,false,
+Idle,Virtual,83,0,0.235917,37,0,36,0,false,
+Idle,Virtual,84,0,0.216833,37,0,36,0,false,
+Idle,Virtual,85,0,0.204709,37,0,36,0,false,
+Idle,Virtual,86,0,0.229667,37,0,36,0,false,
+Idle,Virtual,87,0,0.224459,37,0,36,0,false,
+Idle,Virtual,88,0,0.195167,37,0,36,0,false,
+Idle,Virtual,89,0,0.247416,37,0,36,0,false,
+Idle,Virtual,90,0,0.254417,37,0,36,0,false,
+Idle,Virtual,91,0,0.213875,37,0,36,0,false,
+Idle,Virtual,92,0,0.250209,37,0,36,0,false,
+Idle,Virtual,93,0,0.225041,37,0,36,0,false,
+Idle,Virtual,94,0,0.204667,37,0,36,0,false,
+Idle,Virtual,95,0,0.239709,37,0,36,0,false,
+Idle,Virtual,96,0,0.230875,37,0,36,0,false,
+Idle,Virtual,97,0,0.198042,37,0,36,0,false,
+Idle,Virtual,98,0,0.240750,37,0,36,0,false,
+Idle,Virtual,99,0,0.217333,37,0,36,0,false,
+Idle,Virtual,100,0,0.198791,37,0,36,0,false,
+Idle,Virtual,101,0,0.227208,37,0,36,0,false,
+Idle,Virtual,102,0,0.254041,37,0,36,0,false,
+Idle,Virtual,103,0,0.192042,37,0,36,0,false,
+Idle,Virtual,104,0,0.245791,37,0,36,0,false,
+Idle,Virtual,105,0,0.244959,37,0,36,0,false,
+Idle,Virtual,106,0,0.209250,37,0,36,0,false,
+Idle,Virtual,107,0,0.250292,37,0,36,0,false,
+Idle,Virtual,108,0,0.229000,37,0,36,0,false,
+Idle,Virtual,109,0,0.195958,37,0,36,0,false,
+Idle,Virtual,110,0,0.227709,37,0,36,0,false,
+Idle,Virtual,111,0,0.243375,37,0,36,0,false,
+Idle,Virtual,112,0,0.200916,37,0,36,0,false,
+Idle,Virtual,113,0,0.224291,37,0,36,0,false,
+Idle,Virtual,114,0,0.236750,37,0,36,0,false,
+Idle,Virtual,115,0,0.192750,37,0,36,0,false,
+Idle,Virtual,116,0,0.247042,37,0,36,0,false,
+Idle,Virtual,117,0,0.235917,37,0,36,0,false,
+Idle,Virtual,118,0,0.196166,37,0,36,0,false,
+Idle,Virtual,119,0,0.237292,37,0,36,0,false,
+Idle,Plain,0,0,0.111166,37,0,36,0,false,
+Idle,Plain,1,0,0.101083,37,0,36,0,false,
+Idle,Plain,2,0,0.163125,37,0,36,0,false,
+Idle,Plain,3,0,0.132292,37,0,36,0,false,
+Idle,Plain,4,0,0.103167,37,0,36,0,false,
+Idle,Plain,5,0,0.117209,37,0,36,0,false,
+Idle,Plain,6,0,0.109667,37,0,36,0,false,
+Idle,Plain,7,0,0.117916,37,0,36,0,false,
+Idle,Plain,8,0,0.114542,37,0,36,0,false,
+Idle,Plain,9,0,0.115000,37,0,36,0,false,
+Idle,Plain,10,0,0.105250,37,0,36,0,false,
+Idle,Plain,11,0,0.115958,37,0,36,0,false,
+Idle,Plain,12,0,0.112333,37,0,36,0,false,
+Idle,Plain,13,0,0.105000,37,0,36,0,false,
+Idle,Plain,14,0,0.120125,37,0,36,0,false,
+Idle,Plain,15,0,0.120500,37,0,36,0,false,
+Idle,Plain,16,0,0.099583,37,0,36,0,false,
+Idle,Plain,17,0,0.117791,37,0,36,0,false,
+Idle,Plain,18,0,0.119667,37,0,36,0,false,
+Idle,Plain,19,0,0.104666,37,0,36,0,false,
+Idle,Plain,20,0,0.115625,37,0,36,0,false,
+Idle,Plain,21,0,0.113625,37,0,36,0,false,
+Idle,Plain,22,0,0.104667,37,0,36,0,false,
+Idle,Plain,23,0,0.116625,37,0,36,0,false,
+Idle,Plain,24,0,0.116333,37,0,36,0,false,
+Idle,Plain,25,0,0.106000,37,0,36,0,false,
+Idle,Plain,26,0,0.115959,37,0,36,0,false,
+Idle,Plain,27,0,0.116125,37,0,36,0,false,
+Idle,Plain,28,0,0.103208,37,0,36,0,false,
+Idle,Plain,29,0,0.120083,37,0,36,0,false,
+Idle,Plain,30,0,0.117000,37,0,36,0,false,
+Idle,Plain,31,0,0.104083,37,0,36,0,false,
+Idle,Plain,32,0,0.115875,37,0,36,0,false,
+Idle,Plain,33,0,0.119000,37,0,36,0,false,
+Idle,Plain,34,0,0.104958,37,0,36,0,false,
+Idle,Plain,35,0,0.126375,37,0,36,0,false,
+Idle,Plain,36,0,0.111209,37,0,36,0,false,
+Idle,Plain,37,0,0.103125,37,0,36,0,false,
+Idle,Plain,38,0,0.142667,37,0,36,0,false,
+Idle,Plain,39,0,0.116125,37,0,36,0,false,
+Idle,Plain,40,0,0.102417,37,0,36,0,false,
+Idle,Plain,41,0,0.121458,37,0,36,0,false,
+Idle,Plain,42,0,0.108125,37,0,36,0,false,
+Idle,Plain,43,0,0.112334,37,0,36,0,false,
+Idle,Plain,44,0,0.122750,37,0,36,0,false,
+Idle,Plain,45,0,0.112583,37,0,36,0,false,
+Idle,Plain,46,0,0.099292,37,0,36,0,false,
+Idle,Plain,47,0,0.106333,37,0,36,0,false,
+Idle,Plain,48,0,0.107167,37,0,36,0,false,
+Idle,Plain,49,0,0.104709,37,0,36,0,false,
+Idle,Plain,50,0,0.118542,37,0,36,0,false,
+Idle,Plain,51,0,0.108708,37,0,36,0,false,
+Idle,Plain,52,0,0.102917,37,0,36,0,false,
+Idle,Plain,53,0,0.110333,37,0,36,0,false,
+Idle,Plain,54,0,0.110791,37,0,36,0,false,
+Idle,Plain,55,0,0.107083,37,0,36,0,false,
+Idle,Plain,56,0,0.119083,37,0,36,0,false,
+Idle,Plain,57,0,0.115958,37,0,36,0,false,
+Idle,Plain,58,0,0.103250,37,0,36,0,false,
+Idle,Plain,59,0,0.118292,37,0,36,0,false,
+Idle,Plain,60,0,0.117292,37,0,36,0,false,
+Idle,Plain,61,0,0.112917,37,0,36,0,false,
+Idle,Plain,62,0,0.119958,37,0,36,0,false,
+Idle,Plain,63,0,0.120833,37,0,36,0,false,
+Idle,Plain,64,0,0.127125,37,0,36,0,false,
+Idle,Plain,65,0,0.124500,37,0,36,0,false,
+Idle,Plain,66,0,0.104625,37,0,36,0,false,
+Idle,Plain,67,0,0.103917,37,0,36,0,false,
+Idle,Plain,68,0,0.122917,37,0,36,0,false,
+Idle,Plain,69,0,0.108458,37,0,36,0,false,
+Idle,Plain,70,0,0.105416,37,0,36,0,false,
+Idle,Plain,71,0,0.114584,37,0,36,0,false,
+Idle,Plain,72,0,0.107833,37,0,36,0,false,
+Idle,Plain,73,0,0.107375,37,0,36,0,false,
+Idle,Plain,74,0,0.118375,37,0,36,0,false,
+Idle,Plain,75,0,0.115875,37,0,36,0,false,
+Idle,Plain,76,0,0.098458,37,0,36,0,false,
+Idle,Plain,77,0,0.124291,37,0,36,0,false,
+Idle,Plain,78,0,0.111459,37,0,36,0,false,
+Idle,Plain,79,0,0.103083,37,0,36,0,false,
+Idle,Plain,80,0,0.109167,37,0,36,0,false,
+Idle,Plain,81,0,0.110375,37,0,36,0,false,
+Idle,Plain,82,0,0.105209,37,0,36,0,false,
+Idle,Plain,83,0,0.123542,37,0,36,0,false,
+Idle,Plain,84,0,0.117709,37,0,36,0,false,
+Idle,Plain,85,0,0.107333,37,0,36,0,false,
+Idle,Plain,86,0,0.125750,37,0,36,0,false,
+Idle,Plain,87,0,0.111375,37,0,36,0,false,
+Idle,Plain,88,0,0.098042,37,0,36,0,false,
+Idle,Plain,89,0,0.112833,37,0,36,0,false,
+Idle,Plain,90,0,0.147167,37,0,36,0,false,
+Idle,Plain,91,0,0.098417,37,0,36,0,false,
+Idle,Plain,92,0,0.126833,37,0,36,0,false,
+Idle,Plain,93,0,0.113458,37,0,36,0,false,
+Idle,Plain,94,0,0.101625,37,0,36,0,false,
+Idle,Plain,95,0,0.111792,37,0,36,0,false,
+Idle,Plain,96,0,0.111375,37,0,36,0,false,
+Idle,Plain,97,0,0.104083,37,0,36,0,false,
+Idle,Plain,98,0,0.121542,37,0,36,0,false,
+Idle,Plain,99,0,0.111459,37,0,36,0,false,
+Idle,Plain,100,0,0.104208,37,0,36,0,false,
+Idle,Plain,101,0,0.116875,37,0,36,0,false,
+Idle,Plain,102,0,0.117667,37,0,36,0,false,
+Idle,Plain,103,0,0.105916,37,0,36,0,false,
+Idle,Plain,104,0,0.118167,37,0,36,0,false,
+Idle,Plain,105,0,0.116625,37,0,36,0,false,
+Idle,Plain,106,0,0.108125,37,0,36,0,false,
+Idle,Plain,107,0,0.119709,37,0,36,0,false,
+Idle,Plain,108,0,0.107708,37,0,36,0,false,
+Idle,Plain,109,0,0.104292,37,0,36,0,false,
+Idle,Plain,110,0,0.121708,37,0,36,0,false,
+Idle,Plain,111,0,0.109250,37,0,36,0,false,
+Idle,Plain,112,0,0.102750,37,0,36,0,false,
+Idle,Plain,113,0,0.119458,37,0,36,0,false,
+Idle,Plain,114,0,0.112083,37,0,36,0,false,
+Idle,Plain,115,0,0.097542,37,0,36,0,false,
+Idle,Plain,116,0,0.123875,37,0,36,0,false,
+Idle,Plain,117,0,0.119334,37,0,36,0,false,
+Idle,Plain,118,0,0.104250,37,0,36,0,false,
+Idle,Plain,119,0,0.119084,37,0,36,0,false,
+Scroll,All,0,0,38.627083,10000,0,9999,0,false,
+Scroll,All,1,0,38.747875,10000,0,9999,0,false,
+Scroll,All,2,0,38.686708,10000,0,9999,0,false,
+Scroll,All,3,0,40.038292,10000,0,9999,0,false,
+Scroll,All,4,0,38.995583,10000,0,9999,0,false,
+Scroll,All,5,0,38.794625,10000,0,9999,0,false,
+Scroll,All,6,0,38.932167,10000,0,9999,0,false,
+Scroll,All,7,0,39.649375,10000,0,9999,0,false,
+Scroll,All,8,0,38.825083,10000,0,9999,0,false,
+Scroll,All,9,0,40.486625,10000,0,9999,0,false,
+Scroll,All,10,0,39.479667,10000,0,9999,0,false,
+Scroll,All,11,0,42.724542,10000,0,9999,0,false,
+Scroll,All,12,0,40.380958,10000,0,9999,0,false,
+Scroll,All,13,0,39.137334,10000,0,9999,0,false,
+Scroll,All,14,0,38.563666,10000,0,9999,0,false,
+Scroll,All,15,0,38.309125,10000,0,9999,0,false,
+Scroll,All,16,0,38.317750,10000,0,9999,0,false,
+Scroll,All,17,0,38.304958,10000,0,9999,0,false,
+Scroll,All,18,0,39.513667,10000,0,9999,0,false,
+Scroll,All,19,0,39.973875,10000,0,9999,0,false,
+Scroll,All,20,0,41.312708,10000,0,9999,0,false,
+Scroll,All,21,0,39.171417,10000,0,9999,0,false,
+Scroll,All,22,0,39.035000,10000,0,9999,0,false,
+Scroll,All,23,0,38.951458,10000,0,9999,0,false,
+Scroll,All,24,0,38.151875,10000,0,9999,0,false,
+Scroll,All,25,0,38.615333,10000,0,9999,0,false,
+Scroll,All,26,0,39.588583,10000,0,9999,0,false,
+Scroll,All,27,0,39.069292,10000,0,9999,0,false,
+Scroll,All,28,0,39.125334,10000,0,9999,0,false,
+Scroll,All,29,0,38.528875,10000,0,9999,0,false,
+Scroll,All,30,0,38.218125,10000,0,9999,0,false,
+Scroll,All,31,0,38.963792,10000,0,9999,0,false,
+Scroll,All,32,0,39.301083,10000,0,9999,0,false,
+Scroll,All,33,0,38.365291,10000,0,9999,0,false,
+Scroll,All,34,0,40.372125,10000,0,9999,0,false,
+Scroll,All,35,0,40.094917,10000,0,9999,0,false,
+Scroll,All,36,0,42.358958,10000,0,9999,0,false,
+Scroll,All,37,0,39.813917,10000,0,9999,0,false,
+Scroll,All,38,0,38.859792,10000,0,9999,0,false,
+Scroll,All,39,0,38.125875,10000,0,9999,0,false,
+Scroll,All,40,0,38.911292,10000,0,9999,0,false,
+Scroll,All,41,0,38.382583,10000,0,9999,0,false,
+Scroll,All,42,0,38.255875,10000,0,9999,0,false,
+Scroll,All,43,0,38.799584,10000,0,9999,0,false,
+Scroll,All,44,0,38.709917,10000,0,9999,0,false,
+Scroll,All,45,0,38.005584,10000,0,9999,0,false,
+Scroll,All,46,0,39.084625,10000,0,9999,0,false,
+Scroll,All,47,0,39.324041,10000,0,9999,0,false,
+Scroll,All,48,0,38.953584,10000,0,9999,0,false,
+Scroll,All,49,0,38.718833,10000,0,9999,0,false,
+Scroll,All,50,0,38.875208,10000,0,9999,0,false,
+Scroll,All,51,0,42.671625,10000,0,9999,0,false,
+Scroll,All,52,0,39.629334,10000,0,9999,0,false,
+Scroll,All,53,0,38.497167,10000,0,9999,0,false,
+Scroll,All,54,0,38.108667,10000,0,9999,0,false,
+Scroll,All,55,0,38.832667,10000,0,9999,0,false,
+Scroll,All,56,0,39.304458,10000,0,9999,0,false,
+Scroll,All,57,0,42.540209,10000,0,9999,0,false,
+Scroll,All,58,0,39.947209,10000,0,9999,0,false,
+Scroll,All,59,0,39.643833,10000,0,9999,0,false,
+Scroll,All,60,0,40.522250,10000,0,9999,0,false,
+Scroll,All,61,0,43.564458,10000,0,9999,0,false,
+Scroll,All,62,0,39.897750,10000,0,9999,0,false,
+Scroll,All,63,0,38.641292,10000,0,9999,0,false,
+Scroll,All,64,0,38.892334,10000,0,9999,0,false,
+Scroll,All,65,0,38.620125,10000,0,9999,0,false,
+Scroll,All,66,0,38.357292,10000,0,9999,0,false,
+Scroll,All,67,0,38.232708,10000,0,9999,0,false,
+Scroll,All,68,0,38.399875,10000,0,9999,0,false,
+Scroll,All,69,0,38.804292,10000,0,9999,0,false,
+Scroll,All,70,0,38.243667,10000,0,9999,0,false,
+Scroll,All,71,0,37.967292,10000,0,9999,0,false,
+Scroll,All,72,0,38.889292,10000,0,9999,0,false,
+Scroll,All,73,0,38.485500,10000,0,9999,0,false,
+Scroll,All,74,0,38.430584,10000,0,9999,0,false,
+Scroll,All,75,0,38.696917,10000,0,9999,0,false,
+Scroll,All,76,0,39.194125,10000,0,9999,0,false,
+Scroll,All,77,0,38.252125,10000,0,9999,0,false,
+Scroll,All,78,0,38.298041,10000,0,9999,0,false,
+Scroll,All,79,0,38.642000,10000,0,9999,0,false,
+Scroll,All,80,0,37.944417,10000,0,9999,0,false,
+Scroll,All,81,0,39.057250,10000,0,9999,0,false,
+Scroll,All,82,0,38.268250,10000,0,9999,0,false,
+Scroll,All,83,0,39.111333,10000,0,9999,0,false,
+Scroll,All,84,0,39.532084,10000,0,9999,0,false,
+Scroll,All,85,0,42.215375,10000,0,9999,0,false,
+Scroll,All,86,0,40.008083,10000,0,9999,0,false,
+Scroll,All,87,0,42.505541,10000,0,9999,0,false,
+Scroll,All,88,0,40.297417,10000,0,9999,0,false,
+Scroll,All,89,0,38.923209,10000,0,9999,0,false,
+Scroll,All,90,0,38.097334,10000,0,9999,0,false,
+Scroll,All,91,0,38.968917,10000,0,9999,0,false,
+Scroll,All,92,0,38.750709,10000,0,9999,0,false,
+Scroll,All,93,0,38.167166,10000,0,9999,0,false,
+Scroll,All,94,0,38.270541,10000,0,9999,0,false,
+Scroll,All,95,0,39.165875,10000,0,9999,0,false,
+Scroll,All,96,0,37.964292,10000,0,9999,0,false,
+Scroll,All,97,0,38.982584,10000,0,9999,0,false,
+Scroll,All,98,0,38.582208,10000,0,9999,0,false,
+Scroll,All,99,0,38.151500,10000,0,9999,0,false,
+Scroll,All,100,0,38.371750,10000,0,9999,0,false,
+Scroll,All,101,0,38.744667,10000,0,9999,0,false,
+Scroll,All,102,0,39.550958,10000,0,9999,0,false,
+Scroll,All,103,0,38.570917,10000,0,9999,0,false,
+Scroll,All,104,0,38.482500,10000,0,9999,0,false,
+Scroll,All,105,0,38.600125,10000,0,9999,0,false,
+Scroll,All,106,0,38.849542,10000,0,9999,0,false,
+Scroll,All,107,0,38.785834,10000,0,9999,0,false,
+Scroll,All,108,0,39.626458,10000,0,9999,0,false,
+Scroll,All,109,0,39.273583,10000,0,9999,0,false,
+Scroll,All,110,0,42.019417,10000,0,9999,0,false,
+Scroll,All,111,0,39.997542,10000,0,9999,0,false,
+Scroll,All,112,0,42.996417,10000,0,9999,0,false,
+Scroll,All,113,0,39.609958,10000,0,9999,0,false,
+Scroll,All,114,0,39.294500,10000,0,9999,0,false,
+Scroll,All,115,0,39.035292,10000,0,9999,0,false,
+Scroll,All,116,0,38.373833,10000,0,9999,0,false,
+Scroll,All,117,0,38.576041,10000,0,9999,0,false,
+Scroll,All,118,0,38.643042,10000,0,9999,0,false,
+Scroll,All,119,0,38.909917,10000,0,9999,0,false,
+Scroll,Virtual,0,0,0.365833,37,0,36,0,false,
+Scroll,Virtual,1,0,0.252708,37,1,37,0,false,
+Scroll,Virtual,2,0,0.532417,37,2,38,0,false,
+Scroll,Virtual,3,0,0.305708,37,3,39,0,false,
+Scroll,Virtual,4,0,0.233292,37,4,40,0,false,
+Scroll,Virtual,5,0,0.283334,37,5,41,0,false,
+Scroll,Virtual,6,0,0.320792,37,6,42,0,false,
+Scroll,Virtual,7,0,0.238291,37,7,43,0,false,
+Scroll,Virtual,8,0,0.281125,37,8,44,0,false,
+Scroll,Virtual,9,0,0.308209,37,9,45,0,false,
+Scroll,Virtual,10,0,0.230792,37,10,46,0,false,
+Scroll,Virtual,11,0,0.311000,37,11,47,0,false,
+Scroll,Virtual,12,0,0.284792,37,12,48,0,false,
+Scroll,Virtual,13,0,0.236959,37,13,49,0,false,
+Scroll,Virtual,14,0,0.273750,37,14,50,0,false,
+Scroll,Virtual,15,0,0.505083,37,15,51,0,false,
+Scroll,Virtual,16,0,0.289209,37,16,52,0,false,
+Scroll,Virtual,17,0,0.423083,37,17,53,0,false,
+Scroll,Virtual,18,0,0.296917,37,18,54,0,false,
+Scroll,Virtual,19,0,0.235833,37,19,55,0,false,
+Scroll,Virtual,20,0,0.447708,37,20,56,0,false,
+Scroll,Virtual,21,0,0.302125,37,21,57,0,false,
+Scroll,Virtual,22,0,0.233916,37,22,58,0,false,
+Scroll,Virtual,23,0,0.286750,37,23,59,0,false,
+Scroll,Virtual,24,0,0.495959,37,24,60,0,false,
+Scroll,Virtual,25,0,0.298666,37,25,61,0,false,
+Scroll,Virtual,26,0,0.283000,37,26,62,0,false,
+Scroll,Virtual,27,0,0.279083,37,27,63,0,false,
+Scroll,Virtual,28,0,0.238666,37,28,64,0,false,
+Scroll,Virtual,29,0,0.296291,37,29,65,0,false,
+Scroll,Virtual,30,0,0.268958,37,30,66,0,false,
+Scroll,Virtual,31,0,0.247583,37,31,67,0,false,
+Scroll,Virtual,32,0,0.261500,37,32,68,0,false,
+Scroll,Virtual,33,0,0.286583,37,33,69,0,false,
+Scroll,Virtual,34,0,0.225917,37,34,70,0,false,
+Scroll,Virtual,35,0,0.276750,37,35,71,0,false,
+Scroll,Virtual,36,0,0.291750,37,36,72,0,false,
+Scroll,Virtual,37,0,0.228375,37,37,73,0,false,
+Scroll,Virtual,38,0,0.292334,37,38,74,0,false,
+Scroll,Virtual,39,0,0.490250,37,39,75,0,false,
+Scroll,Virtual,40,0,0.304875,37,40,76,0,false,
+Scroll,Virtual,41,0,0.430042,37,41,77,0,false,
+Scroll,Virtual,42,0,0.269250,37,42,78,0,false,
+Scroll,Virtual,43,0,0.242458,37,43,79,0,false,
+Scroll,Virtual,44,0,0.272458,37,44,80,0,false,
+Scroll,Virtual,45,0,0.497791,37,45,81,0,false,
+Scroll,Virtual,46,0,0.238584,37,46,82,0,false,
+Scroll,Virtual,47,0,0.459792,37,47,83,0,false,
+Scroll,Virtual,48,0,0.290333,37,48,84,0,false,
+Scroll,Virtual,49,0,0.234333,37,49,85,0,false,
+Scroll,Virtual,50,0,0.290959,37,50,86,0,false,
+Scroll,Virtual,51,0,0.292667,37,51,87,0,false,
+Scroll,Virtual,52,0,0.241666,37,52,88,0,false,
+Scroll,Virtual,53,0,0.265750,37,53,89,0,false,
+Scroll,Virtual,54,0,0.279500,37,54,90,0,false,
+Scroll,Virtual,55,0,0.250500,37,55,91,0,false,
+Scroll,Virtual,56,0,0.319583,37,56,92,0,false,
+Scroll,Virtual,57,0,0.317417,37,57,93,0,false,
+Scroll,Virtual,58,0,0.245708,37,58,94,0,false,
+Scroll,Virtual,59,0,0.473458,37,59,95,0,false,
+Scroll,Virtual,60,0,0.453750,37,60,96,0,false,
+Scroll,Virtual,61,0,0.249333,37,61,97,0,false,
+Scroll,Virtual,62,0,0.482959,37,62,98,0,false,
+Scroll,Virtual,63,0,0.296875,37,63,99,0,false,
+Scroll,Virtual,64,0,0.280709,37,64,100,0,false,
+Scroll,Virtual,65,0,0.304500,37,65,101,0,false,
+Scroll,Virtual,66,0,0.298750,37,66,102,0,false,
+Scroll,Virtual,67,0,0.247750,37,67,103,0,false,
+Scroll,Virtual,68,0,0.315125,37,68,104,0,false,
+Scroll,Virtual,69,0,0.295333,37,69,105,0,false,
+Scroll,Virtual,70,0,0.257916,37,70,106,0,false,
+Scroll,Virtual,71,0,0.307375,37,71,107,0,false,
+Scroll,Virtual,72,0,0.319667,37,72,108,0,false,
+Scroll,Virtual,73,0,0.256917,37,73,109,0,false,
+Scroll,Virtual,74,0,0.296709,37,74,110,0,false,
+Scroll,Virtual,75,0,0.275917,37,75,111,0,false,
+Scroll,Virtual,76,0,0.237459,37,76,112,0,false,
+Scroll,Virtual,77,0,0.278042,37,77,113,0,false,
+Scroll,Virtual,78,0,0.272625,37,78,114,0,false,
+Scroll,Virtual,79,0,0.238792,37,79,115,0,false,
+Scroll,Virtual,80,0,0.277959,37,80,116,0,false,
+Scroll,Virtual,81,0,0.272458,37,81,117,0,false,
+Scroll,Virtual,82,0,0.236667,37,82,118,0,false,
+Scroll,Virtual,83,0,0.473166,37,83,119,0,false,
+Scroll,Virtual,84,0,0.308667,37,84,120,0,false,
+Scroll,Virtual,85,0,0.254791,37,85,121,0,false,
+Scroll,Virtual,86,0,0.294459,37,86,122,0,false,
+Scroll,Virtual,87,0,0.294875,37,87,123,0,false,
+Scroll,Virtual,88,0,0.237750,37,88,124,0,false,
+Scroll,Virtual,89,0,0.290000,37,89,125,0,false,
+Scroll,Virtual,90,0,0.297667,37,90,126,0,false,
+Scroll,Virtual,91,0,0.239000,37,91,127,0,false,
+Scroll,Virtual,92,0,0.288750,37,92,128,0,false,
+Scroll,Virtual,93,0,0.301333,37,93,129,0,false,
+Scroll,Virtual,94,0,0.249333,37,94,130,0,false,
+Scroll,Virtual,95,0,0.302917,37,95,131,0,false,
+Scroll,Virtual,96,0,0.303875,37,96,132,0,false,
+Scroll,Virtual,97,0,0.241083,37,97,133,0,false,
+Scroll,Virtual,98,0,0.298666,37,98,134,0,false,
+Scroll,Virtual,99,0,0.279750,37,99,135,0,false,
+Scroll,Virtual,100,0,0.244042,37,100,136,0,false,
+Scroll,Virtual,101,0,0.275875,37,101,137,0,false,
+Scroll,Virtual,102,0,0.291625,37,102,138,0,false,
+Scroll,Virtual,103,0,0.231542,37,103,139,0,false,
+Scroll,Virtual,104,0,0.296833,37,104,140,0,false,
+Scroll,Virtual,105,0,0.278833,37,105,141,0,false,
+Scroll,Virtual,106,0,0.236125,37,106,142,0,false,
+Scroll,Virtual,107,0,0.276958,37,107,143,0,false,
+Scroll,Virtual,108,0,0.452916,37,108,144,0,false,
+Scroll,Virtual,109,0,0.278458,37,109,145,0,false,
+Scroll,Virtual,110,0,0.275459,37,110,146,0,false,
+Scroll,Virtual,111,0,0.281084,37,111,147,0,false,
+Scroll,Virtual,112,0,0.230292,37,112,148,0,false,
+Scroll,Virtual,113,0,0.297250,37,113,149,0,false,
+Scroll,Virtual,114,0,0.295125,37,114,150,0,false,
+Scroll,Virtual,115,0,0.248334,37,115,151,0,false,
+Scroll,Virtual,116,0,0.280541,37,116,152,0,false,
+Scroll,Virtual,117,0,0.267667,37,117,153,0,false,
+Scroll,Virtual,118,0,0.246708,37,118,154,0,false,
+Scroll,Virtual,119,0,0.292417,37,119,155,0,false,
+Scroll,Plain,0,0,0.164417,37,0,36,0,false,
+Scroll,Plain,1,0,0.174791,37,1,37,0,false,
+Scroll,Plain,2,0,0.173334,37,2,38,0,false,
+Scroll,Plain,3,0,0.128709,37,3,39,0,false,
+Scroll,Plain,4,0,0.108125,37,4,40,0,false,
+Scroll,Plain,5,0,0.143458,37,5,41,0,false,
+Scroll,Plain,6,0,0.133375,37,6,42,0,false,
+Scroll,Plain,7,0,0.103583,37,7,43,0,false,
+Scroll,Plain,8,0,0.135792,37,8,44,0,false,
+Scroll,Plain,9,0,0.129917,37,9,45,0,false,
+Scroll,Plain,10,0,0.112167,37,10,46,0,false,
+Scroll,Plain,11,0,0.166833,37,11,47,0,false,
+Scroll,Plain,12,0,0.120459,37,12,48,0,false,
+Scroll,Plain,13,0,0.109208,37,13,49,0,false,
+Scroll,Plain,14,0,0.146875,37,14,50,0,false,
+Scroll,Plain,15,0,0.124375,37,15,51,0,false,
+Scroll,Plain,16,0,0.104708,37,16,52,0,false,
+Scroll,Plain,17,0,0.340125,37,17,53,0,false,
+Scroll,Plain,18,0,0.121750,37,18,54,0,false,
+Scroll,Plain,19,0,0.315958,37,19,55,0,false,
+Scroll,Plain,20,0,0.314000,37,20,56,0,false,
+Scroll,Plain,21,0,0.132584,37,21,57,0,false,
+Scroll,Plain,22,0,0.114875,37,22,58,0,false,
+Scroll,Plain,23,0,0.144250,37,23,59,0,false,
+Scroll,Plain,24,0,0.115834,37,24,60,0,false,
+Scroll,Plain,25,0,0.116416,37,25,61,0,false,
+Scroll,Plain,26,0,0.156875,37,26,62,0,false,
+Scroll,Plain,27,0,0.120291,37,27,63,0,false,
+Scroll,Plain,28,0,0.115000,37,28,64,0,false,
+Scroll,Plain,29,0,0.179625,37,29,65,0,false,
+Scroll,Plain,30,0,0.117500,37,30,66,0,false,
+Scroll,Plain,31,0,0.111333,37,31,67,0,false,
+Scroll,Plain,32,0,0.141292,37,32,68,0,false,
+Scroll,Plain,33,0,0.133500,37,33,69,0,false,
+Scroll,Plain,34,0,0.113750,37,34,70,0,false,
+Scroll,Plain,35,0,0.176042,37,35,71,0,false,
+Scroll,Plain,36,0,0.142708,37,36,72,0,false,
+Scroll,Plain,37,0,0.113083,37,37,73,0,false,
+Scroll,Plain,38,0,0.149084,37,38,74,0,false,
+Scroll,Plain,39,0,0.119125,37,39,75,0,false,
+Scroll,Plain,40,0,0.107083,37,40,76,0,false,
+Scroll,Plain,41,0,0.365250,37,41,77,0,false,
+Scroll,Plain,42,0,0.125791,37,42,78,0,false,
+Scroll,Plain,43,0,0.111625,37,43,79,0,false,
+Scroll,Plain,44,0,0.130417,37,44,80,0,false,
+Scroll,Plain,45,0,0.126125,37,45,81,0,false,
+Scroll,Plain,46,0,0.109583,37,46,82,0,false,
+Scroll,Plain,47,0,0.183708,37,47,83,0,false,
+Scroll,Plain,48,0,0.232916,37,48,84,0,false,
+Scroll,Plain,49,0,0.164958,37,49,85,0,false,
+Scroll,Plain,50,0,0.264042,37,50,86,0,false,
+Scroll,Plain,51,0,0.122708,37,51,87,0,false,
+Scroll,Plain,52,0,0.106458,37,52,88,0,false,
+Scroll,Plain,53,0,0.143291,37,53,89,0,false,
+Scroll,Plain,54,0,0.119958,37,54,90,0,false,
+Scroll,Plain,55,0,0.129333,37,55,91,0,false,
+Scroll,Plain,56,0,0.142708,37,56,92,0,false,
+Scroll,Plain,57,0,0.137959,37,57,93,0,false,
+Scroll,Plain,58,0,0.132083,37,58,94,0,false,
+Scroll,Plain,59,0,0.150583,37,59,95,0,false,
+Scroll,Plain,60,0,0.130333,37,60,96,0,false,
+Scroll,Plain,61,0,0.103708,37,61,97,0,false,
+Scroll,Plain,62,0,0.148375,37,62,98,0,false,
+Scroll,Plain,63,0,0.135084,37,63,99,0,false,
+Scroll,Plain,64,0,0.130958,37,64,100,0,false,
+Scroll,Plain,65,0,0.165333,37,65,101,0,false,
+Scroll,Plain,66,0,0.141708,37,66,102,0,false,
+Scroll,Plain,67,0,0.125334,37,67,103,0,false,
+Scroll,Plain,68,0,0.186250,37,68,104,0,false,
+Scroll,Plain,69,0,0.140208,37,69,105,0,false,
+Scroll,Plain,70,0,0.118500,37,70,106,0,false,
+Scroll,Plain,71,0,0.173542,37,71,107,0,false,
+Scroll,Plain,72,0,0.156875,37,72,108,0,false,
+Scroll,Plain,73,0,0.130208,37,73,109,0,false,
+Scroll,Plain,74,0,0.129708,37,74,110,0,false,
+Scroll,Plain,75,0,0.128917,37,75,111,0,false,
+Scroll,Plain,76,0,0.114417,37,76,112,0,false,
+Scroll,Plain,77,0,0.140958,37,77,113,0,false,
+Scroll,Plain,78,0,0.126584,37,78,114,0,false,
+Scroll,Plain,79,0,0.113500,37,79,115,0,false,
+Scroll,Plain,80,0,0.140167,37,80,116,0,false,
+Scroll,Plain,81,0,0.121791,37,81,117,0,false,
+Scroll,Plain,82,0,0.109459,37,82,118,0,false,
+Scroll,Plain,83,0,0.350917,37,83,119,0,false,
+Scroll,Plain,84,0,0.134958,37,84,120,0,false,
+Scroll,Plain,85,0,0.110333,37,85,121,0,false,
+Scroll,Plain,86,0,0.140459,37,86,122,0,false,
+Scroll,Plain,87,0,0.117708,37,87,123,0,false,
+Scroll,Plain,88,0,0.112000,37,88,124,0,false,
+Scroll,Plain,89,0,0.146917,37,89,125,0,false,
+Scroll,Plain,90,0,0.120792,37,90,126,0,false,
+Scroll,Plain,91,0,0.307792,37,91,127,0,false,
+Scroll,Plain,92,0,0.320583,37,92,128,0,false,
+Scroll,Plain,93,0,0.132958,37,93,129,0,false,
+Scroll,Plain,94,0,0.113583,37,94,130,0,false,
+Scroll,Plain,95,0,0.140209,37,95,131,0,false,
+Scroll,Plain,96,0,0.122500,37,96,132,0,false,
+Scroll,Plain,97,0,0.107375,37,97,133,0,false,
+Scroll,Plain,98,0,0.139958,37,98,134,0,false,
+Scroll,Plain,99,0,0.119625,37,99,135,0,false,
+Scroll,Plain,100,0,0.113709,37,100,136,0,false,
+Scroll,Plain,101,0,0.130375,37,101,137,0,false,
+Scroll,Plain,102,0,0.130334,37,102,138,0,false,
+Scroll,Plain,103,0,0.109833,37,103,139,0,false,
+Scroll,Plain,104,0,0.147625,37,104,140,0,false,
+Scroll,Plain,105,0,0.134542,37,105,141,0,false,
+Scroll,Plain,106,0,0.112333,37,106,142,0,false,
+Scroll,Plain,107,0,0.135584,37,107,143,0,false,
+Scroll,Plain,108,0,0.132292,37,108,144,0,false,
+Scroll,Plain,109,0,0.153958,37,109,145,0,false,
+Scroll,Plain,110,0,0.188584,37,110,146,0,false,
+Scroll,Plain,111,0,0.129291,37,111,147,0,false,
+Scroll,Plain,112,0,0.111667,37,112,148,0,false,
+Scroll,Plain,113,0,0.150208,37,113,149,0,false,
+Scroll,Plain,114,0,0.122833,37,114,150,0,false,
+Scroll,Plain,115,0,0.111708,37,115,151,0,false,
+Scroll,Plain,116,0,0.141458,37,116,152,0,false,
+Scroll,Plain,117,0,0.125834,37,117,153,0,false,
+Scroll,Plain,118,0,0.109666,37,118,154,0,false,
+Scroll,Plain,119,0,0.135791,37,119,155,0,false,
+Filter,All,0,0,51.009416,5000,0,4999,1,false,Taffy recalculation
+Filter,All,0,1,51.009416,5000,0,4999,0,false,
+Filter,All,1,0,17.162750,1250,0,1249,1,false,Taffy recalculation
+Filter,All,1,1,17.162750,1250,0,1249,0,false,
+Filter,All,2,0,5.906500,1250,0,1249,0,false,
+Filter,All,3,0,5.326125,1250,0,1249,0,false,
+Filter,All,4,0,169.076541,10000,0,9999,1,false,Taffy recalculation
+Filter,All,4,1,169.076541,10000,0,9999,0,false,
+Filter,All,5,0,60.425125,5000,0,4999,1,false,Taffy recalculation
+Filter,All,5,1,60.425125,5000,0,4999,0,false,
+Filter,All,6,0,18.789708,1250,0,1249,1,false,Taffy recalculation
+Filter,All,6,1,18.789708,1250,0,1249,0,false,
+Filter,All,7,0,6.156958,1250,0,1249,0,false,
+Filter,All,8,0,5.654458,1250,0,1249,0,false,
+Filter,All,9,0,164.351417,10000,0,9999,1,false,Taffy recalculation
+Filter,All,9,1,164.351417,10000,0,9999,0,false,
+Filter,All,10,0,56.307375,5000,0,4999,1,false,Taffy recalculation
+Filter,All,10,1,56.307375,5000,0,4999,0,false,
+Filter,All,11,0,18.508416,1250,0,1249,1,false,Taffy recalculation
+Filter,All,11,1,18.508416,1250,0,1249,0,false,
+Filter,All,12,0,5.746125,1250,0,1249,0,false,
+Filter,All,13,0,5.358209,1250,0,1249,0,false,
+Filter,All,14,0,165.235375,10000,0,9999,1,false,Taffy recalculation
+Filter,All,14,1,165.235375,10000,0,9999,0,false,
+Filter,All,15,0,55.480833,5000,0,4999,1,false,Taffy recalculation
+Filter,All,15,1,55.480833,5000,0,4999,0,false,
+Filter,All,16,0,18.436417,1250,0,1249,1,false,Taffy recalculation
+Filter,All,16,1,18.436417,1250,0,1249,0,false,
+Filter,All,17,0,6.011208,1250,0,1249,0,false,
+Filter,All,18,0,5.373625,1250,0,1249,0,false,
+Filter,All,19,0,161.782916,10000,0,9999,1,false,Taffy recalculation
+Filter,All,19,1,161.782916,10000,0,9999,0,false,
+Filter,All,20,0,55.102459,5000,0,4999,1,false,Taffy recalculation
+Filter,All,20,1,55.102459,5000,0,4999,0,false,
+Filter,All,21,0,18.584708,1250,0,1249,1,false,Taffy recalculation
+Filter,All,21,1,18.584708,1250,0,1249,0,false,
+Filter,All,22,0,6.067875,1250,0,1249,0,false,
+Filter,All,23,0,5.397625,1250,0,1249,0,false,
+Filter,All,24,0,170.327292,10000,0,9999,1,false,Taffy recalculation
+Filter,All,24,1,170.327292,10000,0,9999,0,false,
+Filter,All,25,0,57.956000,5000,0,4999,1,false,Taffy recalculation
+Filter,All,25,1,57.956000,5000,0,4999,0,false,
+Filter,All,26,0,18.258750,1250,0,1249,1,false,Taffy recalculation
+Filter,All,26,1,18.258750,1250,0,1249,0,false,
+Filter,All,27,0,5.952500,1250,0,1249,0,false,
+Filter,All,28,0,5.372584,1250,0,1249,0,false,
+Filter,All,29,0,163.778417,10000,0,9999,1,false,Taffy recalculation
+Filter,All,29,1,163.778417,10000,0,9999,0,false,
+Filter,All,30,0,54.859375,5000,0,4999,1,false,Taffy recalculation
+Filter,All,30,1,54.859375,5000,0,4999,0,false,
+Filter,All,31,0,18.311333,1250,0,1249,1,false,Taffy recalculation
+Filter,All,31,1,18.311333,1250,0,1249,0,false,
+Filter,All,32,0,5.988875,1250,0,1249,0,false,
+Filter,All,33,0,5.355875,1250,0,1249,0,false,
+Filter,All,34,0,163.456667,10000,0,9999,1,false,Taffy recalculation
+Filter,All,34,1,163.456667,10000,0,9999,0,false,
+Filter,All,35,0,55.299417,5000,0,4999,1,false,Taffy recalculation
+Filter,All,35,1,55.299417,5000,0,4999,0,false,
+Filter,All,36,0,19.059834,1250,0,1249,1,false,Taffy recalculation
+Filter,All,36,1,19.059834,1250,0,1249,0,false,
+Filter,All,37,0,6.065042,1250,0,1249,0,false,
+Filter,All,38,0,5.463750,1250,0,1249,0,false,
+Filter,All,39,0,162.938000,10000,0,9999,1,false,Taffy recalculation
+Filter,All,39,1,162.938000,10000,0,9999,0,false,
+Filter,All,40,0,57.679083,5000,0,4999,1,false,Taffy recalculation
+Filter,All,40,1,57.679083,5000,0,4999,0,false,
+Filter,All,41,0,20.074541,1250,0,1249,1,false,Taffy recalculation
+Filter,All,41,1,20.074541,1250,0,1249,0,false,
+Filter,All,42,0,6.520000,1250,0,1249,0,false,
+Filter,All,43,0,5.826917,1250,0,1249,0,false,
+Filter,All,44,0,171.924042,10000,0,9999,1,false,Taffy recalculation
+Filter,All,44,1,171.924042,10000,0,9999,0,false,
+Filter,All,45,0,55.311791,5000,0,4999,1,false,Taffy recalculation
+Filter,All,45,1,55.311791,5000,0,4999,0,false,
+Filter,All,46,0,17.791500,1250,0,1249,1,false,Taffy recalculation
+Filter,All,46,1,17.791500,1250,0,1249,0,false,
+Filter,All,47,0,5.905208,1250,0,1249,0,false,
+Filter,All,48,0,5.358000,1250,0,1249,0,false,
+Filter,All,49,0,163.145042,10000,0,9999,1,false,Taffy recalculation
+Filter,All,49,1,163.145042,10000,0,9999,0,false,
+Filter,All,50,0,55.187958,5000,0,4999,1,false,Taffy recalculation
+Filter,All,50,1,55.187958,5000,0,4999,0,false,
+Filter,All,51,0,18.060833,1250,0,1249,1,false,Taffy recalculation
+Filter,All,51,1,18.060833,1250,0,1249,0,false,
+Filter,All,52,0,6.155458,1250,0,1249,0,false,
+Filter,All,53,0,5.485291,1250,0,1249,0,false,
+Filter,All,54,0,163.074875,10000,0,9999,1,false,Taffy recalculation
+Filter,All,54,1,163.074875,10000,0,9999,0,false,
+Filter,All,55,0,56.191042,5000,0,4999,1,false,Taffy recalculation
+Filter,All,55,1,56.191042,5000,0,4999,0,false,
+Filter,All,56,0,18.347625,1250,0,1249,1,false,Taffy recalculation
+Filter,All,56,1,18.347625,1250,0,1249,0,false,
+Filter,All,57,0,5.992667,1250,0,1249,0,false,
+Filter,All,58,0,5.414209,1250,0,1249,0,false,
+Filter,All,59,0,163.622833,10000,0,9999,1,false,Taffy recalculation
+Filter,All,59,1,163.622833,10000,0,9999,0,false,
+Filter,All,60,0,55.830916,5000,0,4999,1,false,Taffy recalculation
+Filter,All,60,1,55.830916,5000,0,4999,0,false,
+Filter,All,61,0,19.758000,1250,0,1249,1,false,Taffy recalculation
+Filter,All,61,1,19.758000,1250,0,1249,0,false,
+Filter,All,62,0,6.673792,1250,0,1249,0,false,
+Filter,All,63,0,6.119833,1250,0,1249,0,false,
+Filter,All,64,0,169.571958,10000,0,9999,1,false,Taffy recalculation
+Filter,All,64,1,169.571958,10000,0,9999,0,false,
+Filter,All,65,0,55.254125,5000,0,4999,1,false,Taffy recalculation
+Filter,All,65,1,55.254125,5000,0,4999,0,false,
+Filter,All,66,0,18.263625,1250,0,1249,1,false,Taffy recalculation
+Filter,All,66,1,18.263625,1250,0,1249,0,false,
+Filter,All,67,0,6.196542,1250,0,1249,0,false,
+Filter,All,68,0,5.193625,1250,0,1249,0,false,
+Filter,All,69,0,162.728458,10000,0,9999,1,false,Taffy recalculation
+Filter,All,69,1,162.728458,10000,0,9999,0,false,
+Filter,All,70,0,55.599417,5000,0,4999,1,false,Taffy recalculation
+Filter,All,70,1,55.599417,5000,0,4999,0,false,
+Filter,All,71,0,18.247458,1250,0,1249,1,false,Taffy recalculation
+Filter,All,71,1,18.247458,1250,0,1249,0,false,
+Filter,All,72,0,6.080500,1250,0,1249,0,false,
+Filter,All,73,0,5.441167,1250,0,1249,0,false,
+Filter,All,74,0,164.891000,10000,0,9999,1,false,Taffy recalculation
+Filter,All,74,1,164.891000,10000,0,9999,0,false,
+Filter,All,75,0,55.562417,5000,0,4999,1,false,Taffy recalculation
+Filter,All,75,1,55.562417,5000,0,4999,0,false,
+Filter,All,76,0,18.234958,1250,0,1249,1,false,Taffy recalculation
+Filter,All,76,1,18.234958,1250,0,1249,0,false,
+Filter,All,77,0,6.085584,1250,0,1249,0,false,
+Filter,All,78,0,5.447875,1250,0,1249,0,false,
+Filter,All,79,0,165.301625,10000,0,9999,1,false,Taffy recalculation
+Filter,All,79,1,165.301625,10000,0,9999,0,false,
+Filter,All,80,0,59.081666,5000,0,4999,1,false,Taffy recalculation
+Filter,All,80,1,59.081666,5000,0,4999,0,false,
+Filter,All,81,0,18.522667,1250,0,1249,1,false,Taffy recalculation
+Filter,All,81,1,18.522667,1250,0,1249,0,false,
+Filter,All,82,0,6.207042,1250,0,1249,0,false,
+Filter,All,83,0,5.547459,1250,0,1249,0,false,
+Filter,All,84,0,166.957416,10000,0,9999,1,false,Taffy recalculation
+Filter,All,84,1,166.957416,10000,0,9999,0,false,
+Filter,All,85,0,55.394208,5000,0,4999,1,false,Taffy recalculation
+Filter,All,85,1,55.394208,5000,0,4999,0,false,
+Filter,All,86,0,18.197834,1250,0,1249,1,false,Taffy recalculation
+Filter,All,86,1,18.197834,1250,0,1249,0,false,
+Filter,All,87,0,6.104042,1250,0,1249,0,false,
+Filter,All,88,0,5.455084,1250,0,1249,0,false,
+Filter,All,89,0,163.236375,10000,0,9999,1,false,Taffy recalculation
+Filter,All,89,1,163.236375,10000,0,9999,0,false,
+Filter,All,90,0,55.373750,5000,0,4999,1,false,Taffy recalculation
+Filter,All,90,1,55.373750,5000,0,4999,0,false,
+Filter,All,91,0,18.447791,1250,0,1249,1,false,Taffy recalculation
+Filter,All,91,1,18.447791,1250,0,1249,0,false,
+Filter,All,92,0,6.101209,1250,0,1249,0,false,
+Filter,All,93,0,5.425666,1250,0,1249,0,false,
+Filter,All,94,0,165.265708,10000,0,9999,1,false,Taffy recalculation
+Filter,All,94,1,165.265708,10000,0,9999,0,false,
+Filter,All,95,0,55.820667,5000,0,4999,1,false,Taffy recalculation
+Filter,All,95,1,55.820667,5000,0,4999,0,false,
+Filter,All,96,0,19.053250,1250,0,1249,1,false,Taffy recalculation
+Filter,All,96,1,19.053250,1250,0,1249,0,false,
+Filter,All,97,0,6.254333,1250,0,1249,0,false,
+Filter,All,98,0,5.390250,1250,0,1249,0,false,
+Filter,All,99,0,166.624375,10000,0,9999,1,false,Taffy recalculation
+Filter,All,99,1,166.624375,10000,0,9999,0,false,
+Filter,All,100,0,59.277125,5000,0,4999,1,false,Taffy recalculation
+Filter,All,100,1,59.277125,5000,0,4999,0,false,
+Filter,All,101,0,21.952791,1250,0,1249,1,false,Taffy recalculation
+Filter,All,101,1,21.952791,1250,0,1249,0,false,
+Filter,All,102,0,6.253500,1250,0,1249,0,false,
+Filter,All,103,0,5.663209,1250,0,1249,0,false,
+Filter,All,104,0,163.490709,10000,0,9999,1,false,Taffy recalculation
+Filter,All,104,1,163.490709,10000,0,9999,0,false,
+Filter,All,105,0,55.247709,5000,0,4999,1,false,Taffy recalculation
+Filter,All,105,1,55.247709,5000,0,4999,0,false,
+Filter,All,106,0,18.186834,1250,0,1249,1,false,Taffy recalculation
+Filter,All,106,1,18.186834,1250,0,1249,0,false,
+Filter,All,107,0,6.032208,1250,0,1249,0,false,
+Filter,All,108,0,5.428916,1250,0,1249,0,false,
+Filter,All,109,0,164.400708,10000,0,9999,1,false,Taffy recalculation
+Filter,All,109,1,164.400708,10000,0,9999,0,false,
+Filter,All,110,0,54.950541,5000,0,4999,1,false,Taffy recalculation
+Filter,All,110,1,54.950541,5000,0,4999,0,false,
+Filter,All,111,0,18.336750,1250,0,1249,1,false,Taffy recalculation
+Filter,All,111,1,18.336750,1250,0,1249,0,false,
+Filter,All,112,0,6.119083,1250,0,1249,0,false,
+Filter,All,113,0,5.311459,1250,0,1249,0,false,
+Filter,All,114,0,163.495875,10000,0,9999,1,false,Taffy recalculation
+Filter,All,114,1,163.495875,10000,0,9999,0,false,
+Filter,All,115,0,55.406125,5000,0,4999,1,false,Taffy recalculation
+Filter,All,115,1,55.406125,5000,0,4999,0,false,
+Filter,All,116,0,18.662125,1250,0,1249,1,false,Taffy recalculation
+Filter,All,116,1,18.662125,1250,0,1249,0,false,
+Filter,All,117,0,6.050333,1250,0,1249,0,false,
+Filter,All,118,0,5.265208,1250,0,1249,0,false,
+Filter,All,119,0,167.927875,10000,0,9999,1,false,Taffy recalculation
+Filter,All,119,1,167.927875,10000,0,9999,0,false,
+Filter,Virtual,0,0,1.113000,37,0,36,0,false,
+Filter,Virtual,1,0,1.442125,37,0,36,0,false,
+Filter,Virtual,2,0,1.116041,37,0,36,0,false,
+Filter,Virtual,3,0,0.976666,37,0,36,0,false,
+Filter,Virtual,4,0,0.968583,37,0,36,0,false,
+Filter,Virtual,5,0,1.149709,37,0,36,0,false,
+Filter,Virtual,6,0,1.458250,37,0,36,0,false,
+Filter,Virtual,7,0,1.106166,37,0,36,0,false,
+Filter,Virtual,8,0,0.954667,37,0,36,0,false,
+Filter,Virtual,9,0,1.152166,37,0,36,0,false,
+Filter,Virtual,10,0,1.076958,37,0,36,0,false,
+Filter,Virtual,11,0,1.479292,37,0,36,0,false,
+Filter,Virtual,12,0,1.114000,37,0,36,0,false,
+Filter,Virtual,13,0,0.951500,37,0,36,0,false,
+Filter,Virtual,14,0,1.177375,37,0,36,0,false,
+Filter,Virtual,15,0,1.212917,37,0,36,0,false,
+Filter,Virtual,16,0,1.493833,37,0,36,0,false,
+Filter,Virtual,17,0,1.185250,37,0,36,0,false,
+Filter,Virtual,18,0,1.005084,37,0,36,0,false,
+Filter,Virtual,19,0,0.972625,37,0,36,0,false,
+Filter,Virtual,20,0,1.334583,37,0,36,0,false,
+Filter,Virtual,21,0,1.387917,37,0,36,0,false,
+Filter,Virtual,22,0,1.175041,37,0,36,0,false,
+Filter,Virtual,23,0,0.988917,37,0,36,0,false,
+Filter,Virtual,24,0,1.034333,37,0,36,0,false,
+Filter,Virtual,25,0,1.054000,37,0,36,0,false,
+Filter,Virtual,26,0,1.409917,37,0,36,0,false,
+Filter,Virtual,27,0,1.080667,37,0,36,0,false,
+Filter,Virtual,28,0,0.983042,37,0,36,0,false,
+Filter,Virtual,29,0,1.108208,37,0,36,0,false,
+Filter,Virtual,30,0,1.132042,37,0,36,0,false,
+Filter,Virtual,31,0,1.351666,37,0,36,0,false,
+Filter,Virtual,32,0,1.192042,37,0,36,0,false,
+Filter,Virtual,33,0,0.984333,37,0,36,0,false,
+Filter,Virtual,34,0,0.947500,37,0,36,0,false,
+Filter,Virtual,35,0,1.468000,37,0,36,0,false,
+Filter,Virtual,36,0,1.425417,37,0,36,0,false,
+Filter,Virtual,37,0,1.147292,37,0,36,0,false,
+Filter,Virtual,38,0,0.982541,37,0,36,0,false,
+Filter,Virtual,39,0,1.030083,37,0,36,0,false,
+Filter,Virtual,40,0,1.266625,37,0,36,0,false,
+Filter,Virtual,41,0,1.436375,37,0,36,0,false,
+Filter,Virtual,42,0,1.141708,37,0,36,0,false,
+Filter,Virtual,43,0,0.973750,37,0,36,0,false,
+Filter,Virtual,44,0,1.086875,37,0,36,0,false,
+Filter,Virtual,45,0,1.253417,37,0,36,0,false,
+Filter,Virtual,46,0,1.356250,37,0,36,0,false,
+Filter,Virtual,47,0,1.256375,37,0,36,0,false,
+Filter,Virtual,48,0,0.970208,37,0,36,0,false,
+Filter,Virtual,49,0,0.969459,37,0,36,0,false,
+Filter,Virtual,50,0,1.354125,37,0,36,0,false,
+Filter,Virtual,51,0,1.440584,37,0,36,0,false,
+Filter,Virtual,52,0,1.141875,37,0,36,0,false,
+Filter,Virtual,53,0,1.009709,37,0,36,0,false,
+Filter,Virtual,54,0,1.059583,37,0,36,0,false,
+Filter,Virtual,55,0,1.056417,37,0,36,0,false,
+Filter,Virtual,56,0,1.401000,37,0,36,0,false,
+Filter,Virtual,57,0,1.074125,37,0,36,0,false,
+Filter,Virtual,58,0,0.956667,37,0,36,0,false,
+Filter,Virtual,59,0,1.200250,37,0,36,0,false,
+Filter,Virtual,60,0,1.162042,37,0,36,0,false,
+Filter,Virtual,61,0,1.436958,37,0,36,0,false,
+Filter,Virtual,62,0,1.163875,37,0,36,0,false,
+Filter,Virtual,63,0,0.989167,37,0,36,0,false,
+Filter,Virtual,64,0,0.942625,37,0,36,0,false,
+Filter,Virtual,65,0,1.143292,37,0,36,0,false,
+Filter,Virtual,66,0,1.396292,37,0,36,0,false,
+Filter,Virtual,67,0,1.143542,37,0,36,0,false,
+Filter,Virtual,68,0,1.000375,37,0,36,0,false,
+Filter,Virtual,69,0,1.015292,37,0,36,0,false,
+Filter,Virtual,70,0,1.066959,37,0,36,0,false,
+Filter,Virtual,71,0,1.396417,37,0,36,0,false,
+Filter,Virtual,72,0,1.148500,37,0,36,0,false,
+Filter,Virtual,73,0,0.980833,37,0,36,0,false,
+Filter,Virtual,74,0,1.077291,37,0,36,0,false,
+Filter,Virtual,75,0,1.168375,37,0,36,0,false,
+Filter,Virtual,76,0,1.413875,37,0,36,0,false,
+Filter,Virtual,77,0,1.213250,37,0,36,0,false,
+Filter,Virtual,78,0,1.014375,37,0,36,0,false,
+Filter,Virtual,79,0,0.981917,37,0,36,0,false,
+Filter,Virtual,80,0,1.105291,37,0,36,0,false,
+Filter,Virtual,81,0,1.436125,37,0,36,0,false,
+Filter,Virtual,82,0,1.131416,37,0,36,0,false,
+Filter,Virtual,83,0,1.160500,37,0,36,0,false,
+Filter,Virtual,84,0,1.045834,37,0,36,0,false,
+Filter,Virtual,85,0,1.064542,37,0,36,0,false,
+Filter,Virtual,86,0,1.489375,37,0,36,0,false,
+Filter,Virtual,87,0,1.148250,37,0,36,0,false,
+Filter,Virtual,88,0,0.986042,37,0,36,0,false,
+Filter,Virtual,89,0,0.990958,37,0,36,0,false,
+Filter,Virtual,90,0,1.171125,37,0,36,0,false,
+Filter,Virtual,91,0,1.370500,37,0,36,0,false,
+Filter,Virtual,92,0,1.204333,37,0,36,0,false,
+Filter,Virtual,93,0,0.980834,37,0,36,0,false,
+Filter,Virtual,94,0,1.010709,37,0,36,0,false,
+Filter,Virtual,95,0,1.115375,37,0,36,0,false,
+Filter,Virtual,96,0,1.400458,37,0,36,0,false,
+Filter,Virtual,97,0,1.148708,37,0,36,0,false,
+Filter,Virtual,98,0,0.994417,37,0,36,0,false,
+Filter,Virtual,99,0,1.074708,37,0,36,0,false,
+Filter,Virtual,100,0,1.059875,37,0,36,0,false,
+Filter,Virtual,101,0,1.439458,37,0,36,0,false,
+Filter,Virtual,102,0,1.115541,37,0,36,0,false,
+Filter,Virtual,103,0,0.949166,37,0,36,0,false,
+Filter,Virtual,104,0,1.063209,37,0,36,0,false,
+Filter,Virtual,105,0,1.256167,37,0,36,0,false,
+Filter,Virtual,106,0,1.402500,37,0,36,0,false,
+Filter,Virtual,107,0,1.163375,37,0,36,0,false,
+Filter,Virtual,108,0,1.028292,37,0,36,0,false,
+Filter,Virtual,109,0,0.960375,37,0,36,0,false,
+Filter,Virtual,110,0,1.168334,37,0,36,0,false,
+Filter,Virtual,111,0,1.426209,37,0,36,0,false,
+Filter,Virtual,112,0,1.136500,37,0,36,0,false,
+Filter,Virtual,113,0,0.993834,37,0,36,0,false,
+Filter,Virtual,114,0,1.306708,37,0,36,0,false,
+Filter,Virtual,115,0,1.147167,37,0,36,0,false,
+Filter,Virtual,116,0,1.407209,37,0,36,0,false,
+Filter,Virtual,117,0,1.147708,37,0,36,0,false,
+Filter,Virtual,118,0,0.970125,37,0,36,0,false,
+Filter,Virtual,119,0,1.189500,37,0,36,0,false,
+Filter,Plain,0,0,0.917875,37,0,36,0,false,
+Filter,Plain,1,0,1.281541,37,0,36,0,false,
+Filter,Plain,2,0,1.027417,37,0,36,0,false,
+Filter,Plain,3,0,0.870042,37,0,36,0,false,
+Filter,Plain,4,0,0.870333,37,0,36,0,false,
+Filter,Plain,5,0,1.072583,37,0,36,0,false,
+Filter,Plain,6,0,1.261667,37,0,36,0,false,
+Filter,Plain,7,0,1.033792,37,0,36,0,false,
+Filter,Plain,8,0,0.915792,37,0,36,0,false,
+Filter,Plain,9,0,0.873750,37,0,36,0,false,
+Filter,Plain,10,0,0.923667,37,0,36,0,false,
+Filter,Plain,11,0,1.303125,37,0,36,0,false,
+Filter,Plain,12,0,1.015333,37,0,36,0,false,
+Filter,Plain,13,0,0.866792,37,0,36,0,false,
+Filter,Plain,14,0,0.817708,37,0,36,0,false,
+Filter,Plain,15,0,0.953250,37,0,36,0,false,
+Filter,Plain,16,0,1.362334,37,0,36,0,false,
+Filter,Plain,17,0,1.057791,37,0,36,0,false,
+Filter,Plain,18,0,0.893500,37,0,36,0,false,
+Filter,Plain,19,0,0.815167,37,0,36,0,false,
+Filter,Plain,20,0,0.967125,37,0,36,0,false,
+Filter,Plain,21,0,1.275333,37,0,36,0,false,
+Filter,Plain,22,0,1.074792,37,0,36,0,false,
+Filter,Plain,23,0,0.901083,37,0,36,0,false,
+Filter,Plain,24,0,0.901250,37,0,36,0,false,
+Filter,Plain,25,0,0.918750,37,0,36,0,false,
+Filter,Plain,26,0,1.260917,37,0,36,0,false,
+Filter,Plain,27,0,1.006125,37,0,36,0,false,
+Filter,Plain,28,0,0.870209,37,0,36,0,false,
+Filter,Plain,29,0,0.852875,37,0,36,0,false,
+Filter,Plain,30,0,0.964000,37,0,36,0,false,
+Filter,Plain,31,0,1.326667,37,0,36,0,false,
+Filter,Plain,32,0,1.078375,37,0,36,0,false,
+Filter,Plain,33,0,0.888959,37,0,36,0,false,
+Filter,Plain,34,0,0.805333,37,0,36,0,false,
+Filter,Plain,35,0,0.959542,37,0,36,0,false,
+Filter,Plain,36,0,1.271083,37,0,36,0,false,
+Filter,Plain,37,0,1.053375,37,0,36,0,false,
+Filter,Plain,38,0,0.905208,37,0,36,0,false,
+Filter,Plain,39,0,0.880417,37,0,36,0,false,
+Filter,Plain,40,0,0.981500,37,0,36,0,false,
+Filter,Plain,41,0,1.274875,37,0,36,0,false,
+Filter,Plain,42,0,1.060750,37,0,36,0,false,
+Filter,Plain,43,0,0.902709,37,0,36,0,false,
+Filter,Plain,44,0,0.819292,37,0,36,0,false,
+Filter,Plain,45,0,0.991917,37,0,36,0,false,
+Filter,Plain,46,0,1.250708,37,0,36,0,false,
+Filter,Plain,47,0,1.043333,37,0,36,0,false,
+Filter,Plain,48,0,0.865208,37,0,36,0,false,
+Filter,Plain,49,0,0.830833,37,0,36,0,false,
+Filter,Plain,50,0,0.966083,37,0,36,0,false,
+Filter,Plain,51,0,1.299417,37,0,36,0,false,
+Filter,Plain,52,0,1.058792,37,0,36,0,false,
+Filter,Plain,53,0,0.894083,37,0,36,0,false,
+Filter,Plain,54,0,0.852542,37,0,36,0,false,
+Filter,Plain,55,0,0.922250,37,0,36,0,false,
+Filter,Plain,56,0,1.285500,37,0,36,0,false,
+Filter,Plain,57,0,1.018250,37,0,36,0,false,
+Filter,Plain,58,0,0.900291,37,0,36,0,false,
+Filter,Plain,59,0,0.837875,37,0,36,0,false,
+Filter,Plain,60,0,1.046834,37,0,36,0,false,
+Filter,Plain,61,0,1.288625,37,0,36,0,false,
+Filter,Plain,62,0,1.096792,37,0,36,0,false,
+Filter,Plain,63,0,0.937000,37,0,36,0,false,
+Filter,Plain,64,0,0.837625,37,0,36,0,false,
+Filter,Plain,65,0,0.998000,37,0,36,0,false,
+Filter,Plain,66,0,1.353292,37,0,36,0,false,
+Filter,Plain,67,0,1.048125,37,0,36,0,false,
+Filter,Plain,68,0,0.817500,37,0,36,0,false,
+Filter,Plain,69,0,0.848375,37,0,36,0,false,
+Filter,Plain,70,0,0.934708,37,0,36,0,false,
+Filter,Plain,71,0,1.296208,37,0,36,0,false,
+Filter,Plain,72,0,1.106625,37,0,36,0,false,
+Filter,Plain,73,0,0.873667,37,0,36,0,false,
+Filter,Plain,74,0,0.837667,37,0,36,0,false,
+Filter,Plain,75,0,0.992833,37,0,36,0,false,
+Filter,Plain,76,0,1.288375,37,0,36,0,false,
+Filter,Plain,77,0,1.087375,37,0,36,0,false,
+Filter,Plain,78,0,0.931125,37,0,36,0,false,
+Filter,Plain,79,0,0.876292,37,0,36,0,false,
+Filter,Plain,80,0,0.980625,37,0,36,0,false,
+Filter,Plain,81,0,1.339917,37,0,36,0,false,
+Filter,Plain,82,0,1.068000,37,0,36,0,false,
+Filter,Plain,83,0,0.870750,37,0,36,0,false,
+Filter,Plain,84,0,0.923750,37,0,36,0,false,
+Filter,Plain,85,0,0.968042,37,0,36,0,false,
+Filter,Plain,86,0,1.253167,37,0,36,0,false,
+Filter,Plain,87,0,1.044667,37,0,36,0,false,
+Filter,Plain,88,0,0.882542,37,0,36,0,false,
+Filter,Plain,89,0,0.817542,37,0,36,0,false,
+Filter,Plain,90,0,1.062584,37,0,36,0,false,
+Filter,Plain,91,0,1.258333,37,0,36,0,false,
+Filter,Plain,92,0,1.076333,37,0,36,0,false,
+Filter,Plain,93,0,0.905458,37,0,36,0,false,
+Filter,Plain,94,0,0.831375,37,0,36,0,false,
+Filter,Plain,95,0,0.975541,37,0,36,0,false,
+Filter,Plain,96,0,1.288083,37,0,36,0,false,
+Filter,Plain,97,0,1.048000,37,0,36,0,false,
+Filter,Plain,98,0,0.947125,37,0,36,0,false,
+Filter,Plain,99,0,0.898791,37,0,36,0,false,
+Filter,Plain,100,0,0.919583,37,0,36,0,false,
+Filter,Plain,101,0,1.300667,37,0,36,0,false,
+Filter,Plain,102,0,1.086917,37,0,36,0,false,
+Filter,Plain,103,0,0.875250,37,0,36,0,false,
+Filter,Plain,104,0,0.826792,37,0,36,0,false,
+Filter,Plain,105,0,1.034834,37,0,36,0,false,
+Filter,Plain,106,0,1.263875,37,0,36,0,false,
+Filter,Plain,107,0,1.053625,37,0,36,0,false,
+Filter,Plain,108,0,0.928125,37,0,36,0,false,
+Filter,Plain,109,0,0.820250,37,0,36,0,false,
+Filter,Plain,110,0,1.043166,37,0,36,0,false,
+Filter,Plain,111,0,1.504458,37,0,36,0,false,
+Filter,Plain,112,0,1.045875,37,0,36,0,false,
+Filter,Plain,113,0,0.889875,37,0,36,0,false,
+Filter,Plain,114,0,0.924875,37,0,36,0,false,
+Filter,Plain,115,0,0.907250,37,0,36,0,false,
+Filter,Plain,116,0,1.256333,37,0,36,0,false,
+Filter,Plain,117,0,1.042083,37,0,36,0,false,
+Filter,Plain,118,0,0.855292,37,0,36,0,false,
+Filter,Plain,119,0,0.831750,37,0,36,0,false,
+Resize,All,0,0,38.675791,10000,0,9999,0,false,
+Resize,All,1,0,128.681875,10000,0,9999,1,false,Taffy recalculation
+Resize,All,1,1,128.681875,10000,0,9999,1,false,Taffy recalculation
+Resize,All,1,2,128.681875,10000,0,9999,0,false,
+Resize,All,2,0,129.684000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,2,1,129.684000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,2,2,129.684000,10000,0,9999,0,false,
+Resize,All,3,0,129.650958,10000,0,9999,1,false,Taffy recalculation
+Resize,All,3,1,129.650958,10000,0,9999,1,false,Taffy recalculation
+Resize,All,3,2,129.650958,10000,0,9999,0,false,
+Resize,All,4,0,132.831292,10000,0,9999,1,false,Taffy recalculation
+Resize,All,4,1,132.831292,10000,0,9999,1,false,Taffy recalculation
+Resize,All,4,2,132.831292,10000,0,9999,0,false,
+Resize,All,5,0,138.846000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,5,1,138.846000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,5,2,138.846000,10000,0,9999,0,false,
+Resize,All,6,0,129.440667,10000,0,9999,1,false,Taffy recalculation
+Resize,All,6,1,129.440667,10000,0,9999,1,false,Taffy recalculation
+Resize,All,6,2,129.440667,10000,0,9999,0,false,
+Resize,All,7,0,129.221625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,7,1,129.221625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,7,2,129.221625,10000,0,9999,0,false,
+Resize,All,8,0,130.536542,10000,0,9999,1,false,Taffy recalculation
+Resize,All,8,1,130.536542,10000,0,9999,1,false,Taffy recalculation
+Resize,All,8,2,130.536542,10000,0,9999,0,false,
+Resize,All,9,0,130.541750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,9,1,130.541750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,9,2,130.541750,10000,0,9999,0,false,
+Resize,All,10,0,129.008292,10000,0,9999,1,false,Taffy recalculation
+Resize,All,10,1,129.008292,10000,0,9999,1,false,Taffy recalculation
+Resize,All,10,2,129.008292,10000,0,9999,0,false,
+Resize,All,11,0,130.377625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,11,1,130.377625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,11,2,130.377625,10000,0,9999,0,false,
+Resize,All,12,0,133.882500,10000,0,9999,1,false,Taffy recalculation
+Resize,All,12,1,133.882500,10000,0,9999,1,false,Taffy recalculation
+Resize,All,12,2,133.882500,10000,0,9999,0,false,
+Resize,All,13,0,132.950125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,13,1,132.950125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,13,2,132.950125,10000,0,9999,0,false,
+Resize,All,14,0,130.542250,10000,0,9999,1,false,Taffy recalculation
+Resize,All,14,1,130.542250,10000,0,9999,1,false,Taffy recalculation
+Resize,All,14,2,130.542250,10000,0,9999,0,false,
+Resize,All,15,0,128.908500,10000,0,9999,1,false,Taffy recalculation
+Resize,All,15,1,128.908500,10000,0,9999,1,false,Taffy recalculation
+Resize,All,15,2,128.908500,10000,0,9999,0,false,
+Resize,All,16,0,129.592667,10000,0,9999,1,false,Taffy recalculation
+Resize,All,16,1,129.592667,10000,0,9999,1,false,Taffy recalculation
+Resize,All,16,2,129.592667,10000,0,9999,0,false,
+Resize,All,17,0,129.737959,10000,0,9999,1,false,Taffy recalculation
+Resize,All,17,1,129.737959,10000,0,9999,1,false,Taffy recalculation
+Resize,All,17,2,129.737959,10000,0,9999,0,false,
+Resize,All,18,0,129.184125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,18,1,129.184125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,18,2,129.184125,10000,0,9999,0,false,
+Resize,All,19,0,132.823459,10000,0,9999,1,false,Taffy recalculation
+Resize,All,19,1,132.823459,10000,0,9999,1,false,Taffy recalculation
+Resize,All,19,2,132.823459,10000,0,9999,0,false,
+Resize,All,20,0,134.969125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,20,1,134.969125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,20,2,134.969125,10000,0,9999,0,false,
+Resize,All,21,0,129.599083,10000,0,9999,1,false,Taffy recalculation
+Resize,All,21,1,129.599083,10000,0,9999,1,false,Taffy recalculation
+Resize,All,21,2,129.599083,10000,0,9999,0,false,
+Resize,All,22,0,129.396333,10000,0,9999,1,false,Taffy recalculation
+Resize,All,22,1,129.396333,10000,0,9999,1,false,Taffy recalculation
+Resize,All,22,2,129.396333,10000,0,9999,0,false,
+Resize,All,23,0,129.274208,10000,0,9999,1,false,Taffy recalculation
+Resize,All,23,1,129.274208,10000,0,9999,1,false,Taffy recalculation
+Resize,All,23,2,129.274208,10000,0,9999,0,false,
+Resize,All,24,0,129.783750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,24,1,129.783750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,24,2,129.783750,10000,0,9999,0,false,
+Resize,All,25,0,134.141292,10000,0,9999,1,false,Taffy recalculation
+Resize,All,25,1,134.141292,10000,0,9999,1,false,Taffy recalculation
+Resize,All,25,2,134.141292,10000,0,9999,0,false,
+Resize,All,26,0,132.014292,10000,0,9999,1,false,Taffy recalculation
+Resize,All,26,1,132.014292,10000,0,9999,1,false,Taffy recalculation
+Resize,All,26,2,132.014292,10000,0,9999,0,false,
+Resize,All,27,0,135.457584,10000,0,9999,1,false,Taffy recalculation
+Resize,All,27,1,135.457584,10000,0,9999,1,false,Taffy recalculation
+Resize,All,27,2,135.457584,10000,0,9999,0,false,
+Resize,All,28,0,136.065834,10000,0,9999,1,false,Taffy recalculation
+Resize,All,28,1,136.065834,10000,0,9999,1,false,Taffy recalculation
+Resize,All,28,2,136.065834,10000,0,9999,0,false,
+Resize,All,29,0,134.304750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,29,1,134.304750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,29,2,134.304750,10000,0,9999,0,false,
+Resize,All,30,0,130.512917,10000,0,9999,1,false,Taffy recalculation
+Resize,All,30,1,130.512917,10000,0,9999,1,false,Taffy recalculation
+Resize,All,30,2,130.512917,10000,0,9999,0,false,
+Resize,All,31,0,130.321291,10000,0,9999,1,false,Taffy recalculation
+Resize,All,31,1,130.321291,10000,0,9999,1,false,Taffy recalculation
+Resize,All,31,2,130.321291,10000,0,9999,0,false,
+Resize,All,32,0,132.699416,10000,0,9999,1,false,Taffy recalculation
+Resize,All,32,1,132.699416,10000,0,9999,1,false,Taffy recalculation
+Resize,All,32,2,132.699416,10000,0,9999,0,false,
+Resize,All,33,0,131.229291,10000,0,9999,1,false,Taffy recalculation
+Resize,All,33,1,131.229291,10000,0,9999,1,false,Taffy recalculation
+Resize,All,33,2,131.229291,10000,0,9999,0,false,
+Resize,All,34,0,133.970125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,34,1,133.970125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,34,2,133.970125,10000,0,9999,0,false,
+Resize,All,35,0,138.433459,10000,0,9999,1,false,Taffy recalculation
+Resize,All,35,1,138.433459,10000,0,9999,1,false,Taffy recalculation
+Resize,All,35,2,138.433459,10000,0,9999,0,false,
+Resize,All,36,0,131.809042,10000,0,9999,1,false,Taffy recalculation
+Resize,All,36,1,131.809042,10000,0,9999,1,false,Taffy recalculation
+Resize,All,36,2,131.809042,10000,0,9999,0,false,
+Resize,All,37,0,129.522375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,37,1,129.522375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,37,2,129.522375,10000,0,9999,0,false,
+Resize,All,38,0,130.622250,10000,0,9999,1,false,Taffy recalculation
+Resize,All,38,1,130.622250,10000,0,9999,1,false,Taffy recalculation
+Resize,All,38,2,130.622250,10000,0,9999,0,false,
+Resize,All,39,0,131.699083,10000,0,9999,1,false,Taffy recalculation
+Resize,All,39,1,131.699083,10000,0,9999,1,false,Taffy recalculation
+Resize,All,39,2,131.699083,10000,0,9999,0,false,
+Resize,All,40,0,130.927542,10000,0,9999,1,false,Taffy recalculation
+Resize,All,40,1,130.927542,10000,0,9999,1,false,Taffy recalculation
+Resize,All,40,2,130.927542,10000,0,9999,0,false,
+Resize,All,41,0,130.865000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,41,1,130.865000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,41,2,130.865000,10000,0,9999,0,false,
+Resize,All,42,0,135.854459,10000,0,9999,1,false,Taffy recalculation
+Resize,All,42,1,135.854459,10000,0,9999,1,false,Taffy recalculation
+Resize,All,42,2,135.854459,10000,0,9999,0,false,
+Resize,All,43,0,136.549917,10000,0,9999,1,false,Taffy recalculation
+Resize,All,43,1,136.549917,10000,0,9999,1,false,Taffy recalculation
+Resize,All,43,2,136.549917,10000,0,9999,0,false,
+Resize,All,44,0,130.546833,10000,0,9999,1,false,Taffy recalculation
+Resize,All,44,1,130.546833,10000,0,9999,1,false,Taffy recalculation
+Resize,All,44,2,130.546833,10000,0,9999,0,false,
+Resize,All,45,0,131.355000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,45,1,131.355000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,45,2,131.355000,10000,0,9999,0,false,
+Resize,All,46,0,129.862750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,46,1,129.862750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,46,2,129.862750,10000,0,9999,0,false,
+Resize,All,47,0,131.947667,10000,0,9999,1,false,Taffy recalculation
+Resize,All,47,1,131.947667,10000,0,9999,1,false,Taffy recalculation
+Resize,All,47,2,131.947667,10000,0,9999,0,false,
+Resize,All,48,0,130.780375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,48,1,130.780375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,48,2,130.780375,10000,0,9999,0,false,
+Resize,All,49,0,134.247625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,49,1,134.247625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,49,2,134.247625,10000,0,9999,0,false,
+Resize,All,50,0,135.789000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,50,1,135.789000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,50,2,135.789000,10000,0,9999,0,false,
+Resize,All,51,0,132.233083,10000,0,9999,1,false,Taffy recalculation
+Resize,All,51,1,132.233083,10000,0,9999,1,false,Taffy recalculation
+Resize,All,51,2,132.233083,10000,0,9999,0,false,
+Resize,All,52,0,135.179208,10000,0,9999,1,false,Taffy recalculation
+Resize,All,52,1,135.179208,10000,0,9999,1,false,Taffy recalculation
+Resize,All,52,2,135.179208,10000,0,9999,0,false,
+Resize,All,53,0,130.543625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,53,1,130.543625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,53,2,130.543625,10000,0,9999,0,false,
+Resize,All,54,0,130.268375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,54,1,130.268375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,54,2,130.268375,10000,0,9999,0,false,
+Resize,All,55,0,130.301625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,55,1,130.301625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,55,2,130.301625,10000,0,9999,0,false,
+Resize,All,56,0,128.987833,10000,0,9999,1,false,Taffy recalculation
+Resize,All,56,1,128.987833,10000,0,9999,1,false,Taffy recalculation
+Resize,All,56,2,128.987833,10000,0,9999,0,false,
+Resize,All,57,0,136.683375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,57,1,136.683375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,57,2,136.683375,10000,0,9999,0,false,
+Resize,All,58,0,136.556458,10000,0,9999,1,false,Taffy recalculation
+Resize,All,58,1,136.556458,10000,0,9999,1,false,Taffy recalculation
+Resize,All,58,2,136.556458,10000,0,9999,0,false,
+Resize,All,59,0,130.827750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,59,1,130.827750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,59,2,130.827750,10000,0,9999,0,false,
+Resize,All,60,0,129.766125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,60,1,129.766125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,60,2,129.766125,10000,0,9999,0,false,
+Resize,All,61,0,130.572083,10000,0,9999,1,false,Taffy recalculation
+Resize,All,61,1,130.572083,10000,0,9999,1,false,Taffy recalculation
+Resize,All,61,2,130.572083,10000,0,9999,0,false,
+Resize,All,62,0,130.005208,10000,0,9999,1,false,Taffy recalculation
+Resize,All,62,1,130.005208,10000,0,9999,1,false,Taffy recalculation
+Resize,All,62,2,130.005208,10000,0,9999,0,false,
+Resize,All,63,0,129.968666,10000,0,9999,1,false,Taffy recalculation
+Resize,All,63,1,129.968666,10000,0,9999,1,false,Taffy recalculation
+Resize,All,63,2,129.968666,10000,0,9999,0,false,
+Resize,All,64,0,132.915917,10000,0,9999,1,false,Taffy recalculation
+Resize,All,64,1,132.915917,10000,0,9999,1,false,Taffy recalculation
+Resize,All,64,2,132.915917,10000,0,9999,0,false,
+Resize,All,65,0,136.602000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,65,1,136.602000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,65,2,136.602000,10000,0,9999,0,false,
+Resize,All,66,0,130.230375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,66,1,130.230375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,66,2,130.230375,10000,0,9999,0,false,
+Resize,All,67,0,130.348000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,67,1,130.348000,10000,0,9999,1,false,Taffy recalculation
+Resize,All,67,2,130.348000,10000,0,9999,0,false,
+Resize,All,68,0,129.040375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,68,1,129.040375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,68,2,129.040375,10000,0,9999,0,false,
+Resize,All,69,0,130.256209,10000,0,9999,1,false,Taffy recalculation
+Resize,All,69,1,130.256209,10000,0,9999,1,false,Taffy recalculation
+Resize,All,69,2,130.256209,10000,0,9999,0,false,
+Resize,All,70,0,129.744291,10000,0,9999,1,false,Taffy recalculation
+Resize,All,70,1,129.744291,10000,0,9999,1,false,Taffy recalculation
+Resize,All,70,2,129.744291,10000,0,9999,0,false,
+Resize,All,71,0,130.277666,10000,0,9999,1,false,Taffy recalculation
+Resize,All,71,1,130.277666,10000,0,9999,1,false,Taffy recalculation
+Resize,All,71,2,130.277666,10000,0,9999,0,false,
+Resize,All,72,0,134.692375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,72,1,134.692375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,72,2,134.692375,10000,0,9999,0,false,
+Resize,All,73,0,135.687958,10000,0,9999,1,false,Taffy recalculation
+Resize,All,73,1,135.687958,10000,0,9999,1,false,Taffy recalculation
+Resize,All,73,2,135.687958,10000,0,9999,0,false,
+Resize,All,74,0,129.528250,10000,0,9999,1,false,Taffy recalculation
+Resize,All,74,1,129.528250,10000,0,9999,1,false,Taffy recalculation
+Resize,All,74,2,129.528250,10000,0,9999,0,false,
+Resize,All,75,0,131.163583,10000,0,9999,1,false,Taffy recalculation
+Resize,All,75,1,131.163583,10000,0,9999,1,false,Taffy recalculation
+Resize,All,75,2,131.163583,10000,0,9999,0,false,
+Resize,All,76,0,130.806125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,76,1,130.806125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,76,2,130.806125,10000,0,9999,0,false,
+Resize,All,77,0,133.242500,10000,0,9999,1,false,Taffy recalculation
+Resize,All,77,1,133.242500,10000,0,9999,1,false,Taffy recalculation
+Resize,All,77,2,133.242500,10000,0,9999,0,false,
+Resize,All,78,0,129.518708,10000,0,9999,1,false,Taffy recalculation
+Resize,All,78,1,129.518708,10000,0,9999,1,false,Taffy recalculation
+Resize,All,78,2,129.518708,10000,0,9999,0,false,
+Resize,All,79,0,130.244792,10000,0,9999,1,false,Taffy recalculation
+Resize,All,79,1,130.244792,10000,0,9999,1,false,Taffy recalculation
+Resize,All,79,2,130.244792,10000,0,9999,0,false,
+Resize,All,80,0,136.702708,10000,0,9999,1,false,Taffy recalculation
+Resize,All,80,1,136.702708,10000,0,9999,1,false,Taffy recalculation
+Resize,All,80,2,136.702708,10000,0,9999,0,false,
+Resize,All,81,0,132.895250,10000,0,9999,1,false,Taffy recalculation
+Resize,All,81,1,132.895250,10000,0,9999,1,false,Taffy recalculation
+Resize,All,81,2,132.895250,10000,0,9999,0,false,
+Resize,All,82,0,130.000167,10000,0,9999,1,false,Taffy recalculation
+Resize,All,82,1,130.000167,10000,0,9999,1,false,Taffy recalculation
+Resize,All,82,2,130.000167,10000,0,9999,0,false,
+Resize,All,83,0,128.577375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,83,1,128.577375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,83,2,128.577375,10000,0,9999,0,false,
+Resize,All,84,0,130.413625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,84,1,130.413625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,84,2,130.413625,10000,0,9999,0,false,
+Resize,All,85,0,131.677375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,85,1,131.677375,10000,0,9999,1,false,Taffy recalculation
+Resize,All,85,2,131.677375,10000,0,9999,0,false,
+Resize,All,86,0,130.788750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,86,1,130.788750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,86,2,130.788750,10000,0,9999,0,false,
+Resize,All,87,0,133.272875,10000,0,9999,1,false,Taffy recalculation
+Resize,All,87,1,133.272875,10000,0,9999,1,false,Taffy recalculation
+Resize,All,87,2,133.272875,10000,0,9999,0,false,
+Resize,All,88,0,135.673292,10000,0,9999,1,false,Taffy recalculation
+Resize,All,88,1,135.673292,10000,0,9999,1,false,Taffy recalculation
+Resize,All,88,2,135.673292,10000,0,9999,0,false,
+Resize,All,89,0,131.954667,10000,0,9999,1,false,Taffy recalculation
+Resize,All,89,1,131.954667,10000,0,9999,1,false,Taffy recalculation
+Resize,All,89,2,131.954667,10000,0,9999,0,false,
+Resize,All,90,0,129.040291,10000,0,9999,1,false,Taffy recalculation
+Resize,All,90,1,129.040291,10000,0,9999,1,false,Taffy recalculation
+Resize,All,90,2,129.040291,10000,0,9999,0,false,
+Resize,All,91,0,129.437708,10000,0,9999,1,false,Taffy recalculation
+Resize,All,91,1,129.437708,10000,0,9999,1,false,Taffy recalculation
+Resize,All,91,2,129.437708,10000,0,9999,0,false,
+Resize,All,92,0,131.145792,10000,0,9999,1,false,Taffy recalculation
+Resize,All,92,1,131.145792,10000,0,9999,1,false,Taffy recalculation
+Resize,All,92,2,131.145792,10000,0,9999,0,false,
+Resize,All,93,0,130.663125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,93,1,130.663125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,93,2,130.663125,10000,0,9999,0,false,
+Resize,All,94,0,131.091750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,94,1,131.091750,10000,0,9999,1,false,Taffy recalculation
+Resize,All,94,2,131.091750,10000,0,9999,0,false,
+Resize,All,95,0,135.706291,10000,0,9999,1,false,Taffy recalculation
+Resize,All,95,1,135.706291,10000,0,9999,1,false,Taffy recalculation
+Resize,All,95,2,135.706291,10000,0,9999,0,false,
+Resize,All,96,0,134.697166,10000,0,9999,1,false,Taffy recalculation
+Resize,All,96,1,134.697166,10000,0,9999,1,false,Taffy recalculation
+Resize,All,96,2,134.697166,10000,0,9999,0,false,
+Resize,All,97,0,128.744417,10000,0,9999,1,false,Taffy recalculation
+Resize,All,97,1,128.744417,10000,0,9999,1,false,Taffy recalculation
+Resize,All,97,2,128.744417,10000,0,9999,0,false,
+Resize,All,98,0,130.166792,10000,0,9999,1,false,Taffy recalculation
+Resize,All,98,1,130.166792,10000,0,9999,1,false,Taffy recalculation
+Resize,All,98,2,130.166792,10000,0,9999,0,false,
+Resize,All,99,0,135.247833,10000,0,9999,1,false,Taffy recalculation
+Resize,All,99,1,135.247833,10000,0,9999,1,false,Taffy recalculation
+Resize,All,99,2,135.247833,10000,0,9999,0,false,
+Resize,All,100,0,131.031875,10000,0,9999,1,false,Taffy recalculation
+Resize,All,100,1,131.031875,10000,0,9999,1,false,Taffy recalculation
+Resize,All,100,2,131.031875,10000,0,9999,0,false,
+Resize,All,101,0,129.300209,10000,0,9999,1,false,Taffy recalculation
+Resize,All,101,1,129.300209,10000,0,9999,1,false,Taffy recalculation
+Resize,All,101,2,129.300209,10000,0,9999,0,false,
+Resize,All,102,0,133.465333,10000,0,9999,1,false,Taffy recalculation
+Resize,All,102,1,133.465333,10000,0,9999,1,false,Taffy recalculation
+Resize,All,102,2,133.465333,10000,0,9999,0,false,
+Resize,All,103,0,133.898500,10000,0,9999,1,false,Taffy recalculation
+Resize,All,103,1,133.898500,10000,0,9999,1,false,Taffy recalculation
+Resize,All,103,2,133.898500,10000,0,9999,0,false,
+Resize,All,104,0,130.399584,10000,0,9999,1,false,Taffy recalculation
+Resize,All,104,1,130.399584,10000,0,9999,1,false,Taffy recalculation
+Resize,All,104,2,130.399584,10000,0,9999,0,false,
+Resize,All,105,0,129.761625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,105,1,129.761625,10000,0,9999,1,false,Taffy recalculation
+Resize,All,105,2,129.761625,10000,0,9999,0,false,
+Resize,All,106,0,133.227042,10000,0,9999,1,false,Taffy recalculation
+Resize,All,106,1,133.227042,10000,0,9999,1,false,Taffy recalculation
+Resize,All,106,2,133.227042,10000,0,9999,0,false,
+Resize,All,107,0,133.837500,10000,0,9999,1,false,Taffy recalculation
+Resize,All,107,1,133.837500,10000,0,9999,1,false,Taffy recalculation
+Resize,All,107,2,133.837500,10000,0,9999,0,false,
+Resize,All,108,0,132.738583,10000,0,9999,1,false,Taffy recalculation
+Resize,All,108,1,132.738583,10000,0,9999,1,false,Taffy recalculation
+Resize,All,108,2,132.738583,10000,0,9999,0,false,
+Resize,All,109,0,129.597166,10000,0,9999,1,false,Taffy recalculation
+Resize,All,109,1,129.597166,10000,0,9999,1,false,Taffy recalculation
+Resize,All,109,2,129.597166,10000,0,9999,0,false,
+Resize,All,110,0,133.209708,10000,0,9999,1,false,Taffy recalculation
+Resize,All,110,1,133.209708,10000,0,9999,1,false,Taffy recalculation
+Resize,All,110,2,133.209708,10000,0,9999,0,false,
+Resize,All,111,0,136.527208,10000,0,9999,1,false,Taffy recalculation
+Resize,All,111,1,136.527208,10000,0,9999,1,false,Taffy recalculation
+Resize,All,111,2,136.527208,10000,0,9999,0,false,
+Resize,All,112,0,131.811500,10000,0,9999,1,false,Taffy recalculation
+Resize,All,112,1,131.811500,10000,0,9999,1,false,Taffy recalculation
+Resize,All,112,2,131.811500,10000,0,9999,0,false,
+Resize,All,113,0,130.642084,10000,0,9999,1,false,Taffy recalculation
+Resize,All,113,1,130.642084,10000,0,9999,1,false,Taffy recalculation
+Resize,All,113,2,130.642084,10000,0,9999,0,false,
+Resize,All,114,0,130.175125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,114,1,130.175125,10000,0,9999,1,false,Taffy recalculation
+Resize,All,114,2,130.175125,10000,0,9999,0,false,
+Resize,All,115,0,132.356666,10000,0,9999,1,false,Taffy recalculation
+Resize,All,115,1,132.356666,10000,0,9999,1,false,Taffy recalculation
+Resize,All,115,2,132.356666,10000,0,9999,0,false,
+Resize,All,116,0,130.758916,10000,0,9999,1,false,Taffy recalculation
+Resize,All,116,1,130.758916,10000,0,9999,1,false,Taffy recalculation
+Resize,All,116,2,130.758916,10000,0,9999,0,false,
+Resize,All,117,0,136.377250,10000,0,9999,1,false,Taffy recalculation
+Resize,All,117,1,136.377250,10000,0,9999,1,false,Taffy recalculation
+Resize,All,117,2,136.377250,10000,0,9999,0,false,
+Resize,All,118,0,135.782458,10000,0,9999,1,false,Taffy recalculation
+Resize,All,118,1,135.782458,10000,0,9999,1,false,Taffy recalculation
+Resize,All,118,2,135.782458,10000,0,9999,0,false,
+Resize,All,119,0,131.172667,10000,0,9999,1,false,Taffy recalculation
+Resize,All,119,1,131.172667,10000,0,9999,1,false,Taffy recalculation
+Resize,All,119,2,131.172667,10000,0,9999,0,false,
+Resize,Virtual,0,0,0.352667,37,0,36,0,false,
+Resize,Virtual,1,0,0.598584,37,0,36,1,false,Taffy recalculation
+Resize,Virtual,1,1,0.598584,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,1,2,0.598584,38,0,37,0,false,
+Resize,Virtual,2,0,0.695792,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,2,1,0.695792,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,2,2,0.695792,38,0,37,0,false,
+Resize,Virtual,3,0,0.645042,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,3,1,0.645042,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,3,2,0.645042,38,0,37,0,false,
+Resize,Virtual,4,0,0.568042,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,4,1,0.568042,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,4,2,0.568042,38,0,37,0,false,
+Resize,Virtual,5,0,0.920250,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,5,1,0.920250,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,5,2,0.920250,38,0,37,0,false,
+Resize,Virtual,6,0,0.681750,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,6,1,0.681750,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,6,2,0.681750,38,0,37,0,false,
+Resize,Virtual,7,0,0.574167,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,7,1,0.574167,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,7,2,0.574167,38,0,37,0,false,
+Resize,Virtual,8,0,0.660000,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,8,1,0.660000,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,8,2,0.660000,38,0,37,0,false,
+Resize,Virtual,9,0,0.637667,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,9,1,0.637667,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,9,2,0.637667,38,0,37,0,false,
+Resize,Virtual,10,0,0.564625,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,10,1,0.564625,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,10,2,0.564625,38,0,37,0,false,
+Resize,Virtual,11,0,0.676541,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,11,1,0.676541,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,11,2,0.676541,39,0,38,0,false,
+Resize,Virtual,12,0,0.703000,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,12,1,0.703000,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,12,2,0.703000,39,0,38,0,false,
+Resize,Virtual,13,0,0.579000,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,13,1,0.579000,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,13,2,0.579000,39,0,38,0,false,
+Resize,Virtual,14,0,0.650958,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,14,1,0.650958,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,14,2,0.650958,39,0,38,0,false,
+Resize,Virtual,15,0,0.642875,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,15,1,0.642875,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,15,2,0.642875,39,0,38,0,false,
+Resize,Virtual,16,0,0.603458,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,16,1,0.603458,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,16,2,0.603458,39,0,38,0,false,
+Resize,Virtual,17,0,0.637250,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,17,1,0.637250,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,17,2,0.637250,39,0,38,0,false,
+Resize,Virtual,18,0,0.694375,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,18,1,0.694375,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,18,2,0.694375,39,0,38,0,false,
+Resize,Virtual,19,0,0.594834,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,19,1,0.594834,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,19,2,0.594834,39,0,38,0,false,
+Resize,Virtual,20,0,0.688209,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,20,1,0.688209,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,20,2,0.688209,39,0,38,0,false,
+Resize,Virtual,21,0,0.711709,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,21,1,0.711709,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,21,2,0.711709,40,0,39,0,false,
+Resize,Virtual,22,0,0.597708,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,22,1,0.597708,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,22,2,0.597708,40,0,39,0,false,
+Resize,Virtual,23,0,0.671833,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,23,1,0.671833,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,23,2,0.671833,40,0,39,0,false,
+Resize,Virtual,24,0,0.686542,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,24,1,0.686542,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,24,2,0.686542,40,0,39,0,false,
+Resize,Virtual,25,0,0.608708,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,25,1,0.608708,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,25,2,0.608708,40,0,39,0,false,
+Resize,Virtual,26,0,0.695875,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,26,1,0.695875,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,26,2,0.695875,40,0,39,0,false,
+Resize,Virtual,27,0,0.718041,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,27,1,0.718041,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,27,2,0.718041,40,0,39,0,false,
+Resize,Virtual,28,0,0.638625,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,28,1,0.638625,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,28,2,0.638625,40,0,39,0,false,
+Resize,Virtual,29,0,0.695792,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,29,1,0.695792,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,29,2,0.695792,40,0,39,0,false,
+Resize,Virtual,30,0,0.739208,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,30,1,0.739208,37,0,36,37,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,30,2,0.739208,37,0,36,0,false,
+Resize,Virtual,31,0,0.641916,37,0,36,1,false,Taffy recalculation
+Resize,Virtual,31,1,0.641916,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,31,2,0.641916,38,0,37,0,false,
+Resize,Virtual,32,0,0.661750,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,32,1,0.661750,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,32,2,0.661750,38,0,37,0,false,
+Resize,Virtual,33,0,0.668750,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,33,1,0.668750,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,33,2,0.668750,38,0,37,0,false,
+Resize,Virtual,34,0,0.586333,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,34,1,0.586333,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,34,2,0.586333,38,0,37,0,false,
+Resize,Virtual,35,0,0.644000,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,35,1,0.644000,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,35,2,0.644000,38,0,37,0,false,
+Resize,Virtual,36,0,0.671917,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,36,1,0.671917,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,36,2,0.671917,38,0,37,0,false,
+Resize,Virtual,37,0,0.572958,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,37,1,0.572958,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,37,2,0.572958,38,0,37,0,false,
+Resize,Virtual,38,0,0.660375,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,38,1,0.660375,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,38,2,0.660375,38,0,37,0,false,
+Resize,Virtual,39,0,0.666750,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,39,1,0.666750,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,39,2,0.666750,38,0,37,0,false,
+Resize,Virtual,40,0,0.576959,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,40,1,0.576959,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,40,2,0.576959,38,0,37,0,false,
+Resize,Virtual,41,0,0.676792,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,41,1,0.676792,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,41,2,0.676792,39,0,38,0,false,
+Resize,Virtual,42,0,0.686208,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,42,1,0.686208,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,42,2,0.686208,39,0,38,0,false,
+Resize,Virtual,43,0,0.578500,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,43,1,0.578500,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,43,2,0.578500,39,0,38,0,false,
+Resize,Virtual,44,0,0.705125,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,44,1,0.705125,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,44,2,0.705125,39,0,38,0,false,
+Resize,Virtual,45,0,0.682916,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,45,1,0.682916,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,45,2,0.682916,39,0,38,0,false,
+Resize,Virtual,46,0,0.611334,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,46,1,0.611334,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,46,2,0.611334,39,0,38,0,false,
+Resize,Virtual,47,0,0.674125,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,47,1,0.674125,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,47,2,0.674125,39,0,38,0,false,
+Resize,Virtual,48,0,0.702125,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,48,1,0.702125,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,48,2,0.702125,39,0,38,0,false,
+Resize,Virtual,49,0,0.592791,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,49,1,0.592791,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,49,2,0.592791,39,0,38,0,false,
+Resize,Virtual,50,0,0.665625,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,50,1,0.665625,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,50,2,0.665625,39,0,38,0,false,
+Resize,Virtual,51,0,0.703000,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,51,1,0.703000,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,51,2,0.703000,40,0,39,0,false,
+Resize,Virtual,52,0,0.599709,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,52,1,0.599709,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,52,2,0.599709,40,0,39,0,false,
+Resize,Virtual,53,0,0.685833,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,53,1,0.685833,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,53,2,0.685833,40,0,39,0,false,
+Resize,Virtual,54,0,0.700000,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,54,1,0.700000,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,54,2,0.700000,40,0,39,0,false,
+Resize,Virtual,55,0,0.623209,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,55,1,0.623209,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,55,2,0.623209,40,0,39,0,false,
+Resize,Virtual,56,0,0.689167,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,56,1,0.689167,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,56,2,0.689167,40,0,39,0,false,
+Resize,Virtual,57,0,0.685792,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,57,1,0.685792,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,57,2,0.685792,40,0,39,0,false,
+Resize,Virtual,58,0,0.600500,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,58,1,0.600500,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,58,2,0.600500,40,0,39,0,false,
+Resize,Virtual,59,0,0.702916,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,59,1,0.702916,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,59,2,0.702916,40,0,39,0,false,
+Resize,Virtual,60,0,0.676000,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,60,1,0.676000,37,0,36,37,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,60,2,0.676000,37,0,36,0,false,
+Resize,Virtual,61,0,0.579292,37,0,36,1,false,Taffy recalculation
+Resize,Virtual,61,1,0.579292,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,61,2,0.579292,38,0,37,0,false,
+Resize,Virtual,62,0,0.687792,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,62,1,0.687792,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,62,2,0.687792,38,0,37,0,false,
+Resize,Virtual,63,0,0.671209,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,63,1,0.671209,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,63,2,0.671209,38,0,37,0,false,
+Resize,Virtual,64,0,0.580208,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,64,1,0.580208,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,64,2,0.580208,38,0,37,0,false,
+Resize,Virtual,65,0,0.642625,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,65,1,0.642625,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,65,2,0.642625,38,0,37,0,false,
+Resize,Virtual,66,0,0.636792,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,66,1,0.636792,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,66,2,0.636792,38,0,37,0,false,
+Resize,Virtual,67,0,0.567417,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,67,1,0.567417,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,67,2,0.567417,38,0,37,0,false,
+Resize,Virtual,68,0,0.657750,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,68,1,0.657750,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,68,2,0.657750,38,0,37,0,false,
+Resize,Virtual,69,0,0.629166,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,69,1,0.629166,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,69,2,0.629166,38,0,37,0,false,
+Resize,Virtual,70,0,0.521000,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,70,1,0.521000,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,70,2,0.521000,38,0,37,0,false,
+Resize,Virtual,71,0,0.689292,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,71,1,0.689292,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,71,2,0.689292,39,0,38,0,false,
+Resize,Virtual,72,0,0.694750,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,72,1,0.694750,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,72,2,0.694750,39,0,38,0,false,
+Resize,Virtual,73,0,0.578375,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,73,1,0.578375,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,73,2,0.578375,39,0,38,0,false,
+Resize,Virtual,74,0,0.637167,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,74,1,0.637167,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,74,2,0.637167,39,0,38,0,false,
+Resize,Virtual,75,0,0.689791,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,75,1,0.689791,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,75,2,0.689791,39,0,38,0,false,
+Resize,Virtual,76,0,0.586250,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,76,1,0.586250,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,76,2,0.586250,39,0,38,0,false,
+Resize,Virtual,77,0,0.699291,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,77,1,0.699291,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,77,2,0.699291,39,0,38,0,false,
+Resize,Virtual,78,0,0.687750,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,78,1,0.687750,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,78,2,0.687750,39,0,38,0,false,
+Resize,Virtual,79,0,0.590083,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,79,1,0.590083,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,79,2,0.590083,39,0,38,0,false,
+Resize,Virtual,80,0,0.673959,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,80,1,0.673959,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,80,2,0.673959,39,0,38,0,false,
+Resize,Virtual,81,0,0.693875,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,81,1,0.693875,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,81,2,0.693875,40,0,39,0,false,
+Resize,Virtual,82,0,0.601500,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,82,1,0.601500,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,82,2,0.601500,40,0,39,0,false,
+Resize,Virtual,83,0,0.675833,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,83,1,0.675833,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,83,2,0.675833,40,0,39,0,false,
+Resize,Virtual,84,0,0.666084,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,84,1,0.666084,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,84,2,0.666084,40,0,39,0,false,
+Resize,Virtual,85,0,0.599500,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,85,1,0.599500,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,85,2,0.599500,40,0,39,0,false,
+Resize,Virtual,86,0,0.698208,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,86,1,0.698208,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,86,2,0.698208,40,0,39,0,false,
+Resize,Virtual,87,0,0.684541,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,87,1,0.684541,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,87,2,0.684541,40,0,39,0,false,
+Resize,Virtual,88,0,0.604709,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,88,1,0.604709,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,88,2,0.604709,40,0,39,0,false,
+Resize,Virtual,89,0,0.705125,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,89,1,0.705125,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,89,2,0.705125,40,0,39,0,false,
+Resize,Virtual,90,0,0.654708,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,90,1,0.654708,37,0,36,37,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,90,2,0.654708,37,0,36,0,false,
+Resize,Virtual,91,0,0.575083,37,0,36,1,false,Taffy recalculation
+Resize,Virtual,91,1,0.575083,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,91,2,0.575083,38,0,37,0,false,
+Resize,Virtual,92,0,0.734916,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,92,1,0.734916,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,92,2,0.734916,38,0,37,0,false,
+Resize,Virtual,93,0,0.660666,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,93,1,0.660666,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,93,2,0.660666,38,0,37,0,false,
+Resize,Virtual,94,0,0.576166,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,94,1,0.576166,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,94,2,0.576166,38,0,37,0,false,
+Resize,Virtual,95,0,0.709833,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,95,1,0.709833,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,95,2,0.709833,38,0,37,0,false,
+Resize,Virtual,96,0,0.684125,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,96,1,0.684125,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,96,2,0.684125,38,0,37,0,false,
+Resize,Virtual,97,0,0.586459,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,97,1,0.586459,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,97,2,0.586459,38,0,37,0,false,
+Resize,Virtual,98,0,0.647166,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,98,1,0.647166,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,98,2,0.647166,38,0,37,0,false,
+Resize,Virtual,99,0,0.640084,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,99,1,0.640084,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,99,2,0.640084,38,0,37,0,false,
+Resize,Virtual,100,0,0.569042,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,100,1,0.569042,38,0,37,38,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,100,2,0.569042,38,0,37,0,false,
+Resize,Virtual,101,0,0.655917,38,0,37,1,false,Taffy recalculation
+Resize,Virtual,101,1,0.655917,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,101,2,0.655917,39,0,38,0,false,
+Resize,Virtual,102,0,0.651333,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,102,1,0.651333,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,102,2,0.651333,39,0,38,0,false,
+Resize,Virtual,103,0,0.576666,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,103,1,0.576666,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,103,2,0.576666,39,0,38,0,false,
+Resize,Virtual,104,0,0.669709,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,104,1,0.669709,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,104,2,0.669709,39,0,38,0,false,
+Resize,Virtual,105,0,0.652875,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,105,1,0.652875,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,105,2,0.652875,39,0,38,0,false,
+Resize,Virtual,106,0,0.579666,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,106,1,0.579666,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,106,2,0.579666,39,0,38,0,false,
+Resize,Virtual,107,0,0.692042,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,107,1,0.692042,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,107,2,0.692042,39,0,38,0,false,
+Resize,Virtual,108,0,0.652583,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,108,1,0.652583,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,108,2,0.652583,39,0,38,0,false,
+Resize,Virtual,109,0,0.594834,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,109,1,0.594834,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,109,2,0.594834,39,0,38,0,false,
+Resize,Virtual,110,0,0.666750,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,110,1,0.666750,39,0,38,39,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,110,2,0.666750,39,0,38,0,false,
+Resize,Virtual,111,0,0.717625,39,0,38,1,false,Taffy recalculation
+Resize,Virtual,111,1,0.717625,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,111,2,0.717625,40,0,39,0,false,
+Resize,Virtual,112,0,0.589667,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,112,1,0.589667,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,112,2,0.589667,40,0,39,0,false,
+Resize,Virtual,113,0,0.712417,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,113,1,0.712417,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,113,2,0.712417,40,0,39,0,false,
+Resize,Virtual,114,0,0.749375,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,114,1,0.749375,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,114,2,0.749375,40,0,39,0,false,
+Resize,Virtual,115,0,0.594875,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,115,1,0.594875,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,115,2,0.594875,40,0,39,0,false,
+Resize,Virtual,116,0,0.713292,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,116,1,0.713292,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,116,2,0.713292,40,0,39,0,false,
+Resize,Virtual,117,0,0.677625,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,117,1,0.677625,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,117,2,0.677625,40,0,39,0,false,
+Resize,Virtual,118,0,0.598542,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,118,1,0.598542,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,118,2,0.598542,40,0,39,0,false,
+Resize,Virtual,119,0,0.700292,40,0,39,1,false,Taffy recalculation
+Resize,Virtual,119,1,0.700292,40,0,39,40,false,Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation;Taffy recalculation
+Resize,Virtual,119,2,0.700292,40,0,39,0,false,
+Resize,Plain,0,0,0.136417,37,0,36,0,false,
+Resize,Plain,1,0,0.140708,38,0,37,0,false,
+Resize,Plain,2,0,0.167333,38,0,37,0,false,
+Resize,Plain,3,0,0.127000,38,0,37,0,false,
+Resize,Plain,4,0,0.115209,38,0,37,0,false,
+Resize,Plain,5,0,0.413959,38,0,37,0,false,
+Resize,Plain,6,0,0.155750,38,0,37,0,false,
+Resize,Plain,7,0,0.135583,38,0,37,0,false,
+Resize,Plain,8,0,0.154042,38,0,37,0,false,
+Resize,Plain,9,0,0.126708,38,0,37,0,false,
+Resize,Plain,10,0,0.120042,38,0,37,0,false,
+Resize,Plain,11,0,0.223750,39,0,38,0,false,
+Resize,Plain,12,0,0.159625,39,0,38,0,false,
+Resize,Plain,13,0,0.138250,39,0,38,0,false,
+Resize,Plain,14,0,0.192834,39,0,38,0,false,
+Resize,Plain,15,0,0.127500,39,0,38,0,false,
+Resize,Plain,16,0,0.116417,39,0,38,0,false,
+Resize,Plain,17,0,0.254084,39,0,38,0,false,
+Resize,Plain,18,0,0.140750,39,0,38,0,false,
+Resize,Plain,19,0,0.145875,39,0,38,0,false,
+Resize,Plain,20,0,0.157917,39,0,38,0,false,
+Resize,Plain,21,0,0.182417,40,0,39,0,false,
+Resize,Plain,22,0,0.131167,40,0,39,0,false,
+Resize,Plain,23,0,0.159583,40,0,39,0,false,
+Resize,Plain,24,0,0.148292,40,0,39,0,false,
+Resize,Plain,25,0,0.118708,40,0,39,0,false,
+Resize,Plain,26,0,0.162875,40,0,39,0,false,
+Resize,Plain,27,0,0.139708,40,0,39,0,false,
+Resize,Plain,28,0,0.122375,40,0,39,0,false,
+Resize,Plain,29,0,0.195500,40,0,39,0,false,
+Resize,Plain,30,0,0.127667,37,0,36,0,false,
+Resize,Plain,31,0,0.130208,38,0,37,0,false,
+Resize,Plain,32,0,0.166375,38,0,37,0,false,
+Resize,Plain,33,0,0.129041,38,0,37,0,false,
+Resize,Plain,34,0,0.115791,38,0,37,0,false,
+Resize,Plain,35,0,0.186667,38,0,37,0,false,
+Resize,Plain,36,0,0.160334,38,0,37,0,false,
+Resize,Plain,37,0,0.133917,38,0,37,0,false,
+Resize,Plain,38,0,0.204750,38,0,37,0,false,
+Resize,Plain,39,0,0.130625,38,0,37,0,false,
+Resize,Plain,40,0,0.114833,38,0,37,0,false,
+Resize,Plain,41,0,0.195000,39,0,38,0,false,
+Resize,Plain,42,0,0.152125,39,0,38,0,false,
+Resize,Plain,43,0,0.133333,39,0,38,0,false,
+Resize,Plain,44,0,0.208542,39,0,38,0,false,
+Resize,Plain,45,0,0.133917,39,0,38,0,false,
+Resize,Plain,46,0,0.119667,39,0,38,0,false,
+Resize,Plain,47,0,0.188458,39,0,38,0,false,
+Resize,Plain,48,0,0.155459,39,0,38,0,false,
+Resize,Plain,49,0,0.138375,39,0,38,0,false,
+Resize,Plain,50,0,0.203458,39,0,38,0,false,
+Resize,Plain,51,0,0.140750,40,0,39,0,false,
+Resize,Plain,52,0,0.122708,40,0,39,0,false,
+Resize,Plain,53,0,0.162333,40,0,39,0,false,
+Resize,Plain,54,0,0.153792,40,0,39,0,false,
+Resize,Plain,55,0,0.141000,40,0,39,0,false,
+Resize,Plain,56,0,0.205458,40,0,39,0,false,
+Resize,Plain,57,0,0.133875,40,0,39,0,false,
+Resize,Plain,58,0,0.120125,40,0,39,0,false,
+Resize,Plain,59,0,0.161333,40,0,39,0,false,
+Resize,Plain,60,0,0.145500,37,0,36,0,false,
+Resize,Plain,61,0,0.140875,38,0,37,0,false,
+Resize,Plain,62,0,0.202041,38,0,37,0,false,
+Resize,Plain,63,0,0.131708,38,0,37,0,false,
+Resize,Plain,64,0,0.115375,38,0,37,0,false,
+Resize,Plain,65,0,0.148125,38,0,37,0,false,
+Resize,Plain,66,0,0.145583,38,0,37,0,false,
+Resize,Plain,67,0,0.144791,38,0,37,0,false,
+Resize,Plain,68,0,0.193792,38,0,37,0,false,
+Resize,Plain,69,0,0.117292,38,0,37,0,false,
+Resize,Plain,70,0,0.105583,38,0,37,0,false,
+Resize,Plain,71,0,0.163959,39,0,38,0,false,
+Resize,Plain,72,0,0.126042,39,0,38,0,false,
+Resize,Plain,73,0,0.119292,39,0,38,0,false,
+Resize,Plain,74,0,0.164375,39,0,38,0,false,
+Resize,Plain,75,0,0.138875,39,0,38,0,false,
+Resize,Plain,76,0,0.120625,39,0,38,0,false,
+Resize,Plain,77,0,0.168750,39,0,38,0,false,
+Resize,Plain,78,0,0.134833,39,0,38,0,false,
+Resize,Plain,79,0,0.118958,39,0,38,0,false,
+Resize,Plain,80,0,0.153208,39,0,38,0,false,
+Resize,Plain,81,0,0.140541,40,0,39,0,false,
+Resize,Plain,82,0,0.119250,40,0,39,0,false,
+Resize,Plain,83,0,0.171625,40,0,39,0,false,
+Resize,Plain,84,0,0.134708,40,0,39,0,false,
+Resize,Plain,85,0,0.124041,40,0,39,0,false,
+Resize,Plain,86,0,0.159208,40,0,39,0,false,
+Resize,Plain,87,0,0.136875,40,0,39,0,false,
+Resize,Plain,88,0,0.116792,40,0,39,0,false,
+Resize,Plain,89,0,0.175583,40,0,39,0,false,
+Resize,Plain,90,0,0.126459,37,0,36,0,false,
+Resize,Plain,91,0,0.123500,38,0,37,0,false,
+Resize,Plain,92,0,0.152875,38,0,37,0,false,
+Resize,Plain,93,0,0.130250,38,0,37,0,false,
+Resize,Plain,94,0,0.120833,38,0,37,0,false,
+Resize,Plain,95,0,0.160792,38,0,37,0,false,
+Resize,Plain,96,0,0.134000,38,0,37,0,false,
+Resize,Plain,97,0,0.118084,38,0,37,0,false,
+Resize,Plain,98,0,0.148792,38,0,37,0,false,
+Resize,Plain,99,0,0.133416,38,0,37,0,false,
+Resize,Plain,100,0,0.119666,38,0,37,0,false,
+Resize,Plain,101,0,0.168834,39,0,38,0,false,
+Resize,Plain,102,0,0.129500,39,0,38,0,false,
+Resize,Plain,103,0,0.117000,39,0,38,0,false,
+Resize,Plain,104,0,0.157375,39,0,38,0,false,
+Resize,Plain,105,0,0.122834,39,0,38,0,false,
+Resize,Plain,106,0,0.116875,39,0,38,0,false,
+Resize,Plain,107,0,0.164250,39,0,38,0,false,
+Resize,Plain,108,0,0.131417,39,0,38,0,false,
+Resize,Plain,109,0,0.133833,39,0,38,0,false,
+Resize,Plain,110,0,0.169958,39,0,38,0,false,
+Resize,Plain,111,0,0.140625,40,0,39,0,false,
+Resize,Plain,112,0,0.121250,40,0,39,0,false,
+Resize,Plain,113,0,0.165166,40,0,39,0,false,
+Resize,Plain,114,0,0.149334,40,0,39,0,false,
+Resize,Plain,115,0,0.128000,40,0,39,0,false,
+Resize,Plain,116,0,0.163250,40,0,39,0,false,
+Resize,Plain,117,0,0.133166,40,0,39,0,false,
+Resize,Plain,118,0,0.120208,40,0,39,0,false,
+Resize,Plain,119,0,0.190333,40,0,39,0,false,
