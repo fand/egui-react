@@ -1,288 +1,126 @@
 # Progress and handoff
 
-## Performance investigation (2026-09-06)
+## Performance work (2026-09-06)
 
 PR: https://github.com/fand/egui-react/pull/7, branch `docs-perf`, base `main`.
+24 commits on top of main, none pushed yet. Plans: `docs/tasks/perf/plan.md`
+(A to C), `plan-d.md` (D), `plan-e.md` (E). Every number is in
+`docs/tasks/perf/measurements.md`; the task's result table is at the top of
+`docs/tasks/perf/task.md`.
 
-### Completed
+### What was done, in order
 
-- Rebased PR #7 onto main and pushed (`5206f9e`). Resolved the
-  `plan-overview.md` conflict by preserving both accessibility and performance plans.
-- Translated `docs/tasks/perf/task.md` and `plan-overview.md` into English;
-  committed and pushed as `b166a7d`.
-- Inspected list-10k, VirtualList, Cx, Store, state/hooks, the runner, and the
-  installed egui_taffy 0.14.0 source.
-- Added a controlled benchmark for idle, scrolling, filter changes, and resizing:
-  [scenarios.rs](examples/list-10k/tests/scenarios.rs).
-- Saved [measurement details](docs/tasks/perf/measurements.md) and
-  [per-frame/per-pass CSV](docs/tasks/perf/samples.csv).
-- Updated the perf task to distinguish measurements from earlier hypotheses.
+| Step | Commit | Change | Effect |
+|---|---|---|---|
+| Benchmark | `2c1a3ac` | `examples/list-10k/tests/scenarios.rs`: Idle / Scroll / Filter / Resize × all rows / VirtualList / plain, CPU time and passes per frame | Baseline: VirtualList 1.8x to 4.3x plain, extra passes on three scenarios |
+| A | `798f327` | VirtualList row trees keyed by slot (`Cx::with_layout_id`) | No tree per scrolled row; egui memory stops growing. Passes unchanged |
+| B | `20a22c5` | egui_taffy fork: no discard when the layout did not move | Scroll and Filter 1 pass/frame |
+| C | `c1c417e` | egui_taffy fork: compute before drawing when only the root resized | Resize 2.98 to 1.02 passes/frame |
+| D1 | `5a9f04a` | Own engine over taffy (`crates/egui-react/src/engine/mod.rs`); egui_taffy and the `[patch]` removed. A node is a rect; one `Ui` per widget leaf | Idle 1.96x to 1.43x |
+| D2 | `bf8d2f2` | `<Text>` painted as a galley, no `Ui` (`Cx::text`) | Idle 1.32x |
+| D2b | `dfc5dfc` | Text selection restored through `LabelSelectionState`, `selectable` prop | No measurable cost |
+| E | `fcb8697` | VirtualList rows get a fixed root rect (`Cx::with_root_size`) | Row pitch bug fixed (rows were 18 pt apart under a 20 pt reservation). Scroll unchanged |
+| E1 | `65d0274` | VirtualList rows laid out by a single-line flex solver (`engine/lite.rs`), taffy as per-row fallback; parity test over 18 row trees | Idle 1.15x, Scroll 1.30x |
+| Web | `57d4f8b` | Chrome measurement; `list-10k-plain` builds for the web | 1.0 ms vs 0.8 ms per drawn frame, 0 PERF WARNING |
+| `43d1cc4` | | list-10k starts with virtualise on | Gallery snapshot updated |
+| F | `4be1a36` | Trees survive 120 passes without being drawn (`TREE_GRACE_PASSES`) | Real trackpad scrolling no longer discards every other frame; Resize back to 1.02 |
 
-The benchmark and measurement changes are included with this handoff. The example's
-`Row` was made public so the integration benchmark can reuse it; its declarative
-implementation is unchanged. No production performance optimization has been applied.
+### Results
 
-### Steps A-C done (2026-09-06)
+Native, VirtualList mean ms per frame (ratio to plain), 37 visible rows of 10,000:
 
-Plan: [docs/tasks/perf/plan.md](docs/tasks/perf/plan.md). Numbers per step in
-[measurements.md](docs/tasks/perf/measurements.md) (After step A / B / C).
+| Scenario | Baseline | Now (after F) | Passes/frame now |
+|---|---:|---:|---:|
+| Idle | 0.225 (1.81x) | 0.140 (1.18x) | 1.00 |
+| Scroll | 0.452 (2.95x) | 0.197 (1.36x) | 1.00 |
+| Filter | 1.528 (1.19x) | 1.098 (1.04x) | 1.00 |
+| Resize | 0.662 (4.33x) | 0.205 (1.34x) | 1.02 |
 
-| Step | Commit | Result |
-|---|---|---|
-| A: slot-keyed VirtualList row trees (`Cx::with_layout_id`) | `798f327` | Passes unchanged (row tree root rect height depends on scroll position). No tree per scrolled row; egui memory stops growing with scroll. |
-| B: egui_taffy fork skips discard when layout unchanged | `20a22c5` | Scroll 2.00 -> 1.00, Filter 1.60 -> 1.00 passes/frame, 0 discards. |
-| C: egui_taffy fork computes layout before drawing on root resize | `c1c417e` | Resize 2.98 -> 1.02 passes/frame. All-rows mode 131 -> 54 ms. |
+All-rows mode (10,000 `<Row>`s through taffy): 44 ms to 22 ms at idle.
+Web (Chrome, wasm release, 800×900): VirtualList 1.0 ms per drawn frame,
+plain 0.8 ms (1.24x), all rows 67 ms, zero `PERF WARNING` over synthetic
+whole-row, fractional and momentum-style scrolling. Chrome ran at 60 Hz on
+the test display, so 120 Hz was not exercised. Gallery snapshots stayed
+byte-identical through every step except the deliberate list-10k default
+change. Ratios move by a few percent between runs; passes and discard counts
+are the stable signal.
 
-VirtualList mean ms per frame and passes/frame per step (Plain reference in
-the last row of each block, same run):
+task.md criteria: 1.5x on all four scenarios met; no PERF WARNING met; web
+frame within 8.3 ms met. Plan E's own tighter 1.2x gate is missed on Scroll
+(1.36x), see "What remains".
 
-| Scenario | Baseline | After A | After B | After C |
-|---|---:|---:|---:|---:|
-| Idle | 0.225 / 1.00 | 0.222 / 1.00 | 0.225 / 1.00 | 0.241 / 1.00 |
-| Scroll | 0.452 / 2.00 | 0.466 / 2.00 | 0.298 / 1.00 | 0.303 / 1.00 |
-| Filter | 1.528 / 1.60 | 1.263 / 1.60 | 1.158 / 1.00 | 1.222 / 1.00 |
-| Resize | 0.662 / 2.98 | 0.653 / 2.98 | 0.649 / 2.98 | 0.311 / 1.02 |
-| Plain (Idle / Scroll / Filter / Resize) | 0.124 / 0.153 / 1.286 / 0.153 | 0.114 / 0.149 / 1.021 / 0.147 | 0.113 / 0.146 / 1.014 / 0.149 | 0.123 / 0.146 / 1.065 / 0.153 |
+### How it is built now
 
-Timings drift a few percent between runs (Plain moves too); passes/frame and
-discard counts are the stable signal.
+- `engine/mod.rs`: one taffy tree per `<View>` root, kept in the `Store`.
+  Containers are rects; only widget leaves get a `Ui`; `<Text>` is measured
+  inside taffy's measure function and painted as a galley. Discard only when
+  a node was created (drew in a sizing pass), removed, or moved; layout is
+  computed before drawing when only the root rect resized. Trees not drawn
+  for 120 passes are swept.
+- `engine/lite.rs`: rows opened with `Cx::with_root_size` (VirtualList) use a
+  single-line flexbox solver over a `Vec` of nodes rebuilt per frame; no
+  `HashMap`, no `taffy::Style`. Rows using `wrap`, grid, block,
+  `align_content`, baseline, spans or auto margins fall back to taffy per
+  slot with one `debug` log. `tests/lite_parity.rs` asserts rect equality
+  with taffy on 18 row trees.
+- `Cx`: `layout_id` / `with_layout_id` (node keys vs hook scope),
+  `with_root_size`, `text`; `container` takes `(&ContainerStyle, &ItemStyle)`;
+  `in_taffy` means "inside a `<View>`" on either path.
+- egui_taffy is gone from the workspace; `taffy` 0.9 is a direct dependency.
+  The fork `../egui_taffy` (branches `skip-unchanged-discard` d618550,
+  `layout-first` ee07d38, not pushed) is kept only as the source of possible
+  upstream PRs for B and C. Decision: file them later.
 
-Fork: `../egui_taffy` (sibling checkout, not pushed), branches
-`skip-unchanged-discard` (`d618550`, step B) and `layout-first` (`ee07d38`,
-step C, on top of B). Wired in through `[patch.crates-io]` in the workspace
-`Cargo.toml` while steps B and C were measured. Step D1 removed both the patch
-and the egui_taffy dependency, so a fresh clone needs neither.
+### Behaviour changes to know about
 
-After C, VirtualList / Plain: Idle 1.96x, Scroll 2.08x, Filter 1.15x, Resize
-2.03x. Only Filter meets task.md's 1.5x. The remaining gap is per-frame
-overhead at one pass, not extra passes. Profiled (measurements.md, "Idle gap
-attribution"): taffy itself costs nothing at idle; ~80% of the gap is
-egui_taffy creating one or two egui `Ui`s per taffy node (9 `Ui`s per row vs
-4 in Plain). Decision D (keep egui_taffy and upstream B + C, or replace it
-with an own layer over taffy) was open at this point; plan section 5 lists the
-criteria and the profile favours the own layer. Decided in the next block.
+- `<Text>` inside a `<View>` is selectable per `selectable_labels`, as
+  `Label`; a text created this frame is not selectable for that one frame.
+- list-10k opens with virtualise on.
+- VirtualList rows land at the pitch `show_rows` reserved (was 2 pt short
+  per row).
+- `Cx::container` signature changed; `Cx::new_taffy` removed; `<View>` passes
+  styles by reference.
 
-Known pre-existing: `cargo fmt --all -- --check` fails on ~30 untouched files
-(import order); the two board gallery snapshots are missing.
+### What remains
 
-### Steps D1-D3 done (2026-09-06)
+- Scroll at 1.36x: each slot's text changes, the lite solver re-solves the
+  row (about 360 ns/row) although fixed-width and `grow` columns cannot
+  move. Candidate: skip the solve when no box can move. Second candidate:
+  cheaper component layer (`Cx::scope`, props, about 200 ns/row).
+- Gallery costs 10 to 11 ms per frame whatever example is shown: the source
+  panel draws the whole highlighted file every frame. Separate issue; a
+  row-virtualised source view would fix it. Also seen: at 800 px width the
+  source panel overlaps the example column, and the showcase heading renders
+  garbled glyphs.
+- Real trackpad scrolling after F was verified with synthetic events only;
+  check on a device.
+- Upstream PRs for B and C from the fork: not filed.
+- Pre-existing, untouched: `cargo fmt --all -- --check` fails on ~30 files
+  (import order); the two board gallery snapshots were never generated.
 
-Decision D was taken: replace egui_taffy with an own layout engine over taffy.
-Plan: [docs/tasks/perf/plan-d.md](docs/tasks/perf/plan-d.md). Numbers in
-[measurements.md](docs/tasks/perf/measurements.md) ("After D1", "After D2",
-"After D2b", "Summary D").
-
-| Step | Commit | Result |
-|---|---|---|
-| D1: `crates/egui-react/src/engine.rs`, `Cx` on it, trees in the `Store`, egui_taffy and `[patch]` removed | `5a9f04a` | A row costs 3 egui `Ui`s instead of 9. Idle 0.241 -> 0.160 ms, 1.96x -> 1.43x Plain. |
-| D2: `<Text>` is a galley on the node, not a `Label` in a `Ui` | `bf8d2f2` | A row costs 2. Idle 0.153 ms, 1.32x. All-rows idle 27 -> 22 ms. |
-| D3: docs (ARCHITECTURE 3.1 / 5.3 / 6 / 7 / 11, README, task.md result, this block) | this commit | – |
-| D2b: text selection back on the engine's `<Text>` | `dfc5dfc` | Idle 0.152 ms, 1.29x. Selection costs nothing measurable. |
-| E: a fixed root rect for `<VirtualList>` rows (`Cx::with_root_size`) | `fcb8697` | Rows now sit at the `row_h` pitch `show_rows` reserved (list-10k: 20, was 18). No timing change: the scrolled-frame recompute was never the root rect (traced). See the next block. |
-
-After D2b, VirtualList / Plain: Idle **1.29x**, Filter **1.07x**, Scroll 1.61x,
-Resize 1.58x. Two of the four are through task.md's 1.5x; the other two miss by
-about 0.1x. Passes per frame: 1.00 everywhere except Resize at 1.10. Gallery
-snapshots byte-identical through all of it. The web and 120-Hz criteria are
-still unmeasured.
-
-Text selection follows `interaction.selectable_labels` exactly as
-`egui::Label` does, and `<Text selectable={false}>` turns it off. A `<Text>`
-drawn for the first time is not selectable for that one frame: it has no place
-on screen until the layout is computed, so it keeps D2's deferred paint for
-that frame and paints itself through `LabelSelectionState` from the next one.
-
-Follow-ups, neither done (measurements.md, "What remains"): keep a swept tree
-for a grace period, which gives Resize back its 1.02 passes; skip laying a row
-out again when only a galley changed size inside a node that cannot move, which
-is what a scrolled frame really pays.
-
-Fork: `../egui_taffy` is no longer a dependency of anything here. Its two
-branches stay as the source of possible upstream PRs — `skip-unchanged-discard`
-(`d618550`, step B) and `layout-first` (`ee07d38`, step C). Both fixes are built
-into the engine.
-
-### Steps E and E1-E2 done (2026-09-06)
-
-Plan: [docs/tasks/perf/plan-e.md](docs/tasks/perf/plan-e.md). Numbers in
-[measurements.md](docs/tasks/perf/measurements.md) ("After E", "After E1",
-"Summary D", "What remains").
-
-| Step | Commit | Result |
-|---|---|---|
-| E: a fixed root rect for `<VirtualList>` rows (`Cx::with_root_size`) | `fcb8697` | Rows sit at the `row_h` pitch `show_rows` reserved (list-10k: 20 apart, was 18). No timing change. |
-| Plan E written, then its two open questions answered (rows only; one debug log per slot) | `e0c148f`, `b0f2ba1` | – |
-| E1: rows laid out by a solver of our own, `crates/egui-react/src/engine/lite.rs` | `65d0274` | Idle 0.145 -> 0.132 ms, Scroll 0.219 -> 0.184, Resize 0.240 -> 0.203. |
-| E2: docs (ARCHITECTURE 3.1 / 6 / 7 / 11, VirtualList doc comment, plan-e, measurements, task.md result, this block) | this commit | – |
-
-After E1, VirtualList / Plain: Idle **1.15x**, Scroll **1.30x**, Filter
-**1.04x**, Resize **1.40x**. All four are through task.md's 1.5x for the first
-time; two runs of the same build agree to within 0.01 ms on every Virtual
-figure. Passes per frame are unchanged at 1.00 everywhere except Resize at
-1.10. The parity corpus (18 row trees, `crates/egui-react/tests/lite_parity.rs`)
-is rect-equal against taffy on every node, and the gallery snapshots are
-byte-identical.
-
-E1's own gate asked for Scroll at or below 1.2x as well, and 1.30x misses it.
-Per the plan that bought one profile and nothing else: of the 0.95 µs a
-scrolled row costs over a plain egui row, 0.36 µs is solving, 0.23 µs is
-building the node vector, and 0.36 µs is the component layer, the app's root
-tree and the extra galley work (measurements.md, "Where the scrolled frame's
-0.95 µs per row goes").
-
-What falls back to taffy, per slot and for good, with one `log::debug!` naming
-the attribute: `display="grid"` or `"block"`, `wrap`, `align_content`, a
-`baseline` align or `align_self`, `col_span` / `row_span`, an `auto` margin.
-Everything else a `<View>` and `<ItemStyle>` can express is solved by the lite
-path, at any depth of nesting.
-
-Follow-ups, none done (measurements.md, "What remains"): skip the solve when
-the text that changed cannot move any box (the Scroll cost); make the component
-layer cheaper (`Cx::scope`, `rsx!`, component bodies — paid by every app, not
-just lists); keep a swept tree for a grace period (the Resize 1.10 passes, open
-since D1). The web and 120-Hz criteria in task.md are still unmeasured.
-
-### Step F: tree grace period (2026-09-06)
-
-Real trackpad scrolling still logged egui's PERF WARNING: the visible range
-alternates 37/38 rows with fractional offsets, and the store dropped the
-38th slot's tree every time it was not drawn. Trees now survive 120 passes
-(`TREE_GRACE_PASSES`). Resize back to 1.02 passes/frame. New test
-`fractional_scrolling_asks_for_no_second_pass`. See measurements.md
-"After F".
-
-### Web measurement (2026-09-06)
-
-Chrome, wasm release, synthetic wheel input: `<VirtualList>` 1.0 ms per drawn
-frame vs plain 0.8 ms (1.24x), zero PERF WARNING, all-rows 67 ms. Details in
-measurements.md "Web". `list-10k-plain` now builds for the web
-(`examples/list-10k/index-plain.html`).
-
-### Product constraint
-
-Preserve the React-like component API and declarative row layout. The user does
-not want direct egui row layout adopted as the production solution: that would
-undermine the library's main benefit. Direct egui remains a benchmark reference.
-
-### Why list-10k is expensive
-
-- The example defaults to `virtualise=false`. Its `for` loop executes every row,
-  including offscreen rows: approximately 40,000 taffy nodes for 10,000 rows.
-  The plain example virtualizes from the start, so that initial comparison is
-  not between equivalent workloads.
-- VirtualList wraps egui's `ScrollArea::show_rows`, removing dependence on total
-  row count during steady rendering. Its visible rows still open taffy trees
-  through `<View>`, unlike the plain egui implementation.
-- egui_taffy recomputes when a tree is dirty or its root size changes, then
-  requests a discard. Additional passes rerun surrounding UI as well. Multiple
-  requests do not imply one additional pass per request.
-- Stable trees can run in one pass. The claim that layout always requires two
-  passes is incorrect.
-- The example displays `stable_dt`, a frame interval or prediction, not CPU
-  rendering duration. A displayed 16.7 ms does not prove an 8.3 ms CPU budget was
-  exceeded. Browser/120-Hz performance remains unmeasured.
-
-The original full-App release benchmark measured 109.67 / 0.34 / 0.19 ms for
-10,000 rows (all rows / VirtualList / plain). It has unequal controls and row
-pitch and uses a different harness, so do not combine those numbers with the
-controlled results below.
-
-### Controlled benchmark conditions
-
-Native macOS arm64, Rust 1.95.0, release, egui 0.36.1, egui_taffy 0.14.0.
-Each mode/scenario uses 30 idle warmup frames and 120 measured frames. Mode order
-rotates each frame. There are 10,000 source rows, an initial 600×800 viewport,
-a common toolbar/cache, a 20-point row pitch, and a three-pass limit.
-
-- Idle: no changes after warmup; frames are explicitly driven.
-- Scroll: trackpad Start followed by -20-point Move events, with synthetic time
-  advancing at 120 Hz. Start avoids mouse-wheel smoothing.
-- Filter: cycle through `a`, `al`, `alp`, `alpha`, and empty before drawing.
-  Rebuilding the shared row cache is inside the timed region.
-- Resize: vary width by `4*(frame % 40)` and height by `2*(frame % 30)` from the
-  initial size. The first measured frame has the warmup size.
-
-CPU duration is elapsed wall time around `Context::run_ui` plus final-shape
-tessellation, including instrumentation. It excludes GPU, browser scheduling,
-AccessKit, and OS event delivery. This isolates the list body using the real
-VirtualList and Row; it is not an end-to-end App/hooks/keyboard-input benchmark.
-Idle results do not measure wakeup frequency or power consumption.
-
-### Recorded results
-
-| Scenario | All rows mean ms | VirtualList mean ms | Plain mean ms | VirtualList passes/frame | Final Virtual/Plain row count |
-|---|---:|---:|---:|---:|---:|
-| Idle | 44.135 | 0.225 | 0.124 | 1.00 | 37 |
-| Scroll | 45.678 | 0.452 | 0.153 | 2.00 | 37 |
-| Filter | 57.106 | 1.528 | 1.286 | 1.60 | 37 |
-| Resize | 148.590 | 0.662 | 0.153 | 2.98 | 37–40 |
-
-| Scenario | VirtualList pass distribution | Frames requesting discard /120 | Discard requests |
-|---|---|---:|---:|
-| Idle | 120 × one pass | 0 | 0 |
-| Scroll | 60 × one pass, 60 × three passes | 60 | 4,440 |
-| Filter | 48 × one pass, 72 × two passes | 72 | 2,136 |
-| Resize | 1 × one pass, 119 × three passes | 119 | 4,750 |
-
-All recorded discard reasons were `Taffy recalculation`
-(egui_taffy `src/lib.rs:712`). No discard was refused by the pass limit. Plain
-used one pass throughout. See measurements.md for p50/p95 and all-mode statistics.
-
-Row counts mean render callbacks, including overscan, not strictly pixel-visible
-rows. Final-pass counts match Virtual and Plain in every measured frame.
-Scroll ranges nevertheless differ by one row on 60/120 frames. An extra pass
-seeing the updated scroll offset is a plausible explanation, not yet proven.
-Other scenarios have matching final index ranges.
-
-The CSV contains 1,440 frames and 2,180 passes. `frame_cpu_ms` repeats the full
-frame duration on each pass row: do not sum it across passes. Measurements are
-one recorded run, not portable performance thresholds.
-
-### Conclusions and next work (written before steps A-C; items 1-3 are done, see above)
-
-1. Trace the exact invalidation source per tree/node during scrolling and
-   resizing: new nodes, style/measurement changes, root sizes, and scroll offsets.
-   The aggregate discard reason cannot distinguish these causes.
-2. Investigate the one-row scroll-range difference alongside pass timing.
-3. Reduce unnecessary invalidation and redraw passes while preserving `<Row>`
-   and `<View>`. Candidate upstream work: skip discards when recomputation leaves
-   relevant geometry unchanged; premeasure eligible fixed-size/text leaves.
-   Validate positions, clipping, wrapping, fonts, DPI, and interaction behavior.
-4. Profile the remaining idle overhead before optimizing IDs, allocations,
-   per-node bookkeeping, or Store operations. Their individual contribution has
-   not been measured. Idle floating-point jitter and a universal wasm slowdown
-   factor are not established.
-5. Measure the full App and browser separately, including CPU stages, pass counts,
-   presentation timing, and accessibility overhead under matched conditions.
-
-Do not simply set `max_passes=1`: unresolved nested layouts can carry into later
-frames, potentially causing visual instability or continued repaints.
-
-Other library-wide candidates, pending profiling:
-
-- Equality-aware state updates to avoid repainting after unchanged values;
-  mutable State access and Handle updates currently request repaint.
-- Small revision-based memo dependencies instead of hashing large collections
-  every pass. list-10k already caches generated strings.
-- Store sweep and ID-cost improvements for hook-heavy trees. list-10k rows have
-  no hooks, so these are lower-priority explanations for this benchmark.
-
-### Reproduction and validation
+### Reproduction
 
 From the repository root:
 
 ```sh
-PERF_CSV="$PWD/docs/tasks/perf/samples.csv" \
+PERF_CSV="$PWD/docs/tasks/perf/samples-<tag>.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
-cargo test --release -p list-10k --test list_10k
-cargo clippy --release -p list-10k --test scenarios -- -D warnings
-rustfmt --edition 2024 --check examples/list-10k/tests/scenarios.rs
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+cargo check --workspace --target wasm32-unknown-unknown
+cargo test -p gallery --features snapshot
+cd examples/list-10k && trunk build --release            # egui-react list
+cd examples/list-10k && trunk build --release index-plain.html   # plain list
 ```
 
-The scenario benchmark, all six existing list tests, targeted clippy, formatting,
-and diff checks passed. CSV frame/pass totals and matching final row counts were
-also checked. Use an absolute `PERF_CSV` path: Cargo runs tests from the package
-directory. Workspace-wide CI, GPU, and web checks were not run for this work.
+The web measurement method (rAF wrapper, COOP/COEP server, synthetic wheel
+events) is described in measurements.md, "Web".
+
+### Product constraint
+
+Preserve the React-like component API and declarative row layout. Direct
+egui row layout stays a benchmark reference, not the production path; the
+lite solver keeps the `<View>` / `<Text>` / `<Button>` row as written.
 
 ## Earlier handoff: phase 6.6 (board + patch)
 
