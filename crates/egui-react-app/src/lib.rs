@@ -214,6 +214,10 @@ mod platform {
         V: View + 'static,
         F: FnMut(&mut Cx<'_, '_>) -> V + 'static,
     {
+        // Only when the app installed no logger of its own. The default filter
+        // is `error`, so nothing prints unless `RUST_LOG` asks for it;
+        // `RUST_LOG=egui_react=debug` prints each layout discard and its cause.
+        let _ = env_logger::try_init();
         let title = options.title.clone();
         let native = options.native.clone();
         let mut options = options;
@@ -240,6 +244,9 @@ mod platform {
         V: View + 'static,
         F: FnMut(&mut Cx<'_, '_>) -> V + 'static,
     {
+        // `log` to the browser console, as the eframe template does; `debug`
+        // so that the layout engine's discard reasons show up there.
+        eframe::WebLogger::init(log::LevelFilter::Debug).ok();
         let canvas = web_sys::window()
             .and_then(|window| window.document())
             .and_then(|document| document.get_element_by_id(&options.canvas_id))

@@ -53,8 +53,12 @@ fn taffy_discard_runs_two_passes_but_one_handler() {
                             counters.clicks.set(counters.clicks.get() + 1);
                         }}>"bump"</Button>
                         // Read after the button, so a click widens this in the
-                        // very same pass; taffy then asks for a second one.
+                        // very same pass. A wider text alone costs no pass (it
+                        // is painted from the same anchor), but it pushes the
+                        // button after it along, and that is what asks for a
+                        // second one.
                         <Text>{"wide ".repeat(*count as usize + 1)}</Text>
+                        <Button>"tail"</Button>
                     </View>
                 }
                 .show(cx);

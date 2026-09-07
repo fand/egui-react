@@ -580,32 +580,68 @@ impl Tree {
         self.compute(root, available_space, root_rect.size(), fonts);
 
         let taffy = &self.taffy;
-        let moved = old.iter().any(|(node, old)| {
+        let moved = old.iter().find(|(node, old)| {
+            let new = taffy.layout(*node).unwrap();
             let overflow = taffy.style(*node).unwrap().overflow;
-            let content_size_matters = *node == root
-                || overflow.x == taffy::Overflow::Scroll
-                || overflow.y == taffy::Overflow::Scroll;
-            layout_moved(old, taffy.layout(*node).unwrap(), content_size_matters)
+            let content_size_matters =
+                overflow.x == taffy::Overflow::Scroll || overflow.y == taffy::Overflow::Scroll;
+            match taffy.get_node_context(*node) {
+                // A `<Text>` is painted from its galley's anchor, so only the
+                // anchor and, when it wraps, the width it wraps at can put the
+                // paint in the wrong place. Its size is what it measured, and
+                // a label that changes every frame must not cost a pass.
+                Some(NodeCtx::Text(text)) => text_moved(
+                    &content_rect(old, Pos2::ZERO),
+                    &content_rect(new, Pos2::ZERO),
+                    text.job.halign,
+                    text.wrap,
+                ),
+                // A widget drew a `Ui` in its whole content rect.
+                Some(NodeCtx::Leaf(_)) => layout_moved(old, new, content_size_matters),
+                // A container paints nothing. Its children are placed relative
+                // to it, so a shift of the container shifts them, and that is
+                // what counts; a container that got wider or narrower around
+                // children that stayed put changes nothing on screen. A row
+                // that shrinks to fit a label that changes every frame is the
+                // usual case. The root included: the space the tree takes in
+                // the surrounding `Ui` is read off its `content_size` after
+                // this, in `show`, so it is never a frame behind.
+                None => old.location != new.location,
+            }
         });
 
         // A removed node counts as a change: it was part of the tree the
         // surviving nodes were drawn with, and it is already out of the map
         // above, so the comparison cannot tell what dropping it did.
-        if created || removed || moved {
-            fonts.ctx.request_discard("egui-react: layout changed");
+        if created || removed || moved.is_some() {
+            let reason = discard_reason(
+                "layout",
+                created,
+                removed,
+                moved.map(|(node, old)| {
+                    (
+                        describe_node(taffy.get_node_context(*node)),
+                        content_rect(old, Pos2::ZERO),
+                        content_rect(taffy.layout(*node).unwrap(), Pos2::ZERO),
+                    )
+                }),
+            );
+            log::debug!("egui-react: request_discard: {reason}");
+            fonts.ctx.request_discard(reason);
         }
     }
 }
 
-/// Did the computation change anything the node is drawn from?
+/// Did the computation change anything a widget node is drawn from? (`<Text>`
+/// nodes are judged by [`text_moved`] and containers by their location alone;
+/// see `finish`.)
 ///
 /// Every field but `content_size` places the node, so a difference there is a
-/// difference on screen. `content_size` is read in two places only: on the root
-/// node, where it is the space the whole tree takes in the surrounding
-/// [`egui::Ui`], and on a scrollable node, where it is the size of the scrolled
-/// content. Anywhere else it is just what the node measured, and that changes
-/// without moving anything — a label that got wider inside a node that grows to
-/// fill its row is the usual case — so it must not cost a pass.
+/// difference on screen. `content_size` is read on a scrollable node only,
+/// where it is the size of the scrolled content. Anywhere else it is just what
+/// the node measured, and that changes without moving anything — a label that
+/// got wider inside a node that grows to fill its row is the usual case — so it
+/// must not cost a pass.
 fn layout_moved(old: &Layout, new: &Layout, content_size_matters: bool) -> bool {
     let Layout {
         order,
@@ -626,6 +662,62 @@ fn layout_moved(old: &Layout, new: &Layout, content_size_matters: bool) -> bool 
         || old.padding != *padding
         || old.margin != *margin
         || (content_size_matters && old.content_size != *content_size)
+}
+
+/// Did the computation move where a `<Text>` is painted?
+///
+/// A galley is painted from its anchor ([`galley_pos`]): the top of the node's
+/// content rect and the edge its `halign` names. The node's own size is what
+/// the text measured, so a text that got wider or narrower paints just as well
+/// from the same anchor and costs no pass. A wrapped text is laid out at the
+/// rect's width, so for one of those the width counts too.
+fn text_moved(old: &Rect, new: &Rect, halign: egui::Align, wrap: bool) -> bool {
+    anchor(old, halign) != anchor(new, halign) || (wrap && old.width() != new.width())
+}
+
+/// The reason handed to `request_discard`, naming what changed. Built only when
+/// a discard is asked for, so a settled frame formats nothing. egui shows it in
+/// its `PERF WARNING` overlay when discards run for three frames or more, and
+/// the engine logs it at `debug` (`RUST_LOG=egui_react=debug`).
+fn discard_reason(
+    what: &str,
+    created: bool,
+    removed: bool,
+    moved: Option<(String, Rect, Rect)>,
+) -> String {
+    use std::fmt::Write as _;
+    let mut reason = format!("egui-react: {what} changed:");
+    if created {
+        reason.push_str(" a widget drew for the first time;");
+    }
+    if removed {
+        reason.push_str(" a node was removed;");
+    }
+    if let Some((node, old, new)) = moved {
+        write!(reason, " {node} moved {old:?} -> {new:?};").ok();
+    }
+    reason.pop();
+    reason
+}
+
+/// What a taffy-path node is, for [`discard_reason`].
+fn describe_node(ctx: Option<&NodeCtx>) -> String {
+    match ctx {
+        Some(NodeCtx::Text(text)) => describe_text(&text.job.text),
+        Some(NodeCtx::Leaf(_)) => String::from("a widget"),
+        None => String::from("a container"),
+    }
+}
+
+/// A `<Text>` for [`discard_reason`]: its first characters, so the label that
+/// caused a pass can be found in the source.
+fn describe_text(text: &str) -> String {
+    const MAX: usize = 24;
+    let mut shown: String = text.chars().take(MAX).collect();
+    if text.chars().count() > MAX {
+        shown.push('…');
+    }
+    format!("the text {shown:?}")
 }
 
 #[inline]
@@ -953,7 +1045,13 @@ fn wrap_width(rect: &Rect, wrap: bool) -> f32 {
 /// `halign` is the galley's own: it says which edge of the rect the text is
 /// measured from, which is what `Label` reads it for too.
 fn galley_pos(rect: &Rect, galley: &Galley) -> Pos2 {
-    match galley.job.halign {
+    anchor(rect, galley.job.halign)
+}
+
+/// [`galley_pos`] for a text whose galley is not at hand: the point of `rect`
+/// a galley with `halign` is painted from.
+fn anchor(rect: &Rect, halign: egui::Align) -> Pos2 {
+    match halign {
         egui::Align::LEFT => rect.left_top(),
         egui::Align::Center => rect.center_top(),
         egui::Align::RIGHT => rect.right_top(),

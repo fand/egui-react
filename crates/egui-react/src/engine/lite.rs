@@ -46,7 +46,10 @@ use std::sync::Arc;
 use egui::{Pos2, Rect, UiBuilder, Vec2};
 use taffy::{AvailableSpace, MaybeMath as _};
 
-use super::{Fonts, Measure, TextCtx, galley_pos, galley_rect, measure_leaf, text_job, wrap_width};
+use super::{
+    Fonts, Measure, TextCtx, describe_text, discard_reason, galley_pos, galley_rect, measure_leaf,
+    text_job, text_moved, wrap_width,
+};
 use crate::layout::{Align, ContainerStyle, Direction, Display, ItemStyle, Justify, Length};
 
 // ---------------------------------------------------------------------------
@@ -1714,8 +1717,9 @@ impl LiteTree {
     }
 
     /// Solve the tree as it stands and turn it into one rect per node.
-    /// Returns whether any node that also existed before has moved.
-    fn lay_out(&mut self, root_size: Vec2, solve: Solve<'_>) -> bool {
+    /// Returns the first node that also existed before and has moved, with its
+    /// old and new rect.
+    fn lay_out(&mut self, root_size: Vec2, solve: Solve<'_>) -> Option<(usize, Rect, Rect)> {
         self.solve(root_size, solve);
 
         self.new_rects.clear();
@@ -1728,13 +1732,33 @@ impl LiteTree {
         // frame had no rect to be drawn at, so it cannot have moved. That is
         // the taffy path's rule, where a node created this frame is left out of
         // the comparison and a leaf that drew is covered by `created` instead.
-        let moved = self
-            .rects
-            .iter()
-            .zip(self.new_rects.iter())
-            .any(|(old, new)| old != new);
+        // The taffy path's rules: a `<Text>` is judged by where its galley is
+        // painted from, its own size being what it measured; a container paints
+        // nothing, so only its corner counts (its children are compared on
+        // their own); a widget drew a `Ui` in its whole rect.
+        let moved = std::iter::zip(&self.rects, &self.new_rects)
+            .enumerate()
+            .find_map(|(node, (old, new))| {
+                let moved = match &self.nodes[node].kind {
+                    Kind::Text { slot, wrap, .. } => {
+                        text_moved(old, new, self.texts[*slot].job.halign, *wrap)
+                    }
+                    Kind::Container(_) => old.min != new.min,
+                    Kind::Leaf(_) => old != new,
+                };
+                moved.then_some((node, *old, *new))
+            });
         std::mem::swap(&mut self.rects, &mut self.new_rects);
         moved
+    }
+
+    /// What `node` is, for [`discard_reason`].
+    fn describe(&self, node: usize) -> String {
+        match &self.nodes[node].kind {
+            Kind::Text { slot, .. } => describe_text(&self.texts[*slot].job.text),
+            Kind::Leaf(_) => format!("a widget (node {node})"),
+            Kind::Container(_) => format!("a container (node {node})"),
+        }
     }
 
     /// Solve this frame's tree and decide whether what was drawn is now wrong.
@@ -1742,8 +1766,9 @@ impl LiteTree {
     /// The rule is the taffy path's, read off the rects instead of off taffy's
     /// `Layout`: a leaf that drew before it had a rect, a node that went away,
     /// or any node that moved means the frame on screen does not match the
-    /// layout, so it is drawn again.
-    fn finish(&mut self, root_size: Vec2, solve: Solve<'_>) -> bool {
+    /// layout, so it is drawn again. Returns the reason to hand to
+    /// `request_discard`, if there is one.
+    fn finish(&mut self, root_size: Vec2, solve: Solve<'_>) -> Option<String> {
         // Nothing about the row changed, so neither can its layout. This is
         // what `taffy.dirty(root)` decides on the other path; here the whole
         // input is the node vector, so comparing it with the last frame's is
@@ -1754,14 +1779,21 @@ impl LiteTree {
             && std::iter::zip(&self.nodes, &self.prev_nodes).all(|(new, old)| same_node(new, old));
         self.texts.truncate(self.text_count);
         if unchanged {
-            return self.created;
+            return self
+                .created
+                .then(|| discard_reason("row layout", true, false, None));
         }
 
         self.last_size = root_size;
         let removed = self.rects.len() > self.nodes.len();
         let moved = self.lay_out(root_size, solve);
 
-        self.created || removed || moved
+        if self.created || removed || moved.is_some() {
+            let moved = moved.map(|(node, old, new)| (self.describe(node), old, new));
+            Some(discard_reason("row layout", self.created, removed, moved))
+        } else {
+            None
+        }
     }
 
     /// Put every `<Text>` claimed this frame into the shape it reserved, now
@@ -2150,8 +2182,9 @@ pub(crate) fn show<R>(
                 root_size: size,
             },
         );
-        if discard {
-            root_ui.ctx().request_discard("egui-react: layout changed");
+        if let Some(reason) = discard {
+            log::debug!("egui-react: request_discard: {reason}");
+            root_ui.ctx().request_discard(reason);
         }
         tree.paint_texts(&root_ui, root_min);
     }
