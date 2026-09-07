@@ -39,6 +39,9 @@ wuff = { workspace = true, optional = true }
 egui_kittest.workspace = true
 egui-react-elements.workspace = true
 epaint_default_fonts.workspace = true
+# The Local Font Access entry points are `async` on every target; the native
+# stubs are tested by blocking on them.
+pollster.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # `run` installs it when nothing else has: `RUST_LOG=egui_react=debug` then

@@ -1127,6 +1127,7 @@ dependencies = [
  "fontdb",
  "js-sys",
  "log",
+ "pollster",
  "skrifa",
  "wasm-bindgen",
  "wasm-bindgen-futures",

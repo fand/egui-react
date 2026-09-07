@@ -55,6 +55,7 @@
 //! ten times. Batching the URLs of a chain is not built until someone needs
 //! it.
 
+mod local;
 mod resolve;
 mod url;
 
@@ -63,6 +64,7 @@ use std::collections::hash_map::Entry;
 use std::fmt;
 use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
+pub use local::{LocalFontsError, LocalFontsPermission};
 use resolve::{Input, Loaded, SourceKey};
 
 /// One of the five CSS generic families.
