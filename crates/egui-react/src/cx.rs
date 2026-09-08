@@ -7,6 +7,7 @@ use std::panic::Location;
 use crate::engine::lite::{self, LiteCx};
 use crate::engine::{self, Reserve, TreeCx};
 use crate::layout::{ContainerStyle, ItemStyle};
+use crate::paint::PaintStyle;
 use crate::store::Store;
 
 /// Hash key derived from a `#[track_caller]` call site.
@@ -346,7 +347,10 @@ impl<'s, 'u> Cx<'s, 'u> {
     /// Draw one egui widget, as a taffy leaf when inside a container.
     ///
     /// Outside a container `style` is ignored: a plain `Ui` has nothing to
-    /// apply flex item properties to.
+    /// apply flex item properties to, and nothing to paint a background on
+    /// either — the engine paints a node's box from the rect the layout gave
+    /// it, and here the rect is only known after the widget has drawn. That is
+    /// what `<Frame>` is for.
     pub fn leaf<R>(&mut self, style: &ItemStyle, f: impl FnOnce(&mut egui::Ui) -> R) -> R {
         let (prefix, scope) = (self.layout, self.scope);
         // Held while the widget draws, so a tree it opens over its own `Ui`
@@ -354,7 +358,7 @@ impl<'s, 'u> Cx<'s, 'u> {
         let _hidden = self.is_hidden().then(|| self.store.enter_hidden());
         match &mut self.surface {
             Surface::Ui(ui) => f(ui),
-            Surface::Tree(tree) => tree.leaf(prefix, scope, style.to_taffy(), true, f),
+            Surface::Tree(tree) => tree.leaf(prefix, scope, style.to_taffy(), style.paint, true, f),
             Surface::Lite(lite) => lite.leaf(scope, style, true, f),
         }
     }
@@ -405,9 +409,15 @@ impl<'s, 'u> Cx<'s, 'u> {
                 }
                 ui.add(label)
             }
-            Surface::Tree(tree) => {
-                tree.text(prefix, scope, style.to_taffy(), text, wrap, selectable)
-            }
+            Surface::Tree(tree) => tree.text(
+                prefix,
+                scope,
+                style.to_taffy(),
+                style.paint,
+                text,
+                wrap,
+                selectable,
+            ),
             Surface::Lite(lite) => lite.text(scope, style, text, wrap, selectable),
         }
     }
@@ -426,7 +436,9 @@ impl<'s, 'u> Cx<'s, 'u> {
         let _hidden = self.is_hidden().then(|| self.store.enter_hidden());
         match &mut self.surface {
             Surface::Ui(ui) => f(ui),
-            Surface::Tree(tree) => tree.leaf(prefix, scope, style.to_taffy(), false, f),
+            Surface::Tree(tree) => {
+                tree.leaf(prefix, scope, style.to_taffy(), style.paint, false, f)
+            }
             Surface::Lite(lite) => lite.leaf(scope, style, false, f),
         }
     }
@@ -476,7 +488,7 @@ impl<'s, 'u> Cx<'s, 'u> {
             });
         }
 
-        self.container_taffy(id, container.merge(item), false, f)
+        self.container_taffy(id, container.merge(item), item.paint, false, f)
     }
 
     /// [`Cx::container`] for the root of an app: reserve *all* available space.
@@ -487,20 +499,23 @@ impl<'s, 'u> Cx<'s, 'u> {
     ///
     /// Takes a [`taffy::Style`], unlike [`Cx::container`]: an app root is never
     /// a `<VirtualList>` row, so it never takes the lite path, and the runner's
-    /// `root_style()` is a taffy style users can reach for.
+    /// `root_style()` is a taffy style users can reach for. A taffy style says
+    /// nothing about paint, so the root node paints nothing; a `<View>` inside
+    /// it does.
     pub fn root_container<R>(
         &mut self,
         id: egui::Id,
         style: taffy::Style,
         f: impl FnOnce(&mut Cx<'s, '_>) -> R,
     ) -> R {
-        self.container_taffy(id, style, true, f)
+        self.container_taffy(id, style, PaintStyle::default(), true, f)
     }
 
     fn container_taffy<R>(
         &mut self,
         id: egui::Id,
         style: taffy::Style,
+        paint: PaintStyle,
         all_space: bool,
         f: impl FnOnce(&mut Cx<'s, '_>) -> R,
     ) -> R {
@@ -515,11 +530,11 @@ impl<'s, 'u> Cx<'s, 'u> {
             (None, false) => Reserve::Content,
         };
         match &mut self.surface {
-            Surface::Ui(ui) => engine::show(store, ui, id, style, reserve, |tree| {
+            Surface::Ui(ui) => engine::show(store, ui, id, style, paint, reserve, |tree| {
                 let mut cx = Cx::at_tree(store, tree.reborrow(), scope, layout);
                 f(&mut cx)
             }),
-            Surface::Tree(tree) => tree.container(id, style, |tree| {
+            Surface::Tree(tree) => tree.container(id, style, paint, |tree| {
                 let mut cx = Cx::at_tree(store, tree.reborrow(), scope, layout);
                 f(&mut cx)
             }),
