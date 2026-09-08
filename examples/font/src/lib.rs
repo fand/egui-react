@@ -48,6 +48,14 @@
 //! for every entry of every chain, the face it resolved to (with the family
 //! name the face declares, which is how to find the spelling a `System` entry
 //! needs) or why it did not.
+//!
+//! The `font-display` row is the two policies for a chain that is still
+//! fetching. `swap` is what the rest of the example does: draw with whatever
+//! stands behind the pending URL and swap when the bytes land. `block` is
+//! FOIT, and egui has no "laid out but invisible" text, so it draws a
+//! placeholder instead and puts the samples back when `Fonts::pending()` goes
+//! false. The library only says whether a URL is still in flight; which of the
+//! two an app wants is the app's call.
 
 use std::sync::LazyLock;
 
@@ -74,6 +82,12 @@ pub const WEB_FONT_URL: &str = "fonts/NotoSansJP-Regular.otf";
 
 /// The stacks, in the order the buttons show them.
 pub const STACKS: [&str; 4] = ["bundled", "web", "system", "code"];
+
+/// The two `font-display` policies the example can draw, first is the default.
+pub const DISPLAYS: [&str; 2] = ["swap", "block"];
+
+/// What `block` draws while a URL is still in flight.
+pub const LOADING: &str = "loading fonts…";
 
 /// What is drawn with the selected stack. Every character is in the subset.
 pub const SAMPLES: [&str; 5] = [
@@ -138,6 +152,12 @@ pub fn build_fonts() -> Fonts {
 pub fn App(cx: &mut Cx) {
     let mut stack = use_state(cx, || STACKS[0]);
     let current: &'static str = *stack;
+    let mut display = use_state(cx, || DISPLAYS[0]);
+    let policy: &'static str = *display;
+    // `pending()` is read every frame; the fetch that finishes asks for a
+    // repaint, so the samples come back on their own when the bytes land.
+    let waiting = policy == "block" && fonts().pending();
+    let weak = cx.ui().visuals().weak_text_color();
 
     // The gallery runs `App` inside its own runner and has no `setup` hook
     // per example, so the stacks are applied here, once. Under `main.rs` the
@@ -178,11 +198,28 @@ pub fn App(cx: &mut Cx) {
                     // runs on; `wrap` needs a width, which `w` gives it.
                     <Text wrap w="100%">{how(current)}</Text>
 
-                    <View direction="column" gap={4}>
-                        for (i, sample) in SAMPLES.iter().enumerate() {
-                            <Text key={i} font={font} size={20.0}>{*sample}</Text>
+                    // What to draw while a URL is in flight. The report below
+                    // keeps showing that entry going pending → loaded either
+                    // way; only the samples change.
+                    <View direction="row" gap={8} align="center" w="100%">
+                        <Text>"font-display:"</Text>
+                        for name in DISPLAYS {
+                            <Button key={name} on_click={|| *display = name}>{name}</Button>
                         }
+                        <Text grow={1.0} wrap>{policy_note(policy)}</Text>
                     </View>
+
+                    if waiting {
+                        // egui has no "laid out but invisible" text, so FOIT
+                        // is a placeholder in the samples' place.
+                        <Text size={20.0} color={weak}>{LOADING}</Text>
+                    } else {
+                        <View direction="column" gap={4}>
+                            for (i, sample) in SAMPLES.iter().enumerate() {
+                                <Text key={i} font={font} size={20.0}>{*sample}</Text>
+                            }
+                        </View>
+                    }
 
                     <Separator/>
                     <LocalFonts/>
@@ -320,6 +357,14 @@ pub fn how(stack: &str) -> &'static str {
              is also the Monospace default, which the gallery's source pane draws with."
         }
         _ => "",
+    }
+}
+
+/// What the selected `font-display` policy does, in one line.
+pub fn policy_note(policy: &str) -> &'static str {
+    match policy {
+        "block" => "draw a placeholder until every URL arrived or failed (FOIT)",
+        _ => "draw with what stands behind a pending URL, then swap (FOUT)",
     }
 }
 

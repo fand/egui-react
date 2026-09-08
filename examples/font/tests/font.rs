@@ -7,7 +7,7 @@ use egui_kittest::kittest::Queryable as _;
 use egui_react::prelude::*;
 use egui_react_app::fonts::Outcome;
 use egui_react_app::{root_id, root_style};
-use font::{App, SAMPLES, STACKS, fonts};
+use font::{App, LOADING, SAMPLES, STACKS, fonts};
 
 fn harness<'a>() -> Harness<'a, Store> {
     Harness::builder()
@@ -85,4 +85,26 @@ fn the_example_draws_japanese_with_the_bundled_stack() {
     harness.run();
     assert!(harness.query_by_label("<Text font=\"web\">").is_some());
     assert!(harness.query_by_label("<Text font=\"bundled\">").is_none());
+
+    // font-display. `swap` is the default and the samples above were drawn
+    // under it. `block` hides them only while a URL is in flight, and here the
+    // relative URL has no server, so ehttp fails it within a frame or two;
+    // wait that out, then the samples are back and the placeholder is not
+    // drawn. (Catching the pending frame is a race in a headless test, so it
+    // is left to the browser.)
+    harness.get_by_label("block").click();
+    harness.run();
+    for _ in 0..200 {
+        if !fonts().pending() {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+        harness.run();
+    }
+    assert!(!fonts().pending(), "the web URL never finished");
+    harness.run();
+    assert!(harness.query_by_label(LOADING).is_none());
+    for sample in SAMPLES {
+        assert!(harness.query_by_label(sample).is_some(), "{sample} missing");
+    }
 }
