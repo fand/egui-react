@@ -19,6 +19,14 @@ snapshot = ["egui_kittest/snapshot", "egui_kittest/wgpu"]
 [dependencies]
 egui.workspace = true
 egui-react.workspace = true
+# `<Text font="..">` with a name nothing registered warns once instead of
+# reaching egui, which would panic.
+log.workspace = true
 
 [dev-dependencies]
 egui_kittest.workspace = true
+# The tests query widgets by their label and lay text out, so they need fonts.
+# The library does not: egui is taken without its default features
+# workspace-wide, so that `egui-react-app` can offer dropping egui's embedded
+# fonts. A dev-dependency turns them on for the tests of this crate alone.
+egui = { workspace = true, features = ["default_fonts"] }

@@ -14,7 +14,7 @@
 //! CSS flexbox for the part of those two structs that a row uses.
 //!
 //! Everything else is the taffy path's: the leaf measure function
-//! ([`super::measure_leaf`]), the galley cache ([`super::TextCtx`]), the way a
+//! ([`super::measure_leaf`]), the `<Text>` state ([`super::TextCtx`]), the way a
 //! `<Text>` paints and registers itself, and the rule for when a frame has to
 //! be drawn again. So a row lays out to the same rects either way, which
 //! `crates/egui-react/tests/lite_parity.rs` checks node by node.
@@ -426,8 +426,9 @@ fn alignment_offset(
 enum Kind {
     /// A `<View>`: its own container properties, and children.
     Container(ContainerStyle),
-    /// A `<Text>`: an index into [`LiteTree::texts`], where the galley cache
-    /// is, plus what the frame comparison below needs to see change.
+    /// A `<Text>`: an index into [`LiteTree::texts`], where its layout job and
+    /// this pass's galley are, plus what the frame comparison below needs to
+    /// see change.
     Text { slot: usize, hash: u64, wrap: bool },
     /// A widget leaf. The measurement is what it reported while it drew, this
     /// same frame, so it is never a frame out of date.
@@ -483,7 +484,7 @@ pub(crate) struct LiteTree {
     rects: Vec<Rect>,
     /// This frame's rects, until they are swapped into `rects`.
     new_rects: Vec<Rect>,
-    /// The galley cache of each `<Text>`, by the order the texts are drawn in.
+    /// The [`TextCtx`] of each `<Text>`, by the order the texts are drawn in.
     texts: Vec<TextCtx>,
     /// How many `<Text>`s the frame being drawn has claimed so far.
     text_count: usize,
@@ -597,7 +598,7 @@ impl LiteTree {
         index
     }
 
-    /// Claim the galley cache of the next `<Text>` in draw order, keeping what
+    /// Claim the [`TextCtx`] of the next `<Text>` in draw order, keeping what
     /// is in it when neither the job nor the wrap mode changed.
     fn push_text(&mut self, job: Arc<egui::text::LayoutJob>, hash: u64, wrap: bool) -> usize {
         let slot = self.text_count;

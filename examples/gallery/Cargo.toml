@@ -36,6 +36,7 @@ counter = { path = "../counter" }
 custom-hook = { path = "../custom-hook" }
 escape-hatch = { path = "../escape-hatch" }
 fetch = { path = "../fetch" }
+font = { path = "../font" }
 form = { path = "../form" }
 layout = { path = "../layout" }
 list-10k = { path = "../list-10k" }

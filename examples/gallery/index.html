@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no" />
     <title>egui-react: gallery</title>
     <link data-trunk rel="rust" href="Cargo.toml" data-bin="gallery" data-wasm-opt="z" />
+    <!-- The font example's web font, at the same relative URL it fetches when it
+         runs on its own. Downloaded by the pre-build hook in Trunk.toml. -->
+    <link data-trunk rel="copy-file" href="../font/fonts/NotoSansJP-Regular.otf" data-target-path="fonts" />
     <style>
       html,
       body {

@@ -2,7 +2,7 @@
 
 egui-react is a Rust library for writing [egui](https://github.com/emilk/egui) applications the way you write React: a JSX-like `rsx!` macro, function components with `#[component]`, and hooks such as `use_state` and `use_effect`. Because egui is immediate mode there is no retained tree and no reconciler, so event handlers run where they are written and can borrow local state with `&mut` — none of the `'static` closures, `Rc<RefCell<_>>` or `.clone()` ceremony that retained-mode Rust UI frameworks require. Flexbox and Grid layout are first-class: `<View>` is a node in a small layout engine of our own, written over [taffy](https://github.com/DioxusLabs/taffy).
 
-Design decisions are recorded in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+The current design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); design decisions are in [docs/adr/](docs/adr/).
 
 ## Usage
 
@@ -69,6 +69,7 @@ Every example but one runs in the browser in the [gallery](https://fand.github.i
 | `shell` | Docked panels, a floating window, and an editor in what is left. | – (standalone) | [lib.rs](examples/shell/src/lib.rs) | – |
 | `layout` | Every flex and grid attribute `<View>` understands, one section each. | [#layout](https://fand.github.io/egui-react/#layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
 | `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [#fetch](https://fand.github.io/egui-react/#fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |
+| `font` | CSS-style font chains: a bundled subset, a 4.5 MB web font fetched on demand, and the installed fonts, with what each entry resolved to. | [#font](https://fand.github.io/egui-react/#font) | [lib.rs](examples/font/src/lib.rs) | – |
 
 Run one natively, or in a browser with [trunk](https://trunkrs.dev/):
 
@@ -84,6 +85,8 @@ The gallery runs the same way, and takes the name of the example to open first:
 cargo run -p gallery todo
 trunk serve --config examples/gallery/Trunk.toml
 ```
+
+A font an app bundles with `include_bytes!` goes into the wasm (`examples/font` ships a 433 KB subset of Noto Sans JP for that reason and its `fonts/README.md` says how it was cut); the full 4.5 MB font the same example fetches at run time is not committed, a pre-build hook in its `Trunk.toml` (and the gallery's) downloads it the first time trunk builds. egui's own four fonts (Ubuntu-Light, Hack and two emoji fonts, 1.4 MB) are behind `egui-react-app`'s `default_fonts` feature, on by default; take the crate with `default-features = false` to leave them out, and then hand `Fonts` a bundled face before the first frame, because a chain with nothing loaded draws no glyphs at all.
 
 ## Testing
 
