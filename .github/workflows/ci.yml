@@ -5,14 +5,28 @@ on:
     branches: [main]
   pull_request:
 
+# A newer push to the same branch supersedes the run in flight: the old one is
+# only ever going to report on a commit nobody is looking at any more.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   CARGO_TERM_COLOR: always
   # Incremental artifacts double the size of `target/`; CI never reuses them.
   CARGO_INCREMENTAL: 0
+  # Debug info is most of the link time — and most of the bytes — of a test
+  # binary with egui in it, and nothing here reads a backtrace. Set through the
+  # environment rather than `[profile.dev]` so a local `cargo test` keeps it.
+  CARGO_PROFILE_DEV_DEBUG: none
+  CARGO_PROFILE_TEST_DEBUG: none
 
+# The two halves share no build artifacts — clippy, the test binaries and the
+# wasm builds each compile the workspace their own way — so running them as one
+# job only added their times together.
 jobs:
-  ci:
-    name: fmt / clippy / test / wasm
+  check:
+    name: fmt / clippy / test
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -47,6 +61,10 @@ jobs:
           targets: wasm32-unknown-unknown
 
       - uses: Swatinem/rust-cache@v2
+        with:
+          # A red run is the one most likely to be pushed to again in a minute.
+          # Without this its dependency builds are thrown away.
+          cache-on-failure: true
 
       - name: cargo fmt
         run: cargo fmt --all --check
@@ -57,12 +75,38 @@ jobs:
       - name: cargo test
         run: cargo test --workspace
 
+  wasm:
+    name: wasm / trunk
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No X11 / Wayland / GTK headers here: nothing in the wasm dependency
+      # graph reaches for them, and this job never builds for the host.
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.95"
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
       - name: cargo check (wasm)
         run: cargo check --workspace --target wasm32-unknown-unknown
 
       - uses: jetli/trunk-action@v0.5.1
         with:
           version: latest
+
+      # `data-wasm-opt="z"` costs wasm-opt 25-40 s per example — three quarters
+      # of this job — to shrink a `.wasm` that CI only ever checks the
+      # existence of. `0` is the one level trunk answers by not running
+      # wasm-opt at all. pages.yml and the Cloudflare PR preview still build
+      # the gallery optimised, so the optimised path is covered on every PR.
+      - name: Turn off wasm-opt for the build check
+        run: sed -i 's/data-wasm-opt="[^"]*"/data-wasm-opt="0"/' examples/*/index.html
 
       # `trunk build <path>` resolves the cargo root package from the current
       # directory, so the example's Trunk.toml is passed instead.
