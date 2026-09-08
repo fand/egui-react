@@ -86,7 +86,7 @@ A blanket impl for `IntoIterator<Item = V>` conflicts under coherence with both 
 
 `rsx!` always emits `::egui_react::view(|cx| { .. })`. `pub fn view<F: FnOnce(&mut Cx<'_, '_>)>(f: F) -> impl View` is a helper that exists only to pin the closure's argument type; writing a bare closure in an `impl View` position sometimes fails to infer the type of `cx`. Users also use `view(|cx| ..)` when writing an escape hatch.
 
-The `rsx!` closure is not `move` and borrows locals. The closure is consumed right away inside the generated statement, so the borrow is short-lived. The `cx` the expansion draws every element with is spelled with the span of the `rsx!` call, not of the element, so an element handed in through a `macro_rules!` (`item!(<Leaf/>)`, whose body is an `rsx!` of its own) resolves to the closure it sits in rather than to whatever `cx` the caller's hygiene context can see (`examples/styles` builds its table that way).
+The `rsx!` closure is not `move` and borrows locals. The closure is consumed right away inside the generated statement, so the borrow is short-lived. The `cx` the expansion draws every element with is spelled with the span of the `rsx!` call, not of the element, so an element handed in through a `macro_rules!` (`item!(<Leaf/>)`, whose body is an `rsx!` of its own) resolves to the closure it sits in rather than to whatever `cx` the caller's hygiene context can see (`examples/styles` builds its table that way; [adr/core/0010](adr/core/0010-rsx-cx-has-the-call-site-span.md)).
 
 Inside `rsx!` you can write the following.
 
@@ -532,6 +532,7 @@ Decisions are recorded in [docs/adr/](adr/), one file per decision, grouped by d
 - [0007: Hook deps are compared by `Hash`](adr/core/0007-deps-compared-by-hash.md)
 - [0008: One `Handler` trait for both arities, told apart by a marker](adr/core/0008-handler-marker-type-argument.md)
 - [0009: A value prop and a handler over the same state stay the user's problem](adr/core/0009-value-prop-vs-handler-borrow.md)
+- [0010: `rsx!` spells `cx` with the span of the call, not of the element](adr/core/0010-rsx-cx-has-the-call-site-span.md)
 
 **runtime**
 
