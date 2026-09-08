@@ -28,6 +28,12 @@ jobs:
   check:
     name: fmt / clippy / test
     runs-on: ubuntu-latest
+    # Link the test binaries with mold (installed below). Scoped to the host
+    # target rather than set in RUSTFLAGS, so a wasm build never inherits a
+    # linker flag meant for the host, and scoped to this job so `wasm` keeps a
+    # cache key of its own.
+    env:
+      CARGO_TARGET_X86_64_UNKNOWN_LINUX_GNU_RUSTFLAGS: -C link-arg=-fuse-ld=mold
     steps:
       - uses: actions/checkout@v4
 
@@ -41,10 +47,13 @@ jobs:
 
       # eframe (pulled in by the examples, which `cargo test --workspace`
       # builds) needs the X11 / Wayland / GTK development headers on Linux.
+      # `mold` is the linker the job's RUSTFLAGS ask for; GCC 13 on this runner
+      # resolves `-fuse-ld=mold` by name off PATH.
       - name: Install system dependencies
         run: |
           sudo apt-get update
           sudo apt-get install --no-install-recommends -y \
+            mold \
             libgtk-3-dev \
             libxkbcommon-dev \
             libwayland-dev \
