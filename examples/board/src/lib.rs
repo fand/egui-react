@@ -34,7 +34,7 @@
 //! it was clicked. A card has never heard of a board message and could be used
 //! somewhere else. What the whole tree shares comes down through the context:
 //! the theme, the drag in progress, and the `Dispatch` a column turns those
-//! events into messages with — which is what saves the four `<Column>`s in the
+//! events into messages with — which is what saves the three `<Column>`s in the
 //! loop from carrying four callbacks each.
 //!
 //! `plain.rs` is the same board in plain egui, and the two are driven by the

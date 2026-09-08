@@ -27,7 +27,7 @@ use egui_react::prelude::*;
 /// what it fixes. An ordinary hook's slot id is the *scope chain* — every
 /// element between the root and the component — plus the call site, and `key=`
 /// only tells siblings under one parent apart. A card is drawn inside its
-/// column, so `<Card key={id}/>` in "doing" and the same card in "review" are
+/// column, so `<Card key={id}/>` in "doing" and the same card in "done" are
 /// two different slots: drag the card across and the draft it was carrying
 /// would stay behind in the column it came from. Keying on the card's own id
 /// instead makes the state belong to the card rather than to the place it is
