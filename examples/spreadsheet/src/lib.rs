@@ -725,6 +725,11 @@ fn read_grid_keys(ui: &mut egui::Ui, keys: &Keys<'_>) -> Took {
     let mut messages: Vec<UiMsg> = Vec::new();
     let mut history: Vec<Undoable<Msg>> = Vec::new();
 
+    // `consume_key` matches "at least these modifiers", not "exactly these"
+    // (`Modifiers::matches_logically`), so every pair below is tried with the
+    // more specific pattern first: asking for a bare arrow would otherwise
+    // swallow the Shift-extend, and asking for Ctrl+Z would swallow
+    // Ctrl+Shift+Z.
     ui.input_mut(|i| {
         for (key, dcol, drow) in [
             (Key::ArrowLeft, -1, 0),
@@ -732,32 +737,32 @@ fn read_grid_keys(ui: &mut egui::Ui, keys: &Keys<'_>) -> Took {
             (Key::ArrowUp, 0, -1),
             (Key::ArrowDown, 0, 1),
         ] {
-            if i.consume_key(Modifiers::NONE, key) {
-                messages.push(UiMsg::Move {
-                    dcol,
-                    drow,
-                    extend: false,
-                });
-            } else if i.consume_key(Modifiers::SHIFT, key) {
+            if i.consume_key(Modifiers::SHIFT, key) {
                 messages.push(UiMsg::Move {
                     dcol,
                     drow,
                     extend: true,
                 });
+            } else if i.consume_key(Modifiers::NONE, key) {
+                messages.push(UiMsg::Move {
+                    dcol,
+                    drow,
+                    extend: false,
+                });
             }
         }
 
-        if i.consume_key(Modifiers::NONE, Key::Tab) {
-            took.tabbed = true;
-            messages.push(UiMsg::Move {
-                dcol: 1,
-                drow: 0,
-                extend: false,
-            });
-        } else if i.consume_key(Modifiers::SHIFT, Key::Tab) {
+        if i.consume_key(Modifiers::SHIFT, Key::Tab) {
             took.tabbed = true;
             messages.push(UiMsg::Move {
                 dcol: -1,
+                drow: 0,
+                extend: false,
+            });
+        } else if i.consume_key(Modifiers::NONE, Key::Tab) {
+            took.tabbed = true;
+            messages.push(UiMsg::Move {
+                dcol: 1,
                 drow: 0,
                 extend: false,
             });
@@ -780,13 +785,12 @@ fn read_grid_keys(ui: &mut egui::Ui, keys: &Keys<'_>) -> Took {
             messages.push(UiMsg::Clear);
         }
 
-        if i.consume_key(Modifiers::COMMAND, Key::Z) {
-            took.walked = true;
-            history.push(Undoable::Undo);
-        }
-        if i.consume_key(Modifiers::COMMAND, Key::Y) || i.consume_key(redo, Key::Z) {
+        if i.consume_key(redo, Key::Z) || i.consume_key(Modifiers::COMMAND, Key::Y) {
             took.walked = true;
             history.push(Undoable::Redo);
+        } else if i.consume_key(Modifiers::COMMAND, Key::Z) {
+            took.walked = true;
+            history.push(Undoable::Undo);
         }
         if i.consume_key(Modifiers::COMMAND, Key::C) {
             messages.push(UiMsg::Copy(clip(keys.sheet, keys.selection)));
@@ -796,17 +800,26 @@ fn read_grid_keys(ui: &mut egui::Ui, keys: &Keys<'_>) -> Took {
         }
 
         // Type to edit. Read rather than consumed: nothing else is focused, so
-        // there is nobody to take it from.
-        let typed = i.events.iter().find_map(|event| match event {
-            egui::Event::Text(text) if !text.is_empty() && !text.chars().any(char::is_control) => {
-                Some(text.clone())
-            }
-            _ => None,
-        });
-        if let Some(draft) = typed {
+        // there is nobody to take it from. Every character of the frame goes
+        // into the draft, not just the first: a burst that arrives together —
+        // a fast typist, a synthetic event queue — would otherwise lose all but
+        // one of its characters before the editor exists to receive them.
+        let typed: String = i
+            .events
+            .iter()
+            .filter_map(|event| match event {
+                egui::Event::Text(text)
+                    if !text.is_empty() && !text.chars().any(char::is_control) =>
+                {
+                    Some(text.as_str())
+                }
+                _ => None,
+            })
+            .collect();
+        if !typed.is_empty() {
             messages.push(UiMsg::Edit {
                 at: keys.cursor,
-                draft,
+                draft: typed,
                 select_all: false,
             });
         }
