@@ -1,11 +1,11 @@
 //! Plan test A-4: picking an example from the list runs it, and a tag narrows
-//! the list.
+//! the list. And the compact layout: one pane, a floating toggle and a menu.
 
 use egui_kittest::Harness;
-use egui_kittest::kittest::Queryable as _;
+use egui_kittest::kittest::{NodeT as _, Queryable as _};
 use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
-use gallery::{App, shown_source};
+use gallery::{App, COMPACT_WIDTH, shown_source};
 
 /// The runner's frame, minus eframe: one pass inside the real root container,
 /// so the gallery's three columns are sized the way they are under
@@ -30,6 +30,17 @@ const HEIGHT: f32 = 1000.0;
 fn harness<'a>() -> Harness<'a, Store> {
     Harness::builder()
         .with_size(egui::vec2(WIDTH, HEIGHT))
+        .build_ui_state(run_app, Store::new())
+}
+
+/// A phone in portrait: well under [`COMPACT_WIDTH`], so the gallery is one
+/// pane and a menu.
+const PHONE: egui::Vec2 = egui::vec2(390.0, 844.0);
+
+fn phone_harness<'a>() -> Harness<'a, Store> {
+    assert!(PHONE.x < COMPACT_WIDTH);
+    Harness::builder()
+        .with_size(PHONE)
         .build_ui_state(run_app, Store::new())
 }
 
@@ -173,9 +184,16 @@ fn the_toggle_follows_the_example() {
     assert!(fetch::META.plain.is_none());
 }
 
+/// Whether the version chip with this label is the one on.
+///
+/// The chips, not any node with the label: the page header is titled
+/// `egui-react` too, and a heading has no toggled state.
 fn toggled(harness: &Harness<'_, Store>, label: &str) -> bool {
-    use egui_kittest::kittest::NodeT as _;
-    harness.get_by_label(label).accesskit_node().toggled() == Some(egui::accesskit::Toggled::True)
+    let chip = harness
+        .get_all_by_label(label)
+        .find(|node| node.accesskit_node().toggled().is_some())
+        .unwrap_or_else(|| panic!("no chip labelled {label:?}"));
+    chip.accesskit_node().toggled() == Some(egui::accesskit::Toggled::True)
 }
 
 /// The code is one selectable label per line. A drag that starts on one line
@@ -204,9 +222,12 @@ fn a_drag_across_code_lines_copies_them() {
     harness.run_steps(3);
 
     // The pane is the right 40% of the window; a Monospace row is 15 points
-    // at this style, and the first one starts 36 points down.
+    // at this style, and the first one starts under the line-count row, past
+    // the column's 6-point gap.
+    let counted = format!("{} lines", shown_source(patch::META.source).lines().count());
+    let top = harness.get_by_label(&counted).rect().bottom() + 6.0;
     let x = WIDTH * 0.6 + 40.0;
-    let line = |i: f32| egui::pos2(x, 36.0 + 15.0 * i + 7.0);
+    let line = |i: f32| egui::pos2(x, top + 15.0 * i + 7.0);
 
     harness.hover_at(line(1.0));
     harness.step();
@@ -239,4 +260,143 @@ fn a_drag_across_code_lines_copies_them() {
     for line in &lines {
         assert!(shown.contains(line), "not from the shown source: {line:?}");
     }
+}
+
+/// On a phone there is one pane, and the floating button swaps it for the
+/// code and back. The list and the tags are behind the menu button, not on
+/// the page.
+#[test]
+fn a_phone_shows_one_pane_at_a_time() {
+    let mut harness = phone_harness();
+    harness.run();
+
+    // The header: the title and the menu button. The wide layout has no menu
+    // button, and this one has no list on the page.
+    assert!(harness.query_by_label("menu").is_some());
+    assert!(harness.query_by_label("examples").is_none());
+    assert!(harness.query_by_label("use_future").is_none());
+
+    // The example pane is up: showcase is running, and the code is not there.
+    assert!(harness.query_by_label("no notes").is_some());
+    assert!(harness.query_by_label("source on GitHub").is_none());
+
+    // The toggle floats in the bottom-right corner, inside the window.
+    let toggle = harness.get_by_label("show code").rect();
+    assert!(
+        toggle.right() <= PHONE.x && toggle.bottom() <= PHONE.y,
+        "{toggle:?}"
+    );
+    assert!(
+        toggle.left() > PHONE.x / 2.0 && toggle.top() > PHONE.y / 2.0,
+        "{toggle:?}"
+    );
+
+    harness.get_by_label("show code").click();
+    harness.run();
+    harness.run();
+
+    // The code pane, the full width of the window, and the example is gone
+    // with its hooks.
+    assert!(harness.query_by_label("no notes").is_none());
+    let link = harness.get_by_label("source on GitHub").rect();
+    assert!(
+        link.right() <= PHONE.x,
+        "the code pane ran off the right edge: {link:?}"
+    );
+    let counted = format!(
+        "{} lines",
+        shown_source(showcase::META.source).lines().count()
+    );
+    let counted = harness.get_by_label(&counted).rect();
+    assert!(
+        counted.left() < 40.0,
+        "the code pane is not at the left edge: {counted:?}"
+    );
+
+    harness.get_by_label("show example").click();
+    harness.run();
+    harness.run();
+    assert!(harness.query_by_label("no notes").is_some());
+    assert!(harness.query_by_label("source on GitHub").is_none());
+}
+
+/// The menu slides down over the page, lists every example and every tag,
+/// and closes again when an example is picked or its own button is pressed.
+#[test]
+fn the_menu_opens_over_a_phone_and_closes_on_a_pick() {
+    let mut harness = phone_harness();
+    harness.run();
+
+    harness.get_by_label("menu").click();
+    // One pass to apply the write, then the slide: `run` steps until nothing
+    // asks for a repaint, and the animation does until it is down.
+    harness.run();
+    harness.run();
+
+    // The list and the tags are on the sheet, and the sheet is the whole
+    // window: the toggle is under it, so it is not drawn.
+    assert!(harness.query_by_label("examples").is_some());
+    assert!(harness.query_by_label("use_future").is_some());
+    assert!(harness.query_by_label("show code").is_none());
+    let heading = harness.get_by_label("examples").rect();
+    assert!(heading.top() >= 0.0 && heading.top() < 100.0, "{heading:?}");
+
+    // A tag narrows the list without closing the menu.
+    harness.get_by_label("use_future").click();
+    harness.run();
+    harness.run();
+    assert!(harness.query_by_label("examples").is_some());
+    assert!(harness.query_by_label("patch").is_some());
+    assert!(harness.query_by_label("todo").is_none());
+    harness.get_by_label("clear").click();
+    harness.run();
+    harness.run();
+
+    // Picking an example runs it and takes the menu away.
+    harness.get_by_label("todo").click();
+    harness.run();
+    harness.run();
+    assert!(harness.query_by_label("0 left").is_some());
+    assert!(harness.query_by_label("examples").is_none());
+    assert!(harness.query_by_label("show code").is_some());
+
+    // So does the button on the sheet itself.
+    harness.get_by_label("menu").click();
+    harness.run();
+    harness.run();
+    assert!(harness.query_by_label("examples").is_some());
+    harness.get_by_label("close menu").click();
+    harness.run();
+    harness.run();
+    assert!(harness.query_by_label("examples").is_none());
+    // And the example under it is still the one that was picked.
+    assert!(harness.query_by_label("0 left").is_some());
+}
+
+/// While the menu is down, a press lands on the sheet and not on the pane
+/// beneath it.
+#[test]
+fn the_menu_covers_the_pane() {
+    let mut harness = phone_harness();
+    harness.run();
+
+    // Where showcase's "new" button is with the menu away.
+    let new = harness.get_by_label("new").rect().center();
+
+    harness.get_by_label("menu").click();
+    harness.run();
+    harness.run();
+
+    // A press and a release where the button was.
+    harness.hover_at(new);
+    harness.step();
+    harness.drag_at(new);
+    harness.step();
+    harness.drop_at(new);
+    harness.run();
+    harness.run();
+    // No note was made: the menu is still down and the notebook is still
+    // empty behind it.
+    assert!(harness.query_by_label("examples").is_some());
+    assert!(harness.query_by_label("no notes").is_some());
 }

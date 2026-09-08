@@ -1,15 +1,21 @@
 //! Every example, its code and a tag filter, in one binary.
 //!
-//! Three flex columns and no `Panel`: the gallery follows the same rule it
-//! imposes on the examples it embeds, so the centre column can hand an example
-//! an area to fill. Switching examples changes the `key` on that column, which
-//! makes the previous example's hooks unreachable; the pass-end sweep drops
-//! them and the new example starts clean.
+//! A header and three flex columns, and no `Panel`: the gallery follows the
+//! same rule it imposes on the examples it embeds, so the centre column can
+//! hand an example an area to fill. Switching examples changes the `key` on
+//! that column, which makes the previous example's hooks unreachable; the
+//! pass-end sweep drops them and the new example starts clean.
+//!
+//! Under [`COMPACT_WIDTH`] (a phone) there is no room for three columns, so
+//! the page is one pane: the example or its code, swapped by a button floating
+//! in the bottom-right corner. The list and the tag filter move into a menu
+//! that slides down over the whole window from the button in the header.
 
 use std::sync::Arc;
 
 mod highlight;
 use egui_react::prelude::*;
+use egui_react_app::root_style;
 use egui_react_elements::prelude::*;
 use example_meta::Meta;
 
@@ -54,17 +60,44 @@ pub const EXAMPLES: &[Meta] = &[
 /// Where the source links point.
 const REPO: &str = "https://github.com/fand/egui-react/blob/main/examples";
 
-/// The gallery: list, running example, code.
+/// Below this window width the gallery is one pane and a menu rather than
+/// three columns.
+///
+/// The columns need 200 points for the list, 360 for the code and something
+/// left over for the example; a phone in portrait has about 400 in all, and a
+/// tablet on its side has more than this.
+pub const COMPACT_WIDTH: f32 = 720.0;
+
+/// How long the menu takes to slide down, or back up, in seconds.
+const MENU_TIME: f32 = 0.25;
+
+/// What the compact layout shows: the running example, or its code.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Pane {
+    /// The running example.
+    #[default]
+    Example,
+    /// The example's source.
+    Code,
+}
+
+/// The gallery: header, list, running example, code.
 ///
 /// `start` is the example to open first; [`initial_example`] is where the
 /// runner gets it. It is a prop and not something the component reads for
 /// itself, because reading the process arguments here would make the gallery
 /// open a different example under `cargo test <filter>`.
+///
+/// The layout follows the window: three columns above [`COMPACT_WIDTH`], one
+/// pane and a menu below it. The states are the same either way, so turning a
+/// phone keeps the example, the filter and the version that was picked.
 #[component]
 pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str) {
     let mut selected = use_state(cx, move || start);
     let mut tags = use_state(cx, Vec::<&'static str>::new);
     let mut plain = use_state(cx, || false);
+    let mut pane = use_state(cx, Pane::default);
+    let mut menu_open = use_state(cx, || false);
 
     // Read the states once, so the handlers below are free to take them `&mut`
     // without tripping over a live borrow.
@@ -77,54 +110,268 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
         .iter()
         .filter(|meta| matches_tags(meta, &active))
         .collect();
+    let compact = cx.ctx().content_rect().width() < COMPACT_WIDTH;
+    // A menu left open when the window widens is simply gone: the list is a
+    // column again.
+    let open = compact && *menu_open;
+    let showing: Pane = *pane;
 
     // Keep `#todo` in the address bar in step with the selection.
     use_effect(cx, current.name, || set_hash(current.name));
 
     rsx! {
-        <View direction="row" grow={1.0} gap={8}>
-            <List
-                shown={&shown}
-                active={&active}
-                selected={current.name}
-                on_select={|name: &'static str| {
-                    *selected = name;
-                    // A new example starts on its egui-react version.
-                    *plain = false;
-                }}
-                on_tag={|tag: &'static str| toggle(&mut tags, tag)}
-                on_clear={|| tags.clear()}
-            />
-            <Separator vertical/>
-            // `min_w={0}` makes the centre the column that gives way: taffy
-            // may otherwise take a flex item's content as its automatic
-            // minimum, and a wide example would push the code column off the
-            // right edge instead of being cut off itself.
-            <View direction="column" grow={1.0} min_w={0.0} gap={4}>
-                // The summary, not the name: the name is already the label of
-                // the list button and two widgets with one label are ambiguous
-                // to a screen reader (and to kittest).
-                <Text strong>{current.summary}</Text>
-                // The `key` is the whole point: change it and the previous
-                // example's hooks are swept, so state does not leak across.
-                <View key={current.name} direction="column" grow={1.0}>
-                    <Running name={current.name} plain={showing_plain}/>
+        <View direction="column" grow={1.0} min_h={0.0} gap={8}>
+            <Header compact={compact} on_menu={|| *menu_open = !*menu_open}/>
+            if compact {
+                // One pane, and the summary above it whichever it is.
+                <View direction="column" grow={1.0} min_h={0.0} gap={4}>
+                    <Text strong wrap>{current.summary}</Text>
+                    match showing {
+                        // The same `key` as the wide layout: switching
+                        // examples sweeps the previous one's hooks. Switching
+                        // to the code does too, so the example starts over
+                        // when it comes back.
+                        Pane::Example => {
+                            <View key={current.name} direction="column" grow={1.0} min_h={0.0}>
+                                <Running name={current.name} plain={showing_plain}/>
+                            </View>
+                        }
+                        Pane::Code => {
+                            <Code
+                                w="100%"
+                                grow={1.0}
+                                min_h={0.0}
+                                meta={*current}
+                                plain={showing_plain}
+                                on_pick={|pick: bool| *plain = pick}
+                            />
+                        }
+                    }
                 </View>
-            </View>
-            <Separator vertical/>
-            <Code
-                meta={*current}
-                plain={showing_plain}
-                on_pick={|pick: bool| *plain = pick}
-            />
+                // Not while the menu is down: it covers the corner the
+                // button floats in, and nothing behind it should be pressed.
+                if !open {
+                    <PaneToggle showing={showing} on_toggle={|next: Pane| *pane = next}/>
+                }
+                <Menu
+                    open={open}
+                    shown={&shown}
+                    active={&active}
+                    selected={current.name}
+                    on_select={|name: &'static str| {
+                        *selected = name;
+                        // A new example starts on its egui-react version.
+                        *plain = false;
+                        // Picked, so the menu has done its job.
+                        *menu_open = false;
+                    }}
+                    on_tag={|tag: &'static str| toggle(&mut tags, tag)}
+                    on_clear={|| tags.clear()}
+                    on_close={|| *menu_open = false}
+                />
+            } else {
+                <View direction="row" grow={1.0} min_h={0.0} gap={8}>
+                    // `shrink={0}` so the list keeps its width when the window
+                    // is narrow; the centre column is the one that gives way.
+                    <List
+                        w={200.0}
+                        shrink={0.0}
+                        shown={&shown}
+                        active={&active}
+                        selected={current.name}
+                        on_select={|name: &'static str| {
+                            *selected = name;
+                            // A new example starts on its egui-react version.
+                            *plain = false;
+                        }}
+                        on_tag={|tag: &'static str| toggle(&mut tags, tag)}
+                        on_clear={|| tags.clear()}
+                    />
+                    <Separator vertical/>
+                    // `min_w={0}` makes the centre the column that gives way:
+                    // taffy may otherwise take a flex item's content as its
+                    // automatic minimum, and a wide example would push the
+                    // code column off the right edge instead of being cut off
+                    // itself.
+                    <View direction="column" grow={1.0} min_w={0.0} gap={4}>
+                        // The summary, not the name: the name is already the
+                        // label of the list button and two widgets with one
+                        // label are ambiguous to a screen reader (and to
+                        // kittest).
+                        <Text strong>{current.summary}</Text>
+                        // The `key` is the whole point: change it and the
+                        // previous example's hooks are swept, so state does
+                        // not leak across.
+                        <View key={current.name} direction="column" grow={1.0}>
+                            <Running name={current.name} plain={showing_plain}/>
+                        </View>
+                    </View>
+                    <Separator vertical/>
+                    // A fixed share of the window, never squeezed by what the
+                    // running example wants: `shrink={0}` sends the whole
+                    // overflow to the centre column, which is the one with
+                    // `min_w={0}`.
+                    <Code
+                        w="40%"
+                        min_w={360.0}
+                        shrink={0.0}
+                        meta={*current}
+                        plain={showing_plain}
+                        on_pick={|pick: bool| *plain = pick}
+                    />
+                </View>
+            }
         </View>
     }
 }
 
+/// The page header: the title on the left and, on a compact screen, the menu
+/// button on the right.
+///
+/// A wide window has the list in a column of its own, so it has nothing for
+/// the button to open.
+#[component]
+fn Header(cx: &mut Cx, compact: bool, #[event] on_menu: ()) {
+    rsx! {
+        <View direction="row" align="center" gap={8} w="100%">
+            <Text strong size={20.0} grow={1.0}>"egui-react"</Text>
+            if compact {
+                <Button label="menu" on_click={|| on_menu.emit(())}>"☰"</Button>
+            }
+        </View>
+    }
+}
+
+/// The button floating in the bottom-right corner of a compact screen, which
+/// swaps the running example for its code and back.
+///
+/// An `egui::Area` rather than a node of the tree: it sits over the pane,
+/// where a thumb reaches, and takes no room from it. The label says what a
+/// press does; the glyph is what is drawn.
+#[component]
+fn PaneToggle(cx: &mut Cx, showing: Pane, #[event] on_toggle: Pane) {
+    let ctx = cx.ctx().clone();
+    let (glyph, label, next) = match showing {
+        Pane::Example => ("</>", "show code", Pane::Code),
+        Pane::Code => ("⏵", "show example", Pane::Example),
+    };
+    let clicked = egui::Area::new(cx.scope_id().with("pane_toggle"))
+        .order(egui::Order::Foreground)
+        .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(-16.0, -16.0))
+        .show(&ctx, |ui| {
+            egui::Frame::new()
+                .shadow(ui.visuals().window_shadow)
+                .corner_radius(24.0)
+                .show(ui, |ui| {
+                    ui.spacing_mut().button_padding = egui::vec2(16.0, 12.0);
+                    let button = egui::Button::new(egui::RichText::new(glyph).size(18.0))
+                        .corner_radius(24.0)
+                        .wrap_mode(egui::TextWrapMode::Extend);
+                    let response = ui.add(button);
+                    // The glyph is not a name; see `<Button label>`.
+                    ui.ctx()
+                        .accesskit_node_builder(response.id, |node| node.set_label(label));
+                    response.clicked()
+                })
+                .inner
+        })
+        .inner;
+    if clicked {
+        on_toggle.emit(next);
+    }
+}
+
+/// The menu of a compact screen: the example list and the tag filter, over
+/// the whole window.
+///
+/// It slides down from the top edge when it opens and back up when it closes,
+/// and it is not drawn at all once it is away. While it is on screen it is an
+/// `egui::Area` in the foreground that spans the window, so the pane beneath
+/// gets no clicks. Inside, the list is laid out by a tree of its own, rooted
+/// the way the runner roots the app, so it fills the sheet and the example
+/// list scrolls in what the header leaves.
+#[component]
+fn Menu(
+    cx: &mut Cx,
+    open: bool,
+    shown: &[&'static Meta],
+    active: &[&'static str],
+    selected: &'static str,
+    #[event] on_select: &'static str,
+    #[event] on_tag: &'static str,
+    #[event] on_clear: (),
+    #[event] on_close: (),
+) {
+    let (store, scope) = (cx.store, cx.scope_id());
+    let ctx = cx.ctx().clone();
+    // 0 when the menu is away, 1 when it is down; in between it is moving.
+    let down = ctx.animate_bool_with_time_and_easing(
+        scope.with("slide"),
+        open,
+        MENU_TIME,
+        egui::emath::easing::cubic_out,
+    );
+    if down <= 0.0 {
+        return;
+    }
+    let screen = ctx.content_rect();
+    let top = screen.top() - screen.height() * (1.0 - down);
+    let id = scope.with("menu");
+    // Above the pane toggle and anything else in the foreground, every frame:
+    // egui keeps the areas in the order they were first shown, and a click
+    // brings one to the front.
+    ctx.move_to_top(egui::LayerId::new(egui::Order::Foreground, id));
+    egui::Area::new(id)
+        .order(egui::Order::Foreground)
+        .fixed_pos(egui::pos2(screen.left(), top))
+        // Partly above the window while it slides.
+        .constrain(false)
+        .default_size(screen.size())
+        .show(&ctx, move |ui| {
+            let sheet = egui::Rect::from_min_size(ui.max_rect().min, screen.size());
+            ui.painter()
+                .rect_filled(sheet, 0.0, ui.visuals().panel_fill);
+            // The whole sheet, not just the widgets on it, is what stops a
+            // press from reaching the pane beneath.
+            ui.allocate_rect(sheet, egui::Sense::click());
+            let inner = sheet.shrink(8.0);
+            let mut ui = ui.new_child(egui::UiBuilder::new().max_rect(inner));
+            let mut cx = Cx::new(store, &mut ui, scope);
+            cx.root_container(scope.with("menu_root"), root_style(), |cx| {
+                rsx! {
+                    <View direction="column" gap={8} w="100%" h="100%">
+                        // The same header, with the button that closes the
+                        // menu where the one that opened it was.
+                        <View direction="row" align="center" gap={8} w="100%">
+                            <Text strong size={20.0} grow={1.0}>"egui-react"</Text>
+                            <Button label="close menu" on_click={|| on_close.emit(())}>"×"</Button>
+                        </View>
+                        <List
+                            w="100%"
+                            grow={1.0}
+                            min_h={0.0}
+                            shown={shown}
+                            active={active}
+                            selected={selected}
+                            on_select={|name: &'static str| on_select.emit(name)}
+                            on_tag={|tag: &'static str| on_tag.emit(tag)}
+                            on_clear={|| on_clear.emit(())}
+                        />
+                    </View>
+                }
+                .show(cx);
+            });
+        });
+}
+
 /// The example list and the tag filter.
+///
+/// The width is the caller's: a column of its own in the wide layout, the
+/// whole sheet in the menu.
 #[component]
 fn List(
     cx: &mut Cx,
+    #[prop(default)] style: ItemStyle,
     shown: &[&'static Meta],
     active: &[&'static str],
     selected: &'static str,
@@ -133,9 +380,7 @@ fn List(
     #[event] on_clear: (),
 ) {
     rsx! {
-        // `shrink={0}` so the list keeps its width when the window is narrow;
-        // the centre column is the one that gives way.
-        <View direction="column" w={200.0} shrink={0.0} gap={6}>
+        <View style={style} direction="column" gap={6}>
             <Text strong size={18.0}>"examples"</Text>
             <ScrollArea grow={1.0}>
                 <View direction="column" gap={4} w="100%">
@@ -291,9 +536,18 @@ plain_example!(LayoutPlain, layout::plain);
 /// versions draw the same thing, and the numbers next to the buttons say what
 /// that costs in each.
 ///
+/// The width is the caller's, like [`List`]'s: 40% of the window in the wide
+/// layout, all of it in the compact one.
+///
 /// `pub` for `tests/bench.rs`, which times this column on its own.
 #[component]
-pub fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
+pub fn Code(
+    cx: &mut Cx,
+    #[prop(default)] style: ItemStyle,
+    meta: Meta,
+    plain: bool,
+    #[event] on_pick: bool,
+) {
     let file = if plain { "plain.rs" } else { "lib.rs" };
     let link = format!("{REPO}/{}/src/{file}", meta.name);
     // What is shown, and counted: the source minus the gallery's own plumbing.
@@ -313,10 +567,7 @@ pub fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
     });
 
     rsx! {
-        // A fixed share of the window, never squeezed by what the running
-        // example wants: `shrink={0}` sends the whole overflow to the centre
-        // column, which is the one with `min_w={0}`.
-        <View direction="column" w="40%" min_w={360.0} shrink={0.0} gap={6}>
+        <View style={style} direction="column" gap={6}>
             if meta.plain.is_some() {
                 <View direction="row" gap={4} align="center" w="100%">
                     <Chip
