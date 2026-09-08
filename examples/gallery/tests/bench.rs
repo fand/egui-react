@@ -118,6 +118,7 @@ fn running_pane(name: &'static str) -> f64 {
                         "counter" => { <counter::App/> }
                         "board" => { <board::App/> }
                         "patch" => { <patch::App/> }
+                        "spreadsheet" => { <spreadsheet::App/> }
                         _ => { <showcase::App/> }
                     }
                 </View>
@@ -177,7 +178,14 @@ fn report() {
         "example", "lines", "full", "code", "running", "list"
     );
     let list = list_pane();
-    for name in ["counter", "list-10k", "showcase", "board", "patch"] {
+    for name in [
+        "counter",
+        "list-10k",
+        "showcase",
+        "board",
+        "patch",
+        "spreadsheet",
+    ] {
         let meta = find(name).unwrap();
         println!(
             "{name:>12} {:>6} {:>6.2} ms {:>6.2} ms {:>6.2} ms {:>6.2} ms",

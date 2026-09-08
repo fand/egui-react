@@ -57,6 +57,7 @@ Every example but one runs in the browser in the [gallery](https://fand.github.i
 | `showcase` | A notes app: reducer, persistence, context, memo and a settings window, together. | [#showcase](https://fand.github.io/egui-react/#showcase) | [lib.rs](examples/showcase/src/lib.rs) | – |
 | `board` | Cards that keep the title being typed into them while they are dragged between columns. | [#board](https://fand.github.io/egui-react/#board) | [lib.rs](examples/board/src/lib.rs) | [plain.rs](examples/board/src/plain.rs) |
 | `patch` | A node editor that generates, validates and previews its own WGSL shader. | [#patch](https://fand.github.io/egui-react/#patch) | [lib.rs](examples/patch/src/lib.rs) | – |
+| `spreadsheet` | Formulas over 26 × 10,000 cells: two memo stages, and a draft that survives scrolling out of view. | [#spreadsheet](https://fand.github.io/egui-react/#spreadsheet) | [lib.rs](examples/spreadsheet/src/lib.rs) | – |
 | `counter` | One piece of state, three handlers that borrow it in turn. | [#counter](https://fand.github.io/egui-react/#counter) | [lib.rs](examples/counter/src/lib.rs) | [plain.rs](examples/counter/src/plain.rs) |
 | `todo` | A reducer drives the list; `use_persisted` keeps it across restarts. | [#todo](https://fand.github.io/egui-react/#todo) | [lib.rs](examples/todo/src/lib.rs) | [plain.rs](examples/todo/src/plain.rs) |
 | `form` | Every bound widget, a change log, and settings that survive a restart. | [#form](https://fand.github.io/egui-react/#form) | [lib.rs](examples/form/src/lib.rs) | [plain.rs](examples/form/src/plain.rs) |

@@ -1097,7 +1097,11 @@ fn ColumnHeader(
                 egui::pos2(cell.right() - 3.0, rect.top()),
                 egui::pos2(cell.right() + 3.0, rect.bottom()),
             );
-            let handle = ui.interact(edge, ui.id().with(("edge", col)), egui::Sense::drag());
+            // `Sense::DRAG`, not `Sense::drag()`: the latter is the same thing
+            // plus `FOCUSABLE`, and a resize handle that can be tabbed to but
+            // carries no name is a node a screen reader can only read out as
+            // "unknown". Same reasoning as the cells, one screen down.
+            let handle = ui.interact(edge, ui.id().with(("edge", col)), egui::Sense::DRAG);
             if handle.hovered() || handle.dragged() {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::ResizeColumn);
             }

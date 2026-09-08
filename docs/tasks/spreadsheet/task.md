@@ -43,7 +43,7 @@ Do not touch core (`egui-react`, `egui-react-macros`). One addition to `egui-rea
 ## Deliverables
 
 - `examples/spreadsheet/` (`src/lib.rs` / `sheet.rs` / `formula.rs` / `eval.rs` / `preset.rs` / `main.rs` / `Cargo.toml` / `Trunk.toml` / `index.html` / `tests/spreadsheet.rs`).
-- `<VirtualList on_scroll>` in `crates/egui-react-elements`, and its line in ARCHITECTURE section 6.
+- `<VirtualList on_scroll>` and `<VirtualList row_w>` in `crates/egui-react-elements`, and their line in ARCHITECTURE section 6. `row_w` is the repair `on_scroll` uncovered: `horizontal` never produced a scroll range without it (plan.md 8.1).
 - Registration in `examples/gallery` (`Cargo.toml`, `EXAMPLES`, the `Running` `match`, the a11y / bench lists).
 - One row in the README table.
 - plan.md section 8 (differences found during implementation).

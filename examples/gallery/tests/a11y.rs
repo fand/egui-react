@@ -50,6 +50,13 @@ const SKIP: &[&str] = &["fetch"];
 /// - `patch`'s `ComboBox`: `<ComboBox>` names itself from its `label` prop,
 ///   but that prop also *draws* the label beside the box, which is a change to
 ///   the picture rather than to the tree.
+/// - `spreadsheet`'s two `TextInput`s, in tree order: the name box and the
+///   formula bar. The first is a `<TextEdit>` and the second a hand-written
+///   `egui::TextEdit` leaf (it has to *report* its text, which a bound
+///   `<TextEdit>` cannot do), so both hit the same gap as every other
+///   `TextInput` above. The cells themselves are named — `B2`, and their value
+///   on the node — and the grid is deliberately not focusable, so nothing else
+///   from the sheet reaches this list.
 const KNOWN_UNNAMED: &[&str] = &[
     "showcase: TextInput",
     "board: TextInput",
@@ -58,6 +65,8 @@ const KNOWN_UNNAMED: &[&str] = &[
     "patch: MultilineTextInput",
     "patch: ComboBox",
     "patch: ComboBox",
+    "spreadsheet: TextInput",
+    "spreadsheet: TextInput",
     "todo: TextInput",
     "form: TextInput",
     "form: CheckBox",
