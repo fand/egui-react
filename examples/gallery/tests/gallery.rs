@@ -36,9 +36,9 @@ fn harness<'a>() -> Harness<'a, Store> {
 /// A phone in portrait: well under [`COMPACT_WIDTH`], so the gallery is one
 /// pane and a menu.
 const PHONE: egui::Vec2 = egui::vec2(390.0, 844.0);
+const _: () = assert!(PHONE.x < COMPACT_WIDTH);
 
 fn phone_harness<'a>() -> Harness<'a, Store> {
-    assert!(PHONE.x < COMPACT_WIDTH);
     Harness::builder()
         .with_size(PHONE)
         .build_ui_state(run_app, Store::new())
