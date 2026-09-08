@@ -220,6 +220,7 @@ fn LocalFonts(cx: &mut Cx) {
     };
 
     rsx! {
+        <View direction="column" gap={4} w="100%">
         <View direction="row" gap={8} align="center" w="100%">
             <Button enabled={available} on_click={|| {
                 let fonts = fonts();
@@ -237,8 +238,13 @@ fn LocalFonts(cx: &mut Cx) {
             }}>
                 "Use my fonts"
             </Button>
-            <Text>{note}</Text>
+            // The note is long; `grow` gives `wrap` a width instead of
+            // letting the row run past the pane.
+            <Text grow={1.0} wrap>{note}</Text>
+        </View>
+        if !status.is_empty() {
             <Text strong>{status.as_str()}</Text>
+        }
         </View>
     }
 }
