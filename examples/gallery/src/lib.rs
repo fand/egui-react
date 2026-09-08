@@ -409,9 +409,13 @@ pub fn shown_source(source: &str) -> String {
 /// What the cached code lines were laid out for. A new key means a new layout.
 ///
 /// The source is named, not hashed: hashing 66 KB a frame was the cost this
-/// cache is here to remove. The atlas size is in because a galley stores atlas
-/// pixel coordinates: growing the atlas keeps them, a reset changes the size.
-type GalleyKey = ((&'static str, bool), bool, f32, f32, [usize; 2]);
+/// cache is here to remove. The fonts generation is in because a galley stores
+/// pixel coordinates into the glyph atlas of the `Fonts` that laid it out, and
+/// `Context::set_fonts` (the font example's web font arriving, say) builds a
+/// new `Fonts` with a new atlas: the old coordinates then point at other
+/// glyphs. The atlas size alone did not catch that, since the new atlas can
+/// come out the same size as the old one.
+type GalleyKey = ((&'static str, bool), bool, f32, f32, u64);
 
 /// The highlighted source, one galley per line, laid out once per
 /// [`GalleyKey`].
@@ -444,7 +448,7 @@ fn code_lines<'a>(
         ui.visuals().dark_mode,
         font_id.size,
         ui.pixels_per_point(),
-        ui.fonts(|f| f.font_image_size()),
+        egui_react::fonts_generation(ui.ctx()),
     );
     if cache.as_ref().is_none_or(|(k, _)| *k != key) {
         let job = highlight::highlight(source, ui.visuals().dark_mode, font_id.clone());

@@ -26,7 +26,7 @@ The immediate motivation is that egui's bundled fonts have no CJK glyphs, so Jap
 - **A font model in the runner crate** (`egui_react_app::fonts`): named chains (`FontStack`) made of sources (`Bundled`, `Url`, `System`, generic names), resolved into a `FontDefinitions` and applied with `set_fonts`. Sources that arrive later (HTTP, Local Font Access) re-apply. A chain can replace the default `Proportional` / `Monospace` lists so widgets pick it up too.
 - **One face database on every target, `fontdb`**: on native it loads the installed fonts; on wasm it holds whatever the bundled, fetched and locally granted bytes provided. CSS-style matching (`Query { families, weight, style }`) is fontdb's, pure Rust, no C libraries.
 - **`<Text font="...">`** in `egui-react-elements`: a chain name, `"proportional"` or `"monospace"`. An unknown name falls back to the text style's family and logs once; it never panics.
-- **wasm, three sources**: `include_bytes!` bundling; HTTP fetch with `ehttp` (TTF / OTF, WOFF2 behind a feature); Local Font Access via `navigator.fonts.query()` from a click handler, matched by family name, `blob()` → bytes.
+- **wasm, three sources**: `include_bytes!` bundling; HTTP fetch with `ehttp` (TTF / OTF, WOFF2 behind a feature); Local Font Access via `window.queryLocalFonts()` from a click handler, matched by family name, `blob()` → bytes.
 - **An example** `examples/font` in the gallery showing all of the above with Japanese sample text, plus one paragraph each in ARCHITECTURE.md and the README.
 
 ### Out of scope

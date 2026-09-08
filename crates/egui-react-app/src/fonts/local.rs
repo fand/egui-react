@@ -4,7 +4,7 @@
 //! wasm cannot read the OS font directory, so a `System("Hiragino Sans")`
 //! entry resolves to nothing on the web unless something puts that font's
 //! bytes into the database. The Local Font Access API is the one route to
-//! them: `navigator.fonts.query()` lists every installed face, and each
+//! them: `window.queryLocalFonts()` lists every installed face, and each
 //! face's `blob()` is the whole font file. Facts that shape the code:
 //!
 //! - Chromium only (Chrome / Edge 103 and later); Firefox and Safari have
@@ -19,9 +19,9 @@
 //!   query returned.
 //! - web-sys 0.3.104 has a `FontData` binding, but the whole type sits
 //!   behind `--cfg=web_sys_unstable_apis`, a flag every user of this crate
-//!   would then need, and `Navigator` has no `fonts` getter at all. So the
-//!   API is reached with `js_sys::Reflect`: four property reads and two
-//!   calls, and nothing unstable to opt into.
+//!   would then need, and `Window` has no `queryLocalFonts` binding at all.
+//!   So the API is reached with `js_sys::Reflect`: four property reads and
+//!   two calls, and nothing unstable to opt into.
 //!
 //! After a grant, the same `System(name)` entry that native resolves through
 //! `load_system_fonts` resolves here through the browser: same model, same
@@ -66,7 +66,8 @@ impl From<wasm_bindgen::JsValue> for LocalFontsError {
 }
 
 impl Fonts {
-    /// Whether this browser has `navigator.fonts`. Always `false` off wasm.
+    /// Whether this browser has `window.queryLocalFonts`. Always `false` off
+    /// wasm.
     pub fn local_fonts_available() -> bool {
         #[cfg(target_arch = "wasm32")]
         {
@@ -168,15 +169,21 @@ mod web {
     use wasm_bindgen::{JsCast as _, JsValue};
     use wasm_bindgen_futures::JsFuture;
 
-    /// `navigator.fonts`, when the browser has it.
-    fn navigator_fonts() -> Option<JsValue> {
-        let navigator = web_sys::window()?.navigator();
-        let fonts = Reflect::get(&navigator, &JsValue::from_str("fonts")).ok()?;
-        (!fonts.is_undefined() && !fonts.is_null()).then_some(fonts)
+    /// `window.queryLocalFonts`, when the browser has it.
+    ///
+    /// That is the shipped shape of the API (Chrome 103 and later): a method
+    /// on `Window`. The `navigator.fonts.query()` of the early drafts never
+    /// shipped, and a check for it is `false` in every browser.
+    fn query_local_fonts() -> Option<Function> {
+        let window = web_sys::window()?;
+        Reflect::get(&window, &JsValue::from_str("queryLocalFonts"))
+            .ok()?
+            .dyn_into()
+            .ok()
     }
 
     pub(super) fn available() -> bool {
-        navigator_fonts().is_some()
+        query_local_fonts().is_some()
     }
 
     pub(super) async fn permission() -> Option<LocalFontsPermission> {
@@ -215,11 +222,14 @@ mod web {
         JsFuture::from(promise).await
     }
 
-    /// `navigator.fonts.query()`, then one blob per wanted family.
+    /// `window.queryLocalFonts()`, then one blob per wanted family.
     pub(super) async fn query(wanted: &[String]) -> Result<Vec<(String, Vec<u8>)>, JsValue> {
-        let fonts = navigator_fonts()
-            .ok_or_else(|| JsValue::from_str("navigator.fonts is not available in this browser"))?;
-        let faces = call_async(&fonts, "query").await?;
+        let query = query_local_fonts().ok_or_else(|| {
+            JsValue::from_str("window.queryLocalFonts is not available in this browser")
+        })?;
+        let window = web_sys::window().ok_or_else(|| JsValue::from_str("no window"))?;
+        let promise: Promise = query.call0(&window)?.dyn_into()?;
+        let faces = JsFuture::from(promise).await?;
         let mut out: Vec<(String, Vec<u8>)> = Vec::new();
         for face in Array::from(&faces).iter() {
             let family = string_of(&face, "family");

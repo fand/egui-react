@@ -215,6 +215,19 @@ pub(crate) fn fonts_generation_id() -> egui::Id {
     egui::Id::new("egui_react_fonts_generation")
 }
 
+/// How many times the fonts have changed, as the store noted it this pass.
+///
+/// For code that keeps an `Arc<Galley>` across frames outside the layout
+/// engine (a code view that lays its lines out once, say): a galley holds
+/// texture coordinates into the glyph atlas of the `Fonts` that made it, and
+/// `Context::set_fonts` builds a new `Fonts` with a new atlas, so a cache of
+/// galleys has to carry this in its key. Zero before the first pass of a
+/// `Store`, then the value [`Store::fonts_generation`] returns.
+pub fn fonts_generation(ctx: &egui::Context) -> u64 {
+    ctx.data(|d| d.get_temp::<u64>(fonts_generation_id()))
+        .unwrap_or(0)
+}
+
 impl Default for Store {
     fn default() -> Self {
         Self::new()

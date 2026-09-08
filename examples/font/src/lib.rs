@@ -195,7 +195,7 @@ pub fn App(cx: &mut Cx) {
 }
 
 /// The Local Font Access button. On wasm it is enabled when the browser has
-/// `navigator.fonts`; everywhere else it is disabled with the reason next to
+/// `window.queryLocalFonts`; everywhere else it is disabled with the reason next to
 /// it, so the example is one source file.
 #[component]
 fn LocalFonts(cx: &mut Cx) {
