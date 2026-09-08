@@ -52,10 +52,6 @@ egui-wgpu = "0.36.1"
 naga = { version = "30.0", features = ["wgsl-in"] }
 # For `#[derive(Pod, Zeroable)]` on the shader example's uniform block.
 bytemuck = { version = "1.25", features = ["derive"] }
-# Only the gallery uses it, for `syntax_highlighting::code_view_ui`. No
-# features: `syntect` would make the wasm much bigger and the built-in
-# highlighter is enough.
-egui_extras = { version = "0.36.1", default-features = false }
 # The one place font bytes live on every target (`egui_react_app::fonts`): the
 # installed fonts on native, the bundled / fetched / granted bytes on wasm. Its
 # matching is a port of font-kit's CSS Fonts Level 3 algorithm and it is pure

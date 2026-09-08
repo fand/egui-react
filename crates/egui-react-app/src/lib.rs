@@ -35,16 +35,23 @@ pub fn root_id() -> egui::Id {
 /// grows with it and there is no overflow to resolve — the row runs off the
 /// right edge instead of `grow` and `flex-shrink` sharing out what there is.
 ///
-/// So the width is fixed at 100%: a window is exactly as wide as it is, and
-/// content that wants more belongs in a horizontal `ScrollArea`. The height is
-/// only a *minimum* of 100%, so a column taller than the window still lays out
-/// at its own height rather than being clipped.
+/// So both sides are fixed at 100%: a window is exactly as big as it is. The
+/// height used to be only a *minimum* of 100%, so that a column taller than
+/// the window would lay out at its own height. That let a `leaf_fill` (a
+/// `<ScrollArea>`, a `<VirtualList>`) push the root past the window: such a
+/// leaf reports the whole root height as its content size, so a column of
+/// "a header, then a list that fills the rest" measured as header plus window,
+/// and the root grew to fit — the list's last rows sat below the window edge.
+/// With a definite height the header keeps its content height (a flex item's
+/// automatic minimum) and the list gets what is left. Content taller than the
+/// window still overflows it rather than being shrunk, for the same reason,
+/// and belongs in a `ScrollArea` as it always did.
 ///
 /// Exposed for the same reason as [`root_id`].
 pub fn root_style() -> egui_react::taffy::Style {
     ContainerStyle::default()
         .direction("column")
-        .merge(&ItemStyle::default().w("100%").min_h("100%"))
+        .merge(&ItemStyle::default().w("100%").h("100%"))
 }
 
 /// What [`Options::setup`] holds: run once, when eframe is ready.

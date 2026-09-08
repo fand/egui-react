@@ -1,5 +1,11 @@
 //! A wgpu fragment shader in a `<Canvas>`, driven by ordinary hooks.
 //!
+//! What it draws is a black hole: one fullscreen triangle, and for every pixel
+//! of it a photon traced backwards from the camera through curved space until
+//! it meets the accretion disk, the sky, or the horizon. `shader.wgsl` is where
+//! that lives and it explains itself; the interesting part here is that none of
+//! the code below knows any of it.
+//!
 //! Three pieces meet here, and each stays on its own side of the fence.
 //!
 //! The pipeline is built once, at startup, by `Options::setup` (see
@@ -15,11 +21,15 @@
 //! egui will run it inside its own render pass with the viewport and scissor
 //! already set to the rect.
 //!
-//! State is the point of the example. `speed` and `paused` are `use_state`
-//! like anywhere else, and the values are copied into the callback struct,
-//! written to a uniform buffer in `prepare`, and read by the WGSL. Moving the
-//! slider changes a number in a hook and the picture changes; nothing in
-//! between has to be told.
+//! State is the point of the example. `speed`, `mass`, `bloom`, `tilt` and
+//! `paused` are `use_state` like anywhere else, and the values are copied into
+//! the callback struct, written to a uniform buffer in `prepare`, and read by
+//! the WGSL.
+//! Moving a slider changes a number in a hook and the picture changes; nothing
+//! in between has to be told. `mass` is the one to try first: it is the
+//! Schwarzschild radius the shader traces photons around, so it sets the size
+//! of the shadow, how far the sky behind bends around it, and how much of the
+//! disk the hole has eaten.
 //!
 //! Repainting is explicit, as always in egui: while the animation runs the app
 //! asks for the next frame every frame, and `pause` simply stops asking, which
@@ -33,17 +43,22 @@ pub mod gpu;
 
 pub const META: Meta = Meta {
     name: "shader",
-    summary: "A wgpu fragment shader in a <Canvas>, with a slider wired to its uniform.",
+    summary: "A ray-traced black hole in a <Canvas>, with sliders wired to its uniform.",
     hooks: &["use_state"],
     elements: &["View", "Canvas", "Slider", "Checkbox"],
     source: include_str!("lib.rs"),
     plain: None,
 };
 
-/// The shader canvas, a speed slider and a pause box.
+/// The shader canvas, four sliders and a pause box.
 #[component]
 pub fn App(cx: &mut Cx) {
     let mut speed = use_state(cx, || 1.0f32);
+    let mut mass = use_state(cx, || 1.0f32);
+    let mut bloom = use_state(cx, || 1.5f32);
+    // Degrees, because that is what a slider labelled "tilt" should show; the
+    // shader gets radians.
+    let mut tilt = use_state(cx, || 22.0f32);
     let mut paused = use_state(cx, || false);
     let mut mouse = use_state(cx, || egui::Vec2::ZERO);
 
@@ -59,13 +74,16 @@ pub fn App(cx: &mut Cx) {
     // Read the states once. The handlers below take them `&mut`, and `paint`
     // is a separate closure that would otherwise hold a borrow across them.
     let speed_value = *speed;
+    let mass_value = *mass;
+    let bloom_value = *bloom;
+    let tilt_value = tilt.to_radians();
     let mouse_value = *mouse;
     let points_to_pixels = cx.ctx().pixels_per_point();
 
     rsx! {
         <View direction="column" gap={8} p={12} grow={1.0}>
             <Text size={22.0} strong>"shader"</Text>
-            <Text>"Drag the canvas to move the pattern."</Text>
+            <Text>"Drag the canvas to orbit the camera."</Text>
             // `h={0}` with `grow={1}` is the flexbox idiom for "take what is
             // left and nothing more". A `<Canvas>` reports the whole window as
             // the size it could fill, and this column's height is decided by
@@ -84,14 +102,19 @@ pub fn App(cx: &mut Cx) {
                         rect,
                         gpu::ShaderCallback {
                             time: time * speed_value,
-                            speed: speed_value,
+                            mass: mass_value,
+                            bloom: bloom_value,
+                            tilt: tilt_value,
                             resolution,
                             mouse: mouse_value * points_to_pixels,
                         },
                     ));
                 }}
             />
-            <View direction="row" gap={12} align="center">
+            <View direction="row" gap={12} align="center" wrap>
+                <Slider bind={mass.bind()} range={0.1..=2.0} label="mass"/>
+                <Slider bind={bloom.bind()} range={0.0..=4.0} label="bloom"/>
+                <Slider bind={tilt.bind()} range={-60.0..=60.0} label="tilt"/>
                 <Slider bind={speed.bind()} range={0.0..=4.0} label="speed"/>
                 <Checkbox bind={paused.bind()} label="pause"/>
             </View>
