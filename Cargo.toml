@@ -17,14 +17,39 @@ egui-react-app = { path = "crates/egui-react-app", version = "0.1.0" }
 accesskit-web = { path = "crates/accesskit-web", version = "0.1.0" }
 example-meta = { path = "examples/meta", version = "0.1.0" }
 
-egui = "0.36.1"
+# `default-features = false` drops egui's one default feature,
+# `default_fonts`: the four fonts epaint compiles in (Ubuntu-Light, Hack,
+# NotoEmoji-Regular, emoji-icon-font, 1.4 MB together). Cargo unifies features
+# over the whole graph, so one crate here asking for egui's defaults would put
+# those bytes back for every app. `egui-react-app`'s own `default_fonts`
+# feature turns them on again and is on by default, so a plain build is
+# unchanged; an app that wants the bytes gone takes `egui-react-app` with
+# `default-features = false`.
+egui = { version = "0.36.1", default-features = false }
 # The version egui 0.36.1 depends on: the `TreeUpdate` the adapter is handed
 # comes straight out of egui, so the types have to be the same ones.
 accesskit = "0.24.1"
 # The newest consumer that works against accesskit 0.24.1 — the pair
 # `accesskit_macos` uses.
 accesskit_consumer = "0.38.0"
-eframe = "0.36.1"
+# eframe's default features minus `default_fonts` (see `egui` above), spelled
+# out so nothing else changes. The one part of its default that cannot be
+# written here is `winit/default`: a dependency's feature list may not name a
+# feature of a *transitive* dependency, which is why `winit` is a workspace
+# dependency of its own below.
+eframe = { version = "0.36.1", default-features = false, features = [
+  "accesskit",
+  "links",
+  "wayland",
+  "web_screen_reader",
+  "wgpu",
+  "x11",
+] }
+# Only here to give winit the default features `eframe/default` used to enable
+# for it: on Linux `wayland-dlopen` (load the Wayland libraries at run time
+# instead of linking them) and `wayland-csd-adwaita` (client-side window
+# decorations). `egui-react-app` depends on it without calling it; eframe does.
+winit = "0.30.13"
 # `wgpu` and `snapshot` are intentionally left off: the tests run headless.
 egui_kittest = { version = "0.36.1", default-features = false }
 # The same version and features egui_taffy 0.14.0 pulled in, so that layouts

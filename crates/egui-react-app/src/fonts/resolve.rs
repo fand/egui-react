@@ -57,6 +57,12 @@ pub(super) fn load_bundled(db: &mut fontdb::Database, bytes: &'static [u8]) -> L
 
 /// Everything one resolution reads.
 pub(super) struct Input<'a> {
+    /// What to build on: egui's own definitions, normally
+    /// `FontDefinitions::default()`. With egui's `default_fonts` feature off
+    /// that *is* `FontDefinitions::empty()` — no `font_data` at all, and the
+    /// two default families bound to empty lists — so nothing below may assume
+    /// a built-in key exists.
+    pub base: FontDefinitions,
     pub db: &'a fontdb::Database,
     pub stacks: &'a [FontStack],
     pub loaded: &'a HashMap<SourceKey, Loaded>,
@@ -76,10 +82,25 @@ pub(super) struct Output {
 ///
 /// `font_data` is the cache of faces already registered; a face is copied out
 /// of the database and checked only the first time it is seen.
+///
+/// Nothing here writes a key into a family unless `defs.font_data` has bytes
+/// under it, and every family the input names ends up bound, empty or not:
+/// those are the two things epaint panics on. So with egui's `default_fonts`
+/// off (`Input::base` empty) a chain that resolved to nothing is an empty
+/// family, which lays text out with zero glyphs instead of panicking.
 pub(super) fn resolve(input: Input<'_>, font_data: &mut HashMap<String, Arc<FontData>>) -> Output {
-    let mut defs = FontDefinitions::default();
+    let Input {
+        base,
+        db,
+        stacks,
+        loaded,
+        default_proportional,
+        default_monospace,
+    } = input;
+    let mut defs = base;
     // The tails, taken before a default stack rewrites either family: the
     // two emoji fonts at the end of these are what draw icons in every chain.
+    // Both are empty when egui's fonts are not in the build.
     let builtin_proportional = defs
         .families
         .get(&FontFamily::Proportional)
@@ -91,10 +112,10 @@ pub(super) fn resolve(input: Input<'_>, font_data: &mut HashMap<String, Arc<Font
         .cloned()
         .unwrap_or_default();
 
-    let mut report = Vec::with_capacity(input.stacks.len());
+    let mut report = Vec::with_capacity(stacks.len());
     let mut lists: HashMap<Arc<str>, Vec<String>> = HashMap::new();
 
-    for stack in input.stacks {
+    for stack in stacks {
         let mut keys: Vec<String> = Vec::new();
         let mut entries = Vec::with_capacity(stack.chain.len());
         let mut push = |keys: &mut Vec<String>, key: String| {
@@ -106,15 +127,15 @@ pub(super) fn resolve(input: Input<'_>, font_data: &mut HashMap<String, Arc<Font
         for source in &stack.chain {
             let outcome = match source {
                 FontSource::Bundled(bytes) => {
-                    let loaded = input.loaded.get(&SourceKey::bundled(bytes));
+                    let loaded = loaded.get(&SourceKey::bundled(bytes));
                     resolve_blob(
-                        &input, stack, loaded, &mut defs, font_data, &mut keys, &mut push,
+                        db, stack, loaded, &mut defs, font_data, &mut keys, &mut push,
                     )
                 }
                 FontSource::Url(url) => {
-                    let loaded = input.loaded.get(&SourceKey::Url(url.clone()));
+                    let loaded = loaded.get(&SourceKey::Url(url.clone()));
                     resolve_blob(
-                        &input, stack, loaded, &mut defs, font_data, &mut keys, &mut push,
+                        db, stack, loaded, &mut defs, font_data, &mut keys, &mut push,
                     )
                 }
                 FontSource::System(name) => {
@@ -124,9 +145,9 @@ pub(super) fn resolve(input: Input<'_>, font_data: &mut HashMap<String, Arc<Font
                         style: stack.style,
                         stretch: fontdb::Stretch::Normal,
                     };
-                    match input.db.query(&query) {
+                    match db.query(&query) {
                         None => Outcome::Missing,
-                        Some(id) => match register(input.db, id, None, &mut defs, font_data) {
+                        Some(id) => match register(db, id, None, &mut defs, font_data) {
                             Ok(face) => {
                                 push(&mut keys, face.key.clone());
                                 face.into_outcome()
@@ -146,11 +167,11 @@ pub(super) fn resolve(input: Input<'_>, font_data: &mut HashMap<String, Arc<Font
                         stretch: fontdb::Stretch::Normal,
                     };
                     // The device's answer first, when it has one and epaint
-                    // can use it; egui's own font behind it regardless, so
-                    // the generic always draws something.
+                    // can use it; egui's own font behind it, so the generic
+                    // draws something even on a device with no answer.
                     let mut first: Option<Face> = None;
-                    if let Some(id) = input.db.query(&query) {
-                        match register(input.db, id, None, &mut defs, font_data) {
+                    if let Some(id) = db.query(&query) {
+                        match register(db, id, None, &mut defs, font_data) {
                             Ok(face) => {
                                 push(&mut keys, face.key.clone());
                                 first = Some(face);
@@ -160,27 +181,38 @@ pub(super) fn resolve(input: Input<'_>, font_data: &mut HashMap<String, Arc<Font
                             }
                         }
                     }
-                    let builtin = generic.builtin();
-                    push(&mut keys, builtin.to_owned());
-                    match first {
-                        Some(face) => face.into_outcome(),
-                        None => Outcome::Loaded {
+                    // Unless egui's fonts are not in the build: then there is
+                    // no floor under the generic, and it contributes nothing.
+                    let builtin = builtin_key(&defs, generic.builtin());
+                    if let Some(builtin) = builtin {
+                        push(&mut keys, builtin.to_owned());
+                    }
+                    match (first, builtin) {
+                        (Some(face), _) => face.into_outcome(),
+                        (None, Some(builtin)) => Outcome::Loaded {
                             key: builtin.to_owned(),
                             family: builtin.to_owned(),
                         },
+                        (None, None) => Outcome::Missing,
                     }
                 }
             };
             entries.push((source.clone(), outcome));
         }
 
-        let tail = if input.default_monospace == Some(&*stack.name) {
+        let tail = if default_monospace == Some(&*stack.name) {
             &builtin_monospace
         } else {
             &builtin_proportional
         };
         for key in tail {
-            push(&mut keys, key.clone());
+            // The tail is `base`'s own family list, so the bytes are normally
+            // right there in `base.font_data`; the check is what keeps a
+            // family egui listed a key for without shipping it from reaching
+            // epaint, which panics on exactly that.
+            if let Some(key) = builtin_key(&defs, key) {
+                push(&mut keys, key.to_owned());
+            }
         }
 
         defs.families
@@ -193,8 +225,8 @@ pub(super) fn resolve(input: Input<'_>, font_data: &mut HashMap<String, Arc<Font
     }
 
     for (name, family) in [
-        (input.default_proportional, FontFamily::Proportional),
-        (input.default_monospace, FontFamily::Monospace),
+        (default_proportional, FontFamily::Proportional),
+        (default_monospace, FontFamily::Monospace),
     ] {
         let Some(name) = name else {
             continue;
@@ -215,10 +247,17 @@ pub(super) fn resolve(input: Input<'_>, font_data: &mut HashMap<String, Arc<Font
     }
 }
 
+/// One of egui's built-in keys, but only when the bytes are there: with
+/// egui's `default_fonts` feature off nothing is registered under them, and a
+/// family naming a key with no `font_data` is one of epaint's two panics.
+fn builtin_key<'a>(defs: &FontDefinitions, key: &'a str) -> Option<&'a str> {
+    defs.font_data.contains_key(key).then_some(key)
+}
+
 /// A `Bundled` or `Url` entry: pick the best face among the blob's own.
 #[allow(clippy::too_many_arguments)]
 fn resolve_blob(
-    input: &Input<'_>,
+    db: &fontdb::Database,
     stack: &FontStack,
     loaded: Option<&Loaded>,
     defs: &mut FontDefinitions,
@@ -230,10 +269,10 @@ fn resolve_blob(
         None | Some(Loaded::Pending) => Outcome::Pending,
         Some(Loaded::Failed(reason)) => Outcome::Failed(reason.clone()),
         Some(Loaded::Faces { ids, static_bytes }) => {
-            let Some(id) = best_of(input.db, ids, stack.weight, stack.style) else {
+            let Some(id) = best_of(db, ids, stack.weight, stack.style) else {
                 return Outcome::Invalid(String::from("no font face could be parsed"));
             };
-            match register(input.db, id, *static_bytes, defs, font_data) {
+            match register(db, id, *static_bytes, defs, font_data) {
                 Ok(face) => {
                     push(keys, face.key.clone());
                     face.into_outcome()
@@ -476,8 +515,27 @@ mod tests {
             default_proportional: Option<&str>,
             default_monospace: Option<&str>,
         ) -> Output {
+            self.resolve_base(
+                FontDefinitions::default(),
+                stacks,
+                default_proportional,
+                default_monospace,
+            )
+        }
+
+        /// Resolve against a base of the test's choosing: `empty()` is what
+        /// egui's `FontDefinitions::default()` *is* when its `default_fonts`
+        /// feature is off, whatever features this test run was built with.
+        fn resolve_base(
+            &mut self,
+            base: FontDefinitions,
+            stacks: &[FontStack],
+            default_proportional: Option<&str>,
+            default_monospace: Option<&str>,
+        ) -> Output {
             resolve(
                 Input {
+                    base,
                     db: &self.db,
                     stacks,
                     loaded: &self.loaded,
@@ -491,6 +549,22 @@ mod tests {
 
     fn family(defs: &FontDefinitions, name: &str) -> Vec<String> {
         defs.families[&FontFamily::Name(name.into())].clone()
+    }
+
+    /// epaint's two panics, as an assertion: a family that names a font with
+    /// no `font_data` ("No font data found for .."), and a family that is used
+    /// but not bound ("is not bound to any fonts"). An *empty* family is fine.
+    fn assert_epaint_would_accept(defs: &FontDefinitions) {
+        for (family, list) in &defs.families {
+            for key in list {
+                assert!(
+                    defs.font_data.contains_key(key),
+                    "{family:?} names {key:?}, which has no font data"
+                );
+            }
+        }
+        assert!(defs.families.contains_key(&FontFamily::Proportional));
+        assert!(defs.families.contains_key(&FontFamily::Monospace));
     }
 
     const HACK: &str = "Hack-Regular#0";
@@ -557,7 +631,9 @@ mod tests {
             family(&out.definitions, "code")
         );
         // The monospace default gets egui's monospace tail: Hack first.
+        #[cfg(feature = "default_fonts")]
         assert_eq!(family(&out.definitions, "code")[1], "Hack");
+        assert_epaint_would_accept(&out.definitions);
     }
 
     #[test]
@@ -662,6 +738,9 @@ mod tests {
         assert_eq!(family(&out.definitions, "web")[0], HACK);
     }
 
+    /// Only with egui's fonts in the build; the empty-base test below is the
+    /// other half of this one.
+    #[cfg(feature = "default_fonts")]
     #[test]
     fn generic_monospace_puts_hack_in_even_without_a_monospace_face() {
         let mut fx = Fixture::new();
@@ -678,6 +757,48 @@ mod tests {
                 family: "Hack".into()
             }
         );
+    }
+
+    /// egui built with `default_fonts` off: `FontDefinitions::default()` is
+    /// `empty()`, so there is no floor under a generic and no tail behind a
+    /// chain. Nothing may dangle and no family may go unbound, whatever this
+    /// test run's own features are.
+    #[test]
+    fn an_empty_base_resolves_to_empty_families_and_never_a_dangling_key() {
+        let mut fx = Fixture::new();
+        let stacks = [
+            FontStack::new(
+                "code",
+                [
+                    FontSource::Bundled(HACK_REGULAR),
+                    FontSource::Generic(super::super::Generic::Monospace),
+                ],
+            ),
+            FontStack::new(
+                "nothing",
+                [
+                    FontSource::System("This Font Does Not Exist".into()),
+                    FontSource::Generic(super::super::Generic::SansSerif),
+                ],
+            ),
+        ];
+        let out = fx.resolve_base(
+            FontDefinitions::empty(),
+            &stacks,
+            Some("nothing"),
+            Some("code"),
+        );
+        assert_epaint_would_accept(&out.definitions);
+        // The bundled face and nothing else: no built-in behind the generic.
+        assert_eq!(family(&out.definitions, "code"), [HACK]);
+        assert_eq!(out.report[0].entries[1].1, Outcome::Missing);
+        // And a chain that found nothing is an empty family, which draws no
+        // glyphs. Invisible text, not a panic.
+        assert!(family(&out.definitions, "nothing").is_empty());
+        assert_eq!(out.report[1].entries[0].1, Outcome::Missing);
+        assert_eq!(out.report[1].entries[1].1, Outcome::Missing);
+        assert!(out.definitions.families[&FontFamily::Proportional].is_empty());
+        assert_eq!(out.definitions.families[&FontFamily::Monospace], [HACK]);
     }
 
     #[test]

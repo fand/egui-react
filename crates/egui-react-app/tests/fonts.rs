@@ -72,19 +72,27 @@ fn a_bundled_stack_is_a_family_egui_can_use() {
         .fonts(|f| f.definitions().families.get(&code).cloned())
         .expect("the stack is registered under its name");
     assert_eq!(list[0], "Hack-Regular#0", "{list:?}");
-    assert!(list.contains(&String::from("Ubuntu-Light")), "{list:?}");
-    // `FontsView::has_glyphs` is not usable as the check here: epaint answers
-    // "no" for any character owned by the same face that supplies the
-    // replacement glyph, and Hack has U+FFFD, so `has_glyphs("hello")` is
-    // false for every Hack-first family (egui's own `Monospace` included).
-    // Glyph widths tell the faces apart instead: Hack's `W` is Hack's `W`.
-    let width = |family: FontFamily| {
-        harness
-            .ctx
-            .fonts_mut(|f| f.glyph_width(&egui::FontId::new(14.0, family), 'W'))
-    };
-    assert_eq!(width(code.clone()), width(FontFamily::Monospace));
-    assert_ne!(width(code.clone()), width(FontFamily::Proportional));
+    // The rest of the list, and the two default families it is compared
+    // against, are egui's own fonts: nothing to check when they are not in the
+    // build (`default-features = false`), where every family here is the
+    // bundled Hack alone.
+    #[cfg(feature = "default_fonts")]
+    {
+        assert!(list.contains(&String::from("Ubuntu-Light")), "{list:?}");
+        // `FontsView::has_glyphs` is not usable as the check here: epaint
+        // answers "no" for any character owned by the same face that supplies
+        // the replacement glyph, and Hack has U+FFFD, so `has_glyphs("hello")`
+        // is false for every Hack-first family (egui's own `Monospace`
+        // included). Glyph widths tell the faces apart instead: Hack's `W` is
+        // Hack's `W`.
+        let width = |family: FontFamily| {
+            harness
+                .ctx
+                .fonts_mut(|f| f.glyph_width(&egui::FontId::new(14.0, family), 'W'))
+        };
+        assert_eq!(width(code.clone()), width(FontFamily::Monospace));
+        assert_ne!(width(code.clone()), width(FontFamily::Proportional));
+    }
 
     // The report says the same thing.
     let report = fonts.report();

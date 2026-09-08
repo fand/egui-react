@@ -72,10 +72,11 @@ use resolve::{Input, Loaded, SourceKey};
 /// fontdb answers a generic with one configured family name: fontconfig's
 /// `<alias>` entries on Linux, "Arial" / "Times New Roman" / "Courier New"
 /// and friends elsewhere. Whatever it answers, the resolver puts egui's own
-/// font for that generic behind it (Ubuntu-Light, or Hack for `Monospace`),
-/// so a generic never resolves to nothing. On macOS and Windows these
-/// defaults are not CJK-aware: name the CJK fonts before the generic, as CSS
-/// is written in practice.
+/// font for that generic behind it (Ubuntu-Light, or Hack for `Monospace`), so
+/// a generic never resolves to nothing — unless the app took this crate with
+/// `default-features = false`, which leaves egui's fonts out of the build.
+/// On macOS and Windows these defaults are not CJK-aware: name the CJK fonts
+/// before the generic, as CSS is written in practice.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Generic {
     SansSerif,
@@ -97,10 +98,12 @@ impl Generic {
         }
     }
 
-    /// The egui built-in font that always stands behind this generic.
+    /// The egui built-in font that stands behind this generic.
     ///
     /// These are the keys `FontDefinitions::default()` registers, so they are
-    /// present on every target without loading anything.
+    /// present on every target without loading anything — as long as egui's
+    /// fonts are in the build. With `default_fonts` off there is nothing under
+    /// the key and the resolver skips it, so a generic can resolve to nothing.
     pub(crate) fn builtin(self) -> &'static str {
         match self {
             Self::Monospace => "Hack",
@@ -230,7 +233,9 @@ pub enum Outcome {
     Loaded { key: String, family: String },
     /// A `Url` whose bytes have not arrived yet.
     Pending,
-    /// A `System` name no face in the database has.
+    /// Nothing to load: a `System` name no face in the database has, or a
+    /// `Generic` neither the device nor egui could answer (the latter only
+    /// when egui's fonts are out of the build; see [`Fonts`]).
     Missing,
     /// A face was found but rejected: skrifa cannot parse it, or epaint could
     /// not draw it. The message says which.
@@ -349,6 +354,21 @@ fn unquote(s: &str) -> Option<&str> {
 /// static for [`Fonts::report`] and [`Fonts::request_local_fonts`]. Every
 /// method locks the same mutex, and a fetch completing on another thread
 /// takes the same lock, which is why the state is not thread-local.
+///
+/// # Without egui's own fonts
+///
+/// `egui-react-app`'s `default_fonts` feature is on by default and is what
+/// puts egui's four embedded faces (1.4 MB) in the build. Take the crate with
+/// `default-features = false` and they are gone — and with them the floor
+/// under every [`FontSource::Generic`] and the tail behind every chain, so a
+/// chain with nothing else loaded resolves to an *empty* family. That is not a
+/// panic: epaint lays the text out with zero glyphs, which draws nothing at
+/// all. Such an app has to bring its own bytes and get them in early: give
+/// every stack a [`FontSource::Bundled`] face (it is registered by the first
+/// [`Fonts::apply`], with no fetch to wait for), or, while a `Url` or a Local
+/// Font Access grant is still on its way, draw a text-free loading screen for
+/// as long as [`Fonts::pending`] is true. [`Fonts::report`] says which entries
+/// have landed.
 #[derive(Clone, Default)]
 pub struct Fonts(Arc<Mutex<Inner>>);
 
@@ -540,6 +560,7 @@ impl Inner {
     fn reapply(&mut self) {
         let output = resolve::resolve(
             Input {
+                base: egui::FontDefinitions::default(),
                 db: &self.db,
                 stacks: &self.stacks,
                 loaded: &self.loaded,
