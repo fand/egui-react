@@ -322,6 +322,46 @@ fn shrinking(cx: &mut Cx<'_, '_>, rects: &Rects) {
     );
 }
 
+/// A hidden child holding a leaf and a `<Text>`: both paths draw the leaf into
+/// an invisible `Ui` at the row's corner and register the text at
+/// `Rect::NOTHING`.
+fn hidden_in_row(cx: &mut Cx<'_, '_>, rects: &Rects) {
+    let style = row().gap(4.0);
+    view(
+        cx,
+        "root",
+        &style,
+        &ItemStyle::default().w("100%").h("100%"),
+        |cx| {
+            leaf(
+                cx,
+                rects,
+                "before",
+                &ItemStyle::default(),
+                egui::vec2(20.0, 10.0),
+            );
+            let gone = ContainerStyle::default().display("none");
+            view(cx, "gone", &gone, &ItemStyle::default().w(50.0), |cx| {
+                leaf(
+                    cx,
+                    rects,
+                    "hidden leaf",
+                    &ItemStyle::default(),
+                    egui::vec2(10.0, 10.0),
+                );
+                text(cx, rects, "hidden text", &ItemStyle::default(), "gone");
+            });
+            leaf(
+                cx,
+                rects,
+                "after",
+                &ItemStyle::default(),
+                egui::vec2(20.0, 10.0),
+            );
+        },
+    );
+}
+
 /// A `display: none` child, which takes no space and gets no box.
 fn display_none(cx: &mut Cx<'_, '_>, rects: &Rects) {
     let style = row().gap(4.0);
@@ -598,6 +638,7 @@ const CORPUS: &[(&str, Case)] = &[
     ("align_variants", align_variants),
     ("shrinking", shrinking),
     ("display_none", display_none),
+    ("hidden_in_row", hidden_in_row),
     ("min_max_clamping", min_max_clamping),
     ("column_direction", column_direction),
     ("row_reverse", row_reverse),
@@ -685,6 +726,15 @@ fn draw_with(case: Case, taffy: bool, expect_lite: bool) -> Vec<(&'static str, e
     last
 }
 
+/// Do the two paths agree on one node's rect?
+///
+/// Plain equality, except that a hidden `<Text>` registers `Rect::NOTHING`,
+/// and translating that by the row's origin gives NaN, which is not equal to
+/// itself. Two rects that are both nothing are the same answer.
+fn same_rect(a: &egui::Rect, b: &egui::Rect) -> bool {
+    a == b || (a.any_nan() && b.any_nan())
+}
+
 #[test]
 fn the_lite_path_and_taffy_agree_on_every_corpus_row() {
     let mut failures = Vec::new();
@@ -700,7 +750,7 @@ fn the_lite_path_and_taffy_agree_on_every_corpus_row() {
             continue;
         }
         for ((node, lite), (_, taffy)) in lite.iter().zip(taffy.iter()) {
-            if lite != taffy {
+            if !same_rect(lite, taffy) {
                 failures.push(format!("{name}/{node}: lite {lite:?} != taffy {taffy:?}"));
             }
         }

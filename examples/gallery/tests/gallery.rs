@@ -295,8 +295,8 @@ fn a_phone_shows_one_pane_at_a_time() {
     harness.run();
     harness.run();
 
-    // The code pane, the full width of the window, and the example is gone
-    // with its hooks.
+    // The code pane, the full width of the window. The example is hidden, so
+    // nothing it drew is in the tree any more, though it is still running.
     assert!(harness.query_by_label("no notes").is_none());
     let link = harness.get_by_label("source on GitHub").rect();
     assert!(
@@ -318,6 +318,57 @@ fn a_phone_shows_one_pane_at_a_time() {
     harness.run();
     assert!(harness.query_by_label("no notes").is_some());
     assert!(harness.query_by_label("source on GitHub").is_none());
+}
+
+/// A hidden example keeps running, so its state is still there when the code
+/// pane is closed again.
+///
+/// `display="none"` rather than an unmount: what a tab is expected to do.
+#[test]
+fn the_example_keeps_its_state_across_a_trip_to_the_code_pane() {
+    let mut harness = Harness::builder().with_size(PHONE).build_ui_state(
+        |ui, store: &mut Store| {
+            store.begin_pass(ui.ctx());
+            {
+                let store: &Store = store;
+                let mut cx = Cx::new(store, ui, root_id());
+                let view = rsx! { <App start="counter"/> };
+                cx.root_container(root_id(), root_style(), |cx| view.show(cx));
+            }
+            store.end_pass();
+        },
+        Store::new(),
+    );
+    harness.run();
+
+    harness.get_by_label("+").click();
+    harness.run();
+    harness.get_by_label("+").click();
+    harness.run();
+    assert!(
+        harness.query_by_label("2").is_some(),
+        "the count should be 2"
+    );
+
+    harness.get_by_label("show code").click();
+    harness.run();
+    harness.run();
+    assert!(
+        harness.query_by_label("2").is_none(),
+        "the example is hidden"
+    );
+
+    harness.get_by_label("show example").click();
+    harness.run();
+    harness.run();
+    assert!(
+        harness.query_by_label("2").is_some(),
+        "the counter should have kept its state"
+    );
+    assert!(
+        harness.query_by_label("0").is_none(),
+        "the counter should not have started over"
+    );
 }
 
 /// The menu slides down over the page, lists every example and every tag,
