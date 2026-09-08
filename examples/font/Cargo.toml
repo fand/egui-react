@@ -1,0 +1,28 @@
+[package]
+name = "font"
+description = "egui-react example: font"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "font"
+path = "src/lib.rs"
+
+[[bin]]
+name = "font"
+path = "src/main.rs"
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+egui-react.workspace = true
+egui-react-app.workspace = true
+egui-react-elements.workspace = true
+example-meta.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true

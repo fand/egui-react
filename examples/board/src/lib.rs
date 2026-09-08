@@ -34,7 +34,7 @@
 //! it was clicked. A card has never heard of a board message and could be used
 //! somewhere else. What the whole tree shares comes down through the context:
 //! the theme, the drag in progress, and the `Dispatch` a column turns those
-//! events into messages with — which is what saves the four `<Column>`s in the
+//! events into messages with — which is what saves the three `<Column>`s in the
 //! loop from carrying four callbacks each.
 //!
 //! `plain.rs` is the same board in plain egui, and the two are driven by the
@@ -73,14 +73,7 @@ pub const META: Meta = Meta {
         "use_context",
         "#[hook]",
     ],
-    elements: &[
-        "View",
-        "Text",
-        "TextEdit",
-        "ScrollArea",
-        "Frame",
-        "Separator",
-    ],
+    elements: &["View", "Text", "TextEdit", "ScrollArea", "Separator"],
     source: include_str!("lib.rs"),
     plain: Some(include_str!("plain.rs")),
 };
@@ -466,15 +459,15 @@ fn Column(
                         <Text mt={CARD_GAP}>"nothing here"</Text>
                     }
 
-                    // The new card, in the same frame the saved ones wear, so
+                    // The new card, in the same box the saved ones wear, so
                     // that what is being typed looks like what it will become.
                     if adding_now {
-                        <Frame
+                        <View
                             w="100%"
                             mt={CARD_GAP}
-                            inner_margin={6.0}
-                            corner_radius={4.0}
-                            fill={theme.card()}
+                            p={6}
+                            bg={theme.card()}
+                            radius={4.0}
                         >
                             <TitleEdit
                                 w="100%"
@@ -488,10 +481,10 @@ fn Column(
                                 }}
                                 on_cancel={|| *adding = false}
                             />
-                        </Frame>
+                        </View>
                     }
 
-                    // The new card's frame above sits before this gap, so it
+                    // The new card's box above sits before this gap, so it
                     // is only ever lifted by the gaps between the cards, and
                     // that is a drag started while typing: not worth a leaf.
                     <Placeholder
@@ -537,12 +530,16 @@ fn Column(
 /// exist, nothing has to make room for them when a card is added, and nothing
 /// has to clean up after them when one is deleted.
 ///
-/// The whole card is one `cx.leaf`, which is what `<Frame>` would have been
-/// anyway (see `containers.rs`) plus the one thing an element cannot hand
-/// back: the rectangle. Three things want it — the card is the drag handle,
-/// the card is the drop zone, and the card is what the cursor changes over —
-/// and none of them can be told where the card is by a `<View>`, which returns
-/// no `Response` (plan.md section 8.4).
+/// The whole card is one `cx.leaf`, which is what a `<View bg p radius>` would
+/// have been anyway, plus the one thing an element cannot hand back: the
+/// rectangle. Three things want it — the card is the drag handle, the card is
+/// the drop zone, and the card is what the cursor changes over — and none of
+/// them can be told where the card is by a `<View>`, which returns no
+/// `Response` (plan.md section 8.4).
+///
+/// The `egui::Frame` inside the leaf stays for a second reason: the lift
+/// transform has to move the background with the content, and only what is
+/// drawn in the leaf's own `Ui` is under that transform.
 #[component]
 fn Card(
     cx: &mut Cx,

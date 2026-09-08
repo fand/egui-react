@@ -1,5 +1,6 @@
-//! Plan 1.8: `Length` and the layout enums parse the CSS-ish spellings `rsx!`
-//! will hand them, and the margin/padding shorthands resolve most-specific-wins.
+//! Plan 1.8 / plan 1.2: `Length` and the layout enums parse the CSS-ish
+//! spellings `rsx!` will hand them, the margin/padding shorthands resolve
+//! most-specific-wins, and of the paint attributes only `border` reaches taffy.
 
 use egui_react::prelude::*;
 use egui_react::taffy;
@@ -113,4 +114,36 @@ fn grid_columns_are_only_built_for_display_grid() {
         .cols(3)
         .merge(&ItemStyle::default());
     assert!(flex.grid_template_columns.is_empty());
+}
+
+/// Plan 1.2: the layout reserves the stroke's width, so the children start
+/// inside it. Everything else `PaintStyle` holds is painted, not laid out.
+#[test]
+fn a_border_reaches_taffy_and_the_rest_of_the_paint_does_not() {
+    let style = ItemStyle::default()
+        .border(egui::Stroke::new(2.0, egui::Color32::BLACK))
+        .to_taffy();
+    let two = taffy::LengthPercentage::length(2.0);
+    assert_eq!(style.border.top, two);
+    assert_eq!(style.border.right, two);
+    assert_eq!(style.border.bottom, two);
+    assert_eq!(style.border.left, two);
+
+    let painted = ItemStyle::default()
+        .bg(egui::Color32::RED)
+        .radius(4.0)
+        .shadow(true)
+        .custom_shadow(egui::Shadow::NONE)
+        .opacity(0.5)
+        .to_taffy();
+    assert_eq!(painted, ItemStyle::default().to_taffy());
+}
+
+#[test]
+fn paint_style_knows_when_it_paints_nothing() {
+    assert!(PaintStyle::default().is_none());
+    // A radius on its own rounds nothing, so it still paints nothing.
+    assert!(PaintStyle::default().radius(4.0).is_none());
+    assert!(!PaintStyle::default().bg(egui::Color32::RED).is_none());
+    assert!(!PaintStyle::default().opacity(0.5).is_none());
 }

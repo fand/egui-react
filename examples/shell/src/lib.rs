@@ -33,7 +33,6 @@ pub const META: Meta = Meta {
         "CentralPanel",
         "Window",
         "Collapsing",
-        "Frame",
         "ScrollArea",
         "View",
         "Text",
@@ -178,13 +177,13 @@ pub fn App(cx: &mut Cx) {
             default_pos={egui::pos2(560.0, 300.0)}
             default_size={egui::vec2(220.0, 90.0)}
         >
-            <Frame inner_margin={4.0}>
+            <View p={4}>
                 <View direction="column" gap={4}>
                     <Text strong>{path.as_str()}</Text>
                     <Text>{format!("{} lines", text.lines().count())}</Text>
                     <Text>{format!("{} characters", text.chars().count())}</Text>
                 </View>
-            </Frame>
+            </View>
         </Window>
     }
 }

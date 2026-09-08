@@ -1,5 +1,5 @@
 //! Core of egui-react: `View`, `Cx`, `Store`, `State`, `Handle`, `Dispatch`,
-//! the hooks and the layout attribute types.
+//! the hooks and the layout and paint attribute types.
 //!
 //! `rsx!`, `#[component]` and `#[hook]` come from `egui-react-macros` and are
 //! re-exported here, so `use egui_react::prelude::*` is the only import a
@@ -13,6 +13,7 @@ mod events;
 mod future;
 mod hooks;
 pub mod layout;
+pub mod paint;
 mod state;
 mod store;
 mod view;
@@ -23,10 +24,12 @@ pub use dispatch::{Dispatch, use_reducer};
 pub use events::{Arity0, Arity1, Emitter, EventSink, Handler};
 pub use future::{SpawnFuture, spawn, use_future};
 pub use hooks::{
-    FnCleanup, IntoCleanup, NoCleanup, use_effect, use_handle, use_memo, use_persisted, use_state,
+    FnCleanup, IntoCleanup, NoCleanup, use_animate, use_animate_with, use_effect, use_handle,
+    use_memo, use_persisted, use_state,
 };
 pub use layout::{
     Align, AlignSelf, ContainerStyle, Direction, Display, Gap, ItemStyle, Justify, Length,
+    PaintStyle,
 };
 pub use state::{Handle, State};
 pub use store::{Collision, Store};
@@ -97,9 +100,12 @@ pub mod prelude {
     pub use crate::dispatch::{Dispatch, use_reducer};
     pub use crate::events::{Emitter, EventSink, Handler};
     pub use crate::future::{spawn, use_future};
-    pub use crate::hooks::{use_effect, use_handle, use_memo, use_persisted, use_state};
+    pub use crate::hooks::{
+        use_animate, use_animate_with, use_effect, use_handle, use_memo, use_persisted, use_state,
+    };
     pub use crate::layout::{
         Align, AlignSelf, ContainerStyle, Direction, Display, Gap, ItemStyle, Justify, Length,
+        PaintStyle,
     };
     pub use crate::state::{Handle, State};
     pub use crate::store::{Collision, Store};

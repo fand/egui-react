@@ -17,7 +17,10 @@
 //!
 //! Every element accepts the layout attributes of
 //! [`ItemStyle`](egui_react::ItemStyle) through a `style` prop, which `rsx!`
-//! fills in from `w=` / `grow=` / `p=` and friends.
+//! fills in from `w=` / `grow=` / `p=` and friends. The same prop carries the
+//! [`PaintStyle`](egui_react::PaintStyle) — `bg` `border` `radius` `shadow`
+//! `custom_shadow` `opacity` — so any element can be a painted box, and the
+//! engine paints it around whatever the element draws.
 
 pub mod canvas;
 pub mod containers;
@@ -33,8 +36,8 @@ pub mod widgets;
 pub mod prelude {
     pub use crate::canvas::{Canvas, CanvasEvent};
     pub use crate::containers::{
-        CentralPanel, Collapsing, Frame, Grid, Horizontal, Panel, Row, ScrollArea, Side, Vertical,
-        Window,
+        Anchor, CentralPanel, Collapsing, Frame, Grid, Horizontal, Order, Overlay, Panel, Row,
+        ScrollArea, Side, Vertical, Window,
     };
     pub use crate::suspense::Suspense;
     pub use crate::view::{Text, View};

@@ -2,7 +2,7 @@
 
 mod control_flow;
 
-use proc_macro2::TokenStream;
+use proc_macro2::{Span, TokenStream};
 use quote::{format_ident, quote, quote_spanned};
 use rstml::node::{KeyedAttributeValue, Node, NodeAttribute, NodeElement, NodeName};
 use rstml::{Parser, ParserConfig};
@@ -11,7 +11,10 @@ use syn::spanned::Spanned;
 use crate::util::{error_at, event_variant_name, to_compile_error, unwrap_braced};
 use control_flow::{ControlFlow, ElseBranch, IfNode};
 
-/// Layout attributes every element accepts, forwarded to `ItemStyle`.
+/// Layout and paint attributes every element accepts, forwarded to `ItemStyle`.
+///
+/// The last six are the `PaintStyle` shorthands; `ItemStyle` forwards them, so
+/// they are one chained setter like the rest.
 const LAYOUT_ATTRS: &[&str] = &[
     "w",
     "h",
@@ -39,6 +42,12 @@ const LAYOUT_ATTRS: &[&str] = &[
     "pl",
     "col_span",
     "row_span",
+    "bg",
+    "border",
+    "radius",
+    "shadow",
+    "custom_shadow",
+    "opacity",
 ];
 
 pub(crate) fn expand(input: TokenStream) -> TokenStream {
@@ -190,9 +199,17 @@ impl Expander {
             (::core::file!(), ::core::line!(), ::core::column!(), #index #key)
         };
 
+        // `cx` with the span of the `rsx!` call, not of the element: the
+        // closure that binds it (`expand`) is spelled with that span, and an
+        // element handed in through a `macro_rules!` (`item!(<Leaf/>)`) has
+        // the span of the user's call site, which under macro hygiene names
+        // whatever `cx` is in scope *there* — the enclosing closure's, or the
+        // component's own argument — instead of the closure it sits in.
+        let cx = syn::Ident::new("cx", Span::call_site());
+
         quote_spanned! { span =>
             ::egui_react::__private::enter_scope(
-                cx,
+                #cx,
                 #source,
                 ::egui_react::props_builder(&#path)
                     #(#setters)*

@@ -36,6 +36,7 @@ counter = { path = "../counter" }
 custom-hook = { path = "../custom-hook" }
 escape-hatch = { path = "../escape-hatch" }
 fetch = { path = "../fetch" }
+font = { path = "../font" }
 form = { path = "../form" }
 layout = { path = "../layout" }
 list-10k = { path = "../list-10k" }
@@ -43,6 +44,7 @@ patch = { path = "../patch" }
 shader = { path = "../shader" }
 showcase = { path = "../showcase" }
 spreadsheet = { path = "../spreadsheet" }
+styles = { path = "../styles" }
 theme = { path = "../theme" }
 todo = { path = "../todo" }
 

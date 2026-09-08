@@ -6,8 +6,11 @@
 //! (skip the discard when the layout did not move; compute the layout before
 //! drawing when only the root rect resized) built in. What is gone is the
 //! per-node egui `Ui`: a node here is a rect, not a `Ui`, and only a leaf gets
-//! a `Ui` of its own. egui-react draws no backgrounds and no interactive
-//! containers on a `<View>`, so nothing is lost and a row costs three `Ui`s
+//! a `Ui` of its own. A node's look is not a `Ui` either: the engine paints
+//! what its [`PaintStyle`] says — a shadow, a background, a border — straight
+//! onto the tree's own `Ui`, into shape slots claimed in draw order and filled
+//! once the layout for this frame is final (see [`Tree::paint_boxes`]). So a
+//! `<View>` with a background is still a rect, and a row costs three `Ui`s
 //! instead of nine.
 //!
 //! A `<Text>` does not even cost that: its galley is laid out inside the taffy
@@ -21,8 +24,9 @@
 //!
 //! There is a second, smaller path beside this one: [`lite`], which lays a
 //! `<VirtualList>` row out with a flex solver of its own instead of a taffy
-//! tree. It reuses this module's measure function, its galley cache and its
-//! `<Text>` painting, so the two agree on everything but who solves the boxes.
+//! tree. It reuses this module's measure function, its per pass galley reuse
+//! and its `<Text>` painting, so the two agree on everything but who solves the
+//! boxes.
 
 pub(crate) mod lite;
 
@@ -32,10 +36,12 @@ use std::collections::hash_map::Entry;
 use std::rc::Rc;
 use std::sync::Arc;
 
+use egui::layers::ShapeIdx;
 use egui::text::LayoutJob;
-use egui::{Galley, Pos2, Rect, UiBuilder, Vec2, Vec2b};
+use egui::{Galley, Pos2, Rect, Shape, UiBuilder, Vec2, Vec2b};
 use taffy::{AvailableSpace, Layout, NodeId, Size, TaffyTree, TraversePartialTree as _};
 
+use crate::paint::PaintStyle;
 use crate::store::Store;
 
 /// What a leaf reported about its size the last time it was drawn.
@@ -123,12 +129,24 @@ enum NodeCtx {
     Text(TextCtx),
 }
 
-/// A `<Text>` node: the job to lay out, and the galley it last produced.
+/// A `<Text>` node: the job to lay out, and the galley of the pass being drawn.
 ///
 /// The galley is built inside the taffy measure function, so a new `<Text>`
 /// needs no invisible sizing pass: taffy asks for its size and gets the real
 /// one in the same pass it was added. The paint step then reuses the same
-/// galley from the cache below.
+/// galley.
+///
+/// What survives between passes is the [`LayoutJob`], which depends on nothing
+/// but the text and the style. The galley does not: it holds texture
+/// coordinates into the glyph atlas of the `Fonts` that laid it out, and egui
+/// throws that `Fonts` away and builds a new one with a new atlas after
+/// `set_fonts`, after the text options changed (`Visuals::dark` and
+/// `Visuals::light` rasterize glyphs differently) and when the atlas gets full,
+/// with no way to ask whether it just did. So the galley is only ever reused
+/// within one pass, and across passes it comes from epaint's own `GalleyCache`,
+/// which lives inside `Fonts` and is rebuilt with the atlas: a rebuilt atlas
+/// can never meet a stale galley. The cost is a `LayoutJob` clone, a hash and a
+/// lookup per `<Text>` per frame — what `egui::Label` pays.
 struct TextCtx {
     /// The layout job [`egui::Label`] would have built in a `Ui` of this node,
     /// with `wrap.max_width` left for each layout to fill in.
@@ -138,17 +156,23 @@ struct TextCtx {
     hash: u64,
     /// Wrap to the width the node is given, or run on (`Extend`)?
     wrap: bool,
-    /// The last galley, with the wrap width and the pixels per point it was
-    /// laid out for, both as bits so they compare exactly.
-    galley: Option<(u32, u32, Arc<Galley>)>,
+    /// This pass's galley: the wrap width and the pixels per point it was laid
+    /// out for (both as bits, so they compare exactly), the pass it was laid
+    /// out in, and the galley. Reused within the pass — measure to paint, and
+    /// on the placed path the widget rect to the paint — and never past it.
+    galley: Option<(u32, u32, u64, Arc<Galley>)>,
 }
 
 impl TextCtx {
-    /// The galley for `wrap_width`, laid out only if the cache does not have it.
+    /// The galley for `wrap_width`, laid out again unless this pass already did.
     fn galley(&mut self, fonts: Fonts<'_>, wrap_width: f32) -> Arc<Galley> {
-        let key = (wrap_width.to_bits(), fonts.pixels_per_point.to_bits());
-        if let Some((width, ppp, galley)) = &self.galley
-            && (*width, *ppp) == key
+        let key = (
+            wrap_width.to_bits(),
+            fonts.pixels_per_point.to_bits(),
+            fonts.pass,
+        );
+        if let Some((width, ppp, pass, galley)) = &self.galley
+            && (*width, *ppp, *pass) == key
         {
             return Arc::clone(galley);
         }
@@ -156,22 +180,29 @@ impl TextCtx {
         job.wrap.max_width = wrap_width;
         // `fonts_mut`, as `WidgetText::into_galley_impl` does: a font used for
         // the first time has to be loaded before the text can be laid out.
-        // epaint keeps its own galley cache behind this, so a miss here is not
-        // necessarily a re-layout.
+        // epaint's own galley cache is behind this, so a miss here is a hash
+        // and a lookup, not a re-layout, and it hands back the very same `Arc`
+        // while the `Fonts` that made it lives.
         let galley = fonts.ctx.fonts_mut(|fonts| fonts.layout_job(job));
-        self.galley = Some((key.0, key.1, Arc::clone(&galley)));
+        self.galley = Some((key.0, key.1, key.2, Arc::clone(&galley)));
         galley
     }
 }
 
 /// What laying a galley out needs.
 ///
-/// The pixels per point is carried rather than read from the context, because
-/// reading it takes egui's lock and this is on the per node path.
+/// The pixels per point and the pass number are carried rather than read from
+/// the context, because reading them takes egui's lock and this is on the per
+/// node path.
 #[derive(Clone, Copy)]
 struct Fonts<'a> {
     ctx: &'a egui::Context,
     pixels_per_point: f32,
+    /// egui's cumulative pass number, which is what a kept galley is keyed on:
+    /// it is reused within the pass that made it and dropped after. Nothing
+    /// here tries to tell one `Fonts` from the next — epaint's `GalleyCache`
+    /// does that by dying with its atlas.
+    pass: u64,
 }
 
 impl<'a> Fonts<'a> {
@@ -180,6 +211,7 @@ impl<'a> Fonts<'a> {
         Self {
             ctx: ui.ctx(),
             pixels_per_point: ui.pixels_per_point(),
+            pass: ui.ctx().cumulative_pass_nr(),
         }
     }
 }
@@ -194,9 +226,124 @@ impl<'a> Fonts<'a> {
 /// tree of `<View>` and `<Text>` alone be right on its very first frame.
 struct PendingText {
     node: NodeId,
-    idx: egui::layers::ShapeIdx,
+    idx: ShapeIdx,
     color: egui::Color32,
     wrap: bool,
+    /// The `Ui`'s opacity where the slot was claimed.
+    ///
+    /// `Painter::set` applies the painter's opacity when the shape is set, and
+    /// by then the tree's `Ui` is back at whatever it was outside this node. So
+    /// the factor that was in force here is recorded and put back on a painter
+    /// of our own in [`Tree::paint_texts`].
+    opacity: f32,
+}
+
+/// A node's box — shadow, background, border — waiting for the final layout.
+///
+/// The look of a node needs its rect, and a rect is only known once taffy has
+/// solved the frame. So the shapes are not painted where they are declared:
+/// two slots are claimed in draw order, one before the node's children or
+/// widget and one after them, and [`Tree::paint_boxes`] fills both from the
+/// layout of *this* frame. Deferring always, rather than painting a node that
+/// already has a layout right away, is one code path instead of two, and it is
+/// what makes a container that grew around children which stayed put right in
+/// the very pass it grew in.
+/// `N` is how the path names a node: a `NodeId` here, an index on the lite
+/// path, which is the only thing the two do differently.
+pub(super) struct PendingPaint<N> {
+    node: N,
+    /// The slot behind the children: the shadow and the background.
+    bg_idx: ShapeIdx,
+    /// The slot in front of them, claimed only when there is a border.
+    border_idx: Option<ShapeIdx>,
+    paint: PaintStyle,
+    /// The opacity in force inside the node, as for [`PendingText`].
+    opacity: f32,
+}
+
+impl<N> PendingPaint<N> {
+    /// Close the node's slots on `ui` and record what goes in them.
+    fn new(node: N, ui: &mut egui::Ui, paint: PaintStyle, slots: BoxSlots) -> Self {
+        let border_idx = paint
+            .border
+            .is_some()
+            .then(|| ui.painter().add(Shape::Noop));
+        ui.set_opacity(slots.outer_opacity);
+        Self {
+            node,
+            bg_idx: slots.bg_idx,
+            border_idx,
+            paint,
+            opacity: slots.opacity,
+        }
+    }
+
+    /// Put the node's shapes into the slots, now that its box is known.
+    ///
+    /// `painter` is the caller's own clone rather than the `Ui`'s, because
+    /// `Painter::set` applies the painter's opacity as the shape is set and the
+    /// `Ui` is long back at the opacity it had outside this node.
+    fn paint(&self, painter: &mut egui::Painter, rect: Rect, visuals: &egui::Visuals) {
+        painter.set_opacity(self.opacity);
+
+        // One slot holds both, in the order they are drawn.
+        let behind: Vec<Shape> = self
+            .paint
+            .shadow_shape(rect, visuals)
+            .into_iter()
+            .chain(self.paint.bg_shape(rect))
+            .collect();
+        if !behind.is_empty() {
+            painter.set(self.bg_idx, Shape::Vec(behind));
+        }
+
+        if let Some(idx) = self.border_idx
+            && let Some(border) = self.paint.border_shape(rect)
+        {
+            painter.set(idx, border);
+        }
+    }
+}
+
+/// The slot a painted node claimed before it drew, and the opacity around it.
+///
+/// Both layout paths do the same four things around a node that paints: claim
+/// the slot behind it, push its opacity, draw, then claim the slot in front and
+/// put the opacity back. This is that sequence, so that it is written once.
+pub(super) struct BoxSlots {
+    bg_idx: ShapeIdx,
+    /// What `ui`'s opacity was before the node pushed its own.
+    outer_opacity: f32,
+    /// What is in force inside the node, which is what its box is painted with.
+    opacity: f32,
+}
+
+impl BoxSlots {
+    /// Claim the slot behind the node on `ui`, the tree's own `Ui`.
+    ///
+    /// `None` when there is nothing to paint or the node is hidden — a
+    /// `display="none"` node and everything under it claim no slots at all.
+    fn claim(ui: &mut egui::Ui, paint: &PaintStyle, hidden: bool) -> Option<Self> {
+        (!hidden && !paint.is_none()).then(|| Self {
+            bg_idx: ui.painter().add(Shape::Noop),
+            outer_opacity: ui.opacity(),
+            opacity: ui.opacity(),
+        })
+    }
+
+    /// Push the node's opacity onto `ui` and record what is now in force.
+    ///
+    /// `ui` is the tree's own `Ui` for a container and a `<Text>`, which have
+    /// none of their own and whose children inherit it; [`PendingPaint::new`]
+    /// puts it back. For a leaf it is the leaf's own `Ui`, which is where its
+    /// widget draws and which goes away with the node, so there is nothing to
+    /// put back there.
+    fn multiply_opacity(&mut self, ui: &mut egui::Ui, paint: &PaintStyle) {
+        if let Some(opacity) = paint.opacity {
+            ui.multiply_opacity(opacity);
+        }
+        self.opacity = ui.opacity();
+    }
 }
 
 /// One node of a tree, as looked up by its [`egui::Id`].
@@ -232,6 +379,8 @@ pub(crate) struct Tree {
     created_this_frame: bool,
     /// The `<Text>` shapes claimed this frame, waiting for the final layout.
     texts: Vec<PendingText>,
+    /// The box shapes claimed this frame, waiting for the final layout.
+    paints: Vec<PendingPaint<NodeId>>,
     /// The pass number of the last [`Tree::visit`], for the store's sweep.
     last_visited: u64,
 }
@@ -245,6 +394,7 @@ impl Tree {
             last_size: Vec2::ZERO,
             created_this_frame: false,
             texts: Vec::new(),
+            paints: Vec::new(),
             last_visited: 0,
         }
     }
@@ -340,9 +490,9 @@ impl Tree {
         }
     }
 
-    /// Record the text of a `<Text>` node, keeping the cached galley when
-    /// neither the job nor the wrap mode changed. Only writes when it changed,
-    /// because a write marks the node dirty.
+    /// Record the text of a `<Text>` node, keeping what it holds when neither
+    /// the job nor the wrap mode changed. Only writes when it changed, because
+    /// a write marks the node dirty.
     fn set_text(&mut self, node: NodeId, job: Arc<LayoutJob>, hash: u64, wrap: bool) {
         let same = matches!(
             self.taffy.get_node_context(node),
@@ -363,9 +513,9 @@ impl Tree {
         }
     }
 
-    /// The galley of a `<Text>` node at `wrap_width`, from its cache if it is
-    /// there. Only [`Tree::paint_texts`] calls this outside the measure
-    /// function.
+    /// The galley of a `<Text>` node at `wrap_width`, reused if this pass
+    /// already laid it out. Only [`Tree::paint_texts`] calls this outside the
+    /// measure function.
     fn text_galley(
         &mut self,
         node: NodeId,
@@ -383,6 +533,31 @@ impl Tree {
     /// [`TreeCx`] carries the origin down while the frame is drawn, but the
     /// text shapes are filled in afterwards, from the layout as computed.
     fn content_rect_of(&self, node: NodeId, root_min: Pos2) -> Rect {
+        content_rect(
+            self.taffy.layout(node).unwrap(),
+            self.origin_of(node, root_min),
+        )
+    }
+
+    /// Where a node's whole box sits on screen, walking up to the root.
+    ///
+    /// This is what the paint uses, not [`Tree::content_rect_of`]: a background
+    /// covers the node's padding and sits under its border, and the border sits
+    /// in the band the layout reserved for it.
+    fn border_box_of(&self, node: NodeId, root_min: Pos2) -> Rect {
+        let layout = self.taffy.layout(node).unwrap();
+        let origin = self.origin_of(node, root_min);
+        Rect::from_min_size(
+            border_box_min(layout, origin),
+            egui::vec2(layout.size.width, layout.size.height),
+        )
+    }
+
+    /// Where the parent of `node` has its border box, on screen.
+    ///
+    /// [`TreeCx`] carries this down while the frame is drawn, but the deferred
+    /// shapes are filled in afterwards, from the layout as computed.
+    fn origin_of(&self, node: NodeId, root_min: Pos2) -> Pos2 {
         let mut origin = Vec2::ZERO;
         let mut parent = self.taffy.parent(node);
         while let Some(node) = parent {
@@ -390,7 +565,26 @@ impl Tree {
             origin += egui::vec2(location.x, location.y);
             parent = self.taffy.parent(node);
         }
-        content_rect(self.taffy.layout(node).unwrap(), root_min + origin)
+        root_min + origin
+    }
+
+    /// Paint the box of every node that claimed a slot this frame.
+    ///
+    /// Runs after the layout is final, so a node's look is never a frame behind
+    /// its rect — not even on the frame it was created in.
+    fn paint_boxes(&mut self, ui: &egui::Ui, root_min: Pos2) {
+        if self.paints.is_empty() {
+            return;
+        }
+        // A painter of our own, because `Painter::set` applies the painter's
+        // opacity as the shape is set and the `Ui` is long back at the opacity
+        // it had outside these nodes.
+        let mut painter = ui.painter().clone();
+        let visuals = ui.visuals();
+        for pending in std::mem::take(&mut self.paints) {
+            let rect = self.border_box_of(pending.node, root_min);
+            pending.paint(&mut painter, rect, visuals);
+        }
     }
 
     /// Put every `<Text>` claimed this frame into the shape it reserved.
@@ -402,13 +596,15 @@ impl Tree {
             return;
         }
         let fonts = Fonts::of(ui);
-        let painter = ui.painter();
+        // A painter of our own, for the opacity, as in [`Tree::paint_boxes`].
+        let mut painter = ui.painter().clone();
         for pending in std::mem::take(&mut self.texts) {
             let rect = self.content_rect_of(pending.node, root_min);
             let width = wrap_width(&rect, pending.wrap);
             let Some(galley) = self.text_galley(pending.node, fonts, width) else {
                 continue;
             };
+            painter.set_opacity(pending.opacity);
             let pos = galley_pos(&rect, &galley);
             painter.set(
                 pending.idx,
@@ -598,10 +794,14 @@ impl Tree {
                 ),
                 // A widget drew a `Ui` in its whole content rect.
                 Some(NodeCtx::Leaf(_)) => layout_moved(old, new, content_size_matters),
-                // A container paints nothing. Its children are placed relative
-                // to it, so a shift of the container shifts them, and that is
-                // what counts; a container that got wider or narrower around
-                // children that stayed put changes nothing on screen. A row
+                // A container is judged by its location alone. Its children are
+                // placed relative to it, so a shift of the container shifts
+                // them, and that is what counts; a container that got wider or
+                // narrower around children that stayed put changes nothing on
+                // screen. Its own box does not change that: the shadow, the
+                // background and the border are filled in from the layout
+                // computed just above, in this very pass, so they are never a
+                // frame behind the size they are painted at. A row
                 // that shrinks to fit a label that changes every frame is the
                 // usual case. The root included: the space the tree takes in
                 // the surrounding `Ui` is read off its `content_size` after
@@ -780,6 +980,12 @@ pub(crate) struct TreeCx<'u> {
     /// `<Text>` reads this to decide whether it may paint itself right away
     /// (see [`TreeCx::text`]).
     placed: bool,
+    /// Is this position inside a `display="none"` subtree?
+    ///
+    /// Everything under such a node is laid out at zero by taffy, so its
+    /// leaves draw invisible, out of the accessibility tree, and its texts
+    /// register nothing at all.
+    hidden: bool,
     /// How many children have been added under `parent` so far.
     child_index: &'u mut usize,
 }
@@ -793,8 +999,14 @@ impl TreeCx<'_> {
             parent: self.parent,
             origin: self.origin,
             placed: self.placed,
+            hidden: self.hidden,
             child_index: self.child_index,
         }
+    }
+
+    /// Is this position inside a `display="none"` subtree?
+    pub(crate) fn hidden(&self) -> bool {
+        self.hidden
     }
 
     /// The tree's own `Ui`, which is what `cx.ui()` returns in tree mode.
@@ -814,22 +1026,50 @@ impl TreeCx<'_> {
         index
     }
 
+    /// Claim the slot behind a node, if it paints anything.
+    ///
+    /// `hidden` is the *node's* own flag, not this position's: a
+    /// `display="none"` container hides itself as well as its children.
+    fn claim(&mut self, paint: PaintStyle, hidden: bool) -> Option<BoxSlots> {
+        BoxSlots::claim(self.root_ui, &paint, hidden)
+    }
+
+    /// Close a node's slots and hand them to [`Tree::paint_boxes`].
+    fn finish_paint(&mut self, node: NodeId, paint: PaintStyle, slots: BoxSlots) {
+        let pending = PendingPaint::new(node, self.root_ui, paint, slots);
+        self.tree.borrow_mut().paints.push(pending);
+    }
+
     /// Add a container node and build its children inside it.
     ///
-    /// No `Ui` and no widget is created: a `<View>` is a rect, and egui-react
-    /// paints nothing on it.
+    /// No `Ui` and no widget is created: a `<View>` is a rect. What `paint`
+    /// asks for is painted around the children — the shadow and the background
+    /// behind them, the border in front — from the layout of this frame.
     pub(crate) fn container<R>(
         &mut self,
         key: egui::Id,
         style: taffy::Style,
+        paint: PaintStyle,
         f: impl FnOnce(&mut TreeCx<'_>) -> R,
     ) -> R {
         let index = self.next_index();
+        // The node is still added and `f` still runs: keys and child indices
+        // stay stable, so a show after a hide is not a "created" pass, and the
+        // components inside keep their hooks.
+        let hidden = self.hidden || style.display == taffy::Display::None;
         let (node, layout, first_frame) =
             self.tree
                 .borrow_mut()
                 .add_child_node(key, style, Some(self.parent), index);
         let origin = border_box_min(&layout, self.origin);
+
+        // A container has no `Ui` of its own, so its opacity goes on the tree's
+        // `Ui` around the children: every leaf `Ui` is a child of it and
+        // inherits the factor, and so does a tree one of them opens.
+        let mut slots = self.claim(paint, hidden);
+        if let Some(slots) = &mut slots {
+            slots.multiply_opacity(self.root_ui, &paint);
+        }
 
         let mut used = 0usize;
         let inner = {
@@ -839,11 +1079,16 @@ impl TreeCx<'_> {
                 parent: node,
                 origin,
                 placed: self.placed && !first_frame,
+                hidden,
                 child_index: &mut used,
             };
             f(&mut child)
         };
         self.tree.borrow_mut().trim_children(node, used);
+
+        if let Some(slots) = slots {
+            self.finish_paint(node, paint, slots);
+        }
         inner
     }
 
@@ -858,6 +1103,7 @@ impl TreeCx<'_> {
         prefix: egui::Id,
         scope: egui::Id,
         style: taffy::Style,
+        paint: PaintStyle,
         measured: bool,
         f: impl FnOnce(&mut egui::Ui) -> R,
     ) -> R {
@@ -869,20 +1115,56 @@ impl TreeCx<'_> {
             index,
         );
 
+        // Behind the widget, which draws next into a `Ui` of its own.
+        let mut slots = self.claim(paint, self.hidden);
+
         let mut builder = UiBuilder::new()
             .max_rect(content_rect(&layout, self.origin))
             .id_salt(scope.with(index));
-        if first_frame {
+        if first_frame || self.hidden {
             // A node that has never been laid out has a zero rect, so its
             // first draw is a measurement: invisible, and in a sizing pass so
             // that widgets ask for as little space as they can. That is the
             // one reason a frame always needs a second pass, so it is recorded
-            // here rather than wherever a node happens to be created.
+            // here rather than wherever a node happens to be created. A hidden
+            // leaf draws the same way, but nobody waits for its size, so it is
+            // not a reason for a second pass.
             builder = builder.sizing_pass().invisible();
-            self.tree.borrow_mut().created_this_frame = true;
+            if first_frame && !self.hidden {
+                self.tree.borrow_mut().created_this_frame = true;
+            }
         }
         let mut ui = self.root_ui.new_child(builder);
+        // A leaf has a `Ui` of its own, so its opacity goes there: the widget
+        // and any tree it opens inherit it, and the tree's `Ui` is left alone.
+        if let Some(slots) = &mut slots {
+            slots.multiply_opacity(&mut ui, &paint);
+        }
+        if self.hidden {
+            // Every widget `f` registers hangs from the `Ui`'s own id
+            // (`Ui::interact` -> `register_accesskit_parent`), so one hidden
+            // node here hides the whole subtree from assistive technology:
+            // `accesskit_consumer::common_filter` excludes a hidden node with
+            // everything under it. egui registers the widgets whether they are
+            // visible or not (5.8), so this is the one way to keep them out.
+            ui.ctx().accesskit_node_builder(ui.unique_id(), |node| {
+                node.set_role(egui::accesskit::Role::GenericContainer);
+                node.set_hidden();
+            });
+        }
         let inner = f(&mut ui);
+
+        if self.hidden {
+            // taffy lays a `Display::None` subtree out at zero whatever the
+            // measure says, and the measure from the last visible draw is
+            // what the node needs when it comes back.
+            return inner;
+        }
+
+        // In front of the widget.
+        if let Some(slots) = slots {
+            self.finish_paint(node, paint, slots);
+        }
 
         let measure = if measured {
             let min_size = ui.min_size().ceil();
@@ -933,11 +1215,15 @@ impl TreeCx<'_> {
     ///
     /// A non-selectable `<Text>` always takes the second path: it is cheaper,
     /// and it needs nothing from the selection state.
+    // The arguments are `Cx::text`'s own plus the two ids and the two styles
+    // every node here takes; bundling them would only move the list.
+    #[allow(clippy::too_many_arguments)]
     pub(crate) fn text(
         &mut self,
         prefix: egui::Id,
         scope: egui::Id,
         style: taffy::Style,
+        paint: PaintStyle,
         text: egui::WidgetText,
         wrap: bool,
         selectable: Option<bool>,
@@ -952,14 +1238,37 @@ impl TreeCx<'_> {
         let content = content_rect(&layout, self.origin);
 
         let (job, hash) = text_job(self.root_ui, text);
+        if self.hidden {
+            // The galley cache and the node's text survive, so a show costs no
+            // more than a visible frame. Nothing else is registered: no
+            // `WidgetInfo` (so no accesskit node), no selection state, no shape
+            // and no pending text. The rect nothing can hit is what a caller
+            // reading the `Response` sees.
+            self.tree
+                .borrow_mut()
+                .set_text(node, Arc::clone(&job), hash, wrap);
+            return self
+                .root_ui
+                .interact(Rect::NOTHING, scope.with(index), egui::Sense::hover());
+        }
+        // Behind the galley, whichever paint path it takes below. A `<Text>`
+        // has no `Ui` either, so its opacity rides on the tree's `Ui` while the
+        // galley is registered and painted.
+        let mut slots = self.claim(paint, self.hidden);
+        if let Some(slots) = &mut slots {
+            slots.multiply_opacity(self.root_ui, &paint);
+        }
+        let opacity = self.root_ui.opacity();
+
         let fonts = Fonts::of(self.root_ui);
         let galley = {
             let mut tree = self.tree.borrow_mut();
             tree.set_text(node, Arc::clone(&job), hash, wrap);
             // For the widget rect below, and for the immediate paint path. On
             // the deferred path the galley that is painted comes from
-            // `paint_texts`, after the layout is final; in the steady state the
-            // two are the same cache entry.
+            // `paint_texts`, after the layout is final; in the steady state
+            // that is this same galley, kept on the node for the rest of the
+            // pass.
             tree.text_galley(node, fonts, wrap_width(&content, wrap))
         };
 
@@ -1019,14 +1328,21 @@ impl TreeCx<'_> {
                 );
             }
             None => {
-                let idx = self.root_ui.painter().add(egui::Shape::Noop);
+                let idx = self.root_ui.painter().add(Shape::Noop);
                 self.tree.borrow_mut().texts.push(PendingText {
                     node,
                     idx,
                     color,
                     wrap,
+                    opacity,
                 });
             }
+        }
+
+        if let Some(slots) = slots {
+            // In front of the galley, and the tree's `Ui` goes back to the
+            // opacity it had outside this node.
+            self.finish_paint(node, paint, slots);
         }
 
         response
@@ -1126,6 +1442,7 @@ pub(crate) fn show<R>(
     ui: &mut egui::Ui,
     id: egui::Id,
     style: taffy::Style,
+    paint: PaintStyle,
     reserve: Reserve,
     f: impl FnOnce(&mut TreeCx<'_>) -> R,
 ) -> R {
@@ -1173,6 +1490,9 @@ pub(crate) fn show<R>(
     // parent, so it is never reordered, and its key is the tree's own id.
     let (root, root_layout, first_frame) = tree.borrow_mut().add_child_node(id, style, None, 0);
 
+    // A tree opened inside a hidden leaf is hidden from its root.
+    let hidden = store.in_hidden();
+
     let mut used = 0usize;
     let inner = {
         let mut tc = TreeCx {
@@ -1181,9 +1501,23 @@ pub(crate) fn show<R>(
             parent: root,
             origin: border_box_min(&root_layout, root_rect.min),
             placed: !first_frame,
+            hidden,
             child_index: &mut used,
         };
-        f(&mut tc)
+        // The root node's own box works exactly like a container's: a slot
+        // behind everything the tree draws, one in front of it, and the
+        // opacity on the tree's `Ui` in between.
+        let mut slots = tc.claim(paint, hidden);
+        if let Some(slots) = &mut slots {
+            slots.multiply_opacity(tc.root_ui, &paint);
+        }
+
+        let inner = f(&mut tc);
+
+        if let Some(slots) = slots {
+            tc.finish_paint(root, paint, slots);
+        }
+        inner
     };
 
     let taken = {
@@ -1194,8 +1528,9 @@ pub(crate) fn show<R>(
         // same here is one rule instead of two.
         tree.trim_children(root, used);
         tree.finish(root, root_rect, available_space, Fonts::of(&root_ui));
-        // After `finish`, so every galley lands where the layout for *this*
-        // frame puts it rather than where the last one did.
+        // After `finish`, so every box and every galley lands where the layout
+        // for *this* frame puts it rather than where the last one did.
+        tree.paint_boxes(&root_ui, root_rect.min);
         tree.paint_texts(&root_ui, root_rect.min);
         match reserve {
             // The size the caller asked for, not the one the content came to,

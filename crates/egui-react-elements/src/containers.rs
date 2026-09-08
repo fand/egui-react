@@ -4,12 +4,17 @@
 //! and everything inside it is laid out by egui, not by taffy. That is the
 //! documented escape hatch for places where flex layout is not wanted.
 //!
+//! Their look comes from the same `style` prop as everything else: the engine
+//! paints the node's box (`bg` `border` `radius` `shadow` `opacity`) around the
+//! egui container inside it. [`Frame`] is the exception in `Ui` mode, where
+//! there is no node to paint and it builds an `egui::Frame` instead.
+//!
 //! Each of them re-enters with a fresh [`Cx`] around the `Ui` egui handed back.
 //! They carry `cx.layout_id()` over that gap: inside a `<VirtualList>` row it is
 //! the slot's id, and a `<View>` under one of these containers has to key its
 //! taffy tree by the slot like any other, not by the row index in `scope`.
 
-use egui_react::layout::ItemStyle;
+use egui_react::layout::{ItemStyle, Length, root_style};
 use egui_react::prelude::*;
 
 /// Which edge a [`Panel`] is docked to.
@@ -47,6 +52,245 @@ impl From<&str> for Side {
             panic!("egui-react: {s:?} is not a valid Side (expected left, right, top or bottom)")
         })
     }
+}
+
+/// Where an [`Overlay`] is pinned to the window.
+///
+/// Both spellings are accepted: the CSS-ish one (`"bottom-right"`, `"top"`,
+/// `"center"`) and egui's `Align2` order (`"right-bottom"`, `"center-top"`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Anchor {
+    /// The top-left corner.
+    #[default]
+    TopLeft,
+    /// The middle of the top edge.
+    Top,
+    /// The top-right corner.
+    TopRight,
+    /// The middle of the left edge.
+    Left,
+    /// The middle of the window.
+    Center,
+    /// The middle of the right edge.
+    Right,
+    /// The bottom-left corner.
+    BottomLeft,
+    /// The middle of the bottom edge.
+    Bottom,
+    /// The bottom-right corner.
+    BottomRight,
+}
+
+impl Anchor {
+    /// Parse either spelling, returning `None` if unknown.
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim() {
+            "top-left" | "left-top" => Some(Self::TopLeft),
+            "top" | "center-top" => Some(Self::Top),
+            "top-right" | "right-top" => Some(Self::TopRight),
+            "left" | "left-center" => Some(Self::Left),
+            "center" | "center-center" => Some(Self::Center),
+            "right" | "right-center" => Some(Self::Right),
+            "bottom-left" | "left-bottom" => Some(Self::BottomLeft),
+            "bottom" | "center-bottom" => Some(Self::Bottom),
+            "bottom-right" | "right-bottom" => Some(Self::BottomRight),
+            _ => None,
+        }
+    }
+
+    /// The egui alignment this anchor pins to.
+    pub fn to_align2(self) -> egui::Align2 {
+        match self {
+            Self::TopLeft => egui::Align2::LEFT_TOP,
+            Self::Top => egui::Align2::CENTER_TOP,
+            Self::TopRight => egui::Align2::RIGHT_TOP,
+            Self::Left => egui::Align2::LEFT_CENTER,
+            Self::Center => egui::Align2::CENTER_CENTER,
+            Self::Right => egui::Align2::RIGHT_CENTER,
+            Self::BottomLeft => egui::Align2::LEFT_BOTTOM,
+            Self::Bottom => egui::Align2::CENTER_BOTTOM,
+            Self::BottomRight => egui::Align2::RIGHT_BOTTOM,
+        }
+    }
+}
+
+impl From<&str> for Anchor {
+    /// # Panics
+    /// Panics on an unknown spelling.
+    fn from(s: &str) -> Self {
+        Self::parse(s).unwrap_or_else(|| {
+            panic!(
+                "egui-react: {s:?} is not a valid Anchor (expected top-left, top, top-right, \
+                 left, center, right, bottom-left, bottom or bottom-right)"
+            )
+        })
+    }
+}
+
+/// Which layer an [`Overlay`] is drawn in: [`egui::Order`], with `From<&str>`.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Order {
+    /// Behind everything else.
+    Background,
+    /// Above the background, below the windows.
+    Middle,
+    /// Above the windows. The default.
+    #[default]
+    Foreground,
+    /// Above everything, where tooltips live.
+    Tooltip,
+}
+
+impl Order {
+    /// Parse the CSS-ish spelling, returning `None` if unknown.
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim() {
+            "background" => Some(Self::Background),
+            "middle" => Some(Self::Middle),
+            "foreground" => Some(Self::Foreground),
+            "tooltip" => Some(Self::Tooltip),
+            _ => None,
+        }
+    }
+
+    /// The egui order this one names.
+    pub fn to_egui(self) -> egui::Order {
+        match self {
+            Self::Background => egui::Order::Background,
+            Self::Middle => egui::Order::Middle,
+            Self::Foreground => egui::Order::Foreground,
+            Self::Tooltip => egui::Order::Tooltip,
+        }
+    }
+}
+
+impl From<&str> for Order {
+    /// # Panics
+    /// Panics on an unknown spelling.
+    fn from(s: &str) -> Self {
+        Self::parse(s).unwrap_or_else(|| {
+            panic!(
+                "egui-react: {s:?} is not a valid Order (expected background, middle, foreground \
+                 or tooltip)"
+            )
+        })
+    }
+}
+
+/// A floating layer over the app: a sheet, a menu, a corner button.
+///
+/// Like a `<Window>` it is drawn in a layer of its own, so it takes no space
+/// in the surrounding layout and can sit over anything. It has two modes.
+///
+/// **Sized** (`w` and/or `h` given): the size is known before anything is
+/// drawn, so the overlay paints a sheet, takes the presses that land on it,
+/// and roots a taffy tree of its own — a `<View>` inside is laid out against
+/// the sheet, as the app root is against the window. A press on the sheet goes
+/// nowhere: it never reaches the widgets underneath. The sheet is filled with
+/// `fill`, or with the theme's `panel_fill`; `fill={egui::Color32::TRANSPARENT}`
+/// opts out. A `Percent` length is a fraction of the window
+/// (`egui::Context::content_rect`), and an axis that is not given is the
+/// window's whole length on that axis.
+///
+/// **Unsized** (neither given): the overlay is as big as its children, paints
+/// nothing unless `fill` is given, and lets every press it does not want
+/// through. Put a `<View w=..>` inside to lay the children out.
+///
+/// `pos` places the overlay by hand and wins over `anchor`; with neither, egui
+/// opens it in the top-left corner. `offset` moves an anchored overlay off its
+/// corner (negative to come back in from the right or the bottom). `constrain`
+/// (on by default) keeps it inside the window. `top` lifts it above the other
+/// overlays every frame, which is what beats egui's own rule that the area
+/// shown later is on top. Not drawing an `<Overlay>` unmounts its children,
+/// as `open={false}` does for a `<Window>`.
+#[component]
+#[allow(clippy::too_many_arguments)]
+pub fn Overlay(
+    cx: &mut Cx,
+    #[prop(default)] style: ItemStyle,
+    #[prop(into)] anchor: Option<Anchor>,
+    #[prop(default)] offset: (f32, f32),
+    pos: Option<egui::Pos2>,
+    #[prop(default, into)] order: Order,
+    #[prop(default = true)] constrain: bool,
+    #[prop(default)] top: bool,
+    fill: Option<egui::Color32>,
+    children: impl View,
+) {
+    // An `Area` is a layer of its own, so an invisible leaf `Ui` never reaches
+    // it: a hidden one is not drawn at all, and its children unmount as when
+    // `open` is false.
+    if cx.is_hidden() {
+        return;
+    }
+    let (store, scope) = (cx.store, cx.scope_id());
+    let layout = cx.layout_id();
+    let ctx = cx.ctx().clone();
+    let screen = ctx.content_rect();
+
+    // Sized: the sheet is known before anything is drawn, so it can take the
+    // presses and root a tree. `Px` as is, `Percent` of the window, an axis
+    // that is not given is the window's.
+    let sized = style.w.is_some() || style.h.is_some();
+    let resolve = |len: Option<Length>, full: f32| match len {
+        Some(Length::Px(v)) => v,
+        Some(Length::Percent(p)) => p * full,
+        Some(Length::Auto) | None => full,
+    };
+    let sheet_size = egui::vec2(
+        resolve(style.w, screen.width()),
+        resolve(style.h, screen.height()),
+    );
+
+    let mut area = egui::Area::new(scope)
+        .order(order.to_egui())
+        .constrain(constrain)
+        // `Area::new` is movable by default; `anchor` / `fixed_pos` clear it,
+        // a bare overlay has to.
+        .movable(false);
+    match (pos, anchor) {
+        (Some(pos), _) => area = area.fixed_pos(pos),
+        (None, Some(anchor)) => {
+            area = area.anchor(anchor.to_align2(), egui::vec2(offset.0, offset.1));
+        }
+        (None, None) => {}
+    }
+    if sized {
+        // Right on the first frame, before the sheet has been allocated once.
+        area = area.default_size(sheet_size);
+    }
+    if top {
+        // Every frame: egui keeps the areas of an `Order` in first-shown
+        // order and a click brings one forward.
+        ctx.move_to_top(area.layer());
+    }
+    area.show(&ctx, move |ui| {
+        if sized {
+            let sheet = egui::Rect::from_min_size(ui.max_rect().min, sheet_size);
+            let fill = fill.unwrap_or_else(|| ui.visuals().panel_fill);
+            ui.painter().rect_filled(sheet, 0.0, fill);
+            // The whole sheet, before the children: it makes the area the
+            // sheet's size (that is what stops a press reaching the layer
+            // beneath) and a later widget in the same layer is on top of it,
+            // so the children's buttons still get theirs.
+            ui.allocate_rect(sheet, egui::Sense::click());
+            let mut ui = ui.new_child(egui::UiBuilder::new().max_rect(sheet));
+            let mut cx = Cx::new(store, &mut ui, scope);
+            cx.with_layout_id(layout, |cx| {
+                cx.root_container(scope.with("overlay"), root_style(), |cx| children.show(cx));
+            });
+        } else {
+            // The background is painted after the children, into a slot
+            // claimed before them, because the area's rect is what they drew.
+            let background = fill.map(|_| ui.painter().add(egui::Shape::Noop));
+            let mut cx = Cx::new(store, ui, scope);
+            cx.with_layout_id(layout, |cx| children.show(cx));
+            if let (Some(idx), Some(fill)) = (background, fill) {
+                ui.painter()
+                    .set(idx, egui::Shape::rect_filled(ui.min_rect(), 0.0, fill));
+            }
+        }
+    });
 }
 
 /// A scrollable region.
@@ -105,32 +349,61 @@ pub fn Collapsing(
     });
 }
 
-/// A painted frame: background, border and inner margin.
+/// `egui::Frame` itself, as an escape hatch from taffy.
+///
+/// **Inside a tree, use `<View>` with paint.** Every element takes `bg`
+/// `border` `radius` `shadow` `custom_shadow` `opacity` through `style`, and
+/// the engine paints them on the node's own box, so a painted box costs no
+/// element and no `Ui` of its own. This one is for egui-native children: over a
+/// plain `Ui` it builds an `egui::Frame` from the same paint props and shows
+/// them inside it, which is the one thing a `<View>` cannot do there (a plain
+/// `Ui` has no rect to paint until its children have drawn).
+///
+/// The inner margin is `p` in points; a percentage padding needs a layout to
+/// resolve against and is ignored here. Inside a tree this is a `<View>`
+/// spelled with an extra `Ui`: the engine paints the box and the children are
+/// laid out by egui, vertically, as in a `<Vertical>`.
 #[component]
-pub fn Frame(
-    cx: &mut Cx,
-    #[prop(default)] style: ItemStyle,
-    fill: Option<egui::Color32>,
-    stroke: Option<egui::Stroke>,
-    inner_margin: Option<f32>,
-    corner_radius: Option<f32>,
-    children: impl View,
-) {
+pub fn Frame(cx: &mut Cx, #[prop(default)] style: ItemStyle, children: impl View) {
     let (store, scope) = (cx.store, cx.scope_id());
     let layout = cx.layout_id();
+
+    if cx.in_taffy() {
+        // A leaf whose look the engine paints, from the node's rect.
+        cx.leaf(&style, move |ui| {
+            ui.vertical(move |ui| {
+                let mut cx = Cx::new(store, ui, scope);
+                cx.with_layout_id(layout, |cx| children.show(cx));
+            });
+        });
+        return;
+    }
+
+    let paint = style.paint;
+    let padding = style.padding_px();
     cx.leaf(&style, move |ui| {
-        let mut frame = egui::Frame::default();
-        if let Some(fill) = fill {
+        let mut frame = egui::Frame::new();
+        if let Some(fill) = paint.bg {
             frame = frame.fill(fill);
         }
-        if let Some(stroke) = stroke {
+        if let Some(stroke) = paint.border {
             frame = frame.stroke(stroke);
         }
-        if let Some(margin) = inner_margin {
-            frame = frame.inner_margin(margin as i8);
+        if let Some([top, right, bottom, left]) = padding {
+            frame = frame.inner_margin(egui::Margin {
+                left: left as i8,
+                right: right as i8,
+                top: top as i8,
+                bottom: bottom as i8,
+            });
         }
-        if let Some(radius) = corner_radius {
+        if let Some(radius) = paint.radius {
             frame = frame.corner_radius(radius as u8);
+        }
+        if let Some(shadow) = paint.custom_shadow {
+            frame = frame.shadow(shadow);
+        } else if paint.shadow {
+            frame = frame.shadow(ui.visuals().window_shadow);
         }
         frame.show(ui, move |ui| {
             let mut cx = Cx::new(store, ui, scope);
@@ -159,6 +432,12 @@ pub fn Window(
     default_size: Option<egui::Vec2>,
     children: impl View,
 ) {
+    // An `Area` is a layer of its own, so an invisible leaf `Ui` never reaches
+    // it: a hidden one is not drawn at all, and its children unmount as when
+    // `open` is false.
+    if cx.is_hidden() {
+        return;
+    }
     let (store, scope) = (cx.store, cx.scope_id());
     let layout = cx.layout_id();
     let ctx = cx.ctx().clone();
@@ -204,6 +483,12 @@ pub fn Panel(
     #[prop(default = true)] resizable: bool,
     children: impl View,
 ) {
+    // A docked panel draws into the tree's root `Ui`, not into the invisible
+    // leaf `Ui` of a hidden view, so a hidden one is not drawn at all; its
+    // children unmount as when a `<Window>` is closed.
+    if cx.is_hidden() {
+        return;
+    }
     let (store, scope) = (cx.store, cx.scope_id());
     let layout = cx.layout_id();
     let show = move |ui: &mut egui::Ui| {
@@ -238,6 +523,12 @@ pub fn Panel(
 /// Docks in the same `Ui` as [`Panel`], for the same reasons.
 #[component(shares_ui)]
 pub fn CentralPanel(cx: &mut Cx, #[prop(default)] style: ItemStyle, children: impl View) {
+    // A docked panel draws into the tree's root `Ui`, not into the invisible
+    // leaf `Ui` of a hidden view, so a hidden one is not drawn at all; its
+    // children unmount as when a `<Window>` is closed.
+    if cx.is_hidden() {
+        return;
+    }
     let (store, scope) = (cx.store, cx.scope_id());
     let layout = cx.layout_id();
     let show = move |ui: &mut egui::Ui| {

@@ -59,6 +59,15 @@ pub fn View(
 /// style's `interaction.selectable_labels`, which is what a `Label` does. A
 /// `<Text>` drawn for the first time is not selectable until the next frame,
 /// because its place on screen is only known once the layout is computed.
+///
+/// `font` picks the font family: the name of a stack registered with
+/// `egui_react_app::fonts::Fonts` (a `FontFamily::Name`), or `"proportional"`
+/// / `"monospace"` for egui's two built-in families. A name nothing
+/// registered would make egui panic at layout, so it is checked against the
+/// current font definitions first; an unknown name draws with the text
+/// style's own family and logs one warning per name. Only `<Text>` has the
+/// prop: a `<Button>` or `<Checkbox>` label follows `Fonts::default_proportional`,
+/// or is passed as `RichText::new(..).family(..)`.
 #[component]
 #[allow(clippy::too_many_arguments)]
 pub fn Text(
@@ -69,6 +78,7 @@ pub fn Text(
     #[prop(default)] strong: bool,
     #[prop(default)] wrap: bool,
     selectable: Option<bool>,
+    font: Option<&str>,
     children: impl Into<egui::WidgetText>,
 ) {
     let mut text: egui::WidgetText = children.into();
@@ -81,5 +91,64 @@ pub fn Text(
     if strong {
         text = text.strong();
     }
+    if let Some(family) = font.and_then(|name| font_family(cx.ctx(), name)) {
+        text = with_family(text, family);
+    }
     cx.text(&style, text, wrap, selectable);
+}
+
+/// The names `<Text font>` warned about, so each is logged once per
+/// `Context` and not once per frame.
+#[derive(Clone, Default)]
+struct UnknownFonts(std::collections::HashSet<String>);
+
+/// Turn the `font` prop into a family egui is guaranteed to know.
+///
+/// The check is one `BTreeMap` lookup under the fonts lock per `<Text font>`
+/// per pass. It is not cached per pass on purpose: the lookup is a handful of
+/// string compares, far below the cost of the galley it precedes, and a
+/// cache would have to be invalidated when a font source arrives mid-session
+/// and `set_fonts` swaps the definitions.
+fn font_family(ctx: &egui::Context, name: &str) -> Option<egui::FontFamily> {
+    match name {
+        "proportional" => Some(egui::FontFamily::Proportional),
+        "monospace" => Some(egui::FontFamily::Monospace),
+        _ => {
+            let family = egui::FontFamily::Name(name.into());
+            if ctx.fonts(|f| f.definitions().families.contains_key(&family)) {
+                Some(family)
+            } else {
+                warn_unknown_font_once(ctx, name);
+                None
+            }
+        }
+    }
+}
+
+fn warn_unknown_font_once(ctx: &egui::Context, name: &str) {
+    let id = egui::Id::new("egui_react_text_unknown_fonts");
+    let first_time = ctx.data_mut(|d| {
+        d.get_temp_mut_or_default::<UnknownFonts>(id)
+            .0
+            .insert(name.to_owned())
+    });
+    if first_time {
+        log::warn!(
+            "egui-react: <Text font={name:?}> names no registered font family; drawing with the \
+             default. Register it with egui_react_app::fonts::Fonts, or use \"proportional\" / \
+             \"monospace\"."
+        );
+    }
+}
+
+/// Select `family` on the text. A `LayoutJob` or a `Galley` already carries
+/// its fonts per section, so those are left as they are.
+fn with_family(text: egui::WidgetText, family: egui::FontFamily) -> egui::WidgetText {
+    match text {
+        egui::WidgetText::Text(s) => egui::RichText::new(s).family(family).into(),
+        egui::WidgetText::RichText(rich) => {
+            std::sync::Arc::unwrap_or_clone(rich).family(family).into()
+        }
+        other => other,
+    }
 }

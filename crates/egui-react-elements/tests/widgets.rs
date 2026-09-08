@@ -443,3 +443,52 @@ fn an_explicit_row_count_wins() {
         .rect();
     assert!(rect.height() < 80.0, "two rows should be short: {rect:?}",);
 }
+
+#[test]
+fn padding_widens_the_button() {
+    let clicks = Rc::new(std::cell::Cell::new(0u32));
+    let clicks_in_app = Rc::clone(&clicks);
+
+    let mut harness = Harness::new_ui_state(
+        move |ui, store: &mut Store| {
+            let clicks = Rc::clone(&clicks_in_app);
+            run_app(ui, store, move |cx| {
+                rsx! {
+                    <View direction="column">
+                        <Button label="plain">"x"</Button>
+                        <Button label="padded" px={16.0} py={12.0}>"x"</Button>
+                        <Button
+                            label="round"
+                            radius={24.0}
+                            on_click={|| clicks.set(clicks.get() + 1)}
+                        >"x"</Button>
+                    </View>
+                }
+                .show(cx);
+            });
+        },
+        Store::new(),
+    );
+
+    harness.run();
+    let base = harness.ctx.global_style().spacing.button_padding;
+    let plain = harness.get_by_label("plain").rect();
+    let padded = harness.get_by_label("padded").rect();
+
+    // The leaf measure is `ceil`ed, so allow a point either way.
+    let wider = padded.width() - plain.width();
+    let taller = padded.height() - plain.height();
+    assert!(
+        (wider - 2.0 * (16.0 - base.x)).abs() <= 1.0,
+        "padding did not widen the button: {plain:?} {padded:?}",
+    );
+    assert!(
+        (taller - 2.0 * (12.0 - base.y)).abs() <= 1.0,
+        "padding did not heighten the button: {plain:?} {padded:?}",
+    );
+
+    // A rounded button is still a button.
+    harness.get_by_label("round").click();
+    harness.run();
+    assert_eq!(clicks.get(), 1);
+}

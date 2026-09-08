@@ -1,12 +1,15 @@
 //! Every example, its code and a tag filter, in one binary.
 //!
-//! Three flex columns and no `Panel`: the gallery follows the same rule it
-//! imposes on the examples it embeds, so the centre column can hand an example
-//! an area to fill. Switching examples changes the `key` on that column, which
-//! makes the previous example's hooks unreachable; the pass-end sweep drops
-//! them and the new example starts clean.
-
-use std::sync::Arc;
+//! A header and three flex columns, and no `Panel`: the gallery follows the
+//! same rule it imposes on the examples it embeds, so the centre column can
+//! hand an example an area to fill. Switching examples changes the `key` on
+//! that column, which makes the previous example's hooks unreachable; the
+//! pass-end sweep drops them and the new example starts clean.
+//!
+//! Under [`COMPACT_WIDTH`] (a phone) there is no room for three columns, so
+//! the page is one pane: the example or its code, swapped by a button floating
+//! in the bottom-right corner. The list and the tag filter move into a menu
+//! that slides down over the whole window from the button in the header.
 
 mod highlight;
 use egui_react::prelude::*;
@@ -19,6 +22,7 @@ use counter::App as CounterApp;
 use custom_hook::App as CustomHookApp;
 use escape_hatch::App as EscapeHatchApp;
 use fetch::App as FetchApp;
+use font::App as FontApp;
 use form::App as FormApp;
 use layout::App as LayoutApp;
 use list_10k::App as ListApp;
@@ -26,6 +30,7 @@ use patch::App as PatchApp;
 use shader::App as ShaderApp;
 use showcase::App as ShowcaseApp;
 use spreadsheet::App as SpreadsheetApp;
+use styles::App as StyleApp;
 use theme::App as ThemeApp;
 use todo::App as TodoApp;
 
@@ -50,23 +55,52 @@ pub const EXAMPLES: &[Meta] = &[
     shader::META,
     list_10k::META,
     layout::META,
+    styles::META,
     fetch::META,
+    font::META,
 ];
 
 /// Where the source links point.
 const REPO: &str = "https://github.com/fand/egui-react/blob/main/examples";
 
-/// The gallery: list, running example, code.
+/// Below this window width the gallery is one pane and a menu rather than
+/// three columns.
+///
+/// The columns need 200 points for the list, 360 for the code and something
+/// left over for the example; a phone in portrait has about 400 in all, and a
+/// tablet on its side has more than this.
+pub const COMPACT_WIDTH: f32 = 720.0;
+
+/// How long the menu takes to slide down, or back up, in seconds.
+const MENU_TIME: f32 = 0.25;
+
+/// What the compact layout shows: the running example, or its code.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum Pane {
+    /// The running example.
+    #[default]
+    Example,
+    /// The example's source.
+    Code,
+}
+
+/// The gallery: header, list, running example, code.
 ///
 /// `start` is the example to open first; [`initial_example`] is where the
 /// runner gets it. It is a prop and not something the component reads for
 /// itself, because reading the process arguments here would make the gallery
 /// open a different example under `cargo test <filter>`.
+///
+/// The layout follows the window: three columns above [`COMPACT_WIDTH`], one
+/// pane and a menu below it. The states are the same either way, so turning a
+/// phone keeps the example, the filter and the version that was picked.
 #[component]
 pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str) {
     let mut selected = use_state(cx, move || start);
     let mut tags = use_state(cx, Vec::<&'static str>::new);
     let mut plain = use_state(cx, || false);
+    let mut pane = use_state(cx, Pane::default);
+    let mut menu_open = use_state(cx, || false);
 
     // Read the states once, so the handlers below are free to take them `&mut`
     // without tripping over a live borrow.
@@ -79,54 +113,250 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
         .iter()
         .filter(|meta| matches_tags(meta, &active))
         .collect();
+    let compact = cx.ctx().content_rect().width() < COMPACT_WIDTH;
+    // A menu left open when the window widens is simply gone: the list is a
+    // column again.
+    let open = compact && *menu_open;
+    let showing: Pane = *pane;
 
     // Keep `#todo` in the address bar in step with the selection.
     use_effect(cx, current.name, || set_hash(current.name));
 
     rsx! {
-        <View direction="row" grow={1.0} gap={8}>
-            <List
-                shown={&shown}
-                active={&active}
-                selected={current.name}
-                on_select={|name: &'static str| {
-                    *selected = name;
-                    // A new example starts on its egui-react version.
-                    *plain = false;
-                }}
-                on_tag={|tag: &'static str| toggle(&mut tags, tag)}
-                on_clear={|| tags.clear()}
-            />
-            <Separator vertical/>
-            // `min_w={0}` makes the centre the column that gives way: taffy
-            // may otherwise take a flex item's content as its automatic
-            // minimum, and a wide example would push the code column off the
-            // right edge instead of being cut off itself.
-            <View direction="column" grow={1.0} min_w={0.0} gap={4}>
-                // The summary, not the name: the name is already the label of
-                // the list button and two widgets with one label are ambiguous
-                // to a screen reader (and to kittest).
-                <Text strong>{current.summary}</Text>
-                // The `key` is the whole point: change it and the previous
-                // example's hooks are swept, so state does not leak across.
-                <View key={current.name} direction="column" grow={1.0}>
-                    <Running name={current.name} plain={showing_plain}/>
+        <View direction="column" grow={1.0} min_h={0.0} gap={8}>
+            <Header compact={compact} on_menu={|| *menu_open = !*menu_open}/>
+            if compact {
+                // One pane, and the summary above it whichever it is.
+                <View direction="column" grow={1.0} min_h={0.0} gap={4}>
+                    <Text strong wrap>{current.summary}</Text>
+                    // Hidden, not unmounted, while the code is up: the
+                    // example keeps running (a clock keeps time, a todo keeps
+                    // its draft), which is what a tab is expected to do. The
+                    // `key` still sweeps it on a switch.
+                    <View
+                        key={current.name}
+                        display={if showing == Pane::Example { "flex" } else { "none" }}
+                        direction="column"
+                        grow={1.0}
+                        min_h={0.0}
+                    >
+                        <Running name={current.name} plain={showing_plain}/>
+                    </View>
+                    // The code pane stays conditional: its state is a galley
+                    // cache that rebuilds in a few milliseconds, and its
+                    // source link would stay in the accessibility tree.
+                    if showing == Pane::Code {
+                        <Code
+                            w="100%"
+                            grow={1.0}
+                            min_h={0.0}
+                            meta={*current}
+                            plain={showing_plain}
+                            on_pick={|pick: bool| *plain = pick}
+                        />
+                    }
                 </View>
-            </View>
-            <Separator vertical/>
-            <Code
-                meta={*current}
-                plain={showing_plain}
-                on_pick={|pick: bool| *plain = pick}
-            />
+                // Not while the menu is down: it covers the corner the
+                // button floats in, and nothing behind it should be pressed.
+                if !open {
+                    <PaneToggle showing={showing} on_toggle={|next: Pane| *pane = next}/>
+                }
+                <Menu
+                    open={open}
+                    shown={&shown}
+                    active={&active}
+                    selected={current.name}
+                    on_select={|name: &'static str| {
+                        *selected = name;
+                        // A new example starts on its egui-react version.
+                        *plain = false;
+                        // Picked, so the menu has done its job.
+                        *menu_open = false;
+                    }}
+                    on_tag={|tag: &'static str| toggle(&mut tags, tag)}
+                    on_clear={|| tags.clear()}
+                    on_close={|| *menu_open = false}
+                />
+            } else {
+                <View direction="row" grow={1.0} min_h={0.0} gap={8}>
+                    // `shrink={0}` so the list keeps its width when the window
+                    // is narrow; the centre column is the one that gives way.
+                    <List
+                        w={200.0}
+                        shrink={0.0}
+                        shown={&shown}
+                        active={&active}
+                        selected={current.name}
+                        on_select={|name: &'static str| {
+                            *selected = name;
+                            // A new example starts on its egui-react version.
+                            *plain = false;
+                        }}
+                        on_tag={|tag: &'static str| toggle(&mut tags, tag)}
+                        on_clear={|| tags.clear()}
+                    />
+                    <Separator vertical/>
+                    // `min_w={0}` makes the centre the column that gives way:
+                    // taffy may otherwise take a flex item's content as its
+                    // automatic minimum, and a wide example would push the
+                    // code column off the right edge instead of being cut off
+                    // itself.
+                    <View direction="column" grow={1.0} min_w={0.0} gap={4}>
+                        // The summary, not the name: the name is already the
+                        // label of the list button and two widgets with one
+                        // label are ambiguous to a screen reader (and to
+                        // kittest).
+                        <Text strong>{current.summary}</Text>
+                        // The `key` is the whole point: change it and the
+                        // previous example's hooks are swept, so state does
+                        // not leak across.
+                        <View key={current.name} direction="column" grow={1.0}>
+                            <Running name={current.name} plain={showing_plain}/>
+                        </View>
+                    </View>
+                    <Separator vertical/>
+                    // A fixed share of the window, never squeezed by what the
+                    // running example wants: `shrink={0}` sends the whole
+                    // overflow to the centre column, which is the one with
+                    // `min_w={0}`.
+                    <Code
+                        w="40%"
+                        min_w={360.0}
+                        shrink={0.0}
+                        meta={*current}
+                        plain={showing_plain}
+                        on_pick={|pick: bool| *plain = pick}
+                    />
+                </View>
+            }
         </View>
     }
 }
 
+/// The page header: the title on the left and, on a compact screen, the menu
+/// button on the right.
+///
+/// A wide window has the list in a column of its own, so it has nothing for
+/// the button to open.
+#[component]
+fn Header(cx: &mut Cx, compact: bool, #[event] on_menu: ()) {
+    rsx! {
+        <View direction="row" align="center" gap={8} w="100%">
+            <Text strong size={20.0} grow={1.0}>"egui-react"</Text>
+            if compact {
+                <Button label="menu" on_click={|| on_menu.emit(())}>"☰"</Button>
+            }
+        </View>
+    }
+}
+
+/// The button floating in the bottom-right corner of a compact screen, which
+/// swaps the running example for its code and back.
+///
+/// An `<Overlay>` rather than a node of the tree: it sits over the pane, where
+/// a thumb reaches, and takes no room from it. Unsized, so it is as big as the
+/// button and lets every press beside it through. The label says what a press
+/// does; the glyph is what is drawn.
+///
+/// The pill is the button's own box: `p` becomes the widget's padding, so the
+/// whole pill takes the press, and `bg` `radius` `shadow` are painted on it by
+/// the engine. `bg` is the colour egui paints an inactive button with, read
+/// from the theme, so the button at rest looks as it always did while hover
+/// and press stay the widget's own.
+#[component]
+fn PaneToggle(cx: &mut Cx, showing: Pane, #[event] on_toggle: Pane) {
+    let (glyph, label, next) = match showing {
+        Pane::Example => ("</>", "show code", Pane::Code),
+        Pane::Code => ("⏵", "show example", Pane::Example),
+    };
+    let bg = cx.ui().visuals().widgets.inactive.weak_bg_fill;
+    rsx! {
+        <Overlay anchor="bottom-right" offset={(-16.0, -16.0)}>
+            <Button
+                label={label}
+                px={16.0}
+                py={12.0}
+                radius={24.0}
+                shadow
+                bg={bg}
+                on_click={|| on_toggle.emit(next)}
+            >
+                {egui::RichText::new(glyph).size(18.0)}
+            </Button>
+        </Overlay>
+    }
+}
+
+/// The menu of a compact screen: the example list and the tag filter, over
+/// the whole window.
+///
+/// It slides down from the top edge when it opens and back up when it closes,
+/// and it is not drawn at all once it is away. While it is on screen it is an
+/// `<Overlay>` the size of the window, so the pane beneath gets no clicks.
+/// A sized overlay roots a tree of its own, the way the runner roots the app,
+/// so the list fills the sheet and the example list scrolls in what the header
+/// leaves.
+#[component]
+fn Menu(
+    cx: &mut Cx,
+    open: bool,
+    shown: &[&'static Meta],
+    active: &[&'static str],
+    selected: &'static str,
+    #[event] on_select: &'static str,
+    #[event] on_tag: &'static str,
+    #[event] on_clear: (),
+    #[event] on_close: (),
+) {
+    // 0 when the menu is away, 1 when it is down; in between it is moving.
+    let down = use_animate(cx, open, MENU_TIME);
+    if down <= 0.0 {
+        return;
+    }
+    let screen = cx.ctx().content_rect();
+    let top = screen.top() - screen.height() * (1.0 - down);
+    rsx! {
+        // `top` keeps the menu above the pane toggle and anything else in the
+        // foreground; `constrain={false}` lets it hang above the window while
+        // it slides. No `fill`: a sized overlay paints `panel_fill` itself.
+        <Overlay
+            pos={egui::pos2(screen.left(), top)}
+            constrain={false}
+            top
+            w="100%"
+            h="100%"
+        >
+            <View direction="column" gap={8} w="100%" h="100%" p={8}>
+                // The same header, with the button that closes the menu where
+                // the one that opened it was.
+                <View direction="row" align="center" gap={8} w="100%">
+                    <Text strong size={20.0} grow={1.0}>"egui-react"</Text>
+                    <Button label="close menu" on_click={|| on_close.emit(())}>"×"</Button>
+                </View>
+                <List
+                    w="100%"
+                    grow={1.0}
+                    min_h={0.0}
+                    shown={shown}
+                    active={active}
+                    selected={selected}
+                    on_select={|name: &'static str| on_select.emit(name)}
+                    on_tag={|tag: &'static str| on_tag.emit(tag)}
+                    on_clear={|| on_clear.emit(())}
+                />
+            </View>
+        </Overlay>
+    }
+}
+
 /// The example list and the tag filter.
+///
+/// The width is the caller's: a column of its own in the wide layout, the
+/// whole sheet in the menu.
 #[component]
 fn List(
     cx: &mut Cx,
+    #[prop(default)] style: ItemStyle,
     shown: &[&'static Meta],
     active: &[&'static str],
     selected: &'static str,
@@ -135,9 +365,7 @@ fn List(
     #[event] on_clear: (),
 ) {
     rsx! {
-        // `shrink={0}` so the list keeps its width when the window is narrow;
-        // the centre column is the one that gives way.
-        <View direction="column" w={200.0} shrink={0.0} gap={6}>
+        <View style={style} direction="column" gap={6}>
             <Text strong size={18.0}>"examples"</Text>
             <ScrollArea grow={1.0}>
                 <View direction="column" gap={4} w="100%">
@@ -241,7 +469,9 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 // are virtualised, so the slider still reaches 100k at no cost.
                 "list-10k" => { <ListApp initial_count={1_000}/> }
                 "layout" => { <LayoutApp/> }
+                "styles" => { <StyleApp/> }
                 "fetch" => { <FetchApp/> }
+                "font" => { <FontApp/> }
                 _ => { <ShowcaseApp/> }
             }
         }
@@ -294,9 +524,18 @@ plain_example!(LayoutPlain, layout::plain);
 /// versions draw the same thing, and the numbers next to the buttons say what
 /// that costs in each.
 ///
+/// The width is the caller's, like [`List`]'s: 40% of the window in the wide
+/// layout, all of it in the compact one.
+///
 /// `pub` for `tests/bench.rs`, which times this column on its own.
 #[component]
-pub fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
+pub fn Code(
+    cx: &mut Cx,
+    #[prop(default)] style: ItemStyle,
+    meta: Meta,
+    plain: bool,
+    #[event] on_pick: bool,
+) {
     let file = if plain { "plain.rs" } else { "lib.rs" };
     let link = format!("{REPO}/{}/src/{file}", meta.name);
     // What is shown, and counted: the source minus the gallery's own plumbing.
@@ -308,18 +547,20 @@ pub fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
     } else {
         react
     };
-    let mut lines = use_state(cx, || None::<(GalleyKey, CodeLines)>);
-    let lines: &CodeLines = code_lines(cx.ui(), lines.bind(), (meta.name, plain), source);
+    let mut jobs = use_state(cx, || None::<(CodeKey, CodeLines)>);
+    let lines: &mut CodeLines = code_lines(cx.ui(), jobs.bind(), (meta.name, plain), source);
+    let width = code_width(cx.ui(), lines);
+    let font_id = egui::TextStyle::Monospace.resolve(cx.ui().style());
+    // The pitch of the list, so it is needed before the list, whether or not
+    // any row is drawn.
+    let row_h = cx.ui().fonts_mut(|fonts| fonts.row_height(&font_id));
     let react_lines = format!("{} lines", react.lines().count());
     let plain_lines = plain_source.as_deref().map_or(String::new(), |p| {
         format!("{} lines plain", p.lines().count())
     });
 
     rsx! {
-        // A fixed share of the window, never squeezed by what the running
-        // example wants: `shrink={0}` sends the whole overflow to the centre
-        // column, which is the one with `min_w={0}`.
-        <View direction="column" w="40%" min_w={360.0} shrink={0.0} gap={6}>
+        <View style={style} direction="column" gap={6}>
             if meta.plain.is_some() {
                 <View direction="row" gap={4} align="center" w="100%">
                     <Chip
@@ -351,15 +592,22 @@ pub fn Code(cx: &mut Cx, meta: Meta, plain: bool, #[event] on_pick: bool) {
             // galley's: every line's job asks for one row's height even when
             // the line is blank. The list is as wide as the widest line, so
             // the sideways scroll range is the same whichever rows are in view.
+            // The galley is laid out here, for this row and this frame, by
+            // epaint's own galley cache — a job clone, a hash and a lookup for
+            // a screenful of rows, and always a galley for the atlas in use.
             <VirtualList
                 grow={1.0}
                 horizontal
-                rows={lines.galleys.len()}
-                row_h={lines.row_h}
+                rows={lines.jobs.len()}
+                row_h={row_h}
                 render={|cx: &mut Cx<'_, '_>, row: usize| {
-                    let galley = lines.galleys[row].clone();
+                    let mut job = lines.jobs[row].clone();
+                    // A blank line has no glyph to be tall by; the list still
+                    // moves on by what this galley measures.
+                    job.first_row_min_height = row_h;
                     cx.leaf(&ItemStyle::default(), |ui| {
-                        ui.set_min_width(lines.width);
+                        let galley = ui.fonts_mut(|fonts| fonts.layout_job(job));
+                        ui.set_min_width(width);
                         ui.add(egui::Label::new(galley).selectable(true));
                     });
                 }}
@@ -406,72 +654,113 @@ pub fn shown_source(source: &str) -> String {
     out
 }
 
-/// What the cached code lines were laid out for. A new key means a new layout.
+/// What the cached jobs were highlighted for. A new key means highlighting
+/// again.
 ///
 /// The source is named, not hashed: hashing 66 KB a frame was the cost this
-/// cache is here to remove. The atlas size is in because a galley stores atlas
-/// pixel coordinates: growing the atlas keeps them, a reset changes the size.
-type GalleyKey = ((&'static str, bool), bool, f32, f32, [usize; 2]);
+/// cache is here to remove. Dark mode and the font size are in because the
+/// highlighter writes both into the job's sections. Nothing else belongs
+/// here: a job is text and style, so the pixels per point and the state of
+/// the glyph atlas cannot change it.
+type CodeKey = ((&'static str, bool), bool, f32);
 
-/// The highlighted source, one galley per line, laid out once per
-/// [`GalleyKey`].
+/// The highlighted source as one [`egui::text::LayoutJob`] per line,
+/// highlighted once per [`CodeKey`], and how wide the widest of them is.
+///
+/// Jobs, not galleys, because the highlight is what is expensive and a job
+/// keeps: it depends on the text and the style and on nothing else. A galley
+/// does not keep. It holds coordinates into the glyph atlas of the `Fonts`
+/// that laid it out, and egui throws that `Fonts` away and builds a new one
+/// with a new atlas after `Context::set_fonts` (the font example's web font
+/// arriving, say), after a dark / light switch and when the atlas fills up,
+/// with no way to ask whether it just did — the old coordinates then point at
+/// other glyphs. So [`Code`] lays a line out when it draws it, through
+/// epaint's own `GalleyCache`, which lives inside `Fonts` and is rebuilt with
+/// it: a rebuilt atlas can never meet a stale galley, and only the rows in
+/// view pay the clone, the hash and the lookup.
 struct CodeLines {
-    galleys: Vec<Arc<egui::Galley>>,
-    /// The pitch of the list: one monospace row.
-    row_h: f32,
+    jobs: Vec<egui::text::LayoutJob>,
     /// The widest line, which is how wide the list is inside the sideways
-    /// scroll area.
+    /// scroll area. Measured by [`code_width`], which is what `metrics` is
+    /// for.
     width: f32,
+    /// What the fonts measured when `width` was taken: the row height, the
+    /// pixels per point and the width of an `M`, as bits so they compare
+    /// exactly. `(0, 0, 0)` means "not measured yet": a real row height is
+    /// never zero.
+    metrics: (u32, u32, u32),
 }
 
-/// The lines of the source as galleys, from the cache or laid out now.
+/// The lines of the source as layout jobs, from the cache or highlighted now.
 ///
-/// `egui_extras::code_view_ui` highlights and lays out from scratch every
-/// frame: it hashes the whole source for the highlight cache, then hashes the
-/// `LayoutJob` (a section per token) for the galley cache. A `Label` handed an
-/// `Arc<Galley>` does neither. The source is highlighted whole and the job cut
-/// at each newline, so a block comment or a multi-line string is coloured the
-/// same as it would be in one piece.
+/// `egui_extras::code_view_ui` highlights from scratch every frame, hashing
+/// the whole source to look the highlight up. Naming the source skips that.
+/// The source is highlighted whole and the job cut at each newline, so a block
+/// comment or a multi-line string is coloured the same as it would be in one
+/// piece.
 fn code_lines<'a>(
-    ui: &mut egui::Ui,
-    cache: &'a mut Option<(GalleyKey, CodeLines)>,
+    ui: &egui::Ui,
+    cache: &'a mut Option<(CodeKey, CodeLines)>,
     which: (&'static str, bool),
     source: &str,
-) -> &'a CodeLines {
+) -> &'a mut CodeLines {
     let font_id = egui::TextStyle::Monospace.resolve(ui.style());
-    let key: GalleyKey = (
-        which,
-        ui.visuals().dark_mode,
-        font_id.size,
-        ui.pixels_per_point(),
-        ui.fonts(|f| f.font_image_size()),
-    );
+    let key: CodeKey = (which, ui.visuals().dark_mode, font_id.size);
     if cache.as_ref().is_none_or(|(k, _)| *k != key) {
-        let job = highlight::highlight(source, ui.visuals().dark_mode, font_id.clone());
-        let (galleys, row_h) = ui.fonts_mut(|fonts| {
-            let row_h = fonts.row_height(&font_id);
-            let galleys: Vec<Arc<egui::Galley>> = split_lines(&job)
-                .into_iter()
-                .map(|mut job| {
-                    // A blank line has no glyph to be tall by; the list still
-                    // moves on by what this galley measures.
-                    job.first_row_min_height = row_h;
-                    fonts.layout_job(job)
-                })
-                .collect();
-            (galleys, row_h)
-        });
-        let width = galleys.iter().map(|g| g.size().x).fold(0.0, f32::max);
+        let job = highlight::highlight(source, ui.visuals().dark_mode, font_id);
+        let jobs = split_lines(&job);
         *cache = Some((
             key,
             CodeLines {
-                galleys,
-                row_h,
-                width,
+                jobs,
+                width: 0.0,
+                metrics: (0, 0, 0),
             },
         ));
     }
-    &cache.as_ref().expect("just filled").1
+    &mut cache.as_mut().expect("just filled").1
+}
+
+/// How wide the widest line is: the cached width, or every line laid out once
+/// to measure it again.
+///
+/// This is the one thing the rows do not lay themselves out for, since the
+/// list wants it before it knows which rows are in view, and measuring 1700
+/// lines a frame is what the rest of this cache is here to avoid.
+///
+/// The key is the metrics, not a guess at the atlas: a width is a sum of glyph
+/// advances, and advances move only when the font definitions, the font size
+/// or the pixels per point do. A dark / light switch or a full atlas
+/// re-rasterizes the glyphs and leaves the advances where they were. So the
+/// row height, the pixels per point and the width of an `M` stand in for all
+/// three. Nothing drawn rides on this: the galleys come from epaint's cache
+/// per visible row. A miss costs a sideways scroll range a few pixels off,
+/// never a garbled glyph.
+fn code_width(ui: &egui::Ui, lines: &mut CodeLines) -> f32 {
+    let font_id = egui::TextStyle::Monospace.resolve(ui.style());
+    let ppp = ui.pixels_per_point();
+    let (row_h, metrics) = ui.fonts_mut(|fonts| {
+        let row_h = fonts.row_height(&font_id);
+        let em = fonts.glyph_width(&font_id, 'M');
+        (row_h, (row_h.to_bits(), ppp.to_bits(), em.to_bits()))
+    });
+    if lines.metrics != metrics {
+        lines.width = ui.fonts_mut(|fonts| {
+            lines
+                .jobs
+                .iter()
+                .map(|job| {
+                    let mut job = job.clone();
+                    // The same jobs the rows lay out, so this fills epaint's
+                    // cache with the entries they will ask for.
+                    job.first_row_min_height = row_h;
+                    fonts.layout_job(job).size().x
+                })
+                .fold(0.0, f32::max)
+        });
+        lines.metrics = metrics;
+    }
+    lines.width
 }
 
 /// One `LayoutJob` per line of `job`, each with the sections that fall on that

@@ -98,7 +98,14 @@ fn code_pane(meta: &'static Meta) -> f64 {
             <View direction="row" grow={1.0} gap={8}>
                 <View w={200.0} shrink={0.0}/>
                 <View grow={1.0} min_w={0.0}/>
-                <Code meta={*meta} plain={false} on_pick={|_: bool| {}}/>
+                <Code
+                    w="40%"
+                    min_w={360.0}
+                    shrink={0.0}
+                    meta={*meta}
+                    plain={false}
+                    on_pick={|_: bool| {}}
+                />
             </View>
         };
         view.show(cx);

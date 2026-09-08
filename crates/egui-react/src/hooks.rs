@@ -1,4 +1,5 @@
-//! The hooks: `use_state`, `use_handle`, `use_memo`, `use_effect`, `use_persisted`.
+//! The hooks: `use_state`, `use_handle`, `use_memo`, `use_effect`, `use_persisted`,
+//! `use_animate`.
 
 use std::any::Any;
 use std::hash::{DefaultHasher, Hash, Hasher};
@@ -167,4 +168,26 @@ where
     let cleanup = f().into_cleanup();
     slot.set_cleanup(cleanup);
     slot.set_deps_hash(hash);
+}
+
+/// egui's `animate_bool_with_time_and_easing` behind a hook: 0 while `on` is
+/// false, 1 while it is true, and in between for `time` seconds after `on`
+/// flips, eased with `cubic_out`.
+///
+/// egui's `AnimationManager` owns the value and asks for the repaints while it
+/// moves, so nothing is stored in the `Store` and the repaint policy (5.6) is
+/// untouched. No `Store` slot means no sweep either: the animation of a
+/// component that stops being drawn stays in egui's memory at its last value,
+/// which is what `animate_bool` does for everyone.
+#[track_caller]
+pub fn use_animate(cx: &mut Cx<'_, '_>, on: bool, time: f32) -> f32 {
+    use_animate_with(cx, on, time, egui::emath::easing::cubic_out)
+}
+
+/// [`use_animate`] with an easing of the caller's choosing (`egui::emath::easing`).
+#[track_caller]
+pub fn use_animate_with(cx: &mut Cx<'_, '_>, on: bool, time: f32, easing: fn(f32) -> f32) -> f32 {
+    let id = cx.scope_id().with(location_key(Location::caller()));
+    cx.ctx()
+        .animate_bool_with_time_and_easing(id, on, time, easing)
 }
