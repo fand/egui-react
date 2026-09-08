@@ -5,7 +5,7 @@ Task in `task.md`, research and design in `plan.md` (section 5 carries what the 
 
 ## State (2026-09-08)
 
-Everything in the task's scope is built, tested and pushed; the PR is open and up to date with `main`. CI and the Cloudflare Pages preview are green on the head. What is left is a look by a person on macOS (the `system` stack resolving to Hiragino Sans) and in a desktop Chrome with Japanese fonts installed ("Use my fonts" turning the `system` stack's `missing` entries into `loaded`); the sandbox could prove the mechanism, not those two machines.
+Everything in the task's scope is built, tested and pushed; the PR is open and up to date with `main`. Review round one (2026-09-08): `Fonts::pending()`, the `font-display` toggle, the typical-stack marker and matrix in the example, and an engine fix for galleys garbling on a dark / light switch (see the table). CI and the Cloudflare Pages preview are green on the head. What is left is a look by a person on macOS (the `system` stack resolving to Hiragino Sans) and in a desktop Chrome with Japanese fonts installed ("Use my fonts" turning the `system` stack's `missing` entries into `loaded`); the sandbox could prove the mechanism, not those two machines.
 
 ## What was done, in order
 
@@ -26,6 +26,10 @@ Everything in the task's scope is built, tested and pushed; the PR is open and u
 | | `a65c067` | Under the stack buttons: how the selected stack gets its bytes on this target | |
 | Fix | `f8d078d` | **Local Font Access** is `window.queryLocalFonts()`, not `navigator.fonts.query()` (the 2020 draft the plan had carried). **Gallery** code pane galleys keyed by `egui_react::fonts_generation(ctx)`, new public fn | Found on the second web run: the button was disabled in Chrome; the source pane garbled after the web font arrived, the same stale-galley bug as the engine's, in the gallery's own per-line cache |
 | | `df20c15` | Local Font Access note wraps, result on its own line | |
+| | `8dedaba` | `Fonts::pending()`: any `Url` still in flight | So an app can draw a loading state without walking the report |
+| Fix | `120b375` | **Engine**: galleys laid out again after a change of visuals or a full atlas, not only after `set_fonts`. `Store::note_fonts` compares the `TextOptions` whole and watches the atlas fill ratio (monotonic while one atlas lives); `end_pass` reads the ratio once more | Found in the `theme` and `showcase` examples: their dark / light switch goes through `set_visuals`, `Visuals::dark` and `Visuals::light` carry different `TextOptions`, and epaint's `Fonts::begin_pass` builds a new atlas for that. The definitions were equal, so the fingerprint saw nothing |
+| | `98eec89` | `font-display` toggle in the example: `swap` (today's FOUT) or `block` (a placeholder while `pending()`) | egui has no "laid out but invisible" text, so `block` is a placeholder; the policy is the app's, the library only exposes `pending()` |
+| | `45ab262` | The example starts on the stack an app uses on this target (`system` natively, `web` on wasm), marks it `★`, and draws a native / web matrix of where each stack gets its bytes | `how()` only spoke about one target; the choice is a pair |
 
 ## Verified
 
