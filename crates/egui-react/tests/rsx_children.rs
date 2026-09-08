@@ -1,5 +1,8 @@
 //! Plan 2.3 / test 3-3: the four shapes of `children` (none, one literal, one
 //! `{expr}`, several nodes), and hooks inside children.
+//!
+//! Plan 1: the paint shorthands ride in the same `style` prop, so an element
+//! that only ever declared `style` gains `bg` and friends for free.
 
 mod common;
 
@@ -104,4 +107,53 @@ fn hooks_inside_children_keep_their_state() {
     harness.run();
     assert!(harness.query_by_label("a: 2").is_some());
     assert!(harness.query_by_label("b: 0").is_some());
+}
+
+/// Takes the one `style` prop every element takes, and nothing else.
+///
+/// The paint shorthands land in `style.paint`, so this component never had to
+/// change to accept them.
+#[component]
+fn Painted(cx: &mut Cx, #[prop(default)] style: ItemStyle, children: impl View) {
+    let paint = style.paint;
+    assert_eq!(paint.bg, Some(egui::Color32::RED));
+    assert_eq!(
+        paint.border,
+        Some(egui::Stroke::new(2.0, egui::Color32::BLACK))
+    );
+    assert_eq!(paint.radius, Some(4.0));
+    assert!(paint.shadow, "a bare `shadow` attribute is `true`");
+    assert_eq!(paint.opacity, Some(0.5));
+    // The layout half of the same prop is untouched by them.
+    assert_eq!(style.p, Some(Length::Px(8.0)));
+    cx.ui().label("painted");
+    children.show(cx);
+}
+
+#[test]
+fn the_paint_shorthands_reach_the_style_prop() {
+    let mut harness = Harness::new_ui_state(
+        |ui, store: &mut Store| {
+            run_app(ui, store, |cx| {
+                rsx! {
+                    <Painted
+                        bg={egui::Color32::RED}
+                        shadow
+                        radius={4.0}
+                        border={egui::Stroke::new(2.0, egui::Color32::BLACK)}
+                        opacity={0.5}
+                        p={8}
+                    >
+                        "inside the paint"
+                    </Painted>
+                }
+                .show(cx);
+            });
+        },
+        Store::new(),
+    );
+
+    harness.run();
+    assert!(harness.query_by_label("painted").is_some());
+    assert!(harness.query_by_label("inside the paint").is_some());
 }

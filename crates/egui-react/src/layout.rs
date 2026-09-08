@@ -4,6 +4,14 @@
 //! that `rsx!` can hand string literals (`justify="space-between"`) and numbers
 //! (`gap={8}`) straight to a setter, and so that the conversion to
 //! [`taffy::Style`] lives in one place.
+//!
+//! How a box *looks* rides along in the same prop: [`ItemStyle::paint`] is a
+//! [`PaintStyle`], with forwarding setters (`bg`, `border`, `radius`, ...), so
+//! no element signature changes to gain a background. Only the border reaches
+//! taffy — the layout has to reserve the width of the stroke — and the engine
+//! paints the rest once the layout is solved.
+
+pub use crate::paint::PaintStyle;
 
 /// A length in a layout attribute.
 ///
@@ -240,6 +248,9 @@ impl Display {
 ///
 /// Every setter takes `impl Into<Length>`, so `.w(120.0)`, `.w("50%")` and
 /// `.w(Length::Auto)` all work; `rsx!` passes literals straight through.
+///
+/// It carries the item's [`PaintStyle`] too, reached through setters of the
+/// same names (`.bg(..)`, `.border(..)`), so one prop is the whole vocabulary.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ItemStyle {
     /// `width`.
@@ -294,6 +305,8 @@ pub struct ItemStyle {
     pub col_span: Option<u16>,
     /// `grid-row: span N`.
     pub row_span: Option<u16>,
+    /// How the box looks: background, border, radius, shadow, opacity.
+    pub paint: PaintStyle,
 }
 
 macro_rules! length_setters {
@@ -390,6 +403,48 @@ impl ItemStyle {
         self
     }
 
+    /// Set the background colour. See [`PaintStyle::bg`].
+    #[must_use]
+    pub fn bg(mut self, v: impl Into<egui::Color32>) -> Self {
+        self.paint = self.paint.bg(v);
+        self
+    }
+
+    /// Set the border stroke. See [`PaintStyle::border`].
+    #[must_use]
+    pub fn border(mut self, v: impl Into<egui::Stroke>) -> Self {
+        self.paint = self.paint.border(v);
+        self
+    }
+
+    /// Set the corner radius. See [`PaintStyle::radius`].
+    #[must_use]
+    pub fn radius(mut self, v: f32) -> Self {
+        self.paint = self.paint.radius(v);
+        self
+    }
+
+    /// Cast the theme's window shadow. See [`PaintStyle::shadow`].
+    #[must_use]
+    pub fn shadow(mut self, v: bool) -> Self {
+        self.paint = self.paint.shadow(v);
+        self
+    }
+
+    /// Cast a shadow of your own. See [`PaintStyle::custom_shadow`].
+    #[must_use]
+    pub fn custom_shadow(mut self, v: egui::Shadow) -> Self {
+        self.paint = self.paint.custom_shadow(v);
+        self
+    }
+
+    /// Multiply the opacity of this node. See [`PaintStyle::opacity`].
+    #[must_use]
+    pub fn opacity(mut self, v: f32) -> Self {
+        self.paint = self.paint.opacity(v);
+        self
+    }
+
     /// The taffy style of this item, with container properties left default.
     pub fn to_taffy(&self) -> taffy::Style {
         let dim = |v: Option<Length>| {
@@ -438,6 +493,13 @@ impl ItemStyle {
         }
         if let Some(span) = self.row_span {
             style.grid_row = taffy::style_helpers::span(span);
+        }
+        // A border is the only paint the layout has to know about: the stroke
+        // needs a band of its own, or it is drawn over the content. taffy keeps
+        // `border` beside `padding` and `content_rect` subtracts both, so the
+        // children (or the widget) start inside the stroke.
+        if let Some(border) = self.paint.border {
+            style.border = taffy::Rect::length(border.width);
         }
         style
     }

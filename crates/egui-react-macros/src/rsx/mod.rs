@@ -11,7 +11,10 @@ use syn::spanned::Spanned;
 use crate::util::{error_at, event_variant_name, to_compile_error, unwrap_braced};
 use control_flow::{ControlFlow, ElseBranch, IfNode};
 
-/// Layout attributes every element accepts, forwarded to `ItemStyle`.
+/// Layout and paint attributes every element accepts, forwarded to `ItemStyle`.
+///
+/// The last six are the `PaintStyle` shorthands; `ItemStyle` forwards them, so
+/// they are one chained setter like the rest.
 const LAYOUT_ATTRS: &[&str] = &[
     "w",
     "h",
@@ -39,6 +42,12 @@ const LAYOUT_ATTRS: &[&str] = &[
     "pl",
     "col_span",
     "row_span",
+    "bg",
+    "border",
+    "radius",
+    "shadow",
+    "custom_shadow",
+    "opacity",
 ];
 
 pub(crate) fn expand(input: TokenStream) -> TokenStream {
