@@ -311,3 +311,53 @@ fn a_panel_inside_a_view_docks_in_the_window() {
         "the panel and the rest must not overlap: {panel:?} {rest:?}",
     );
 }
+
+#[test]
+fn a_shadowed_frame_lays_out_like_a_plain_one() {
+    let mut harness = Harness::new_ui_state(
+        |ui, store: &mut Store| {
+            run_app(ui, store, |cx| {
+                rsx! {
+                    <View direction="column">
+                        <Frame inner_margin={4.0}>
+                            <Label>"framed"</Label>
+                        </Frame>
+                        <Frame shadow inner_margin={4.0}>
+                            <Label>"framed"</Label>
+                        </Frame>
+                        <Frame custom_shadow={egui::Shadow::NONE} inner_margin={4.0}>
+                            <Counter name="custom"/>
+                        </Frame>
+                    </View>
+                }
+                .show(cx);
+            });
+        },
+        Store::new(),
+    );
+
+    harness.run();
+    // The same text in both frames, so only the frames can move it: the labels
+    // come back in tree order, the plain one first.
+    let labels: Vec<_> = harness
+        .get_all_by_label("framed")
+        .map(|node| node.rect())
+        .collect();
+    assert_eq!(labels.len(), 2, "both frames should draw their label");
+    let (plain, shadowed) = (labels[0], labels[1]);
+
+    // A shadow is painted, not laid out: the two labels are the same size, at
+    // the same left edge, one under the other.
+    assert_eq!(plain.size(), shadowed.size(), "{plain:?} {shadowed:?}");
+    assert_eq!(plain.left(), shadowed.left(), "{plain:?} {shadowed:?}");
+    assert!(
+        plain.bottom() <= shadowed.top(),
+        "the frames should stack: {plain:?} {shadowed:?}",
+    );
+
+    // And the third frame's children keep their state.
+    assert!(harness.query_by_label("custom: 0").is_some());
+    harness.get_by_label("custom +").click();
+    harness.run();
+    assert!(harness.query_by_label("custom: 1").is_some());
+}

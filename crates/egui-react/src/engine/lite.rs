@@ -1840,6 +1840,9 @@ pub(crate) struct LiteCx<'u> {
     root_min: Pos2,
     /// The node children are added to.
     parent: usize,
+    /// Is this position inside a `display="none"` subtree? Same meaning and
+    /// same three consequences as on the taffy path.
+    hidden: bool,
     /// How many children have been added under `parent` so far. Only the `Ui`
     /// ids are salted with it, so that a leaf keeps the id it has on the taffy
     /// path.
@@ -1854,8 +1857,14 @@ impl LiteCx<'_> {
             root_ui: self.root_ui,
             root_min: self.root_min,
             parent: self.parent,
+            hidden: self.hidden,
             child_index: self.child_index,
         }
+    }
+
+    /// Is this position inside a `display="none"` subtree?
+    pub(crate) fn hidden(&self) -> bool {
+        self.hidden
     }
 
     /// The row's own `Ui`, which is what `cx.ui()` returns here.
@@ -1902,6 +1911,10 @@ impl LiteCx<'_> {
     ) -> R {
         self.check(Some(container), item);
         self.next_index();
+        // The node is pushed and `f` still runs, as on the taffy path: the
+        // components inside keep their hooks and the solver zeroes the
+        // subtree.
+        let hidden = self.hidden || container.display == Display::None;
         let node = self.tree.borrow_mut().push(
             Some(self.parent),
             Kind::Container(container.clone()),
@@ -1914,6 +1927,7 @@ impl LiteCx<'_> {
             root_ui: self.root_ui,
             root_min: self.root_min,
             parent: node,
+            hidden,
             child_index: &mut used,
         };
         f(&mut child)
@@ -1960,12 +1974,30 @@ impl LiteCx<'_> {
                     .unwrap_or_else(|| Rect::from_min_size(self.root_min, Vec2::ZERO)),
             )
             .id_salt(scope.with(index));
-        if rect.is_none() {
+        if rect.is_none() || self.hidden {
             builder = builder.sizing_pass().invisible();
-            self.tree.borrow_mut().created = true;
+            // A hidden leaf's draw is not a measurement anyone waits for, so
+            // it is not a reason to draw the row again.
+            if rect.is_none() && !self.hidden {
+                self.tree.borrow_mut().created = true;
+            }
         }
         let mut ui = self.root_ui.new_child(builder);
+        if self.hidden {
+            // One hidden accesskit node over the whole leaf; see
+            // `super::TreeCx::leaf`.
+            ui.ctx().accesskit_node_builder(ui.unique_id(), |node| {
+                node.set_role(egui::accesskit::Role::GenericContainer);
+                node.set_hidden();
+            });
+        }
         let inner = f(&mut ui);
+
+        if self.hidden {
+            // The measure from the last visible draw stays on the node: the
+            // solver zeroes a hidden subtree whatever it says.
+            return inner;
+        }
 
         if measured {
             let min_size = ui.min_size().ceil();
@@ -2012,6 +2044,14 @@ impl LiteCx<'_> {
             let galley = tree.texts[slot].galley(fonts, wrap_width(&content, wrap));
             (node, last.is_some(), content, galley)
         };
+
+        if self.hidden {
+            // The text and the node are pushed; nothing is registered. Same
+            // reasons as `super::TreeCx::text`.
+            return self
+                .root_ui
+                .interact(Rect::NOTHING, scope.with(index), egui::Sense::hover());
+        }
 
         let rect = galley_rect(&content, &galley);
         let selectable =
@@ -2138,12 +2178,14 @@ pub(crate) fn supported(
 /// leaf at last frame's rect, solve, decide about a second pass, paint the
 /// texts where the solver put them, and reserve exactly the size the caller
 /// asked for.
+#[allow(clippy::too_many_arguments)]
 pub(crate) fn show<R>(
     tree: &Rc<RefCell<LiteTree>>,
     ui: &mut egui::Ui,
     container: &ContainerStyle,
     item: &ItemStyle,
     size: Vec2,
+    hidden: bool,
     f: impl FnOnce(&mut LiteCx<'_>) -> R,
 ) -> R {
     let root_min = ui.available_rect_before_wrap().min;
@@ -2168,6 +2210,8 @@ pub(crate) fn show<R>(
             root_ui: &mut root_ui,
             root_min,
             parent: 0,
+            // A row drawn inside a hidden leaf is hidden from its root.
+            hidden,
             child_index: &mut used,
         };
         f(&mut cx)

@@ -180,6 +180,8 @@ pub struct Store {
     /// Draw every row through taffy, whatever its styles say. For the parity
     /// test, which draws the same row both ways.
     force_taffy_rows: Cell<bool>,
+    /// How many hidden leaves are being drawn right now (nested leaves count up).
+    hidden: Cell<u32>,
     warn_on_collision: bool,
 }
 
@@ -223,6 +225,7 @@ impl Store {
             trees: RefCell::new(HashMap::new()),
             lite_trees: RefCell::new(HashMap::new()),
             force_taffy_rows: Cell::new(false),
+            hidden: Cell::new(0),
             warn_on_collision: cfg!(debug_assertions),
         }
     }
@@ -234,6 +237,22 @@ impl Store {
         self.collisions.borrow_mut().clear();
         self.contexts.borrow_mut().clear();
         self.suspense.borrow_mut().clear();
+        // A panic inside a hidden leaf must not leave the count raised.
+        self.hidden.set(0);
+    }
+
+    /// Mark everything drawn while the guard lives as hidden.
+    ///
+    /// `Cx::leaf` holds one while a `display="none"` leaf draws, so a tree the
+    /// leaf opens over its own `Ui` starts hidden too.
+    pub(crate) fn enter_hidden(&self) -> HiddenGuard<'_> {
+        self.hidden.set(self.hidden.get() + 1);
+        HiddenGuard { store: self }
+    }
+
+    /// Is a hidden leaf being drawn right now?
+    pub fn in_hidden(&self) -> bool {
+        self.hidden.get() > 0
     }
 
     /// Finish the pass: apply the deferred queue, then sweep, then warn.
@@ -610,5 +629,16 @@ impl Store {
             log::warn!("egui-react: could not write persisted state: {err}");
             String::from("{}")
         })
+    }
+}
+
+/// What [`Store::enter_hidden`] returns: the count goes back down on drop.
+pub(crate) struct HiddenGuard<'s> {
+    store: &'s Store,
+}
+
+impl Drop for HiddenGuard<'_> {
+    fn drop(&mut self) {
+        self.store.hidden.set(self.store.hidden.get() - 1);
     }
 }
