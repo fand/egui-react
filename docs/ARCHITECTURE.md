@@ -86,7 +86,7 @@ A blanket impl for `IntoIterator<Item = V>` conflicts under coherence with both 
 
 `rsx!` always emits `::egui_react::view(|cx| { .. })`. `pub fn view<F: FnOnce(&mut Cx<'_, '_>)>(f: F) -> impl View` is a helper that exists only to pin the closure's argument type; writing a bare closure in an `impl View` position sometimes fails to infer the type of `cx`. Users also use `view(|cx| ..)` when writing an escape hatch.
 
-The `rsx!` closure is not `move` and borrows locals. The closure is consumed right away inside the generated statement, so the borrow is short-lived.
+The `rsx!` closure is not `move` and borrows locals. The closure is consumed right away inside the generated statement, so the borrow is short-lived. The `cx` the expansion draws every element with is spelled with the span of the `rsx!` call, not of the element, so an element handed in through a `macro_rules!` (`item!(<Leaf/>)`, whose body is an `rsx!` of its own) resolves to the closure it sits in rather than to whatever `cx` the caller's hygiene context can see (`examples/styles` builds its table that way).
 
 Inside `rsx!` you can write the following.
 

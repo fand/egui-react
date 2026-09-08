@@ -157,3 +157,36 @@ fn the_paint_shorthands_reach_the_style_prop() {
     assert!(harness.query_by_label("painted").is_some());
     assert!(harness.query_by_label("inside the paint").is_some());
 }
+
+/// An element written at the call site of a `macro_rules!` whose body is an
+/// `rsx!` of its own: `<Leaf/>` here carries the caller's hygiene, and the
+/// `cx` it is drawn with has to be the closure's, not the component's.
+macro_rules! boxed {
+    ($label:literal, $($body:tt)*) => {
+        rsx! { <Box key={$label} label={$label}> $($body)* </Box> }
+    };
+}
+
+#[component]
+fn Wrapper(cx: &mut Cx) {
+    rsx! {
+        <Caption>"outer"</Caption>
+        {boxed!("one", <Leaf/>)}
+        {boxed!("two", <Leaf/> <Counter name="inner"/>)}
+    }
+}
+
+#[test]
+fn an_element_expanded_through_macro_rules_draws_with_the_closures_cx() {
+    let mut harness = Harness::new_ui_state(
+        |ui, store: &mut Store| {
+            run_app(ui, store, |cx| rsx! { <Wrapper/> }.show(cx));
+        },
+        Store::new(),
+    );
+    harness.run();
+    assert!(harness.query_by_label("box: one").is_some());
+    assert!(harness.query_by_label("box: two").is_some());
+    assert_eq!(harness.query_all_by_label("leaf").count(), 2);
+    assert!(harness.query_by_label("inner: 0").is_some());
+}
