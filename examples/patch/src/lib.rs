@@ -89,7 +89,6 @@ pub const META: Meta = Meta {
         "Canvas",
         "Suspense",
         "ScrollArea",
-        "Frame",
         "Checkbox",
         "ComboBox",
         "Separator",
@@ -839,164 +838,167 @@ fn NodeView(
     };
 
     rsx! {
-        <Frame
-            fill={look.node}
-            stroke={egui::Stroke::new(1.0, if selected { look.accent } else { look.edge })}
-            corner_radius={6.0}
-            // No inner margin: the sockets have to reach the node's edges, so
-            // the padding goes on the rows that are not the port row.
-            inner_margin={0.0}
+        // The node's box is the view's own paint: no painted wrapper and no
+        // leaf between the tree and the rows. Only `py` here — the sockets
+        // have to reach the node's edges, so the horizontal padding goes on
+        // the rows that are not the port row.
+        <View
+            direction="column"
+            w="100%"
+            gap={4}
+            py={6}
+            bg={look.node}
+            border={egui::Stroke::new(1.0, if selected { look.accent } else { look.edge })}
+            radius={6.0}
         >
-            <View direction="column" w="100%" gap={4} py={6}>
-                <View direction="row" w="100%" gap={4} align="center" px={6}>
-                    // The header strip is the drag handle, and one leaf is
-                    // all a drag needs. `<Text>` would draw the same thing
-                    // and hand back no `Response` (board 8.4).
-                    //
-                    // `leaf_fill`, so the strip is the whole width taffy
-                    // gives it rather than the width of the name: a node is
-                    // grabbed by its header, not by its title.
-                    {view(|cx| {
-                        let response = cx.leaf_fill(
-                            &ItemStyle::default().grow(1.0).min_w(0.0).h(head_h),
-                            |ui| {
-                                // A named id, not an auto one: a drag lives
-                                // as long as the widget keeps its id, and the
-                                // first frame of this drag reorders the nodes
-                                // (see `PatchCanvas`).
-                                let (rect, _) = ui.allocate_exact_size(
-                                    ui.available_size(),
-                                    egui::Sense::hover(),
-                                );
-                                let response = ui.interact(
-                                    rect,
-                                    ui.id().with("header"),
-                                    egui::Sense::click_and_drag(),
-                                );
-                                ui.painter().rect_filled(
-                                    rect,
-                                    3.0,
-                                    look.edge.gamma_multiply(0.35),
-                                );
-                                let galley = egui::WidgetText::from(
-                                    egui::RichText::new(node.name.as_str()).strong(),
+            <View direction="row" w="100%" gap={4} align="center" px={6}>
+                // The header strip is the drag handle, and one leaf is
+                // all a drag needs. `<Text>` would draw the same thing
+                // and hand back no `Response` (board 8.4).
+                //
+                // `leaf_fill`, so the strip is the whole width taffy
+                // gives it rather than the width of the name: a node is
+                // grabbed by its header, not by its title.
+                {view(|cx| {
+                    let response = cx.leaf_fill(
+                        &ItemStyle::default().grow(1.0).min_w(0.0).h(head_h),
+                        |ui| {
+                            // A named id, not an auto one: a drag lives
+                            // as long as the widget keeps its id, and the
+                            // first frame of this drag reorders the nodes
+                            // (see `PatchCanvas`).
+                            let (rect, _) = ui.allocate_exact_size(
+                                ui.available_size(),
+                                egui::Sense::hover(),
+                            );
+                            let response = ui.interact(
+                                rect,
+                                ui.id().with("header"),
+                                egui::Sense::click_and_drag(),
+                            );
+                            ui.painter().rect_filled(
+                                rect,
+                                3.0,
+                                look.edge.gamma_multiply(0.35),
+                            );
+                            let galley = egui::WidgetText::from(
+                                egui::RichText::new(node.name.as_str()).strong(),
+                            )
+                            .into_galley(
+                                ui,
+                                Some(egui::TextWrapMode::Truncate),
+                                (rect.width() - 8.0).max(0.0),
+                                egui::TextStyle::Body,
+                            );
+                            let at = egui::pos2(
+                                rect.left() + 4.0,
+                                rect.center().y - galley.size().y * 0.5,
+                            );
+                            ui.painter().galley(at, galley, ui.visuals().text_color());
+                            // A painted title is not a widget, so the
+                            // name has to be said out loud — it is what
+                            // a screen reader, and every test here,
+                            // looks the node up by.
+                            response.widget_info(|| {
+                                egui::WidgetInfo::labeled(
+                                    egui::WidgetType::Button,
+                                    ui.is_enabled(),
+                                    node.name.as_str(),
                                 )
-                                .into_galley(
-                                    ui,
-                                    Some(egui::TextWrapMode::Truncate),
-                                    (rect.width() - 8.0).max(0.0),
-                                    egui::TextStyle::Body,
-                                );
-                                let at = egui::pos2(
-                                    rect.left() + 4.0,
-                                    rect.center().y - galley.size().y * 0.5,
-                                );
-                                ui.painter().galley(at, galley, ui.visuals().text_color());
-                                // A painted title is not a widget, so the
-                                // name has to be said out loud — it is what
-                                // a screen reader, and every test here,
-                                // looks the node up by.
-                                response.widget_info(|| {
-                                    egui::WidgetInfo::labeled(
-                                        egui::WidgetType::Button,
-                                        ui.is_enabled(),
-                                        node.name.as_str(),
-                                    )
-                                });
-                                // What the pointer says it can do, and then
-                                // that it is doing it.
-                                if response.dragged() {
-                                    ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
-                                    response
-                                } else {
-                                    response.on_hover_cursor(egui::CursorIcon::Grab)
-                                }
-                            },
-                        );
-                        if response.drag_started() {
-                            on_drag.emit(Drag::Start);
-                        }
-                        // Only when it really moved: a write on every
-                        // frame of a held pointer is a repaint on every
-                        // frame of it.
-                        if response.dragged() && response.drag_delta() != egui::Vec2::ZERO {
-                            on_drag.emit(Drag::By(response.drag_delta()));
-                        }
-                        if response.drag_stopped() {
-                            on_drag.emit(Drag::End);
-                        }
-                        if response.clicked() {
-                            on_select.emit(());
-                        }
-                    })}
+                            });
+                            // What the pointer says it can do, and then
+                            // that it is doing it.
+                            if response.dragged() {
+                                ui.ctx().set_cursor_icon(egui::CursorIcon::Grabbing);
+                                response
+                            } else {
+                                response.on_hover_cursor(egui::CursorIcon::Grab)
+                            }
+                        },
+                    );
+                    if response.drag_started() {
+                        on_drag.emit(Drag::Start);
+                    }
+                    // Only when it really moved: a write on every
+                    // frame of a held pointer is a repaint on every
+                    // frame of it.
+                    if response.dragged() && response.drag_delta() != egui::Vec2::ZERO {
+                        on_drag.emit(Drag::By(response.drag_delta()));
+                    }
+                    if response.drag_stopped() {
+                        on_drag.emit(Drag::End);
+                    }
+                    if response.clicked() {
+                        on_select.emit(());
+                    }
+                })}
 
-                    <SmallButton
-                        label={format!("collapse {}", node.name).as_str()}
-                        on_click={|| *collapsed = !*collapsed}
-                    >
-                        {if open { "-" } else { "+" }}
-                    </SmallButton>
-                </View>
+                <SmallButton
+                    label={format!("collapse {}", node.name).as_str()}
+                    on_click={|| *collapsed = !*collapsed}
+                >
+                    {if open { "-" } else { "+" }}
+                </SmallButton>
+            </View>
 
-                // The sockets sit on the node's own edges, where the wires
-                // meet them: inputs down the left, the output on the right.
-                <View direction="row" w="100%" justify="space-between" align="start">
-                    // Enough room between the rows that two sockets are two
-                    // targets: the area that answers to the pointer is wider
-                    // than the circle.
-                    <View direction="column" gap={6}>
-                        for port in 0..node.kind.inputs() {
-                            <View key={port} direction="row" gap={4} align="center">
-                                <PortDot
-                                    node={node.id}
-                                    port={Port::In(port)}
-                                    side={Side::Left}
-                                    label={format!("{} in {port}", node.name).as_str()}
-                                    connected={node.inputs[port].is_some()}
-                                    on_hover={|over: bool| {
-                                        set_hover(&mut hovered, Port::In(port), over)
-                                    }}
-                                />
-                                <Text size={10.0}>{node.kind.input_label(port)}</Text>
-                            </View>
-                        }
-                    </View>
-                    // The output has none: it is the end of the chain.
-                    if node.kind != Kind::Output {
-                        <View direction="row" gap={4} align="center">
-                            <Text size={10.0}>"out"</Text>
+            // The sockets sit on the node's own edges, where the wires
+            // meet them: inputs down the left, the output on the right.
+            <View direction="row" w="100%" justify="space-between" align="start">
+                // Enough room between the rows that two sockets are two
+                // targets: the area that answers to the pointer is wider
+                // than the circle.
+                <View direction="column" gap={6}>
+                    for port in 0..node.kind.inputs() {
+                        <View key={port} direction="row" gap={4} align="center">
                             <PortDot
                                 node={node.id}
-                                port={Port::Out}
-                                side={Side::Right}
-                                label={format!("{} out", node.name).as_str()}
-                                connected={used}
-                                on_hover={|over: bool| set_hover(&mut hovered, Port::Out, over)}
+                                port={Port::In(port)}
+                                side={Side::Left}
+                                label={format!("{} in {port}", node.name).as_str()}
+                                connected={node.inputs[port].is_some()}
+                                on_hover={|over: bool| {
+                                    set_hover(&mut hovered, Port::In(port), over)
+                                }}
                             />
+                            <Text size={10.0}>{node.kind.input_label(port)}</Text>
                         </View>
                     }
                 </View>
-
-                if open {
-                    <View direction="column" w="100%" gap={4} px={6}>
-                        <NodeBody node={node}/>
-                        <View direction="row" w="100%" gap={4} align="center">
-                            <Text grow={1.0} size={10.0}>{node.kind.name()}</Text>
-                            if node.kind != Kind::Output {
-                                <SmallButton
-                                    label={format!("delete {}", node.name).as_str()}
-                                    on_click={|| send(&actions, Msg::RemoveNode(node.id))}
-                                >"x"</SmallButton>
-                            }
-                        </View>
+                // The output has none: it is the end of the chain.
+                if node.kind != Kind::Output {
+                    <View direction="row" gap={4} align="center">
+                        <Text size={10.0}>"out"</Text>
+                        <PortDot
+                            node={node.id}
+                            port={Port::Out}
+                            side={Side::Right}
+                            label={format!("{} out", node.name).as_str()}
+                            connected={used}
+                            on_hover={|over: bool| set_hover(&mut hovered, Port::Out, over)}
+                        />
                     </View>
                 }
-
-                if !hint.is_empty() {
-                    <Text size={10.0} px={6} color={look.accent}>{hint.as_str()}</Text>
-                }
             </View>
-        </Frame>
+
+            if open {
+                <View direction="column" w="100%" gap={4} px={6}>
+                    <NodeBody node={node}/>
+                    <View direction="row" w="100%" gap={4} align="center">
+                        <Text grow={1.0} size={10.0}>{node.kind.name()}</Text>
+                        if node.kind != Kind::Output {
+                            <SmallButton
+                                label={format!("delete {}", node.name).as_str()}
+                                on_click={|| send(&actions, Msg::RemoveNode(node.id))}
+                            >"x"</SmallButton>
+                        }
+                    </View>
+                </View>
+            }
+
+            if !hint.is_empty() {
+                <Text size={10.0} px={6} color={look.accent}>{hint.as_str()}</Text>
+            }
+        </View>
     }
 }
 
