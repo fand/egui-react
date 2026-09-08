@@ -86,7 +86,7 @@ cargo run -p gallery todo
 trunk serve --config examples/gallery/Trunk.toml
 ```
 
-A font an app bundles with `include_bytes!` goes into the wasm (`examples/font` ships a 433 KB subset of Noto Sans JP for that reason and its `fonts/README.md` says how it was cut); the full 4.5 MB font the same example fetches at run time is not committed, a pre-build hook in its `Trunk.toml` (and the gallery's) downloads it the first time trunk builds.
+A font an app bundles with `include_bytes!` goes into the wasm (`examples/font` ships a 433 KB subset of Noto Sans JP for that reason and its `fonts/README.md` says how it was cut); the full 4.5 MB font the same example fetches at run time is not committed, a pre-build hook in its `Trunk.toml` (and the gallery's) downloads it the first time trunk builds. egui's own four fonts (Ubuntu-Light, Hack and two emoji fonts, 1.4 MB) are behind `egui-react-app`'s `default_fonts` feature, on by default; take the crate with `default-features = false` to leave them out, and then hand `Fonts` a bundled face before the first frame, because a chain with nothing loaded draws no glyphs at all.
 
 ## Testing
 
