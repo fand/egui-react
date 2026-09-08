@@ -662,10 +662,11 @@ pub fn shown_source(source: &str) -> String {
 /// The source is named, not hashed: hashing 66 KB a frame was the cost this
 /// cache is here to remove. The fonts generation is in because a galley stores
 /// pixel coordinates into the glyph atlas of the `Fonts` that laid it out, and
-/// `Context::set_fonts` (the font example's web font arriving, say) builds a
-/// new `Fonts` with a new atlas: the old coordinates then point at other
-/// glyphs. The atlas size alone did not catch that, since the new atlas can
-/// come out the same size as the old one.
+/// egui builds a new `Fonts` with a new atlas after `Context::set_fonts` (the
+/// font example's web font arriving, say), after a dark / light switch and
+/// when the atlas fills up: the old coordinates then point at other glyphs.
+/// The atlas size alone did not catch that, since the new atlas can come out
+/// the same size as the old one.
 type GalleyKey = ((&'static str, bool), bool, f32, f32, u64);
 
 /// The highlighted source, one galley per line, laid out once per

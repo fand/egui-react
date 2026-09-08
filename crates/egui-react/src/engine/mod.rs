@@ -141,9 +141,10 @@ struct TextCtx {
     /// The last galley, with the wrap width and the pixels per point it was
     /// laid out for (both as bits so they compare exactly) and the fonts
     /// generation it was laid out under. A galley holds texture coordinates
-    /// into the glyph atlas of the `Fonts` that made it; after `set_fonts`
-    /// there is a new `Fonts` with a new atlas, and the old galley would paint
-    /// whatever now sits at those coordinates.
+    /// into the glyph atlas of the `Fonts` that made it; after `set_fonts`, a
+    /// change of visuals or a full atlas there is a new `Fonts` with a new
+    /// atlas, and the old galley would paint whatever now sits at those
+    /// coordinates.
     galley: Option<(u32, u32, u64, Arc<Galley>)>,
 }
 

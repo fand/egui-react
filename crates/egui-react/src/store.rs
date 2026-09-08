@@ -181,17 +181,32 @@ pub struct Store {
     /// test, which draws the same row both ways.
     force_taffy_rows: Cell<bool>,
     warn_on_collision: bool,
-    /// Which fonts egui had on the last pass that looked, as a fingerprint of
-    /// `FontDefinitions`, and how many times it has changed. A `<Text>` galley
-    /// carries texture coordinates into the glyph atlas of the `Fonts` that
-    /// laid it out, and `Context::set_fonts` builds a new `Fonts` with a new
-    /// atlas at the start of the next pass, so a galley cached across that
-    /// boundary paints the wrong pixels. The engine keys its galley cache on
-    /// the generation; see [`Store::note_fonts`].
-    fonts_fingerprint: Cell<u64>,
+    /// What egui's `Fonts` looked like when the store last looked, and how
+    /// many times it has been a new one. A `<Text>` galley carries texture
+    /// coordinates into the glyph atlas of the `Fonts` that laid it out, and
+    /// egui builds a new `Fonts` with a new atlas at the start of a pass
+    /// after `set_fonts`, after the text options changed (dark and light
+    /// visuals rasterize glyphs differently) and when the atlas got full, so
+    /// a galley cached across that boundary paints the wrong pixels. The
+    /// engine keys its galley cache on the generation; see
+    /// [`Store::note_fonts`].
+    fonts_seen: Cell<Option<FontsSeen>>,
     fonts_generation: Cell<u64>,
     /// The pass `note_fonts` last ran in, so it runs once per pass.
     fonts_noted_pass: Cell<u64>,
+}
+
+/// What [`Store::note_fonts`] compares between passes to tell one `Fonts` from
+/// the next. See there for why each field is enough.
+#[derive(Clone, Copy, PartialEq)]
+struct FontsSeen {
+    /// A fingerprint of the `FontDefinitions`.
+    definitions: u64,
+    /// The `TextOptions` the atlas was made with.
+    options: egui::epaint::text::TextOptions,
+    /// The atlas fill ratio, as of the last look (the start or the end of a
+    /// pass, whichever came last).
+    fill: f32,
 }
 
 /// How many passes a layout tree survives without being drawn.
@@ -220,9 +235,10 @@ pub(crate) fn fonts_generation_id() -> egui::Id {
 /// For code that keeps an `Arc<Galley>` across frames outside the layout
 /// engine (a code view that lays its lines out once, say): a galley holds
 /// texture coordinates into the glyph atlas of the `Fonts` that made it, and
-/// `Context::set_fonts` builds a new `Fonts` with a new atlas, so a cache of
-/// galleys has to carry this in its key. Zero before the first pass of a
-/// `Store`, then the value [`Store::fonts_generation`] returns.
+/// egui builds a new `Fonts` with a new atlas after `Context::set_fonts`, after
+/// a change of visuals and when the atlas gets full, so a cache of galleys has
+/// to carry this in its key. Zero before the first pass of a `Store`, then the
+/// value [`Store::fonts_generation`] returns.
 pub fn fonts_generation(ctx: &egui::Context) -> u64 {
     ctx.data(|d| d.get_temp::<u64>(fonts_generation_id()))
         .unwrap_or(0)
@@ -254,21 +270,35 @@ impl Store {
             lite_trees: RefCell::new(HashMap::new()),
             force_taffy_rows: Cell::new(false),
             warn_on_collision: cfg!(debug_assertions),
-            fonts_fingerprint: Cell::new(0),
+            fonts_seen: Cell::new(None),
             fonts_generation: Cell::new(0),
             fonts_noted_pass: Cell::new(0),
         }
     }
 
-    /// Notice a change of fonts, once per pass.
+    /// Notice a new `Fonts`, once per pass.
     ///
     /// Called from the root [`crate::Cx`] rather than from [`Store::begin_pass`]
     /// because reading the fonts needs a running pass (`Context::fonts` has
     /// nothing to give before the first `Context::run`), and a `Ui` is the
-    /// proof of one. The fingerprint is over the font names, the `Arc`s that
-    /// hold their bytes and the family lists: `set_fonts` is a no-op when the
-    /// definitions are equal, and any definitions that are not equal differ in
-    /// one of those. It is a few dozen small hashes per pass.
+    /// proof of one.
+    ///
+    /// egui gives no handle to the atlas, so the three things that make it
+    /// build a new one are watched instead:
+    ///
+    /// - `set_fonts`: a fingerprint over the font names, the `Arc`s that hold
+    ///   their bytes and the family lists. `set_fonts` is a no-op when the
+    ///   definitions are equal, and any that are not equal differ in one of
+    ///   those. A few dozen small hashes per pass.
+    /// - The `TextOptions`, compared whole. `Visuals::dark` and
+    ///   `Visuals::light` carry different ones (glyph coverage maps to alpha
+    ///   differently on a dark ground), so `set_visuals` between them is a
+    ///   new atlas; so is a new maximum texture side.
+    /// - The atlas fill ratio going down. It only grows while one atlas
+    ///   lives, and epaint replaces an atlas that is over 80% full at the
+    ///   start of the next pass with a nearly empty one. [`Store::end_pass`]
+    ///   reads the ratio again, so a pass that fills the atlas on its own is
+    ///   seen too.
     ///
     /// The generation is also written to egui's data under
     /// [`fonts_generation_id`], which is where the layout engine reads it
@@ -278,7 +308,7 @@ impl Store {
             return;
         }
         self.fonts_noted_pass.set(self.pass.get());
-        let fingerprint = ctx.fonts(|fonts| {
+        let seen = ctx.fonts(|fonts| {
             use std::hash::{Hash as _, Hasher as _};
             let definitions = fonts.definitions();
             let mut hasher = std::collections::hash_map::DefaultHasher::new();
@@ -290,18 +320,41 @@ impl Store {
                 family.hash(&mut hasher);
                 list.hash(&mut hasher);
             }
-            hasher.finish()
+            FontsSeen {
+                definitions: hasher.finish(),
+                options: *fonts.options(),
+                fill: fonts.font_atlas_fill_ratio(),
+            }
         });
-        if fingerprint != self.fonts_fingerprint.get() {
-            self.fonts_fingerprint.set(fingerprint);
+        let same = self.fonts_seen.get().is_some_and(|last| {
+            last.definitions == seen.definitions
+                && last.options == seen.options
+                && last.fill <= seen.fill
+        });
+        if !same {
             self.fonts_generation.set(self.fonts_generation.get() + 1);
         }
+        self.fonts_seen.set(Some(seen));
         let generation = self.fonts_generation.get();
         ctx.data_mut(|d| d.insert_temp(fonts_generation_id(), generation));
     }
 
-    /// How many times the fonts have changed since the store was created,
-    /// counting the first ones seen. For tests and diagnostics.
+    /// The atlas fill ratio as the pass leaves it, for the next
+    /// [`Store::note_fonts`] to compare against. Only after a pass that looked,
+    /// which is also the proof that the context has fonts to read.
+    fn note_fonts_fill(&self) {
+        let Some(mut seen) = self.fonts_seen.get() else {
+            return;
+        };
+        if self.fonts_noted_pass.get() != self.pass.get() {
+            return;
+        }
+        seen.fill = self.ctx.fonts(|fonts| fonts.font_atlas_fill_ratio());
+        self.fonts_seen.set(Some(seen));
+    }
+
+    /// How many `Fonts` the store has seen egui build since it was created,
+    /// counting the first. For tests and diagnostics.
     pub fn fonts_generation(&self) -> u64 {
         self.fonts_generation.get()
     }
@@ -326,6 +379,7 @@ impl Store {
         self.sweep();
         self.sweep_trees();
         self.show_collision_overlay();
+        self.note_fonts_fill();
     }
 
     /// Drop every layout tree that has not been drawn for a while.

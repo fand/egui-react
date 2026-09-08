@@ -109,3 +109,37 @@ fn the_galley_is_laid_out_again_after_set_fonts() {
     let again = frame(&ctx, &mut store);
     assert!(Arc::ptr_eq(&after, &again));
 }
+
+#[test]
+fn the_galley_is_laid_out_again_after_a_change_of_visuals() {
+    let ctx = egui::Context::default();
+    let mut store = Store::new();
+
+    let dark = frame(&ctx, &mut store);
+    let generation = store.fonts_generation();
+
+    // `Visuals::light` carries other `TextOptions` than `Visuals::dark`
+    // (coverage maps to alpha differently on a light ground), and epaint
+    // builds a new atlas for them at the start of the next pass. The
+    // definitions are the same, so the fingerprint alone would not see it:
+    // this is what garbled the `theme` and `showcase` examples on their
+    // dark / light switch.
+    ctx.set_visuals(egui::Visuals::light());
+    let light = frame(&ctx, &mut store);
+
+    assert_eq!(
+        store.fonts_generation(),
+        generation + 1,
+        "the store noticed the new atlas"
+    );
+    assert!(
+        !Arc::ptr_eq(&dark, &light),
+        "a galley laid out for the dark atlas is not painted with the light one"
+    );
+
+    // The same visuals again change nothing.
+    ctx.set_visuals(egui::Visuals::light());
+    let again = frame(&ctx, &mut store);
+    assert!(Arc::ptr_eq(&light, &again));
+    assert_eq!(store.fonts_generation(), generation + 1);
+}
