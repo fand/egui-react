@@ -29,6 +29,7 @@ use list_10k::App as ListApp;
 use patch::App as PatchApp;
 use shader::App as ShaderApp;
 use showcase::App as ShowcaseApp;
+use styles::App as StyleApp;
 use theme::App as ThemeApp;
 use todo::App as TodoApp;
 
@@ -52,6 +53,7 @@ pub const EXAMPLES: &[Meta] = &[
     shader::META,
     list_10k::META,
     layout::META,
+    styles::META,
     fetch::META,
     font::META,
 ];
@@ -464,6 +466,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 // are virtualised, so the slider still reaches 100k at no cost.
                 "list-10k" => { <ListApp initial_count={1_000}/> }
                 "layout" => { <LayoutApp/> }
+                "styles" => { <StyleApp/> }
                 "fetch" => { <FetchApp/> }
                 "font" => { <FontApp/> }
                 _ => { <ShowcaseApp/> }
