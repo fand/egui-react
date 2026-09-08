@@ -57,7 +57,6 @@ The main methods are below.
 |---|---|
 | `ui() -> &mut egui::Ui` | The current `Ui`. In tree mode, the tree's own `Ui`: an escape hatch that does not get taffy placement, and what a docked `<Panel>` carves its space out of |
 | `ctx() -> &egui::Context` / `scope_id() -> Id` / `layout_id() -> Id` | Accessors |
-| `is_hidden() -> bool` | Whether we are inside a `display="none"` subtree. True on both layout paths, and inside anything a leaf of a hidden view opens (see Layout in section 6) |
 | `in_taffy() -> bool` | Whether we are inside a `<View>`. True on both layout paths, the taffy one and the lite one: what an element reads it for is whether the layout decides its size, and that is the same either way |
 | `scope(source, f)` | Goes one level deeper in component scope. Both Ids deepen. Ui mode also calls `ui.push_id`; tree mode pushes no `Ui`, because a node is a rect |
 | `hook_scope(location, f)` | Scope for a custom hook. Does not touch egui Ids |
@@ -204,7 +203,6 @@ The second is "passing to the same element both a value prop that borrows state 
 | `use_persisted(cx, "key", init) -> State<T>` | `T: Serialize + DeserializeOwned`. Saved to eframe storage and survives restarts. The key is an explicit string (see below) |
 | `use_memo(cx, deps, f) -> &T` | Re-runs `f` only when the hash of deps changes |
 | `use_effect(cx, deps, f)` | Runs `f` **in place** when deps change (and the first time). `f` may return a cleanup (`FnOnce + 'static`) |
-| `use_animate(cx, on, time) -> f32` / `use_animate_with(cx, on, time, easing)` | 0 while `on` is false, 1 while it is true, and eased between the two for `time` seconds after `on` flips (`cubic_out`, or the easing you pass). egui's `AnimationManager` owns the value and asks for the repaints while it moves, so there is no slot in the store and nothing for the sweep to drop: the animation of a component that stops being drawn stays in egui's memory at its last value, as `animate_bool` does for everyone |
 | `use_reducer(cx, reducer, init) -> (State<S>, Dispatch<Msg>)` | `Dispatch` is `Clone + Send + 'static`. `send` pushes onto a queue and calls `request_repaint`; the reducer is applied in order **the next time the hook is visited** (see below) |
 | `provide_context(cx, handle, children)` / `use_context::<T>(cx) -> Option<Handle<T>>` | Valid only while descendants render. Returns a `Handle`, not a guard (to avoid a double borrow with the parent's guard). The store holds a stack of `(TypeId, slot Id)`, and `use_context` rebuilds a `Handle` from the slot Id. `Handle` itself carries `'s`, so it cannot go into `dyn Any` |
 | `use_future(cx, deps, \|\| async { .. }) -> &Poll<T>` | Rebuilds and starts the future each time the hash of deps changes. Native uses one thread + `pollster::block_on`, wasm uses `wasm_bindgen_futures::spawn_local`. On completion it writes the result to the slot and calls `request_repaint`. Stale results that arrive after deps changed are dropped. `Pending` is counted toward the nearest `<Suspense>` (see below) |
@@ -313,7 +311,7 @@ When a handler or effect rewrites state, widgets drawn earlier in the same compo
 
 - **Counter stack** `Store` holds a `RefCell<Vec<usize>>` in the same shape as `provide_context`. `begin_suspense` pushes 0, `end_suspense` returns the pushed count (= the number of `use_future`s that were `Pending` inside), and `note_pending` adds 1 to the nearest (= innermost) counter. With nesting, the inner one consumes its own count, so the outer one does not count it. The stack is cleared in `begin_pass`. Only these 3 methods are added to core; the boundary itself lives in elements (an "element that wraps children", like `Collapsing`).
 - **Initial state is suspended** The first time, draw offscreen, then switch to visible if there is no `Pending`. This is so that when `max_passes` runs out and `request_discard` is refused, what shows is `fallback` rather than half-drawn children.
-- **Children are drawn while suspended too** They are drawn into an offscreen invisible `Ui` (`egui::Ui::new(ctx, id, UiBuilder::new().max_rect(fixed offscreen rect).invisible().sizing_pass())`). Hooks run, and futures start and complete. The rect is a fixed value so the layout engine sees the same size every pass and does not issue useless `request_discard`s. `invisible()` disables both drawing and interaction, so the children's handlers do not fire offscreen. However, egui creates accessibility nodes for widgets regardless of visibility, so screen readers and `egui_kittest` see suspended children as "nodes at offscreen coordinates". A hidden `<View>` (`display="none"`, section 6) works around the same limit by giving the leaf's `Ui` a hidden accesskit node that its widgets hang from; `Suspense` could take that route too.
+- **Children are drawn while suspended too** They are drawn into an offscreen invisible `Ui` (`egui::Ui::new(ctx, id, UiBuilder::new().max_rect(fixed offscreen rect).invisible().sizing_pass())`). Hooks run, and futures start and complete. The rect is a fixed value so the layout engine sees the same size every pass and does not issue useless `request_discard`s. `invisible()` disables both drawing and interaction, so the children's handlers do not fire offscreen. However, egui creates accessibility nodes for widgets regardless of visibility, so screen readers and `egui_kittest` see suspended children as "nodes at offscreen coordinates".
 - **Children scope** Both suspended and visible paths use the `scope_id()` of `Suspense` itself (the third argument of `Cx::new(store, &mut ui, scope)`). The hook slots having the same Id on both paths is what preserves state and futures across the switch. `fallback` is drawn into the same `cx`, but the `rsx!` element Ids differ by line and column, so it does not collide with children.
 - **The switch happens within the same frame** At the moment of the switch, flip the state with `Handle::set` and redo the same frame with `request_discard`. Neither half-drawn children nor a one-frame gap between fallback and children is visible. `Handle::set` calls `request_repaint`, but it is only called at the switch, so it does not repaint every frame while suspended. If `max_passes` (runner default 3) runs out and the discard is refused, the runner calls `request_repaint` and it settles on the next frame.
 - **`shares_ui`** `Suspense` creates no `Ui` / leaf of its own; it streams children and fallback into the parent surface (Ui or Taffy) as-is. Placed inside a `<View>`, the children's `<View>` become children of the parent's taffy tree.
@@ -358,23 +356,6 @@ The rest, unchanged by the engine:
 - egui's standard containers such as `<Vertical>` / `<Horizontal>` / `<Grid>` remain as leaves, as an escape hatch where performance matters. When called from Taffy mode, these egui-native containers behave as a single leaf, and the children inside are drawn in Ui mode. Only `ScrollArea` is placed with `leaf_fill` (3.1). It is a widget that fills the given space, so a leaf measured by content would lock it to the size of the first frame. Give a `ScrollArea` inside a `<View>` either `grow` or `h`. **The max-content of `leaf_fill` is exactly "the height of the current tree's root rect"** (the engine's measure function reads `infinite` that way, as egui_taffy's did), so inside a `<View direction="column">` with no definite height, neither `grow` nor `basis={0}` works, and the `ScrollArea` asks for "the whole window height" rather than "what is left after siblings". A screen with a `ScrollArea` under a toolbar becomes taller than the window by that much, and since the runner's root item style is `min_h: 100%` (section 7) with the height itself auto, the overflow is not clipped and extends downward. Either give it a definite height, or arrange things so nothing sits at the bottom edge that would get pushed out (`examples/board` puts the column's `+ card` at the end inside the `ScrollArea`. `docs/tasks/board/plan.md` 8.3).
 - Every leaf that carries text sets wrap to `Extend` (`Text` `Label` `Button` `Checkbox` `Slider` `ComboBox` labels, the `Collapsing` header). The engine measures a widget leaf as "the size it was drawn at last time" and returns that single value to taffy as both min-content and max-content. (`<Text>` no longer goes through this: the engine lays its galley out itself and knows its real width. The `Extend` default stays, because it is also what `<Text>` means without `wrap`.) The first draw happens in a `Ui` of width 0, so a wrapping widget reports "one character wide" there, the node is locked at that narrow width, and the label stacks one character per line. Leaves with `grow` or `w` are unaffected because taffy decides their width. Widgets with a `wrap_mode` builder (`Button` / `Label`) use it; those without (`Checkbox` / `Slider` / `ComboBox` / `CollapsingHeader`) set it on the leaf `Ui`'s `style.wrap_mode`. `Collapsing` restores the original value before entering the body (what the children draw is the caller's business).
 - Both `<Text>` and `<Label>` can switch to egui's default wrapping with the `wrap` attribute. Wrapping needs a width, so use it together with `w` or (inside a container with a definite width) `grow`. The only difference between the two is that `Text` has `size` / `color` / `strong`.
-- **`display="none"` hides a subtree without unmounting it.** The node stays in
-  the tree, so keys and child indices do not move and every component inside
-  keeps running and keeps its hooks; the layout gives the node and everything
-  under it a zero box, on the taffy path and on the lite one alike. What is
-  drawn under it is drawn into an invisible sizing `Ui`, which egui still
-  registers widgets in (5.8), so the leaf's `Ui` gets an accesskit node of its
-  own, role `GenericContainer`, marked hidden: `accesskit_consumer`'s common
-  filter drops a hidden node together with its subtree, so assistive technology
-  sees none of it. A `<Text>` registers nothing at all — no galley shape, no
-  `WidgetInfo`, no accesskit node — and returns a response at `Rect::NOTHING`.
-  `cx.is_hidden()` (3.1) answers "am I inside one", including inside a tree a
-  hidden leaf opens over its own `Ui`; `Window`, `Overlay`, `Panel` and
-  `CentralPanel` read it and draw nothing, because an `Area` is a layer of its
-  own and a docked panel draws into the tree's root `Ui`, so neither is reached
-  by an invisible leaf `Ui`. Use it for a pane that has to keep its state while
-  something else is on screen (the gallery keeps the running example mounted
-  while its code is up); use `if` and the sweep when the state should go.
 - The root panel is wrapped by default in a `<View>` with `direction="column"`.
 
 ### Elements list (`egui-react-elements`)
@@ -384,34 +365,12 @@ All elements are written with `#[component]` and take `#[prop(default)] style: I
 | Kind | Elements |
 |---|---|
 | Layout | `View` (`display` / `direction` / `wrap` / `justify` / `align` / `align_content` / `gap` / `cols`), `Text` (`size` / `color` / `strong` / `wrap`) |
-| Widgets | `Button` (`enabled` / `label` / `padding` / `corner_radius`, `on_click`), `Label` (`wrap`), `TextEdit` (`bind` / `multiline` / `hint` / `desired_width` / `rows`, `on_change` / `on_submit`), `Checkbox` (`bind` / `label`, `on_change`), `Slider<T: Numeric>` (`bind` / `range` / `label`, `on_change`), `ComboBox` (`bind` / `options` / `label`, `on_change`), `Image` (`source` / `fit` / `alt`), `Separator` (`vertical`) |
-| Containers | `ScrollArea`, `VirtualList` (`rows` / `row_h` / `render`), `Collapsing`, `Frame` (`fill` / `stroke` / `inner_margin` / `corner_radius` / `shadow` / `custom_shadow`), `Window` (`title` / `open` / `resizable` / `default_pos` / `default_size`), `Overlay` (`anchor` / `offset` / `pos` / `order` / `constrain` / `top` / `fill`; sized by `w` / `h`, or by its children), `Panel` (`side`), `CentralPanel`, `Vertical`, `Horizontal`, `Grid` + `row()` |
+| Widgets | `Button` (`enabled` / `label`, `on_click`), `Label` (`wrap`), `TextEdit` (`bind` / `multiline` / `hint` / `desired_width` / `rows`, `on_change` / `on_submit`), `Checkbox` (`bind` / `label`, `on_change`), `Slider<T: Numeric>` (`bind` / `range` / `label`, `on_change`), `ComboBox` (`bind` / `options` / `label`, `on_change`), `Image` (`source` / `fit` / `alt`), `Separator` (`vertical`) |
+| Containers | `ScrollArea`, `VirtualList` (`rows` / `row_h` / `render`), `Collapsing`, `Frame`, `Window` (`title` / `open` / `resizable` / `default_pos` / `default_size`), `Panel` (`side`), `CentralPanel`, `Vertical`, `Horizontal`, `Grid` + `row()` |
 | Drawing | `Canvas` (`sense` / `paint`, `on_drag` / `on_hover`. A leaf that passes on the rect taffy gave it as-is) |
 | Async | `Suspense` (`fallback: impl View`, `shares_ui`. Draws `fallback` instead of children if even one `use_future` inside is `Pending`. 5.8) |
 
 `label` on `Button` and `alt` on `Image` are the names assistive technology reads. `label` on `Button` does not change what is drawn (children); it only replaces the name of the accesskit node (`Context::accesskit_node_builder`). A button that is only an icon or `"x"` would otherwise be read as just that text, so pass it. `alt` on `Image` goes to `egui::Image::alt_text`, and is also drawn next to the warning sign when loading fails. Reading aloud on web is waiting on upstream, as in the non-goals in section 1, but these work on native from today.
-
-`Overlay` is an `egui::Area` as an element: a layer of its own, so it takes no
-space in the surrounding layout and draws over everything in the layer under
-it. `anchor` pins it to an edge or a corner of the window (`"bottom-right"`,
-`"top"`, `"center"`; egui's `Align2` order, `"right-bottom"`, is accepted too)
-and `offset` moves it off that corner; `pos` places it by hand and wins over
-`anchor`. `order` picks the egui layer, `constrain` (on by default) keeps it
-inside the window, and `top` lifts it above the other overlays every frame,
-which is what beats egui's rule that the area shown later is on top. It has two
-modes. **Sized** (`w` and/or `h`): the size is known before anything is drawn,
-so the overlay paints a sheet, takes every press that lands on it — a press on
-the sheet reaches nothing underneath — and roots a taffy tree of its own, the
-way the runner roots the app, so a `<View w="100%" h="100%">` inside fills the
-sheet. A percentage is of the window (`Context::content_rect`), an axis that is
-not given is the window's, and the sheet is filled with `fill` or with the
-theme's `panel_fill` (`fill={Color32::TRANSPARENT}` opts out). **Unsized**
-(neither given): the overlay is as big as its children, paints nothing unless
-`fill` is given, and lets every press beside them through. Not drawing an
-`<Overlay>` unmounts its children, as `open={false}` does for a `<Window>`.
-`Frame`'s `shadow` casts the theme's window shadow, and `custom_shadow` casts
-one of your own; `Button`'s `padding` and `corner_radius` are the widget's own,
-so a round floating button needs no escape hatch.
 
 Inside taffy (`Cx::in_taffy()`), `TextEdit` fills its node. Single-line sets `desired_width` to the node width, and `multiline` fills both ways with `ui.add_sized(ui.available_size(), ..)` (`desired_rows` only fits in whole rows, and the remainder spills out of the node). This is because drawing at egui's default 280pt / 4 rows inside a node widened with `grow` or `w` leaves the rest empty. If `desired_width` / `rows` is given explicitly, that wins. `Slider` / `ComboBox` / `Button` do not stretch for now (they stay at `spacing.slider_width` / `spacing.combo_width` / content width respectively).
 

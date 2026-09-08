@@ -780,12 +780,6 @@ pub(crate) struct TreeCx<'u> {
     /// `<Text>` reads this to decide whether it may paint itself right away
     /// (see [`TreeCx::text`]).
     placed: bool,
-    /// Is this position inside a `display="none"` subtree?
-    ///
-    /// Everything under such a node is laid out at zero by taffy, so its
-    /// leaves draw invisible, out of the accessibility tree, and its texts
-    /// register nothing at all.
-    hidden: bool,
     /// How many children have been added under `parent` so far.
     child_index: &'u mut usize,
 }
@@ -799,14 +793,8 @@ impl TreeCx<'_> {
             parent: self.parent,
             origin: self.origin,
             placed: self.placed,
-            hidden: self.hidden,
             child_index: self.child_index,
         }
-    }
-
-    /// Is this position inside a `display="none"` subtree?
-    pub(crate) fn hidden(&self) -> bool {
-        self.hidden
     }
 
     /// The tree's own `Ui`, which is what `cx.ui()` returns in tree mode.
@@ -837,10 +825,6 @@ impl TreeCx<'_> {
         f: impl FnOnce(&mut TreeCx<'_>) -> R,
     ) -> R {
         let index = self.next_index();
-        // The node is still added and `f` still runs: keys and child indices
-        // stay stable, so a show after a hide is not a "created" pass, and the
-        // components inside keep their hooks.
-        let hidden = self.hidden || style.display == taffy::Display::None;
         let (node, layout, first_frame) =
             self.tree
                 .borrow_mut()
@@ -855,7 +839,6 @@ impl TreeCx<'_> {
                 parent: node,
                 origin,
                 placed: self.placed && !first_frame,
-                hidden,
                 child_index: &mut used,
             };
             f(&mut child)
@@ -889,40 +872,17 @@ impl TreeCx<'_> {
         let mut builder = UiBuilder::new()
             .max_rect(content_rect(&layout, self.origin))
             .id_salt(scope.with(index));
-        if first_frame || self.hidden {
+        if first_frame {
             // A node that has never been laid out has a zero rect, so its
             // first draw is a measurement: invisible, and in a sizing pass so
             // that widgets ask for as little space as they can. That is the
             // one reason a frame always needs a second pass, so it is recorded
-            // here rather than wherever a node happens to be created. A hidden
-            // leaf draws the same way, but nobody waits for its size, so it is
-            // not a reason for a second pass.
+            // here rather than wherever a node happens to be created.
             builder = builder.sizing_pass().invisible();
-            if first_frame && !self.hidden {
-                self.tree.borrow_mut().created_this_frame = true;
-            }
+            self.tree.borrow_mut().created_this_frame = true;
         }
         let mut ui = self.root_ui.new_child(builder);
-        if self.hidden {
-            // Every widget `f` registers hangs from the `Ui`'s own id
-            // (`Ui::interact` -> `register_accesskit_parent`), so one hidden
-            // node here hides the whole subtree from assistive technology:
-            // `accesskit_consumer::common_filter` excludes a hidden node with
-            // everything under it. egui registers the widgets whether they are
-            // visible or not (5.8), so this is the one way to keep them out.
-            ui.ctx().accesskit_node_builder(ui.unique_id(), |node| {
-                node.set_role(egui::accesskit::Role::GenericContainer);
-                node.set_hidden();
-            });
-        }
         let inner = f(&mut ui);
-
-        if self.hidden {
-            // taffy lays a `Display::None` subtree out at zero whatever the
-            // measure says, and the measure from the last visible draw is
-            // what the node needs when it comes back.
-            return inner;
-        }
 
         let measure = if measured {
             let min_size = ui.min_size().ceil();
@@ -992,19 +952,6 @@ impl TreeCx<'_> {
         let content = content_rect(&layout, self.origin);
 
         let (job, hash) = text_job(self.root_ui, text);
-        if self.hidden {
-            // The galley cache and the node's text survive, so a show costs no
-            // more than a visible frame. Nothing else is registered: no
-            // `WidgetInfo` (so no accesskit node), no selection state, no shape
-            // and no pending text. The rect nothing can hit is what a caller
-            // reading the `Response` sees.
-            self.tree
-                .borrow_mut()
-                .set_text(node, Arc::clone(&job), hash, wrap);
-            return self
-                .root_ui
-                .interact(Rect::NOTHING, scope.with(index), egui::Sense::hover());
-        }
         let fonts = Fonts::of(self.root_ui);
         let galley = {
             let mut tree = self.tree.borrow_mut();
@@ -1234,8 +1181,6 @@ pub(crate) fn show<R>(
             parent: root,
             origin: border_box_min(&root_layout, root_rect.min),
             placed: !first_frame,
-            // A tree opened inside a hidden leaf is hidden from its root.
-            hidden: store.in_hidden(),
             child_index: &mut used,
         };
         f(&mut tc)

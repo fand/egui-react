@@ -15,6 +15,7 @@ use std::sync::Arc;
 
 mod highlight;
 use egui_react::prelude::*;
+use egui_react_app::root_style;
 use egui_react_elements::prelude::*;
 use example_meta::Meta;
 
@@ -125,31 +126,26 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
                 // One pane, and the summary above it whichever it is.
                 <View direction="column" grow={1.0} min_h={0.0} gap={4}>
                     <Text strong wrap>{current.summary}</Text>
-                    // Hidden, not unmounted, while the code is up: the
-                    // example keeps running (a clock keeps time, a todo keeps
-                    // its draft), which is what a tab is expected to do. The
-                    // `key` still sweeps it on a switch.
-                    <View
-                        key={current.name}
-                        display={if showing == Pane::Example { "flex" } else { "none" }}
-                        direction="column"
-                        grow={1.0}
-                        min_h={0.0}
-                    >
-                        <Running name={current.name} plain={showing_plain}/>
-                    </View>
-                    // The code pane stays conditional: its state is a galley
-                    // cache that rebuilds in a few milliseconds, and its
-                    // source link would stay in the accessibility tree.
-                    if showing == Pane::Code {
-                        <Code
-                            w="100%"
-                            grow={1.0}
-                            min_h={0.0}
-                            meta={*current}
-                            plain={showing_plain}
-                            on_pick={|pick: bool| *plain = pick}
-                        />
+                    match showing {
+                        // The same `key` as the wide layout: switching
+                        // examples sweeps the previous one's hooks. Switching
+                        // to the code does too, so the example starts over
+                        // when it comes back.
+                        Pane::Example => {
+                            <View key={current.name} direction="column" grow={1.0} min_h={0.0}>
+                                <Running name={current.name} plain={showing_plain}/>
+                            </View>
+                        }
+                        Pane::Code => {
+                            <Code
+                                w="100%"
+                                grow={1.0}
+                                min_h={0.0}
+                                meta={*current}
+                                plain={showing_plain}
+                                on_pick={|pick: bool| *plain = pick}
+                            />
+                        }
                     }
                 </View>
                 // Not while the menu is down: it covers the corner the
@@ -249,29 +245,39 @@ fn Header(cx: &mut Cx, compact: bool, #[event] on_menu: ()) {
 /// The button floating in the bottom-right corner of a compact screen, which
 /// swaps the running example for its code and back.
 ///
-/// An `<Overlay>` rather than a node of the tree: it sits over the pane, where
-/// a thumb reaches, and takes no room from it. Unsized, so it is as big as the
-/// button and lets every press beside it through. The label says what a press
-/// does; the glyph is what is drawn.
+/// An `egui::Area` rather than a node of the tree: it sits over the pane,
+/// where a thumb reaches, and takes no room from it. The label says what a
+/// press does; the glyph is what is drawn.
 #[component]
 fn PaneToggle(cx: &mut Cx, showing: Pane, #[event] on_toggle: Pane) {
+    let ctx = cx.ctx().clone();
     let (glyph, label, next) = match showing {
         Pane::Example => ("</>", "show code", Pane::Code),
         Pane::Code => ("⏵", "show example", Pane::Example),
     };
-    rsx! {
-        <Overlay anchor="bottom-right" offset={(-16.0, -16.0)}>
-            <Frame shadow corner_radius={24.0}>
-                <Button
-                    label={label}
-                    padding={(16.0, 12.0)}
-                    corner_radius={24.0}
-                    on_click={|| on_toggle.emit(next)}
-                >
-                    {egui::RichText::new(glyph).size(18.0)}
-                </Button>
-            </Frame>
-        </Overlay>
+    let clicked = egui::Area::new(cx.scope_id().with("pane_toggle"))
+        .order(egui::Order::Foreground)
+        .anchor(egui::Align2::RIGHT_BOTTOM, egui::vec2(-16.0, -16.0))
+        .show(&ctx, |ui| {
+            egui::Frame::new()
+                .shadow(ui.visuals().window_shadow)
+                .corner_radius(24.0)
+                .show(ui, |ui| {
+                    ui.spacing_mut().button_padding = egui::vec2(16.0, 12.0);
+                    let button = egui::Button::new(egui::RichText::new(glyph).size(18.0))
+                        .corner_radius(24.0)
+                        .wrap_mode(egui::TextWrapMode::Extend);
+                    let response = ui.add(button);
+                    // The glyph is not a name; see `<Button label>`.
+                    ui.ctx()
+                        .accesskit_node_builder(response.id, |node| node.set_label(label));
+                    response.clicked()
+                })
+                .inner
+        })
+        .inner;
+    if clicked {
+        on_toggle.emit(next);
     }
 }
 
@@ -280,10 +286,10 @@ fn PaneToggle(cx: &mut Cx, showing: Pane, #[event] on_toggle: Pane) {
 ///
 /// It slides down from the top edge when it opens and back up when it closes,
 /// and it is not drawn at all once it is away. While it is on screen it is an
-/// `<Overlay>` the size of the window, so the pane beneath gets no clicks.
-/// A sized overlay roots a tree of its own, the way the runner roots the app,
-/// so the list fills the sheet and the example list scrolls in what the header
-/// leaves.
+/// `egui::Area` in the foreground that spans the window, so the pane beneath
+/// gets no clicks. Inside, the list is laid out by a tree of its own, rooted
+/// the way the runner roots the app, so it fills the sheet and the example
+/// list scrolls in what the header leaves.
 #[component]
 fn Menu(
     cx: &mut Cx,
@@ -296,45 +302,66 @@ fn Menu(
     #[event] on_clear: (),
     #[event] on_close: (),
 ) {
+    let (store, scope) = (cx.store, cx.scope_id());
+    let ctx = cx.ctx().clone();
     // 0 when the menu is away, 1 when it is down; in between it is moving.
-    let down = use_animate(cx, open, MENU_TIME);
+    let down = ctx.animate_bool_with_time_and_easing(
+        scope.with("slide"),
+        open,
+        MENU_TIME,
+        egui::emath::easing::cubic_out,
+    );
     if down <= 0.0 {
         return;
     }
-    let screen = cx.ctx().content_rect();
+    let screen = ctx.content_rect();
     let top = screen.top() - screen.height() * (1.0 - down);
-    rsx! {
-        // `top` keeps the menu above the pane toggle and anything else in the
-        // foreground; `constrain={false}` lets it hang above the window while
-        // it slides. No `fill`: a sized overlay paints `panel_fill` itself.
-        <Overlay
-            pos={egui::pos2(screen.left(), top)}
-            constrain={false}
-            top
-            w="100%"
-            h="100%"
-        >
-            <View direction="column" gap={8} w="100%" h="100%" p={8}>
-                // The same header, with the button that closes the menu where
-                // the one that opened it was.
-                <View direction="row" align="center" gap={8} w="100%">
-                    <Text strong size={20.0} grow={1.0}>"egui-react"</Text>
-                    <Button label="close menu" on_click={|| on_close.emit(())}>"×"</Button>
-                </View>
-                <List
-                    w="100%"
-                    grow={1.0}
-                    min_h={0.0}
-                    shown={shown}
-                    active={active}
-                    selected={selected}
-                    on_select={|name: &'static str| on_select.emit(name)}
-                    on_tag={|tag: &'static str| on_tag.emit(tag)}
-                    on_clear={|| on_clear.emit(())}
-                />
-            </View>
-        </Overlay>
-    }
+    let id = scope.with("menu");
+    // Above the pane toggle and anything else in the foreground, every frame:
+    // egui keeps the areas in the order they were first shown, and a click
+    // brings one to the front.
+    ctx.move_to_top(egui::LayerId::new(egui::Order::Foreground, id));
+    egui::Area::new(id)
+        .order(egui::Order::Foreground)
+        .fixed_pos(egui::pos2(screen.left(), top))
+        // Partly above the window while it slides.
+        .constrain(false)
+        .default_size(screen.size())
+        .show(&ctx, move |ui| {
+            let sheet = egui::Rect::from_min_size(ui.max_rect().min, screen.size());
+            ui.painter()
+                .rect_filled(sheet, 0.0, ui.visuals().panel_fill);
+            // The whole sheet, not just the widgets on it, is what stops a
+            // press from reaching the pane beneath.
+            ui.allocate_rect(sheet, egui::Sense::click());
+            let inner = sheet.shrink(8.0);
+            let mut ui = ui.new_child(egui::UiBuilder::new().max_rect(inner));
+            let mut cx = Cx::new(store, &mut ui, scope);
+            cx.root_container(scope.with("menu_root"), root_style(), |cx| {
+                rsx! {
+                    <View direction="column" gap={8} w="100%" h="100%">
+                        // The same header, with the button that closes the
+                        // menu where the one that opened it was.
+                        <View direction="row" align="center" gap={8} w="100%">
+                            <Text strong size={20.0} grow={1.0}>"egui-react"</Text>
+                            <Button label="close menu" on_click={|| on_close.emit(())}>"×"</Button>
+                        </View>
+                        <List
+                            w="100%"
+                            grow={1.0}
+                            min_h={0.0}
+                            shown={shown}
+                            active={active}
+                            selected={selected}
+                            on_select={|name: &'static str| on_select.emit(name)}
+                            on_tag={|tag: &'static str| on_tag.emit(tag)}
+                            on_clear={|| on_clear.emit(())}
+                        />
+                    </View>
+                }
+                .show(cx);
+            });
+        });
 }
 
 /// The example list and the tag filter.

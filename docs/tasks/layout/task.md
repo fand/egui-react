@@ -1,28 +1,5 @@
 # Task: overlays without the escape hatch
 
-## Result (2026-09-07)
-
-Every step done, in seven commits; the order is in [plan.md](plan.md) 9.8.
-
-| Done criterion | Status |
-|---|---|
-| `<Overlay anchor="bottom-right">` reports a rect in the window's bottom-right quarter whatever the tree draws | **Pass**, by test (`overlay.rs`, `anchored_bottom_right_stays_in_the_corner`) |
-| An overlay with `w="100%" h="100%"` covers the window, and a press on a button under it does not reach the button | **Pass**, by test (`a_sized_overlay_takes_the_presses`; the same app without the sheet counts the press) |
-| Children of an overlay that is not drawn are unmounted | **Pass**, by test (`an_overlay_not_drawn_unmounts_its_children`; the store is back to zero slots) |
-| `use_animate` goes from 0 to 1 over `time` seconds of steps, and is 1 at once when `time` is 0 | **Pass**, by test (`animate.rs`; ten steps of 0.05 s for `time` 0.5) |
-| A `<View display="none">` has zero size, its `<Text>` is not in the accesskit tree, and a `use_state` inside keeps its value | **Pass**, by test (`hidden.rs`), and both layout paths agree (`lite_parity.rs`, `hidden_in_row`) |
-| `cargo test -p gallery` passes unchanged, and `grep -c "egui::Area\|Cx::new" examples/gallery/src/lib.rs` is 0 | **Pass.** The grep is 0; the gallery tests are unchanged bar one comment, and one test was added |
-| The gallery on a phone looks and moves as it did at the end of PR #15, example state included | **Pass by test** (`the_example_keeps_its_state_across_a_trip_to_the_code_pane`). By hand on a phone: not checked here |
-
-Two things came out different from the plan, both small:
-
-- A hidden `<Text>` registers `Rect::NOTHING`, and the parity test translates
-  every rect by the row's origin, which turns that into NaN — never equal to
-  itself. The test now counts two rects that are both nothing as the same
-  answer.
-- `<Button padding>` is compared against `style.spacing.button_padding`, read
-  through `Context::global_style()`: egui 0.36 has no `Context::style()`.
-
 ## Background
 
 The gallery's compact layout (PR #15, `examples/gallery/src/lib.rs`) puts two

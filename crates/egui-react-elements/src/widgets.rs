@@ -20,28 +20,16 @@ use egui_react::prelude::*;
 /// `"x"` reads as that glyph and nothing more. It only renames the accessibility
 /// node; what is drawn stays the children.
 #[component]
-#[allow(clippy::too_many_arguments)]
 pub fn Button(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
     #[prop(default = true)] enabled: bool,
     label: Option<&str>,
-    padding: Option<(f32, f32)>,
-    corner_radius: Option<f32>,
     #[event] on_click: (),
     children: impl Into<egui::WidgetText>,
 ) {
     let clicked = cx.leaf(&style, |ui| {
-        if let Some((x, y)) = padding {
-            // The leaf's own `Ui` in a tree, the scope's `push_id` child
-            // outside: `spacing_mut` copies the style, so nothing leaks past
-            // this element.
-            ui.spacing_mut().button_padding = egui::vec2(x, y);
-        }
-        let mut button = egui::Button::new(children).wrap_mode(egui::TextWrapMode::Extend);
-        if let Some(radius) = corner_radius {
-            button = button.corner_radius(radius); // `CornerRadius: From<f32>`
-        }
+        let button = egui::Button::new(children).wrap_mode(egui::TextWrapMode::Extend);
         let response = ui.add_enabled(enabled, button);
         if let Some(label) = label {
             // The widget has already written its node for this pass, so this

@@ -33,8 +33,8 @@ pub mod widgets;
 pub mod prelude {
     pub use crate::canvas::{Canvas, CanvasEvent};
     pub use crate::containers::{
-        Anchor, CentralPanel, Collapsing, Frame, Grid, Horizontal, Order, Overlay, Panel, Row,
-        ScrollArea, Side, Vertical, Window,
+        CentralPanel, Collapsing, Frame, Grid, Horizontal, Panel, Row, ScrollArea, Side, Vertical,
+        Window,
     };
     pub use crate::suspense::Suspense;
     pub use crate::view::{Text, View};
