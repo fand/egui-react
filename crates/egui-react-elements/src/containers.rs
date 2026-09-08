@@ -212,6 +212,12 @@ pub fn Overlay(
     fill: Option<egui::Color32>,
     children: impl View,
 ) {
+    // An `Area` is a layer of its own, so an invisible leaf `Ui` never reaches
+    // it: a hidden one is not drawn at all, and its children unmount as when
+    // `open` is false.
+    if cx.is_hidden() {
+        return;
+    }
     let (store, scope) = (cx.store, cx.scope_id());
     let layout = cx.layout_id();
     let ctx = cx.ctx().clone();
@@ -403,6 +409,12 @@ pub fn Window(
     default_size: Option<egui::Vec2>,
     children: impl View,
 ) {
+    // An `Area` is a layer of its own, so an invisible leaf `Ui` never reaches
+    // it: a hidden one is not drawn at all, and its children unmount as when
+    // `open` is false.
+    if cx.is_hidden() {
+        return;
+    }
     let (store, scope) = (cx.store, cx.scope_id());
     let layout = cx.layout_id();
     let ctx = cx.ctx().clone();
@@ -448,6 +460,12 @@ pub fn Panel(
     #[prop(default = true)] resizable: bool,
     children: impl View,
 ) {
+    // A docked panel draws into the tree's root `Ui`, not into the invisible
+    // leaf `Ui` of a hidden view, so a hidden one is not drawn at all; its
+    // children unmount as when a `<Window>` is closed.
+    if cx.is_hidden() {
+        return;
+    }
     let (store, scope) = (cx.store, cx.scope_id());
     let layout = cx.layout_id();
     let show = move |ui: &mut egui::Ui| {
@@ -482,6 +500,12 @@ pub fn Panel(
 /// Docks in the same `Ui` as [`Panel`], for the same reasons.
 #[component(shares_ui)]
 pub fn CentralPanel(cx: &mut Cx, #[prop(default)] style: ItemStyle, children: impl View) {
+    // A docked panel draws into the tree's root `Ui`, not into the invisible
+    // leaf `Ui` of a hidden view, so a hidden one is not drawn at all; its
+    // children unmount as when a `<Window>` is closed.
+    if cx.is_hidden() {
+        return;
+    }
     let (store, scope) = (cx.store, cx.scope_id());
     let layout = cx.layout_id();
     let show = move |ui: &mut egui::Ui| {
