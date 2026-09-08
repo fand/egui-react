@@ -21,7 +21,7 @@ use egui_kittest::kittest::{NodeT as _, Queryable as _};
 use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
 
-/// Wide enough for four columns of cards, tall enough that no column scrolls:
+/// Wide enough for three columns of cards, tall enough that no column scrolls:
 /// a `ScrollArea` culls what it does not draw, and a culled widget is not in
 /// the tree to be found.
 const SIZE: egui::Vec2 = egui::vec2(1000.0, 700.0);
@@ -117,14 +117,14 @@ fn box_of(title: &str) -> String {
     format!("done: {title}")
 }
 
-/// Which of the four columns a card is drawn in.
+/// Which of the three columns a card is drawn in.
 ///
-/// Both versions divide the width into four equal columns, so where a card is
+/// Both versions divide the width into three equal columns, so where a card is
 /// on screen is the honest way to ask which column it is in — and it is the
 /// same question for both.
 fn column_of<S>(harness: &Harness<'_, S>, title: &str) -> usize {
     let x = harness.get_by_label(&box_of(title)).rect().center().x;
-    ((x / SIZE.x * 4.0).floor() as usize).min(3)
+    ((x / SIZE.x * 3.0).floor() as usize).min(2)
 }
 
 /// How far down the screen a card is.
@@ -277,10 +277,7 @@ fn add_card<S>(harness: &mut Harness<'_, S>, title: &str) {
 
 /// B-1: the footer adds a card to its column, and only if it was given a name.
 fn adding_a_card<S>(harness: &mut Harness<'_, S>) {
-    assert!(
-        harness.query_by_label("12 cards").is_some(),
-        "twelve to start"
-    );
+    assert!(harness.query_by_label("10 cards").is_some(), "ten to start");
     assert!(
         harness.query_by_label("4/4").is_some(),
         "backlog holds four"
@@ -288,7 +285,7 @@ fn adding_a_card<S>(harness: &mut Harness<'_, S>) {
 
     add_card(harness, "new card");
 
-    assert!(harness.query_by_label("13 cards").is_some());
+    assert!(harness.query_by_label("11 cards").is_some());
     assert!(
         harness.query_by_label("5/5").is_some(),
         "backlog holds five"
@@ -305,7 +302,7 @@ fn adding_a_card<S>(harness: &mut Harness<'_, S>) {
     harness.key_press(egui::Key::Escape);
     settle(harness);
     assert!(
-        harness.query_by_label("13 cards").is_some(),
+        harness.query_by_label("11 cards").is_some(),
         "a cancelled card was never added"
     );
 
@@ -319,7 +316,7 @@ fn adding_a_card<S>(harness: &mut Harness<'_, S>) {
     harness.key_press(egui::Key::Enter);
     settle(harness);
     assert!(
-        harness.query_by_label("13 cards").is_some(),
+        harness.query_by_label("11 cards").is_some(),
         "and neither was a nameless one"
     );
 }
@@ -389,25 +386,25 @@ fn a_draft_survives_a_reorder<S>(harness: &mut Harness<'_, S>) {
 /// B-4: undo and redo walk the history one user action at a time.
 fn undo_and_redo<S>(harness: &mut Harness<'_, S>) {
     add_card(harness, "new card");
-    drag_to_end(harness, "buy milk", 3);
-    assert!(harness.query_by_label("13 cards").is_some());
-    assert_eq!(column_of(harness, "buy milk"), 3);
+    drag_to_end(harness, "buy milk", 2);
+    assert!(harness.query_by_label("11 cards").is_some());
+    assert_eq!(column_of(harness, "buy milk"), 2);
 
     harness.get_by_label("undo").click();
     settle(harness);
     assert_eq!(column_of(harness, "buy milk"), 0, "the drag is undone");
-    assert!(harness.query_by_label("13 cards").is_some());
+    assert!(harness.query_by_label("11 cards").is_some());
 
     harness.get_by_label("undo").click();
     settle(harness);
-    assert!(harness.query_by_label("12 cards").is_some(), "and the add");
+    assert!(harness.query_by_label("10 cards").is_some(), "and the add");
 
     harness.get_by_label("redo").click();
     settle(harness);
-    assert!(harness.query_by_label("13 cards").is_some());
+    assert!(harness.query_by_label("11 cards").is_some());
     harness.get_by_label("redo").click();
     settle(harness);
-    assert_eq!(column_of(harness, "buy milk"), 3, "and back again");
+    assert_eq!(column_of(harness, "buy milk"), 2, "and back again");
 }
 
 /// B-5: the search box filters every column, once it has been still for long
@@ -432,13 +429,9 @@ fn searching<S>(harness: &mut Harness<'_, S>, mut wait: impl FnMut(&mut Harness<
         harness.query_by_label("2/4").is_some(),
         "backlog: two of four"
     );
-    assert!(
-        harness.query_by_label("0/2").is_some(),
-        "review: none of two"
-    );
     assert!(harness.query_by_label("write the plan").is_some());
     assert!(harness.query_by_label("buy milk").is_none());
-    assert_eq!(harness.query_all_by_label("nothing here").count(), 3);
+    assert_eq!(harness.query_all_by_label("nothing here").count(), 2);
 }
 
 /// B-8: a column's name is edited in place, and the edit is a board message
@@ -686,14 +679,14 @@ fn b6_react_keeps_the_board_across_a_restart() {
     harness.run();
     add_card(&mut harness, "new card");
     edit(&mut harness, "new card", "!");
-    assert!(harness.query_by_label("13 cards").is_some());
+    assert!(harness.query_by_label("11 cards").is_some());
 
     let saved = harness.state().save_persisted();
     assert!(saved.contains("new card"), "saved: {saved}");
 
     let mut restarted = react_from(&saved);
     restarted.run();
-    assert!(restarted.query_by_label("13 cards").is_some());
+    assert!(restarted.query_by_label("11 cards").is_some());
     assert_eq!(column_of(&restarted, "new card"), 0);
     assert_eq!(editors(&restarted), 0, "an editor is not part of the board");
 }
@@ -800,6 +793,6 @@ fn b7_plain_does_all_of_it_the_same_way() {
 
     let mut restarted = plain_from(PlainState::load(&saved));
     restarted.run();
-    assert!(restarted.query_by_label("13 cards").is_some());
+    assert!(restarted.query_by_label("11 cards").is_some());
     assert_eq!(column_of(&restarted, "new card"), 0);
 }

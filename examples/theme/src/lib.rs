@@ -32,7 +32,7 @@ pub const META: Meta = Meta {
         "provide_context",
         "use_context",
     ],
-    elements: &["View", "Text", "Button", "Frame", "Separator"],
+    elements: &["View", "Text", "Button", "Separator"],
     source: include_str!("lib.rs"),
     plain: None,
 };
@@ -195,13 +195,13 @@ fn Page(cx: &mut Cx) {
 #[component]
 fn Card(cx: &mut Cx) {
     rsx! {
-        <Frame inner_margin={12.0}>
+        <View p={12}>
             <View direction="column" gap={8}>
                 <Greeting/>
                 <ThemedButton/>
                 <Swatch/>
             </View>
-        </Frame>
+        </View>
     }
 }
 
@@ -236,9 +236,9 @@ fn Swatch(cx: &mut Cx) {
 
     rsx! {
         <View direction="row" gap={8} align="center">
-            <Frame fill={theme.swatch()} inner_margin={8.0} corner_radius={4.0}>
+            <View bg={theme.swatch()} p={8} radius={4.0}>
                 <Text>"swatch"</Text>
-            </Frame>
+            </View>
             <Text>{format!("mode: {}", theme.name())}</Text>
         </View>
     }

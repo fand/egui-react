@@ -21,7 +21,7 @@ pub const META: Meta = Meta {
     name: "custom-hook",
     summary: "Three hooks of your own, each called from two components that keep their own state.",
     hooks: &["use_state", "use_effect", "#[hook]"],
-    elements: &["View", "Text", "TextEdit", "Button", "Frame", "Separator"],
+    elements: &["View", "Text", "TextEdit", "Button", "Separator"],
     source: include_str!("lib.rs"),
     plain: None,
 };
@@ -125,9 +125,9 @@ fn Responsive(cx: &mut Cx) {
             <Text>{format!("layout: {}", if narrow { "column" } else { "row" })}</Text>
             <View direction={if narrow { "column" } else { "row" }} gap={8}>
                 for label in ["one", "two", "three"] {
-                    <Frame key={label} inner_margin={8.0}>
+                    <View key={label} p={8}>
                         <Text>{label}</Text>
-                    </Frame>
+                    </View>
                 }
             </View>
         </View>

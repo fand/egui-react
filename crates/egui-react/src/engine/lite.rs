@@ -15,14 +15,17 @@
 //!
 //! Everything else is the taffy path's: the leaf measure function
 //! ([`super::measure_leaf`]), the `<Text>` state ([`super::TextCtx`]), the way a
-//! `<Text>` paints and registers itself, and the rule for when a frame has to
-//! be drawn again. So a row lays out to the same rects either way, which
+//! `<Text>` paints and registers itself, the deferred box shapes
+//! ([`super::PendingPaint`], [`LiteTree::paint_boxes`]), and the rule for when
+//! a frame has to be drawn again. So a row lays out to the same rects and
+//! paints the same boxes either way, which
 //! `crates/egui-react/tests/lite_parity.rs` checks node by node.
 //!
 //! **The subset.** `display` flex or none, `direction` row / column and their
 //! reverses, `justify` and `align` other than `baseline`, `gap`, `w h min_w
 //! min_h max_w max_h` in points or percent, `grow` / `shrink` / `basis`, and
-//! `m*` / `p*` in points or percent. Anything else — `wrap`, `align_content`,
+//! `m*` / `p*` in points or percent, and the whole of `PaintStyle` (only its
+//! `border` is layout, and [`item_padding`] reserves it). Anything else — `wrap`, `align_content`,
 //! grid, block, `baseline`, `col_span` / `row_span`, an `auto` margin — is
 //! outside it. The first such style seen switches that row's slot to the taffy
 //! path for good (see [`LiteTree::fall_back`]). A percentage `basis` against a
@@ -47,10 +50,11 @@ use egui::{Pos2, Rect, UiBuilder, Vec2};
 use taffy::{AvailableSpace, MaybeMath as _};
 
 use super::{
-    Fonts, Measure, TextCtx, describe_text, discard_reason, galley_pos, galley_rect, measure_leaf,
-    text_job, text_moved, wrap_width,
+    BoxSlots, Fonts, Measure, PendingPaint, TextCtx, describe_text, discard_reason, galley_pos,
+    galley_rect, measure_leaf, text_job, text_moved, wrap_width,
 };
 use crate::layout::{Align, ContainerStyle, Direction, Display, ItemStyle, Justify, Length};
+use crate::paint::PaintStyle;
 
 // ---------------------------------------------------------------------------
 // Geometry helpers
@@ -288,12 +292,19 @@ fn item_max(item: &ItemStyle, basis: Sz<Option<f32>>) -> Sz<Option<f32>> {
 
 /// The padding, resolved against the containing block's *inline* size, which is
 /// what CSS says for both axes.
+///
+/// A border's width is added to every edge. The taffy path gives it a field of
+/// its own (`ItemStyle::to_taffy` sets taffy's `border`), but taffy's flex
+/// algorithm only ever reads padding and border added together, so one number
+/// here lays the same boxes out — and the stroke lands in the band the layout
+/// kept the content out of, on both paths.
 fn item_padding(item: &ItemStyle, basis: Option<f32>) -> Edges {
+    let border = item.paint.border.map_or(0.0, |stroke| stroke.width);
     Edges {
-        top: length_or_zero(pick(item.pt, item.py, item.p), basis),
-        right: length_or_zero(pick(item.pr, item.px, item.p), basis),
-        bottom: length_or_zero(pick(item.pb, item.py, item.p), basis),
-        left: length_or_zero(pick(item.pl, item.px, item.p), basis),
+        top: length_or_zero(pick(item.pt, item.py, item.p), basis) + border,
+        right: length_or_zero(pick(item.pr, item.px, item.p), basis) + border,
+        bottom: length_or_zero(pick(item.pb, item.py, item.p), basis) + border,
+        left: length_or_zero(pick(item.pl, item.px, item.p), basis) + border,
     }
 }
 
@@ -455,6 +466,8 @@ struct Box2 {
     /// The border box's corner, relative to the parent's border box.
     location: Vec2,
     size: Sz<f32>,
+    /// The padding *and* the border, which the solver never tells apart (see
+    /// [`item_padding`]): together they are what the content is inset by.
     padding: Edges,
 }
 
@@ -466,6 +479,9 @@ struct PendingText {
     idx: egui::layers::ShapeIdx,
     color: egui::Color32,
     wrap: bool,
+    /// The `Ui`'s opacity where the slot was claimed; see
+    /// [`super::PendingText`].
+    opacity: f32,
 }
 
 /// One row's layout state: everything a slot keeps between frames.
@@ -484,12 +500,19 @@ pub(crate) struct LiteTree {
     rects: Vec<Rect>,
     /// This frame's rects, until they are swapped into `rects`.
     new_rects: Vec<Rect>,
+    /// The *border* box of each node, beside `rects`, which are content rects.
+    /// This is what a node's paint covers.
+    boxes: Vec<Rect>,
+    /// This frame's boxes, until they are swapped into `boxes`.
+    new_boxes: Vec<Rect>,
     /// The [`TextCtx`] of each `<Text>`, by the order the texts are drawn in.
     texts: Vec<TextCtx>,
     /// How many `<Text>`s the frame being drawn has claimed so far.
     text_count: usize,
     /// The `<Text>` shapes claimed this frame, waiting for the final layout.
     pending: Vec<PendingText>,
+    /// The box shapes claimed this frame, waiting for the final layout.
+    paints: Vec<PendingPaint<usize>>,
     /// The nodes of the frame before this one, kept so that a frame that
     /// changed nothing can be recognised without solving anything.
     prev_nodes: Vec<Node>,
@@ -511,9 +534,12 @@ impl LiteTree {
             layouts: Vec::new(),
             rects: Vec::new(),
             new_rects: Vec::new(),
+            boxes: Vec::new(),
+            new_boxes: Vec::new(),
             texts: Vec::new(),
             text_count: 0,
             pending: Vec::new(),
+            paints: Vec::new(),
             created: false,
             fallback: None,
             last_visited: 0,
@@ -572,6 +598,7 @@ impl LiteTree {
         std::mem::swap(&mut self.nodes, &mut self.prev_nodes);
         self.nodes.clear();
         self.pending.clear();
+        self.paints.clear();
         self.text_count = 0;
         self.created = false;
     }
@@ -625,10 +652,11 @@ impl LiteTree {
 // main size, 9.4 cross size, 9.5 main alignment, 9.6 cross alignment, 9.7
 // resolving flexible lengths), ported from taffy 0.9's `compute_flexbox_layout`
 // with everything the subset excludes taken out: no wrapping, so there is
-// always exactly one line; no baselines; no absolute positioning; no borders,
-// scrollbar gutters or aspect ratios, none of which egui-react's styles can
-// express; and `box-sizing: border-box`, which is taffy's default and the only
-// one an `ItemStyle` produces.
+// always exactly one line; no baselines; no absolute positioning; no border
+// field, because taffy only ever reads padding and border added together and
+// `item_padding` hands it one number; no scrollbar gutters or aspect ratios,
+// which egui-react's styles cannot express; and `box-sizing: border-box`,
+// which is taffy's default and the only one an `ItemStyle` produces.
 // ---------------------------------------------------------------------------
 
 /// The inputs of one computation: taffy's `LayoutInput`, minus what this path
@@ -1407,6 +1435,11 @@ impl LiteTree {
 /// children. A pre-order list of nodes plus each one's child count determines
 /// the tree, so comparing the two lists element by element compares the whole
 /// input.
+///
+/// The item style carries the node's [`PaintStyle`] too, of which only the
+/// border is layout. So a background that changes every frame re-solves the
+/// row for nothing. A solve is cheap and the alternative is a second
+/// comparison for the paint alone, so we accept it (plan 1.1).
 fn same_node(a: &Node, b: &Node) -> bool {
     a.child_count == b.child_count
         && a.item == b.item
@@ -1709,6 +1742,9 @@ impl LiteTree {
             Pos2::ZERO + origin + egui::vec2(left, top),
             egui::vec2(width - left - right, height - top - bottom),
         );
+        // The whole box, which is what the node's paint covers: the same rect
+        // before the padding and the border are taken off it.
+        self.new_boxes[node] = Rect::from_min_size(Pos2::ZERO + origin, egui::vec2(width, height));
 
         let mut child = self.nodes[node].first_child;
         while let Some(index) = child {
@@ -1725,6 +1761,8 @@ impl LiteTree {
 
         self.new_rects.clear();
         self.new_rects.resize(self.nodes.len(), Rect::ZERO);
+        self.new_boxes.clear();
+        self.new_boxes.resize(self.nodes.len(), Rect::ZERO);
         if !self.nodes.is_empty() {
             self.round(0, Vec2::ZERO, Vec2::ZERO);
         }
@@ -1750,6 +1788,7 @@ impl LiteTree {
                 moved.then_some((node, *old, *new))
             });
         std::mem::swap(&mut self.rects, &mut self.new_rects);
+        std::mem::swap(&mut self.boxes, &mut self.new_boxes);
         moved
     }
 
@@ -1797,6 +1836,22 @@ impl LiteTree {
         }
     }
 
+    /// Paint the box of every node that claimed a slot this frame, now that
+    /// the layout is final. The taffy path's [`super::Tree::paint_boxes`].
+    fn paint_boxes(&mut self, ui: &egui::Ui, root_min: Pos2) {
+        if self.paints.is_empty() {
+            return;
+        }
+        let mut painter = ui.painter().clone();
+        let visuals = ui.visuals();
+        for pending in std::mem::take(&mut self.paints) {
+            let Some(rect) = self.boxes.get(pending.node).copied() else {
+                continue;
+            };
+            pending.paint(&mut painter, rect.translate(root_min.to_vec2()), visuals);
+        }
+    }
+
     /// Put every `<Text>` claimed this frame into the shape it reserved, now
     /// that the layout is final.
     fn paint_texts(&mut self, ui: &egui::Ui, root_min: Pos2) {
@@ -1804,7 +1859,7 @@ impl LiteTree {
             return;
         }
         let fonts = Fonts::of(ui);
-        let painter = ui.painter();
+        let mut painter = ui.painter().clone();
         for pending in std::mem::take(&mut self.pending) {
             let Some(rect) = self.rects.get(pending.node).copied() else {
                 continue;
@@ -1815,6 +1870,7 @@ impl LiteTree {
                 continue;
             };
             let galley = self.texts[*slot].galley(fonts, width);
+            painter.set_opacity(pending.opacity);
             let pos = galley_pos(&rect, &galley);
             painter.set(
                 pending.idx,
@@ -1903,6 +1959,17 @@ impl LiteCx<'_> {
         }
     }
 
+    /// Claim the slot behind a node, if it paints anything.
+    fn claim(&mut self, paint: &PaintStyle, hidden: bool) -> Option<BoxSlots> {
+        BoxSlots::claim(self.root_ui, paint, hidden)
+    }
+
+    /// Close a node's slots and hand them to [`LiteTree::paint_boxes`].
+    fn finish_paint(&mut self, node: usize, paint: PaintStyle, slots: BoxSlots) {
+        let pending = PendingPaint::new(node, self.root_ui, paint, slots);
+        self.tree.borrow_mut().paints.push(pending);
+    }
+
     /// Add a container node and build its children inside it.
     pub(crate) fn container<R>(
         &mut self,
@@ -1922,16 +1989,30 @@ impl LiteCx<'_> {
             *item,
         );
 
+        // As on the taffy path: the shadow and the background behind the
+        // children, the border in front, the opacity on the row's own `Ui`.
+        let mut slots = self.claim(&item.paint, hidden);
+        if let Some(slots) = &mut slots {
+            slots.multiply_opacity(self.root_ui, &item.paint);
+        }
+
         let mut used = 0usize;
-        let mut child = LiteCx {
-            tree: self.tree,
-            root_ui: self.root_ui,
-            root_min: self.root_min,
-            parent: node,
-            hidden,
-            child_index: &mut used,
+        let inner = {
+            let mut child = LiteCx {
+                tree: self.tree,
+                root_ui: self.root_ui,
+                root_min: self.root_min,
+                parent: node,
+                hidden,
+                child_index: &mut used,
+            };
+            f(&mut child)
         };
-        f(&mut child)
+
+        if let Some(slots) = slots {
+            self.finish_paint(node, item.paint, slots);
+        }
+        inner
     }
 
     /// A container whose style the solver cannot read (a raw [`taffy::Style`],
@@ -1968,6 +2049,9 @@ impl LiteCx<'_> {
             tree.push(Some(self.parent), Kind::Leaf(measure), *item)
         };
 
+        // Behind the widget, which draws next into a `Ui` of its own.
+        let mut slots = self.claim(&item.paint, self.hidden);
+
         let rect = self.tree.borrow().last_rect(node);
         let mut builder = UiBuilder::new()
             .max_rect(
@@ -1984,6 +2068,10 @@ impl LiteCx<'_> {
             }
         }
         let mut ui = self.root_ui.new_child(builder);
+        // A leaf's opacity goes on its own `Ui`, as on the taffy path.
+        if let Some(slots) = &mut slots {
+            slots.multiply_opacity(&mut ui, &item.paint);
+        }
         if self.hidden {
             // One hidden accesskit node over the whole leaf; see
             // `super::TreeCx::leaf`.
@@ -1998,6 +2086,11 @@ impl LiteCx<'_> {
             // The measure from the last visible draw stays on the node: the
             // solver zeroes a hidden subtree whatever it says.
             return inner;
+        }
+
+        // In front of the widget.
+        if let Some(slots) = slots {
+            self.finish_paint(node, item.paint, slots);
         }
 
         if measured {
@@ -2054,6 +2147,13 @@ impl LiteCx<'_> {
                 .interact(Rect::NOTHING, scope.with(index), egui::Sense::hover());
         }
 
+        // Behind the galley; the opacity rides on the row's own `Ui`.
+        let mut slots = self.claim(&item.paint, self.hidden);
+        if let Some(slots) = &mut slots {
+            slots.multiply_opacity(self.root_ui, &item.paint);
+        }
+        let opacity = self.root_ui.opacity();
+
         let rect = galley_rect(&content, &galley);
         let selectable =
             selectable.unwrap_or_else(|| self.root_ui.style().interaction.selectable_labels);
@@ -2099,7 +2199,14 @@ impl LiteCx<'_> {
                 idx,
                 color,
                 wrap,
+                opacity,
             });
+        }
+
+        if let Some(slots) = slots {
+            // In front of the galley, and the row's `Ui` goes back to the
+            // opacity it had outside this node.
+            self.finish_paint(node, item.paint, slots);
         }
 
         response
@@ -2215,7 +2322,18 @@ pub(crate) fn show<R>(
             hidden,
             child_index: &mut used,
         };
-        f(&mut cx)
+        // The root node's own box, exactly as a container's.
+        let mut slots = cx.claim(&item.paint, hidden);
+        if let Some(slots) = &mut slots {
+            slots.multiply_opacity(cx.root_ui, &item.paint);
+        }
+
+        let inner = f(&mut cx);
+
+        if let Some(slots) = slots {
+            cx.finish_paint(0, item.paint, slots);
+        }
+        inner
     };
 
     {
@@ -2231,6 +2349,9 @@ pub(crate) fn show<R>(
             log::debug!("egui-react: request_discard: {reason}");
             root_ui.ctx().request_discard(reason);
         }
+        // After `finish`, so both land where the layout for *this* frame put
+        // them rather than where the last one did.
+        tree.paint_boxes(&root_ui, root_min);
         tree.paint_texts(&root_ui, root_min);
     }
 

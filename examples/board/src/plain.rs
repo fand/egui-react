@@ -355,7 +355,7 @@ fn toolbar(
     });
 }
 
-/// The four columns, side by side and equally wide.
+/// The three columns, side by side and equally wide.
 fn columns(ui: &mut egui::Ui, state: &mut PlainState, theme: Theme, pending: &mut Vec<Msg>) {
     let ids: Vec<ColumnId> = state.board.columns.iter().map(|column| column.id).collect();
     let query = state.query.clone();

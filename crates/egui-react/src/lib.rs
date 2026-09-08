@@ -1,5 +1,5 @@
 //! Core of egui-react: `View`, `Cx`, `Store`, `State`, `Handle`, `Dispatch`,
-//! the hooks and the layout attribute types.
+//! the hooks and the layout and paint attribute types.
 //!
 //! `rsx!`, `#[component]` and `#[hook]` come from `egui-react-macros` and are
 //! re-exported here, so `use egui_react::prelude::*` is the only import a
@@ -13,6 +13,7 @@ mod events;
 mod future;
 mod hooks;
 pub mod layout;
+pub mod paint;
 mod state;
 mod store;
 mod view;
@@ -28,6 +29,7 @@ pub use hooks::{
 };
 pub use layout::{
     Align, AlignSelf, ContainerStyle, Direction, Display, Gap, ItemStyle, Justify, Length,
+    PaintStyle,
 };
 pub use state::{Handle, State};
 pub use store::{Collision, Store};
@@ -103,6 +105,7 @@ pub mod prelude {
     };
     pub use crate::layout::{
         Align, AlignSelf, ContainerStyle, Direction, Display, Gap, ItemStyle, Justify, Length,
+        PaintStyle,
     };
     pub use crate::state::{Handle, State};
     pub use crate::store::{Collision, Store};

@@ -29,6 +29,7 @@ use list_10k::App as ListApp;
 use patch::App as PatchApp;
 use shader::App as ShaderApp;
 use showcase::App as ShowcaseApp;
+use styles::App as StyleApp;
 use theme::App as ThemeApp;
 use todo::App as TodoApp;
 
@@ -52,6 +53,7 @@ pub const EXAMPLES: &[Meta] = &[
     shader::META,
     list_10k::META,
     layout::META,
+    styles::META,
     fetch::META,
     font::META,
 ];
@@ -253,24 +255,32 @@ fn Header(cx: &mut Cx, compact: bool, #[event] on_menu: ()) {
 /// a thumb reaches, and takes no room from it. Unsized, so it is as big as the
 /// button and lets every press beside it through. The label says what a press
 /// does; the glyph is what is drawn.
+///
+/// The pill is the button's own box: `p` becomes the widget's padding, so the
+/// whole pill takes the press, and `bg` `radius` `shadow` are painted on it by
+/// the engine. `bg` is the colour egui paints an inactive button with, read
+/// from the theme, so the button at rest looks as it always did while hover
+/// and press stay the widget's own.
 #[component]
 fn PaneToggle(cx: &mut Cx, showing: Pane, #[event] on_toggle: Pane) {
     let (glyph, label, next) = match showing {
         Pane::Example => ("</>", "show code", Pane::Code),
         Pane::Code => ("⏵", "show example", Pane::Example),
     };
+    let bg = cx.ui().visuals().widgets.inactive.weak_bg_fill;
     rsx! {
         <Overlay anchor="bottom-right" offset={(-16.0, -16.0)}>
-            <Frame shadow corner_radius={24.0}>
-                <Button
-                    label={label}
-                    padding={(16.0, 12.0)}
-                    corner_radius={24.0}
-                    on_click={|| on_toggle.emit(next)}
-                >
-                    {egui::RichText::new(glyph).size(18.0)}
-                </Button>
-            </Frame>
+            <Button
+                label={label}
+                px={16.0}
+                py={12.0}
+                radius={24.0}
+                shadow
+                bg={bg}
+                on_click={|| on_toggle.emit(next)}
+            >
+                {egui::RichText::new(glyph).size(18.0)}
+            </Button>
         </Overlay>
     }
 }
@@ -456,6 +466,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 // are virtualised, so the slider still reaches 100k at no cost.
                 "list-10k" => { <ListApp initial_count={1_000}/> }
                 "layout" => { <LayoutApp/> }
+                "styles" => { <StyleApp/> }
                 "fetch" => { <FetchApp/> }
                 "font" => { <FontApp/> }
                 _ => { <ShowcaseApp/> }

@@ -131,11 +131,6 @@ impl Board {
             },
             Column {
                 id: 103,
-                name: String::from("review"),
-                cards: vec![card("check the sweep", false), card("read it back", false)],
-            },
-            Column {
-                id: 104,
                 name: String::from("done"),
                 cards: vec![
                     card("choose a subject", true),
@@ -527,12 +522,12 @@ mod tests {
     #[test]
     fn the_demo_board_has_a_done_column() {
         let board = Board::demo();
-        assert_eq!(board.len(), 12);
+        assert_eq!(board.len(), 10);
         let done = board.columns.last().expect("the last column");
         assert_eq!(done.name, "done");
         assert!(done.cards.iter().all(|card| card.done));
         assert!(
-            board.columns[..3]
+            board.columns[..2]
                 .iter()
                 .flat_map(|column| column.cards.iter())
                 .all(|card| !card.done)

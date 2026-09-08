@@ -35,7 +35,7 @@ fn every_container_hosts_hooks_that_survive_frames() {
                     <Collapsing header="section" default_open>
                         <Counter name="collapsing"/>
                     </Collapsing>
-                    <Frame inner_margin={4.0} corner_radius={2.0}>
+                    <Frame p={4} radius={2.0}>
                         <Counter name="frame"/>
                     </Frame>
                     <Vertical>
@@ -313,21 +313,21 @@ fn a_panel_inside_a_view_docks_in_the_window() {
 }
 
 #[test]
-fn a_shadowed_frame_lays_out_like_a_plain_one() {
+fn a_shadowed_view_lays_out_like_a_plain_one() {
     let mut harness = Harness::new_ui_state(
         |ui, store: &mut Store| {
             run_app(ui, store, |cx| {
                 rsx! {
                     <View direction="column">
-                        <Frame inner_margin={4.0}>
+                        <View p={4}>
                             <Label>"framed"</Label>
-                        </Frame>
-                        <Frame shadow inner_margin={4.0}>
+                        </View>
+                        <View shadow p={4}>
                             <Label>"framed"</Label>
-                        </Frame>
-                        <Frame custom_shadow={egui::Shadow::NONE} inner_margin={4.0}>
+                        </View>
+                        <View custom_shadow={egui::Shadow::NONE} p={4}>
                             <Counter name="custom"/>
-                        </Frame>
+                        </View>
                     </View>
                 }
                 .show(cx);
@@ -337,13 +337,13 @@ fn a_shadowed_frame_lays_out_like_a_plain_one() {
     );
 
     harness.run();
-    // The same text in both frames, so only the frames can move it: the labels
+    // The same text in both views, so only their boxes can move it: the labels
     // come back in tree order, the plain one first.
     let labels: Vec<_> = harness
         .get_all_by_label("framed")
         .map(|node| node.rect())
         .collect();
-    assert_eq!(labels.len(), 2, "both frames should draw their label");
+    assert_eq!(labels.len(), 2, "both views should draw their label");
     let (plain, shadowed) = (labels[0], labels[1]);
 
     // A shadow is painted, not laid out: the two labels are the same size, at
@@ -352,10 +352,10 @@ fn a_shadowed_frame_lays_out_like_a_plain_one() {
     assert_eq!(plain.left(), shadowed.left(), "{plain:?} {shadowed:?}");
     assert!(
         plain.bottom() <= shadowed.top(),
-        "the frames should stack: {plain:?} {shadowed:?}",
+        "the views should stack: {plain:?} {shadowed:?}",
     );
 
-    // And the third frame's children keep their state.
+    // And the third view's children keep their state.
     assert!(harness.query_by_label("custom: 0").is_some());
     harness.get_by_label("custom +").click();
     harness.run();

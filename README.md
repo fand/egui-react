@@ -68,6 +68,7 @@ Every example but one runs in the browser in the [gallery](https://fand.github.i
 | `list-10k` | Ten thousand rows: what drawing all of them costs, and what `<VirtualList>` saves. | [#list-10k](https://fand.github.io/egui-react/#list-10k) | [lib.rs](examples/list-10k/src/lib.rs) | [plain.rs](examples/list-10k/src/plain.rs) |
 | `shell` | Docked panels, a floating window, and an editor in what is left. | – (standalone) | [lib.rs](examples/shell/src/lib.rs) | – |
 | `layout` | Every flex and grid attribute `<View>` understands, one section each. | [#layout](https://fand.github.io/egui-react/#layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
+| `styles` | Every `style` attribute in a table: the name, the code that uses it, and what it draws. | [#styles](https://fand.github.io/egui-react/#styles) | [lib.rs](examples/styles/src/lib.rs) | – |
 | `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [#fetch](https://fand.github.io/egui-react/#fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |
 | `font` | CSS-style font chains: a bundled subset, a 4.5 MB web font fetched on demand, and the installed fonts, with what each entry resolved to. | [#font](https://fand.github.io/egui-react/#font) | [lib.rs](examples/font/src/lib.rs) | – |
 

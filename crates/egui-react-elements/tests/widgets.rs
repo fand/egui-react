@@ -456,10 +456,10 @@ fn padding_widens_the_button() {
                 rsx! {
                     <View direction="column">
                         <Button label="plain">"x"</Button>
-                        <Button label="padded" padding={(16.0, 12.0)}>"x"</Button>
+                        <Button label="padded" px={16.0} py={12.0}>"x"</Button>
                         <Button
                             label="round"
-                            corner_radius={24.0}
+                            radius={24.0}
                             on_click={|| clicks.set(clicks.get() + 1)}
                         >"x"</Button>
                     </View>

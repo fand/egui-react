@@ -86,7 +86,7 @@ A blanket impl for `IntoIterator<Item = V>` conflicts under coherence with both 
 
 `rsx!` always emits `::egui_react::view(|cx| { .. })`. `pub fn view<F: FnOnce(&mut Cx<'_, '_>)>(f: F) -> impl View` is a helper that exists only to pin the closure's argument type; writing a bare closure in an `impl View` position sometimes fails to infer the type of `cx`. Users also use `view(|cx| ..)` when writing an escape hatch.
 
-The `rsx!` closure is not `move` and borrows locals. The closure is consumed right away inside the generated statement, so the borrow is short-lived.
+The `rsx!` closure is not `move` and borrows locals. The closure is consumed right away inside the generated statement, so the borrow is short-lived. The `cx` the expansion draws every element with is spelled with the span of the `rsx!` call, not of the element, so an element handed in through a `macro_rules!` (`item!(<Leaf/>)`, whose body is an `rsx!` of its own) resolves to the closure it sits in rather than to whatever `cx` the caller's hygiene context can see (`examples/styles` builds its table that way; [adr/core/0010](adr/core/0010-rsx-cx-has-the-call-site-span.md)).
 
 Inside `rsx!` you can write the following.
 
@@ -270,7 +270,7 @@ The layout engine calls `request_discard` when the frame on screen is now wrong,
 
 - a **created** node that had to draw to be measured. A new node has no layout, so its first draw happens in an invisible sizing `Ui` at a zero rect. That is a measurement, not a picture, so the frame has to be drawn again. A container draws nothing of its own and a `<Text>` is measured rather than drawn, so neither sets this;
 - a **removed** node. It was part of the tree the surviving nodes were drawn with, and it is out of the id map before the comparison runs, so the comparison cannot tell what dropping it did;
-- a **moved** node. The layout of every node is copied before the computation and compared with the result. For a widget leaf, which drew a `Ui` in its whole rect, every field counts but `content_size`, which is compared only on `overflow: scroll` nodes; anywhere else it is just what the node measured, and a wider label inside a node that grows to fill its row must not cost a pass. A `<Text>` node is compared by where its galley is painted from (the top of its content rect and the edge its `halign` names, plus the width if it wraps), not by its size: its size *is* what the text measured. A container is compared by its location alone: it paints nothing, its children are placed relative to it and compared on their own, so a container that got wider around children that stayed put changes nothing on screen (the root included: the space the tree takes in the surrounding `Ui` is read off its `content_size` after the comparison, so it is never a frame behind). Together these mean a label that changes every frame, a frame-time readout say, costs no pass unless it pushes a widget along, even when the row around it shrinks to fit.
+- a **moved** node. The layout of every node is copied before the computation and compared with the result. For a widget leaf, which drew a `Ui` in its whole rect, every field counts but `content_size`, which is compared only on `overflow: scroll` nodes; anywhere else it is just what the node measured, and a wider label inside a node that grows to fill its row must not cost a pass. A `<Text>` node is compared by where its galley is painted from (the top of its content rect and the edge its `halign` names, plus the width if it wraps), not by its size: its size *is* what the text measured. A container is compared by its location alone: it paints only what `PaintStyle` says and only after the layout, its children are placed relative to it and compared on their own, so a container that got wider around children that stayed put changes nothing on screen (the root included: the space the tree takes in the surrounding `Ui` is read off its `content_size` after the comparison, so it is never a frame behind). Together these mean a label that changes every frame, a frame-time readout say, costs no pass unless it pushes a widget along, even when the row around it shrinks to fit.
 
 The reason passed to `request_discard` names the cause (`egui-react: layout changed: the text "last frame 9.8 ms…" moved [..] -> [..]`). egui draws the reasons in its `PERF WARNING` overlay when discards run for three frames or more, and the engine logs each one at `debug`, so `RUST_LOG=egui_react=debug cargo run -p <example>` prints them; `egui-react-app` installs `env_logger` on native and eframe's `WebLogger` on the web when the app has not installed a logger of its own.
 
@@ -333,10 +333,21 @@ To make Flexbox / Grid a first-class citizen, layout runs on [taffy](https://git
 The engine in five lines:
 
 - **One taffy tree per `<View>` root.** A `<View>` in a plain `Ui` starts a tree; a `<View>` inside one adds a node. Trees live in the `Store`, keyed by `Cx::layout_id()`, not in egui memory: one map lookup per frame, and `Store::end_pass` drops a tree that nothing drew in the pass, so a tree left behind by an unmounted subtree goes away instead of growing egui's `IdTypeMap` for ever.
-- **A node is a rect, not a `Ui`.** A container node creates no `Ui`, registers no widget and returns no response — egui-react paints nothing on a `<View>`, so nothing is lost. Only a widget leaf gets a `Ui`, one, a child of the tree's own. A `<Text>` gets none at all. A `<Row>` of a `<View>` with two `<Text>` and a `<Button>` costs two `Ui`s; under egui_taffy it cost nine.
+- **A node is a rect, not a `Ui`.** A container node creates no `Ui`, registers no widget and returns no response — it paints only what its `PaintStyle` says, after the layout (see Paint below), so nothing is lost. Only a widget leaf gets a `Ui`, one, a child of the tree's own. A `<Text>` gets none at all. A `<Row>` of a `<View>` with two `<Text>` and a `<Button>` costs two `Ui`s; under egui_taffy it cost nine.
 - **Node key = layout id + child index; `Ui` salt = hook scope.** The two Ids part only inside `<VirtualList>` (3.1): the rows' nodes are keyed by the *slot* on screen, so scrolling reuses them, while the leaf `Ui`s are salted by the hook scope, so widget ids stay with the row. That is also why `VirtualList` needs no `push_id` of its own.
 - **`<Text>` is measured, not drawn.** Its layout job is built once from the tree's `Ui` style, the galley is laid out inside taffy's measure function at the width the node is given, and painted onto the tree's `Ui`. The widget rect and the `WidgetInfo` that `egui::Label` registers are still made, so hover, `egui_kittest` label queries and screen readers still find the text. Selection follows `interaction.selectable_labels` exactly as `Label` does, and the `selectable` prop overrides it; a `<Text>` drawn for the first time is not selectable for that one frame, because it has no place on screen until the layout is computed. That is also what picks the paint path: a text whose place is known paints itself in draw order through `LabelSelectionState`, a text created this frame claims a `Shape` slot in draw order and has it filled in after the layout is final. The galley is kept on the node for the pass that laid it out and no longer: a galley holds texture coordinates into the atlas of the `Fonts` that laid it out, and egui throws that `Fonts` away and builds a new one with a new atlas after `Context::set_fonts` (a font arriving over HTTP, say), after the text options changed (`Visuals::dark` and `Visuals::light` rasterize glyphs differently) and when the atlas is over 80% full, with no way to ask whether it just did. What survives between frames is the `LayoutJob`, which does not depend on the atlas; the galley comes back from epaint's own `GalleyCache`, which lives inside `Fonts` and is rebuilt with the atlas, so a rebuilt atlas can never meet a stale galley and none of those three cases needs detecting. The cost is a `LayoutJob` clone, a hash and a lookup per `<Text>` per frame, which is what `egui::Label` pays.
 - **Passes.** The created / removed / moved rule and the layout-first computation on a root resize are in 5.3.
+
+### Paint
+
+A box looks the way it lays out: from the one `style` prop every element already takes. The decisions are in [adr/layout/0003](adr/layout/0003-paint-style-inside-item-style.md) and [adr/elements/0001](adr/elements/0001-widgets-hand-their-box-over.md). `ItemStyle` carries a `PaintStyle` — `bg` `border` `radius` `shadow` `custom_shadow` `opacity`, `rsx!` shorthands like `w` and `p` — and the engine paints it, the same way on both layout paths.
+
+- **The order**, per node: the shadow and then the background behind the children, the widget or the galley; the border in front of them. All three sit on the node's *border box*, its whole box rather than the rect its content draws in, and share one `radius`.
+- **The shapes are deferred.** A node's rect is known only once the frame's layout is solved, so the node claims a `Shape` slot in draw order — one before it draws, one after — and `paint_boxes` fills both after `finish`, from *this* frame's layout. Always deferring is one code path instead of two, and it is what keeps a painted `<View>` free of a pass: a container that grew around children that stayed put is painted at its new size in the very pass it grew in, which is why the moved rule (5.3) still compares a container by its location alone.
+- **A border is layout.** `ItemStyle::to_taffy` sets taffy's `border` to the stroke's width, and the lite solver adds it to the padding edges, which is the same number to a flex algorithm. So the children start inside the stroke, and it is painted `StrokeKind::Inside`, exactly in the band the layout kept them out of. Nothing else about the paint — the colour, the radius, the shadow — reaches the layout.
+- **`opacity`** multiplies the `Ui` the node draws into: the tree's own `Ui` for a container or a `<Text>`, put back afterwards, and its own `Ui` for a leaf. `Painter::set` applies the painter's opacity as the shape is set, and by then the `Ui` is back at the outer value, so the factor in force is recorded with the slot and set on a painter of the engine's own when the shape is filled in.
+- **Nothing paints in `Ui` mode.** Outside a tree `cx.leaf` is `f(ui)` and there is no rect until the widget has drawn. `<Frame>` is the escape hatch there: it builds an `egui::Frame` out of the same `style`.
+- **A hidden node paints nothing.** `display="none"` claims no slots, for the node and for everything under it.
 
 ### The lite path: a `<VirtualList>` row without a taffy tree
 
@@ -344,7 +355,7 @@ A row is a single-line flex box of two or three children with a fixed height. A 
 
 - **Where it applies.** A tree opened over a plain `Ui` with a fixed root size (`Cx::with_root_size`), which today means `<VirtualList>` rows and nothing else. Every other tree keeps the taffy path unchanged.
 - **The node model.** A row's nodes are a `Vec` rebuilt in draw order every frame (the allocation is reused), a node's identity is its index, and its style is the `ItemStyle` / `ContainerStyle` the element already carries. No `Id`, no `HashMap`, no `taffy::Style`. A row whose shape differs from the previous occupant of the slot is the "new node" case and costs one discard, as it did before.
-- **The subset.** `display` flex or none, `direction` row / column and their reverses, `justify` and `align` other than `baseline`, `gap`, `w h min_w min_h max_w max_h` in points or percent, `grow` / `shrink` / `basis`, and `m*` / `p*` in points or percent. `<View>`s nest to any depth as long as every level is in the subset. A percentage `basis` against a container whose main size is not definite is *in* the subset: it resolves to "measure the content", which is what taffy does with it.
+- **The subset.** `display` flex or none, `direction` row / column and their reverses, `justify` and `align` other than `baseline`, `gap`, `w h min_w min_h max_w max_h` in points or percent, `grow` / `shrink` / `basis`, `m*` / `p*` in points or percent, and the whole of `PaintStyle` (only its `border` is layout, and it goes onto the padding edges). `<View>`s nest to any depth as long as every level is in the subset. A percentage `basis` against a container whose main size is not definite is *in* the subset: it resolves to "measure the content", which is what taffy does with it.
 - **What falls back**, exactly: on the container side `display="grid"` or `"block"`, `wrap`, any `align_content`, `align="baseline"`; on the item side `align_self="baseline"`, `col_span`, `row_span`, and an `auto` margin (`m` / `mx` / `my` / `mt` / `mr` / `mb` / `ml`).
 - **Fallback is per slot, once.** The first unsupported style seen puts that slot on the taffy path for good and writes one `log::debug!` naming the attribute, so a row author can see why one row is slower than its neighbours. The frame it happens on is drawn again, because it was laid out by a solver that does not understand that attribute.
 - **The contract is the parity test.** `crates/egui-react/tests/lite_parity.rs` draws a corpus of 18 row trees twice, once through each path (`Store::force_taffy_rows` picks), and compares every node's rect for exact equality. taffy is the reference: a disagreement means the lite solver is wrong. Every future `ItemStyle` / `ContainerStyle` attribute has to get a corpus case or be added to the fallback list.
@@ -379,13 +390,13 @@ The rest, unchanged by the engine:
 
 ### Elements list (`egui-react-elements`)
 
-All elements are written with `#[component]` and take `#[prop(default)] style: ItemStyle`. `rsx!` packs the layout attributes into `style`. Everything, including the event enums, is re-exported from `egui_react_elements::prelude` (as in 3.6, the enum name is needed wherever `on_*` is used).
+All elements are written with `#[component]` and take `#[prop(default)] style: ItemStyle`. `rsx!` packs the layout attributes into `style`, and the paint attributes — `bg` `border` `radius` `shadow` `custom_shadow` `opacity` — with them, so every element can be a painted box. Everything, including the event enums, is re-exported from `egui_react_elements::prelude` (as in 3.6, the enum name is needed wherever `on_*` is used).
 
 | Kind | Elements |
 |---|---|
 | Layout | `View` (`display` / `direction` / `wrap` / `justify` / `align` / `align_content` / `gap` / `cols`), `Text` (`size` / `color` / `strong` / `wrap`) |
-| Widgets | `Button` (`enabled` / `label` / `padding` / `corner_radius`, `on_click`), `Label` (`wrap`), `TextEdit` (`bind` / `multiline` / `hint` / `desired_width` / `rows`, `on_change` / `on_submit`), `Checkbox` (`bind` / `label`, `on_change`), `Slider<T: Numeric>` (`bind` / `range` / `label`, `on_change`), `ComboBox` (`bind` / `options` / `label`, `on_change`), `Image` (`source` / `fit` / `alt`), `Separator` (`vertical`) |
-| Containers | `ScrollArea`, `VirtualList` (`rows` / `row_h` / `render`), `Collapsing`, `Frame` (`fill` / `stroke` / `inner_margin` / `corner_radius` / `shadow` / `custom_shadow`), `Window` (`title` / `open` / `resizable` / `default_pos` / `default_size`), `Overlay` (`anchor` / `offset` / `pos` / `order` / `constrain` / `top` / `fill`; sized by `w` / `h`, or by its children), `Panel` (`side`), `CentralPanel`, `Vertical`, `Horizontal`, `Grid` + `row()` |
+| Widgets | `Button` (`enabled` / `label`, `on_click`), `Label` (`wrap`), `TextEdit` (`bind` / `multiline` / `hint` / `desired_width` / `rows`, `on_change` / `on_submit`), `Checkbox` (`bind` / `label`, `on_change`), `Slider<T: Numeric>` (`bind` / `range` / `label`, `on_change`), `ComboBox` (`bind` / `options` / `label`, `on_change`), `Image` (`source` / `fit` / `alt`), `Separator` (`vertical`) |
+| Containers | `ScrollArea`, `VirtualList` (`rows` / `row_h` / `render`), `Collapsing`, `Frame` (no props of its own; an `egui::Frame` built from `style` in `Ui` mode), `Window` (`title` / `open` / `resizable` / `default_pos` / `default_size`), `Overlay` (`anchor` / `offset` / `pos` / `order` / `constrain` / `top` / `fill`; sized by `w` / `h`, or by its children), `Panel` (`side`), `CentralPanel`, `Vertical`, `Horizontal`, `Grid` + `row()` |
 | Drawing | `Canvas` (`sense` / `paint`, `on_drag` / `on_hover`. A leaf that passes on the rect taffy gave it as-is) |
 | Async | `Suspense` (`fallback: impl View`, `shares_ui`. Draws `fallback` instead of children if even one `use_future` inside is `Pending`. 5.8) |
 
@@ -409,9 +420,21 @@ theme's `panel_fill` (`fill={Color32::TRANSPARENT}` opts out). **Unsized**
 (neither given): the overlay is as big as its children, paints nothing unless
 `fill` is given, and lets every press beside them through. Not drawing an
 `<Overlay>` unmounts its children, as `open={false}` does for a `<Window>`.
-`Frame`'s `shadow` casts the theme's window shadow, and `custom_shadow` casts
-one of your own; `Button`'s `padding` and `corner_radius` are the widget's own,
-so a round floating button needs no escape hatch.
+`Button`, `TextEdit` and `ComboBox` paint a box of their own, and hand it over
+as soon as the caller paints one, so the two do not stack. A `<Button bg>` draws
+no frame at rest and keeps egui's hovered and pressed frames on top, so `bg` is
+the resting colour and hover stays the widget's; a `<TextEdit bg>` keeps only
+the margin its frame insets the text by; a `<ComboBox bg>` is made transparent
+through the leaf's own visuals, which is also where its `radius` reaches every
+widget state. `p` on a `<Button>` becomes the widget's own padding
+(`Spacing::button_padding`) when it is symmetric and in points, so the pill it
+draws, the area that takes the press and the box the layout reserved are one
+rect — that is the round floating button, with no escape hatch around it.
+Asymmetric or percentage padding stays layout padding, where the widget draws
+inside it. `<Frame>` has no props left of its own: inside a tree it is a
+`<View>` with paint plus one `Ui`, and over a plain `Ui` it builds an
+`egui::Frame` from `style` (fill, stroke, corner radius, shadow, and `p` as the
+inner margin), which is the one thing a `<View>` cannot do there.
 
 Inside taffy (`Cx::in_taffy()`), `TextEdit` fills its node. Single-line sets `desired_width` to the node width, and `multiline` fills both ways with `ui.add_sized(ui.available_size(), ..)` (`desired_rows` only fits in whole rows, and the remainder spills out of the node). This is because drawing at egui's default 280pt / 4 rows inside a node widened with `grow` or `w` leaves the rest empty. If `desired_width` / `rows` is given explicitly, that wins. `Slider` / `ComboBox` / `Button` do not stretch for now (they stay at `spacing.slider_width` / `spacing.combo_width` / content width respectively).
 
@@ -432,8 +455,9 @@ A generic element like `<Provide value={handle}>` cannot be provided for the con
 They live in `egui_react::layout`. taffy is a direct dependency, re-exported as `egui_react::taffy`.
 
 - `Length`: `Px(f32)` / `Percent(f32)` (a 0.0 to 1.0 fraction, as in taffy) / `Auto`. `From<f32>` and `From<i32>` give `Px`; `From<&str>` parses `"auto"` / `"50%"` / `"12px"` / `"12"` and panics on anything else.
-- `ItemStyle`: the item-side attributes every element accepts. `w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl col_span row_span`. Setters take `impl Into<Length>`, so `rsx!` can pass number literals and string literals as-is. The `m` / `p` shorthands go "all -> `x` / `y` -> each side", and the more specific one wins. `to_taffy()` turns it into a `taffy::Style`.
+- `ItemStyle`: the item-side attributes every element accepts. `w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl col_span row_span`. Setters take `impl Into<Length>`, so `rsx!` can pass number literals and string literals as-is. The `m` / `p` shorthands go "all -> `x` / `y` -> each side", and the more specific one wins. `to_taffy()` turns it into a `taffy::Style`. `padding_px()` reads the padding back as `[top, right, bottom, left]` in points, or `None` when none is set or a side is a percentage, and `without_padding()` clears it: that pair is how an element takes the padding over from the layout (`<Button>`, and `<Frame>` in `Ui` mode).
 - Shorthand attributes and `style={expr}` fill the same `style` prop, so `rsx!` collapses them into one `.style(..)`. If both are present, the shorthand attributes chain off the `style=` expression (`<Chip style={style} p={6}/>` becomes `.style((style).p(6))`). This lets a wrapper component that takes `style: ItemStyle` receive the caller's layout as-is and add its own.
+- `PaintStyle` (`egui_react::paint`, re-exported from `layout`, the crate root and the prelude): how a box looks, as a field of `ItemStyle`. `bg: Option<Color32>`, `border: Option<Stroke>`, `radius: Option<f32>`, `shadow: bool`, `custom_shadow: Option<Shadow>`, `opacity: Option<f32>`, with a setter each, forwarded by `ItemStyle` under the same names. `is_none()` says the style paints nothing, so the engine can skip the node (a `radius` alone rounds nothing and does not count). `shadow_shape` / `bg_shape` / `border_shape` build the three shapes from a rect, and both layout paths call them. `custom_shadow` wins over `shadow`, which is the theme's `window_shadow`.
 - `ContainerStyle`: the parent-side attributes `<View>` accepts. `display direction wrap justify align align_content gap cols`. `merge(&ItemStyle)` combines it with the item side into one `taffy::Style` (a taffy node keeps its own item attributes and the container attributes for its children in a single `Style`). `cols` becomes equal-width columns only when `display="grid"`.
 - `Direction` / `Justify` / `Align` (= `AlignSelf`) / `Display` are enums, and `From<&str>` parses the CSS spelling (`"row"`, `"space-between"`, `"center"`, `"grid"` etc.). An invalid string panics with a list of candidates. `Justify` and `Align` have the default `Normal`, which means "unspecified" and becomes `None` on the taffy side. Implementing `From<&str>` for `Option<Justify>` is impossible under the orphan rule, so "unspecified" is a `Normal` variant instead of an Option.
 
@@ -508,6 +532,7 @@ Decisions are recorded in [docs/adr/](adr/), one file per decision, grouped by d
 - [0007: Hook deps are compared by `Hash`](adr/core/0007-deps-compared-by-hash.md)
 - [0008: One `Handler` trait for both arities, told apart by a marker](adr/core/0008-handler-marker-type-argument.md)
 - [0009: A value prop and a handler over the same state stay the user's problem](adr/core/0009-value-prop-vs-handler-borrow.md)
+- [0010: `rsx!` spells `cx` with the span of the call, not of the element](adr/core/0010-rsx-cx-has-the-call-site-span.md)
 
 **runtime**
 
@@ -521,10 +546,11 @@ Decisions are recorded in [docs/adr/](adr/), one file per decision, grouped by d
 
 - [0001: Layout runs on taffy, not egui_flex](adr/layout/0001-taffy-over-egui-flex.md)
 - [0002: Our own layout engine over taffy, replacing egui_taffy](adr/layout/0002-own-engine-over-taffy.md)
+- [0003: Paint lives in `ItemStyle` and is drawn from the final layout](adr/layout/0003-paint-style-inside-item-style.md)
 
 **elements**
 
-- none yet
+- [0001: A widget with a box of its own hands it over; `p` on `<Button>` is its padding](adr/elements/0001-widgets-hand-their-box-over.md)
 
 **fonts**
 

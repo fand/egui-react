@@ -4,6 +4,14 @@
 //! that `rsx!` can hand string literals (`justify="space-between"`) and numbers
 //! (`gap={8}`) straight to a setter, and so that the conversion to
 //! [`taffy::Style`] lives in one place.
+//!
+//! How a box *looks* rides along in the same prop: [`ItemStyle::paint`] is a
+//! [`PaintStyle`], with forwarding setters (`bg`, `border`, `radius`, ...), so
+//! no element signature changes to gain a background. Only the border reaches
+//! taffy — the layout has to reserve the width of the stroke — and the engine
+//! paints the rest once the layout is solved.
+
+pub use crate::paint::PaintStyle;
 
 /// A length in a layout attribute.
 ///
@@ -240,6 +248,9 @@ impl Display {
 ///
 /// Every setter takes `impl Into<Length>`, so `.w(120.0)`, `.w("50%")` and
 /// `.w(Length::Auto)` all work; `rsx!` passes literals straight through.
+///
+/// It carries the item's [`PaintStyle`] too, reached through setters of the
+/// same names (`.bg(..)`, `.border(..)`), so one prop is the whole vocabulary.
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct ItemStyle {
     /// `width`.
@@ -294,6 +305,8 @@ pub struct ItemStyle {
     pub col_span: Option<u16>,
     /// `grid-row: span N`.
     pub row_span: Option<u16>,
+    /// How the box looks: background, border, radius, shadow, opacity.
+    pub paint: PaintStyle,
 }
 
 macro_rules! length_setters {
@@ -390,6 +403,93 @@ impl ItemStyle {
         self
     }
 
+    /// Set the background colour. See [`PaintStyle::bg`].
+    #[must_use]
+    pub fn bg(mut self, v: impl Into<egui::Color32>) -> Self {
+        self.paint = self.paint.bg(v);
+        self
+    }
+
+    /// Set the border stroke. See [`PaintStyle::border`].
+    #[must_use]
+    pub fn border(mut self, v: impl Into<egui::Stroke>) -> Self {
+        self.paint = self.paint.border(v);
+        self
+    }
+
+    /// Set the corner radius. See [`PaintStyle::radius`].
+    #[must_use]
+    pub fn radius(mut self, v: f32) -> Self {
+        self.paint = self.paint.radius(v);
+        self
+    }
+
+    /// Cast the theme's window shadow. See [`PaintStyle::shadow`].
+    #[must_use]
+    pub fn shadow(mut self, v: bool) -> Self {
+        self.paint = self.paint.shadow(v);
+        self
+    }
+
+    /// Cast a shadow of your own. See [`PaintStyle::custom_shadow`].
+    #[must_use]
+    pub fn custom_shadow(mut self, v: egui::Shadow) -> Self {
+        self.paint = self.paint.custom_shadow(v);
+        self
+    }
+
+    /// Multiply the opacity of this node. See [`PaintStyle::opacity`].
+    #[must_use]
+    pub fn opacity(mut self, v: f32) -> Self {
+        self.paint = self.paint.opacity(v);
+        self
+    }
+
+    /// The padding this item asks for, in points, if it asked for any.
+    ///
+    /// `[top, right, bottom, left]`, resolved most-specific-wins exactly as
+    /// [`ItemStyle::to_taffy`] resolves it. `None` when no padding prop is set
+    /// — there is nothing to take over — and when any side is a percentage or
+    /// `auto`, because those need the containing block, which only the layout
+    /// has.
+    ///
+    /// This is for an element that hands its padding to the widget rather than
+    /// to the layout: `<Button>` does, so that the hover frame and the click
+    /// area cover the whole box, and `<Frame>` does outside a tree, where there
+    /// is no layout to hold it.
+    pub fn padding_px(&self) -> Option<[f32; 4]> {
+        let sides = [self.p, self.px, self.py, self.pt, self.pr, self.pb, self.pl];
+        if sides.iter().all(Option::is_none) {
+            return None;
+        }
+        let rect = resolve_rect(
+            sides,
+            |v| match v {
+                Length::Px(v) => Some(v),
+                _ => None,
+            },
+            Some(0.0),
+        );
+        Some([rect.top?, rect.right?, rect.bottom?, rect.left?])
+    }
+
+    /// This style with every padding prop cleared.
+    ///
+    /// The other half of [`ItemStyle::padding_px`]: an element that took the
+    /// padding over passes this to `cx.leaf`, so the layout does not reserve
+    /// the same points a second time.
+    #[must_use]
+    pub fn without_padding(mut self) -> Self {
+        self.p = None;
+        self.px = None;
+        self.py = None;
+        self.pt = None;
+        self.pr = None;
+        self.pb = None;
+        self.pl = None;
+        self
+    }
+
     /// The taffy style of this item, with container properties left default.
     pub fn to_taffy(&self) -> taffy::Style {
         let dim = |v: Option<Length>| {
@@ -438,6 +538,13 @@ impl ItemStyle {
         }
         if let Some(span) = self.row_span {
             style.grid_row = taffy::style_helpers::span(span);
+        }
+        // A border is the only paint the layout has to know about: the stroke
+        // needs a band of its own, or it is drawn over the content. taffy keeps
+        // `border` beside `padding` and `content_rect` subtracts both, so the
+        // children (or the widget) start inside the stroke.
+        if let Some(border) = self.paint.border {
+            style.border = taffy::Rect::length(border.width);
         }
         style
     }
