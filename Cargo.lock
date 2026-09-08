@@ -3775,6 +3775,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "spreadsheet"
+version = "0.1.0"
+dependencies = [
+ "board",
+ "eframe",
+ "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
+ "egui_kittest",
+ "example-meta",
+ "log",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "stable_deref_trait"
 version = "1.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
