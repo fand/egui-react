@@ -8,6 +8,7 @@
 use egui_react::{Cx, Store, View};
 
 pub mod a11y;
+pub mod fonts;
 
 /// The eframe storage key everything `use_persisted` holds is written under.
 const STORAGE_KEY: &str = "egui_react";

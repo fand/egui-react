@@ -1,6 +1,6 @@
 # egui-react architecture
 
-A Rust library for writing egui apps in a React style (JSX, function components, hooks). This document records the design decisions. If the implementation drifts from this document, update this document first.
+A Rust library for writing egui apps in a React style (JSX, function components, hooks). This document records the design as it stands now. If the implementation drifts from this document, update this document first. The decisions behind the design — when each was made, what was turned down, and what it costs — are in [docs/adr/](adr/).
 
 ## 1. Goals and non-goals
 
@@ -321,7 +321,7 @@ When a handler or effect rewrites state, widgets drawn earlier in the same compo
 
 ## 6. Layout
 
-To make Flexbox / Grid a first-class citizen, layout runs on [taffy](https://github.com/DioxusLabs/taffy) (0.9) through a layout engine of our own, `crates/egui-react/src/engine/mod.rs`. As in React Native, "`<View>` is a taffy node, egui widgets are leaves". It replaced `egui_taffy` 0.14 in 2026-09; the reason and the numbers are in the decision log (section 11), and `docs/tasks/list-perf/` has the measurements.
+To make Flexbox / Grid a first-class citizen, layout runs on [taffy](https://github.com/DioxusLabs/taffy) (0.9) through a layout engine of our own, `crates/egui-react/src/engine/mod.rs`. As in React Native, "`<View>` is a taffy node, egui widgets are leaves". It replaced `egui_taffy` 0.14 in 2026-09; the reason and the numbers are in [adr/layout/0002](adr/layout/0002-own-engine-over-taffy.md), and `docs/tasks/list-perf/` has the measurements.
 
 ```rust
 <View direction="row" justify="space-between" align="center" gap={8} p={12}>
@@ -335,7 +335,7 @@ The engine in five lines:
 - **One taffy tree per `<View>` root.** A `<View>` in a plain `Ui` starts a tree; a `<View>` inside one adds a node. Trees live in the `Store`, keyed by `Cx::layout_id()`, not in egui memory: one map lookup per frame, and `Store::end_pass` drops a tree that nothing drew in the pass, so a tree left behind by an unmounted subtree goes away instead of growing egui's `IdTypeMap` for ever.
 - **A node is a rect, not a `Ui`.** A container node creates no `Ui`, registers no widget and returns no response — egui-react paints nothing on a `<View>`, so nothing is lost. Only a widget leaf gets a `Ui`, one, a child of the tree's own. A `<Text>` gets none at all. A `<Row>` of a `<View>` with two `<Text>` and a `<Button>` costs two `Ui`s; under egui_taffy it cost nine.
 - **Node key = layout id + child index; `Ui` salt = hook scope.** The two Ids part only inside `<VirtualList>` (3.1): the rows' nodes are keyed by the *slot* on screen, so scrolling reuses them, while the leaf `Ui`s are salted by the hook scope, so widget ids stay with the row. That is also why `VirtualList` needs no `push_id` of its own.
-- **`<Text>` is measured, not drawn.** Its layout job is built once from the tree's `Ui` style, the galley is laid out inside taffy's measure function at the width the node is given, and painted onto the tree's `Ui`. The widget rect and the `WidgetInfo` that `egui::Label` registers are still made, so hover, `egui_kittest` label queries and screen readers still find the text. Selection follows `interaction.selectable_labels` exactly as `Label` does, and the `selectable` prop overrides it; a `<Text>` drawn for the first time is not selectable for that one frame, because it has no place on screen until the layout is computed. That is also what picks the paint path: a text whose place is known paints itself in draw order through `LabelSelectionState`, a text created this frame claims a `Shape` slot in draw order and has it filled in after the layout is final.
+- **`<Text>` is measured, not drawn.** Its layout job is built once from the tree's `Ui` style, the galley is laid out inside taffy's measure function at the width the node is given, and painted onto the tree's `Ui`. The widget rect and the `WidgetInfo` that `egui::Label` registers are still made, so hover, `egui_kittest` label queries and screen readers still find the text. Selection follows `interaction.selectable_labels` exactly as `Label` does, and the `selectable` prop overrides it; a `<Text>` drawn for the first time is not selectable for that one frame, because it has no place on screen until the layout is computed. That is also what picks the paint path: a text whose place is known paints itself in draw order through `LabelSelectionState`, a text created this frame claims a `Shape` slot in draw order and has it filled in after the layout is final. The galley is kept on the node for the pass that laid it out and no longer: a galley holds texture coordinates into the atlas of the `Fonts` that laid it out, and egui throws that `Fonts` away and builds a new one with a new atlas after `Context::set_fonts` (a font arriving over HTTP, say), after the text options changed (`Visuals::dark` and `Visuals::light` rasterize glyphs differently) and when the atlas is over 80% full, with no way to ask whether it just did. What survives between frames is the `LayoutJob`, which does not depend on the atlas; the galley comes back from epaint's own `GalleyCache`, which lives inside `Fonts` and is rebuilt with the atlas, so a rebuilt atlas can never meet a stale galley and none of those three cases needs detecting. The cost is a `LayoutJob` clone, a hash and a lookup per `<Text>` per frame, which is what `egui::Label` pays.
 - **Passes.** The created / removed / moved rule and the layout-first computation on a root resize are in 5.3.
 
 ### The lite path: a `<VirtualList>` row without a taffy tree
@@ -348,11 +348,11 @@ A row is a single-line flex box of two or three children with a fixed height. A 
 - **What falls back**, exactly: on the container side `display="grid"` or `"block"`, `wrap`, any `align_content`, `align="baseline"`; on the item side `align_self="baseline"`, `col_span`, `row_span`, and an `auto` margin (`m` / `mx` / `my` / `mt` / `mr` / `mb` / `ml`).
 - **Fallback is per slot, once.** The first unsupported style seen puts that slot on the taffy path for good and writes one `log::debug!` naming the attribute, so a row author can see why one row is slower than its neighbours. The frame it happens on is drawn again, because it was laid out by a solver that does not understand that attribute.
 - **The contract is the parity test.** `crates/egui-react/tests/lite_parity.rs` draws a corpus of 18 row trees twice, once through each path (`Store::force_taffy_rows` picks), and compares every node's rect for exact equality. taffy is the reference: a disagreement means the lite solver is wrong. Every future `ItemStyle` / `ContainerStyle` attribute has to get a corpus case or be added to the fallback list.
-- **Two rules are carried over** from the taffy path, because dropping either would cost a pass: a frame whose node vector is identical to the last one's is not solved at all (taffy's dirty flag, asked as a question about the input), and a frame that only resized is solved *before* the leaves draw (5.3). Everything else is shared with the taffy path: the leaf measure function, the galley cache, and the way a `<Text>` paints and registers itself.
+- **Two rules are carried over** from the taffy path, because dropping either would cost a pass: a frame whose node vector is identical to the last one's is not solved at all (taffy's dirty flag, asked as a question about the input), and a frame that only resized is solved *before* the leaves draw (5.3). Everything else is shared with the taffy path: the leaf measure function, the way a `<Text>` is laid out and reused within a pass, and the way it paints and registers itself.
 
 The rest, unchanged by the engine:
 
-- `Cx` holds "are we inside a taffy container now" as `Surface` (3.1). `cx.leaf(&style, f)` becomes a taffy leaf inside and goes to the bare `ui` outside. `cx.container(id, style, f)` adds a child node inside, and starts a new tree outside; in both cases `f` gets a tree-mode `Cx`.
+- `Cx` holds "are we inside a taffy container now" as `Surface` (3.1). `cx.leaf(&style, f)` becomes a taffy leaf inside and goes to the bare `ui` outside. `cx.container(id, style, f)` adds a child node inside, and starts a new tree outside; in both cases `f` gets a tree-mode `Cx`. In an escape hatch that draws text itself, do not keep an `Arc<Galley>` across frames: keep the `LayoutJob` and call `ctx.fonts_mut(|f| f.layout_job(job))` every frame, which epaint's galley cache makes a hash and a lookup.
 
 - A `container` directly under Ui mode reserves only the available width; only the runner's root reserves both axes (`root_container`). `grow` and `justify="space-between"` distribute leftover space, so they have no effect unless the `<View>` itself has a width (`w`). Reserving space only tells the engine "this much space is available"; the root node's own `size` stays `auto`. Without it, the root node shrinks to its content and two things break. (a) `<View grow={1.0} justify="center">` has no room to grow into and nothing to center against, and the app huddles in the top left. (b) Children that do not fit do not shrink. The parent grows to fit its content, so no overflow occurs, the premise for `flex-shrink` disappears, and rows spill past the right edge of the window. So the runner's root item style sets `w` to `100%` (the window width is fixed, so this is a definite value) and `min_h` to `100%` (vertically, grow if the content is taller) (section 7).
 - egui's standard containers such as `<Vertical>` / `<Horizontal>` / `<Grid>` remain as leaves, as an escape hatch where performance matters. When called from Taffy mode, these egui-native containers behave as a single leaf, and the children inside are drawn in Ui mode. Only `ScrollArea` is placed with `leaf_fill` (3.1). It is a widget that fills the given space, so a leaf measured by content would lock it to the size of the first frame. Give a `ScrollArea` inside a `<View>` either `grow` or `h`. **The max-content of `leaf_fill` is exactly "the height of the current tree's root rect"** (the engine's measure function reads `infinite` that way, as egui_taffy's did), so inside a `<View direction="column">` with no definite height, neither `grow` nor `basis={0}` works, and the `ScrollArea` asks for "the whole window height" rather than "what is left after siblings". A screen with a `ScrollArea` under a toolbar becomes taller than the window by that much, and since the runner's root item style is `min_h: 100%` (section 7) with the height itself auto, the overflow is not clipped and extends downward. Either give it a definite height, or arrange things so nothing sits at the bottom edge that would get pushed out (`examples/board` puts the column's `+ card` at the end inside the `ScrollArea`. `docs/tasks/board/plan.md` 8.3).
@@ -445,8 +445,8 @@ Rejected alternative: egui_flex. It stops at egui 0.35, has no `justify-content`
 egui-react/            core: View, Cx, Store, State, Handle, Dispatch, hooks, sweep, deferred queue, persistence, the layout engine (`engine/mod.rs` over taffy, `engine/lite.rs` for `<VirtualList>` rows)
 egui-react-macros/     rsx! (based on rstml 0.13), #[component], #[hook]
 egui-react-elements/   wrappers for egui widgets / containers. View / Text sit on taffy
-egui-react-app/        run(Options, |_cx| rsx!{ <App/> }). Wraps eframe and absorbs native / wasm / Android. The iOS runner also lives here
-examples/              counter, todo (use_reducer + use_persisted), layout, fetch (use_future + Suspense + ehttp), later mobile
+egui-react-app/        run(Options, |_cx| rsx!{ <App/> }), fonts (CSS-style font chains resolved into egui's FontDefinitions). Wraps eframe and absorbs native / wasm / Android. The iOS runner also lives here
+examples/              counter, todo (use_reducer + use_persisted), layout, fetch (use_future + Suspense + ehttp), font (bundled / web / installed fonts, <Text font>), later mobile
 ```
 
 What `egui_react_app::run(Options, root)` does in one frame is the following.
@@ -467,6 +467,7 @@ egui is pinned to the 0.36 series. Since egui 0.35, `eframe::App::ui` takes `&mu
 - native / wasm / Android: eframe. wasm is built with trunk. The render backend is wgpu. **The default features of eframe 0.36 include `wgpu` and not `glow`** (the reverse of 0.35 and earlier), so it renders with wgpu with no extra work. Since glow is now the opt-in, there is no feature for choosing. On web it falls back to WebGL for browsers without WebGPU. This propagates as `eframe/wgpu` -> `egui-wgpu/default` -> `wgpu/webgl`, so we do not need a direct dependency on `wgpu` ourselves.
 - iOS: eframe does not support it (emilk/egui#3117 is open). A thin `egui-winit` + `egui-wgpu` runner is written inside `egui-react-app`. Built with cargo-mobile2.
 - Accessibility: on native, eframe (egui-winit) calls `Context::enable_accesskit`, and the widget tree reaches the OS accessibility API. **On web it does not.** eframe's web runner throws away the per-frame `TreeUpdate` with `accesskit_update: _, // not currently implemented` (`eframe/src/web/app_runner.rs`), and there is no upstream adapter that mirrors the canvas contents into the DOM. The policy and prototype are in `docs/tasks/a11y/`.
+- Fonts: epaint rasterizes text itself, from font bytes handed to `Context::set_fonts`; the browser's fonts and the OS's font matching are never involved, and egui's four bundled fonts have no CJK glyphs. `egui_react_app::fonts` resolves CSS-like chains (`FontStack`: `Bundled` bytes, `System` family names, `Url`, the CSS generics) through one `fontdb::Database` into `FontDefinitions`, whose per-family lists are already egui's per-glyph fallback, and `<Text font="name">` picks one. Where the bytes come from differs per target: bundled bytes everywhere; the installed fonts through fontdb's `load_system_fonts` on native; a URL through `ehttp` on both; and on wasm, where nothing can read the font directory, the Local Font Access API (Chromium only, a permission prompt, from a click handler). A source that arrives later loads into the same database and applies again. egui's four embedded fonts are the floor under every `Generic` and the tail of every chain, and they sit behind `egui-react-app`'s `default_fonts` feature (on by default; egui and eframe are taken without default features workspace-wide so that an app can turn it off); without them the resolver pushes no built-in key, a chain that resolved to nothing is an empty family, and epaint draws it as zero glyphs rather than panicking. Two epaint panics are designed around: a `FontFamily::Name` that is not in the definitions panics at layout, so `<Text font>` checks the name against `Context::fonts(|f| f.definitions())` and falls back to the style's family with one warning per name; bytes skrifa cannot parse panic when egui rebuilds its fonts (a dead canvas on wasm), so the resolver runs `skrifa::FontRef::from_index` on every face and reports it as `Invalid` instead. The research and the design are in `docs/tasks/font/`; `examples/font` shows the three sources and the per-entry report.
 - The library itself only touches `&mut egui::Ui`, so platform support is confined to the runner layer and touch / IME tuning.
 - The async execution mechanism is confined to `task::spawn` in core (section 4, "`use_future` details"). iOS / Android use the same thread path as native.
 
@@ -494,52 +495,51 @@ The following were confirmed with hand-written expansions without the macro (PR1
 
 ## 11. Decision log
 
-| Decision | Adopted | Rejected | Reason |
-|---|---|---|---|
-| Host language | Rust only | JS React + JS runtime | Several times the size, iOS JIT limits, a wasm-bindgen layer |
-| Tree | Direct expansion | Retained VNode + traversal | Handlers become `'static` + `Rc` and the Yew pain returns |
-| hook Id | Call site stack + collision detection | Mix in occurrence count | The latter silently shifts state and cannot be detected |
-| State | guard (`Deref/DerefMut`) + helper `Handle` | Cell-style `Handle` only | Keeps `*count += 1`. Conflicts disappear with the fused closure |
-| callback props | Fuse `on_*` into an enum | Return events as return value / hand-written single `callback` | Borrowed payloads, multiple events, verbosity |
-| effect timing | Immediately at the call site | After commit | egui has no commit, and deferring invites `'static` |
-| deps comparison | Hash | PartialEq + Clone | To allow borrowed deps |
-| Layout | taffy, through our own engine (see below) | egui_flex | No justify / shrink, slow to track egui |
-| Multi-pass handling | Not needed | Snapshot rollback | Confirmed egui empties events on the second pass |
-| Where the store lives | The runner's `App` | `Context::data()` | Testability |
-| `Handler` implementation | Two blanket impls coexist via marker type argument | Pick `call0` / `call1` by argument count | The marker is always inferred, and the macro emits only one form |
-| Borrow conflict between value prop and handler | User clones or uses `update_later` | `rsx!` clones implicitly | Cannot insert clones without type info, and zero-copy should be the default |
-| future executor | One thread + `pollster` | Require tokio | Small dependency, enough for futures that just wait. Apps that need tokio can use `Handle::current()` inside the future |
-| Representation of async results | `std::task::Poll<T>` | Custom `Loading` / `Ready` / `Error` enum | It is in std, and errors can be `T = Result<..>`. Does not add more state kinds |
-| Suspense implementation | Offscreen drawing + counter + `request_discard` | Rollback via panic / `catch_unwind` | Rust has no cheap rollback. The child exits with a one-line let-else |
+Decisions are recorded in [docs/adr/](adr/), one file per decision, grouped by domain; this section is the index. Each ADR says when the decision was made, what was turned down and why, and what it costs. This document says what is true now.
 
-### Own layout engine over taffy, replacing egui_taffy (2026-09-06)
+**core**
 
-Measured, in `docs/tasks/list-perf/`. The benchmark is a list of 37 visible rows drawn three ways at 10,000 source rows: `<VirtualList>`, `<ScrollArea>` + `for` over every row, and plain egui `ScrollArea::show_rows` as the reference. Four scenarios: idle, scrolling, filter edits, window resize.
+- [0001: Rust only as the host language](adr/core/0001-rust-only-host-language.md)
+- [0002: `rsx!` expands directly, with no retained tree](adr/core/0002-direct-expansion-no-reconciler.md)
+- [0003: A hook's Id is its call-site stack, and collisions are reported](adr/core/0003-hook-id-from-call-site.md)
+- [0004: `use_state` returns a guard, with `Handle` as the helper](adr/core/0004-state-guard-over-cell-handle.md)
+- [0005: `on_*` props are fused into one event enum closure](adr/core/0005-fused-callback-props.md)
+- [0006: `use_effect` runs the body in place](adr/core/0006-effects-run-at-the-call-site.md)
+- [0007: Hook deps are compared by `Hash`](adr/core/0007-deps-compared-by-hash.md)
+- [0008: One `Handler` trait for both arities, told apart by a marker](adr/core/0008-handler-marker-type-argument.md)
+- [0009: A value prop and a handler over the same state stay the user's problem](adr/core/0009-value-prop-vs-handler-borrow.md)
 
-The starting point was `<VirtualList>` at about 2x plain egui, with extra layout passes on three of the four scenarios. Three steps fixed the passes:
+**runtime**
 
-- **A** keys a `<VirtualList>` row's tree by the slot on screen rather than by the row index. Passes did not move, but egui memory stopped growing with the scroll distance (85 entries against 771).
-- **B**, in an egui_taffy fork, asks for a discard only when the layout actually moved. Scroll 2.00 → 1.00 and Filter 1.60 → 1.00 passes per frame, 6,576 discard requests → 0.
-- **C**, in the same fork, computes the layout before drawing when only the root rect resized. Resize 2.98 → 1.02 passes per frame, and the all-rows mode 131 → 54 ms.
+- [0001: A multi-pass frame needs no state rollback](adr/runtime/0001-no-multi-pass-rollback.md)
+- [0002: The store lives in the runner's `App`, not in egui memory](adr/runtime/0002-store-in-the-runner-app.md)
+- [0003: One thread and `pollster` as the native executor](adr/runtime/0003-thread-plus-pollster-executor.md)
+- [0004: `use_future` returns `std::task::Poll<T>`](adr/runtime/0004-async-results-as-poll.md)
+- [0005: `<Suspense>` draws children offscreen and counts pending futures](adr/runtime/0005-suspense-offscreen-and-counter.md)
 
-That left every scenario at one pass and the gap still at about 2x. A Time Profiler run said why: taffy's own algorithm costs nothing at idle (no sample lands in a `taffy::` frame) and egui_taffy's per-tree bookkeeping is 9%. About 80% is egui_taffy building one egui `Ui` per taffy node and a second one per leaf — **nine `Ui`s per row against four in plain egui**, a ratio of 2.25 against the measured 1.94x. That is egui_taffy's design, not a bug: its backgrounds, interactive containers and sticky scrolling need those `Ui`s. egui-react uses none of them, and egui_taffy was called from one file (`cx.rs`).
+**layout**
 
-So it was replaced by `crates/egui-react/src/engine.rs` (section 6), which ports egui_taffy's measure function, node reuse rule and sweep, builds B and C in, and makes a container node a rect instead of a `Ui`:
+- [0001: Layout runs on taffy, not egui_flex](adr/layout/0001-taffy-over-egui-flex.md)
+- [0002: Our own layout engine over taffy, replacing egui_taffy](adr/layout/0002-own-engine-over-taffy.md)
 
-- **D1**, the engine: a row costs three `Ui`s instead of nine. Idle 0.241 → 0.160 ms, 1.96x → 1.43x of plain egui.
-- **D2**, `<Text>` as a galley on the node: a row costs two. Idle 0.153 ms, 1.32x; Filter 1.07x; Scroll and Resize 1.59x, a tenth over the 1.5x the task asked for. All-rows idle 43 → 22 ms.
+**elements**
 
-- **D2b**, text selection back on the engine's `<Text>`: it follows `interaction.selectable_labels` as `Label` does, and is not selectable on the one frame it is created (section 6).
+- none yet
 
-Snapshots stayed byte-identical through all three steps. What was given up: the engine drops a tree nothing drew in the pass, which costs 12 two-pass frames out of 120 in the resize scenario where egui_taffy's for-ever cache cost 3. It is recorded in `docs/tasks/list-perf/measurements.md` with the follow-ups.
+**fonts**
 
-Two more steps took the `<VirtualList>` row itself:
+- [0001: CSS-style font chains resolved through fontdb](adr/fonts/0001-css-font-chains-through-fontdb.md)
+- [0002: `<Text font>` takes the name of a stack, as a string](adr/fonts/0002-text-font-takes-a-stack-name.md)
+- [0003: A bitmap-only face is rejected as `Invalid`](adr/fonts/0003-bitmap-only-fonts-invalid.md)
+- [0004: Detect a new atlas by fingerprinting the fonts](adr/fonts/0004-fingerprint-fonts-to-detect-atlas.md) — superseded by 0005
+- [0005: A `<Text>` galley lives for one pass](adr/fonts/0005-galley-lives-one-pass.md)
+- [0006: Loading policy belongs to the app; the library exposes `pending()`](adr/fonts/0006-loading-policy-belongs-to-the-app.md)
+- [0007: egui's embedded fonts sit behind a `default_fonts` feature](adr/fonts/0007-default-fonts-feature.md)
 
-- **E** gives a row a fixed root rect (`Cx::with_root_size`): the row is laid out into `width × row_h` and reserves exactly that. It changed no timing — the scrolled-frame recompute comes from the row's text, not from its root rect, which a trace showed was already constant — but the rows now sit at the pitch `show_rows` reserved (list-10k: 20 apart, was 18).
-- **E1** lays those rows out with a solver of our own instead of a taffy tree (the lite path, section 6). Idle **1.15x** plain egui, Scroll 1.30x, Filter **1.04x**, Resize 1.40x, on two runs that agree to within 0.01 ms. Passes per frame unchanged; the parity corpus and the snapshots agree with the taffy path node for node.
+**a11y**
 
-**Why a second layout implementation was accepted.** The profiles say the cost was never taffy's algorithm — no sample lands in a `taffy::` frame at idle — but the retained per-row tree around it: a `HashMap` keyed by `egui::Id`, a `taffy::Style` rebuilt and compared per node, and a layout snapshot for the moved check, all for a single-line flex box of three children. A row does not need any of that, and nothing else in the library changes: the API, the elements and the taffy path are as they were, and a row using anything outside the solver's subset falls back to taffy on its own. The price is two implementations to keep in step, paid by the parity corpus (`crates/egui-react/tests/lite_parity.rs`), which is why every new layout attribute must get a case there or be added to the fallback list.
+- none yet
 
-E1's gate asked for Scroll at or below 1.2x as well, and it landed at 1.30x. Per the plan that bought one profile and no more optimisation: of the 0.95 µs a scrolled row costs over a plain egui row, 0.59 µs is the lite path (0.36 solving, 0.23 building the node vector), and the other 0.36 µs is the component layer (`Cx::scope`, `rsx!`, the component bodies), the app's own root tree and the extra galley work. The solver runs on a scrolled frame at all because every slot shows a different row's text, so the node vector differs from the last frame's. The follow-ups are in measurements.md, "What remains".
+**app**
 
-B and C were also prototyped as egui_taffy fork commits and are worth upstreaming on their own: `../egui_taffy` (sibling checkout, not pushed), branches `skip-unchanged-discard` (`d618550`) and `layout-first` (`ee07d38`, on top of it). They are kept for that, and nothing in this repository depends on them.
+- none yet

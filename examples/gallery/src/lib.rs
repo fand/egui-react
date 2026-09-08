@@ -11,8 +11,6 @@
 //! in the bottom-right corner. The list and the tag filter move into a menu
 //! that slides down over the whole window from the button in the header.
 
-use std::sync::Arc;
-
 mod highlight;
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
@@ -24,6 +22,7 @@ use counter::App as CounterApp;
 use custom_hook::App as CustomHookApp;
 use escape_hatch::App as EscapeHatchApp;
 use fetch::App as FetchApp;
+use font::App as FontApp;
 use form::App as FormApp;
 use layout::App as LayoutApp;
 use list_10k::App as ListApp;
@@ -54,6 +53,7 @@ pub const EXAMPLES: &[Meta] = &[
     list_10k::META,
     layout::META,
     fetch::META,
+    font::META,
 ];
 
 /// Where the source links point.
@@ -457,6 +457,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "list-10k" => { <ListApp initial_count={1_000}/> }
                 "layout" => { <LayoutApp/> }
                 "fetch" => { <FetchApp/> }
+                "font" => { <FontApp/> }
                 _ => { <ShowcaseApp/> }
             }
         }
@@ -532,8 +533,13 @@ pub fn Code(
     } else {
         react
     };
-    let mut lines = use_state(cx, || None::<(GalleyKey, CodeLines)>);
-    let lines: &CodeLines = code_lines(cx.ui(), lines.bind(), (meta.name, plain), source);
+    let mut jobs = use_state(cx, || None::<(CodeKey, CodeLines)>);
+    let lines: &mut CodeLines = code_lines(cx.ui(), jobs.bind(), (meta.name, plain), source);
+    let width = code_width(cx.ui(), lines);
+    let font_id = egui::TextStyle::Monospace.resolve(cx.ui().style());
+    // The pitch of the list, so it is needed before the list, whether or not
+    // any row is drawn.
+    let row_h = cx.ui().fonts_mut(|fonts| fonts.row_height(&font_id));
     let react_lines = format!("{} lines", react.lines().count());
     let plain_lines = plain_source.as_deref().map_or(String::new(), |p| {
         format!("{} lines plain", p.lines().count())
@@ -572,15 +578,22 @@ pub fn Code(
             // galley's: every line's job asks for one row's height even when
             // the line is blank. The list is as wide as the widest line, so
             // the sideways scroll range is the same whichever rows are in view.
+            // The galley is laid out here, for this row and this frame, by
+            // epaint's own galley cache — a job clone, a hash and a lookup for
+            // a screenful of rows, and always a galley for the atlas in use.
             <VirtualList
                 grow={1.0}
                 horizontal
-                rows={lines.galleys.len()}
-                row_h={lines.row_h}
+                rows={lines.jobs.len()}
+                row_h={row_h}
                 render={|cx: &mut Cx<'_, '_>, row: usize| {
-                    let galley = lines.galleys[row].clone();
+                    let mut job = lines.jobs[row].clone();
+                    // A blank line has no glyph to be tall by; the list still
+                    // moves on by what this galley measures.
+                    job.first_row_min_height = row_h;
                     cx.leaf(&ItemStyle::default(), |ui| {
-                        ui.set_min_width(lines.width);
+                        let galley = ui.fonts_mut(|fonts| fonts.layout_job(job));
+                        ui.set_min_width(width);
                         ui.add(egui::Label::new(galley).selectable(true));
                     });
                 }}
@@ -627,72 +640,113 @@ pub fn shown_source(source: &str) -> String {
     out
 }
 
-/// What the cached code lines were laid out for. A new key means a new layout.
+/// What the cached jobs were highlighted for. A new key means highlighting
+/// again.
 ///
 /// The source is named, not hashed: hashing 66 KB a frame was the cost this
-/// cache is here to remove. The atlas size is in because a galley stores atlas
-/// pixel coordinates: growing the atlas keeps them, a reset changes the size.
-type GalleyKey = ((&'static str, bool), bool, f32, f32, [usize; 2]);
+/// cache is here to remove. Dark mode and the font size are in because the
+/// highlighter writes both into the job's sections. Nothing else belongs
+/// here: a job is text and style, so the pixels per point and the state of
+/// the glyph atlas cannot change it.
+type CodeKey = ((&'static str, bool), bool, f32);
 
-/// The highlighted source, one galley per line, laid out once per
-/// [`GalleyKey`].
+/// The highlighted source as one [`egui::text::LayoutJob`] per line,
+/// highlighted once per [`CodeKey`], and how wide the widest of them is.
+///
+/// Jobs, not galleys, because the highlight is what is expensive and a job
+/// keeps: it depends on the text and the style and on nothing else. A galley
+/// does not keep. It holds coordinates into the glyph atlas of the `Fonts`
+/// that laid it out, and egui throws that `Fonts` away and builds a new one
+/// with a new atlas after `Context::set_fonts` (the font example's web font
+/// arriving, say), after a dark / light switch and when the atlas fills up,
+/// with no way to ask whether it just did — the old coordinates then point at
+/// other glyphs. So [`Code`] lays a line out when it draws it, through
+/// epaint's own `GalleyCache`, which lives inside `Fonts` and is rebuilt with
+/// it: a rebuilt atlas can never meet a stale galley, and only the rows in
+/// view pay the clone, the hash and the lookup.
 struct CodeLines {
-    galleys: Vec<Arc<egui::Galley>>,
-    /// The pitch of the list: one monospace row.
-    row_h: f32,
+    jobs: Vec<egui::text::LayoutJob>,
     /// The widest line, which is how wide the list is inside the sideways
-    /// scroll area.
+    /// scroll area. Measured by [`code_width`], which is what `metrics` is
+    /// for.
     width: f32,
+    /// What the fonts measured when `width` was taken: the row height, the
+    /// pixels per point and the width of an `M`, as bits so they compare
+    /// exactly. `(0, 0, 0)` means "not measured yet": a real row height is
+    /// never zero.
+    metrics: (u32, u32, u32),
 }
 
-/// The lines of the source as galleys, from the cache or laid out now.
+/// The lines of the source as layout jobs, from the cache or highlighted now.
 ///
-/// `egui_extras::code_view_ui` highlights and lays out from scratch every
-/// frame: it hashes the whole source for the highlight cache, then hashes the
-/// `LayoutJob` (a section per token) for the galley cache. A `Label` handed an
-/// `Arc<Galley>` does neither. The source is highlighted whole and the job cut
-/// at each newline, so a block comment or a multi-line string is coloured the
-/// same as it would be in one piece.
+/// `egui_extras::code_view_ui` highlights from scratch every frame, hashing
+/// the whole source to look the highlight up. Naming the source skips that.
+/// The source is highlighted whole and the job cut at each newline, so a block
+/// comment or a multi-line string is coloured the same as it would be in one
+/// piece.
 fn code_lines<'a>(
-    ui: &mut egui::Ui,
-    cache: &'a mut Option<(GalleyKey, CodeLines)>,
+    ui: &egui::Ui,
+    cache: &'a mut Option<(CodeKey, CodeLines)>,
     which: (&'static str, bool),
     source: &str,
-) -> &'a CodeLines {
+) -> &'a mut CodeLines {
     let font_id = egui::TextStyle::Monospace.resolve(ui.style());
-    let key: GalleyKey = (
-        which,
-        ui.visuals().dark_mode,
-        font_id.size,
-        ui.pixels_per_point(),
-        ui.fonts(|f| f.font_image_size()),
-    );
+    let key: CodeKey = (which, ui.visuals().dark_mode, font_id.size);
     if cache.as_ref().is_none_or(|(k, _)| *k != key) {
-        let job = highlight::highlight(source, ui.visuals().dark_mode, font_id.clone());
-        let (galleys, row_h) = ui.fonts_mut(|fonts| {
-            let row_h = fonts.row_height(&font_id);
-            let galleys: Vec<Arc<egui::Galley>> = split_lines(&job)
-                .into_iter()
-                .map(|mut job| {
-                    // A blank line has no glyph to be tall by; the list still
-                    // moves on by what this galley measures.
-                    job.first_row_min_height = row_h;
-                    fonts.layout_job(job)
-                })
-                .collect();
-            (galleys, row_h)
-        });
-        let width = galleys.iter().map(|g| g.size().x).fold(0.0, f32::max);
+        let job = highlight::highlight(source, ui.visuals().dark_mode, font_id);
+        let jobs = split_lines(&job);
         *cache = Some((
             key,
             CodeLines {
-                galleys,
-                row_h,
-                width,
+                jobs,
+                width: 0.0,
+                metrics: (0, 0, 0),
             },
         ));
     }
-    &cache.as_ref().expect("just filled").1
+    &mut cache.as_mut().expect("just filled").1
+}
+
+/// How wide the widest line is: the cached width, or every line laid out once
+/// to measure it again.
+///
+/// This is the one thing the rows do not lay themselves out for, since the
+/// list wants it before it knows which rows are in view, and measuring 1700
+/// lines a frame is what the rest of this cache is here to avoid.
+///
+/// The key is the metrics, not a guess at the atlas: a width is a sum of glyph
+/// advances, and advances move only when the font definitions, the font size
+/// or the pixels per point do. A dark / light switch or a full atlas
+/// re-rasterizes the glyphs and leaves the advances where they were. So the
+/// row height, the pixels per point and the width of an `M` stand in for all
+/// three. Nothing drawn rides on this: the galleys come from epaint's cache
+/// per visible row. A miss costs a sideways scroll range a few pixels off,
+/// never a garbled glyph.
+fn code_width(ui: &egui::Ui, lines: &mut CodeLines) -> f32 {
+    let font_id = egui::TextStyle::Monospace.resolve(ui.style());
+    let ppp = ui.pixels_per_point();
+    let (row_h, metrics) = ui.fonts_mut(|fonts| {
+        let row_h = fonts.row_height(&font_id);
+        let em = fonts.glyph_width(&font_id, 'M');
+        (row_h, (row_h.to_bits(), ppp.to_bits(), em.to_bits()))
+    });
+    if lines.metrics != metrics {
+        lines.width = ui.fonts_mut(|fonts| {
+            lines
+                .jobs
+                .iter()
+                .map(|job| {
+                    let mut job = job.clone();
+                    // The same jobs the rows lay out, so this fills epaint's
+                    // cache with the entries they will ask for.
+                    job.first_row_min_height = row_h;
+                    fonts.layout_job(job).size().x
+                })
+                .fold(0.0, f32::max)
+        });
+        lines.metrics = metrics;
+    }
+    lines.width
 }
 
 /// One `LayoutJob` per line of `job`, each with the sections that fall on that

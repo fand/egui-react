@@ -74,6 +74,11 @@ jobs:
 
       - name: cargo test
         run: cargo test --workspace
+      # Without egui's embedded fonts (`egui-react-app` taken with
+      # `default-features = false`): the resolver must not hand epaint a key
+      # with no bytes behind it.
+      - name: cargo test (no default fonts)
+        run: cargo test -p egui-react-app --no-default-features
 
   wasm:
     name: wasm / trunk

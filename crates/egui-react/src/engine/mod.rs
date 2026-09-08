@@ -21,8 +21,9 @@
 //!
 //! There is a second, smaller path beside this one: [`lite`], which lays a
 //! `<VirtualList>` row out with a flex solver of its own instead of a taffy
-//! tree. It reuses this module's measure function, its galley cache and its
-//! `<Text>` painting, so the two agree on everything but who solves the boxes.
+//! tree. It reuses this module's measure function, its per pass galley reuse
+//! and its `<Text>` painting, so the two agree on everything but who solves the
+//! boxes.
 
 pub(crate) mod lite;
 
@@ -123,12 +124,24 @@ enum NodeCtx {
     Text(TextCtx),
 }
 
-/// A `<Text>` node: the job to lay out, and the galley it last produced.
+/// A `<Text>` node: the job to lay out, and the galley of the pass being drawn.
 ///
 /// The galley is built inside the taffy measure function, so a new `<Text>`
 /// needs no invisible sizing pass: taffy asks for its size and gets the real
 /// one in the same pass it was added. The paint step then reuses the same
-/// galley from the cache below.
+/// galley.
+///
+/// What survives between passes is the [`LayoutJob`], which depends on nothing
+/// but the text and the style. The galley does not: it holds texture
+/// coordinates into the glyph atlas of the `Fonts` that laid it out, and egui
+/// throws that `Fonts` away and builds a new one with a new atlas after
+/// `set_fonts`, after the text options changed (`Visuals::dark` and
+/// `Visuals::light` rasterize glyphs differently) and when the atlas gets full,
+/// with no way to ask whether it just did. So the galley is only ever reused
+/// within one pass, and across passes it comes from epaint's own `GalleyCache`,
+/// which lives inside `Fonts` and is rebuilt with the atlas: a rebuilt atlas
+/// can never meet a stale galley. The cost is a `LayoutJob` clone, a hash and a
+/// lookup per `<Text>` per frame — what `egui::Label` pays.
 struct TextCtx {
     /// The layout job [`egui::Label`] would have built in a `Ui` of this node,
     /// with `wrap.max_width` left for each layout to fill in.
@@ -138,17 +151,23 @@ struct TextCtx {
     hash: u64,
     /// Wrap to the width the node is given, or run on (`Extend`)?
     wrap: bool,
-    /// The last galley, with the wrap width and the pixels per point it was
-    /// laid out for, both as bits so they compare exactly.
-    galley: Option<(u32, u32, Arc<Galley>)>,
+    /// This pass's galley: the wrap width and the pixels per point it was laid
+    /// out for (both as bits, so they compare exactly), the pass it was laid
+    /// out in, and the galley. Reused within the pass — measure to paint, and
+    /// on the placed path the widget rect to the paint — and never past it.
+    galley: Option<(u32, u32, u64, Arc<Galley>)>,
 }
 
 impl TextCtx {
-    /// The galley for `wrap_width`, laid out only if the cache does not have it.
+    /// The galley for `wrap_width`, laid out again unless this pass already did.
     fn galley(&mut self, fonts: Fonts<'_>, wrap_width: f32) -> Arc<Galley> {
-        let key = (wrap_width.to_bits(), fonts.pixels_per_point.to_bits());
-        if let Some((width, ppp, galley)) = &self.galley
-            && (*width, *ppp) == key
+        let key = (
+            wrap_width.to_bits(),
+            fonts.pixels_per_point.to_bits(),
+            fonts.pass,
+        );
+        if let Some((width, ppp, pass, galley)) = &self.galley
+            && (*width, *ppp, *pass) == key
         {
             return Arc::clone(galley);
         }
@@ -156,22 +175,29 @@ impl TextCtx {
         job.wrap.max_width = wrap_width;
         // `fonts_mut`, as `WidgetText::into_galley_impl` does: a font used for
         // the first time has to be loaded before the text can be laid out.
-        // epaint keeps its own galley cache behind this, so a miss here is not
-        // necessarily a re-layout.
+        // epaint's own galley cache is behind this, so a miss here is a hash
+        // and a lookup, not a re-layout, and it hands back the very same `Arc`
+        // while the `Fonts` that made it lives.
         let galley = fonts.ctx.fonts_mut(|fonts| fonts.layout_job(job));
-        self.galley = Some((key.0, key.1, Arc::clone(&galley)));
+        self.galley = Some((key.0, key.1, key.2, Arc::clone(&galley)));
         galley
     }
 }
 
 /// What laying a galley out needs.
 ///
-/// The pixels per point is carried rather than read from the context, because
-/// reading it takes egui's lock and this is on the per node path.
+/// The pixels per point and the pass number are carried rather than read from
+/// the context, because reading them takes egui's lock and this is on the per
+/// node path.
 #[derive(Clone, Copy)]
 struct Fonts<'a> {
     ctx: &'a egui::Context,
     pixels_per_point: f32,
+    /// egui's cumulative pass number, which is what a kept galley is keyed on:
+    /// it is reused within the pass that made it and dropped after. Nothing
+    /// here tries to tell one `Fonts` from the next — epaint's `GalleyCache`
+    /// does that by dying with its atlas.
+    pass: u64,
 }
 
 impl<'a> Fonts<'a> {
@@ -180,6 +206,7 @@ impl<'a> Fonts<'a> {
         Self {
             ctx: ui.ctx(),
             pixels_per_point: ui.pixels_per_point(),
+            pass: ui.ctx().cumulative_pass_nr(),
         }
     }
 }
@@ -340,9 +367,9 @@ impl Tree {
         }
     }
 
-    /// Record the text of a `<Text>` node, keeping the cached galley when
-    /// neither the job nor the wrap mode changed. Only writes when it changed,
-    /// because a write marks the node dirty.
+    /// Record the text of a `<Text>` node, keeping what it holds when neither
+    /// the job nor the wrap mode changed. Only writes when it changed, because
+    /// a write marks the node dirty.
     fn set_text(&mut self, node: NodeId, job: Arc<LayoutJob>, hash: u64, wrap: bool) {
         let same = matches!(
             self.taffy.get_node_context(node),
@@ -363,9 +390,9 @@ impl Tree {
         }
     }
 
-    /// The galley of a `<Text>` node at `wrap_width`, from its cache if it is
-    /// there. Only [`Tree::paint_texts`] calls this outside the measure
-    /// function.
+    /// The galley of a `<Text>` node at `wrap_width`, reused if this pass
+    /// already laid it out. Only [`Tree::paint_texts`] calls this outside the
+    /// measure function.
     fn text_galley(
         &mut self,
         node: NodeId,
@@ -1011,8 +1038,9 @@ impl TreeCx<'_> {
             tree.set_text(node, Arc::clone(&job), hash, wrap);
             // For the widget rect below, and for the immediate paint path. On
             // the deferred path the galley that is painted comes from
-            // `paint_texts`, after the layout is final; in the steady state the
-            // two are the same cache entry.
+            // `paint_texts`, after the layout is final; in the steady state
+            // that is this same galley, kept on the node for the rest of the
+            // pass.
             tree.text_galley(node, fonts, wrap_width(&content, wrap))
         };
 
