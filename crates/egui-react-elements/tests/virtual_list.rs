@@ -469,3 +469,187 @@ fn fractional_scrolling_asks_for_no_second_pass() {
         discards.get(),
     );
 }
+
+/// Scroll the list sideways by `points`, positive rightwards.
+///
+/// The same shape as [`scroll`], with the delta on the other axis: a
+/// `TouchPhase::Start` first, so egui's smoothing is off and one call moves
+/// exactly this far.
+fn scroll_sideways(harness: &mut Harness<'_, Store>, points: f32) {
+    let input = harness.input_mut();
+    input
+        .events
+        .push(egui::Event::PointerMoved(egui::pos2(150.0, 150.0)));
+    for (phase, delta) in [
+        (egui::TouchPhase::Start, egui::Vec2::ZERO),
+        (egui::TouchPhase::Move, egui::vec2(-points, 0.0)),
+    ] {
+        input.events.push(egui::Event::MouseWheel {
+            unit: egui::MouseWheelUnit::Point,
+            phase,
+            delta,
+            modifiers: egui::Modifiers::NONE,
+        });
+    }
+    harness.step();
+}
+
+/// How wide a row is in [`sideways_offset_harness`]: three times the viewport,
+/// so a sideways list has somewhere to go.
+const WIDE_ROW_W: f32 = 900.0;
+
+/// A row that fills the width the list was laid out for.
+///
+/// `w="100%"` is the row's rect, which is `row_w` when the list was given one:
+/// on a sideways list this row already reaches past the edge, with no `w` and
+/// no `shrink={0}` of its own.
+#[component]
+fn OffsetRow(cx: &mut Cx, index: usize) {
+    rsx! {
+        <View direction="row" gap={8} align="center" w="100%" h={ROW_H}>
+            <Text w={120.0}>{format!("row {index}")}</Text>
+            <Text grow={1.0}>{format!("filler {index}")}</Text>
+        </View>
+    }
+}
+
+/// A list that publishes where it is scrolled to, and a label that reads the
+/// offset back.
+///
+/// This is the shape a frozen header uses: the offset goes into state, and
+/// something drawn *outside* the list is placed from it. The write is guarded
+/// by `!=` on purpose — the event fires every frame, and writing every frame
+/// would mark the state dirty and ask for a repaint for ever (ARCHITECTURE
+/// 5.6). The test would still pass without the guard; the doc comment on the
+/// element is what the guard is here to demonstrate.
+fn offset_harness<'a>() -> Harness<'a, Store> {
+    Harness::builder()
+        .with_size(egui::vec2(300.0, 300.0))
+        .build_ui_state(
+            |ui, store: &mut Store| {
+                run_app(ui, store, |cx| {
+                    let mut offset = use_state(cx, egui::Vec2::default);
+                    let seen = *offset;
+                    rsx! {
+                        <View direction="column" w="100%" h={280.0}>
+                            <Text>{format!("offset {:.1} {:.1}", seen.x, seen.y)}</Text>
+                            <VirtualList
+                                rows={ROWS}
+                                row_h={ROW_H}
+                                grow={1.0}
+                                on_scroll={|at: egui::Vec2| {
+                                    if *offset != at {
+                                        *offset = at;
+                                    }
+                                }}
+                                render={|cx: &mut Cx<'_, '_>, i: usize| {
+                                    rsx! { <OffsetRow index={i}/> }.show(cx);
+                                }}
+                            />
+                        </View>
+                    }
+                    .show(cx);
+                });
+            },
+            Store::new(),
+        )
+}
+
+/// The same list, laid out `WIDE_ROW_W` wide and scrolling both ways.
+///
+/// `row_w` is what gives it a scroll range: the rows are drawn into the rects
+/// the list reserved, so without being told the width the scroll area would
+/// never learn the content is wider than its viewport.
+fn sideways_offset_harness<'a>() -> Harness<'a, Store> {
+    Harness::builder()
+        .with_size(egui::vec2(300.0, 300.0))
+        .build_ui_state(
+            |ui, store: &mut Store| {
+                run_app(ui, store, |cx| {
+                    let mut offset = use_state(cx, egui::Vec2::default);
+                    let seen = *offset;
+                    rsx! {
+                        <View direction="column" w="100%" h={280.0}>
+                            <Text>{format!("offset {:.1} {:.1}", seen.x, seen.y)}</Text>
+                            <VirtualList
+                                rows={ROWS}
+                                row_h={ROW_H}
+                                row_w={WIDE_ROW_W}
+                                horizontal
+                                grow={1.0}
+                                on_scroll={|at: egui::Vec2| {
+                                    if *offset != at {
+                                        *offset = at;
+                                    }
+                                }}
+                                render={|cx: &mut Cx<'_, '_>, i: usize| {
+                                    rsx! { <OffsetRow index={i}/> }.show(cx);
+                                }}
+                            />
+                        </View>
+                    }
+                    .show(cx);
+                });
+            },
+            Store::new(),
+        )
+}
+
+/// Assert that the label says the list reported `(x, y)`.
+///
+/// By label, the way every other test in this file reads state back: the
+/// component formats the offset into the text, so the name of the node *is*
+/// the value.
+#[track_caller]
+fn assert_reported(harness: &Harness<'_, Store>, x: f32, y: f32, what: &str) {
+    let want = format!("offset {x:.1} {y:.1}");
+    assert!(
+        harness.query_by_label(&want).is_some(),
+        "{what}: expected {want:?}, and the list reported none of it",
+    );
+}
+
+/// `on_scroll` reports the offset egui used for the frame the rows were drawn
+/// into, so a header drawn beside the list can follow it.
+#[test]
+fn on_scroll_reports_where_the_list_is() {
+    let mut harness = offset_harness();
+    harness.run();
+    harness.run();
+    assert_reported(&harness, 0.0, 0.0, "the list starts at the top");
+
+    scroll(&mut harness, ROW_H * 4.0);
+    // One frame behind: the label is drawn above the list, so it shows the
+    // offset the previous frame reported. That is the delay the element's doc
+    // comment names, and stepping once more is what a repaint would do.
+    harness.step();
+    assert_reported(&harness, 0.0, ROW_H * 4.0, "four rows down");
+
+    scroll(&mut harness, ROW_H * 6.0);
+    harness.step();
+    assert_reported(&harness, 0.0, ROW_H * 10.0, "and it accumulates");
+
+    // Back to the top, and the report goes back with it.
+    scroll(&mut harness, -ROW_H * 100.0);
+    harness.step();
+    assert_reported(&harness, 0.0, 0.0, "back at the top");
+}
+
+/// A `row_w` wider than the viewport is what gives a `horizontal` list
+/// somewhere to scroll, and the offset comes back on `x` as well.
+#[test]
+fn on_scroll_reports_the_horizontal_offset_too() {
+    let mut harness = sideways_offset_harness();
+    harness.run();
+    harness.run();
+    assert_reported(&harness, 0.0, 0.0, "the list starts at the left");
+
+    scroll_sideways(&mut harness, 120.0);
+    harness.step();
+    assert_reported(&harness, 120.0, 0.0, "scrolled sideways");
+
+    // Both axes at once, since a sideways list still scrolls down.
+    scroll(&mut harness, ROW_H * 3.0);
+    harness.step();
+    assert_reported(&harness, 120.0, ROW_H * 3.0, "and down as well");
+}

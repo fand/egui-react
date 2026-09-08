@@ -1673,6 +1673,7 @@ dependencies = [
  "patch",
  "shader",
  "showcase",
+ "spreadsheet",
  "styles",
  "theme",
  "todo",
@@ -3839,6 +3840,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d9571ea910ebd84c86af4b3ed27f9dbdc6ad06f17c5f96146b2b671e2976744f"
 dependencies = [
  "bitflags 2.13.1",
+]
+
+[[package]]
+name = "spreadsheet"
+version = "0.1.0"
+dependencies = [
+ "board",
+ "eframe",
+ "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
+ "egui_kittest",
+ "example-meta",
+ "log",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]

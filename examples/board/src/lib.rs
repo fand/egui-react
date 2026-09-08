@@ -703,7 +703,7 @@ fn Card(
                             // from what was saved rather than from an old draft.
                             *draft = card.title.clone();
                             *editing = true;
-                        }}>"✎"</IconButton>
+                        }}>"✏"</IconButton>
                         <IconButton name="remove" on_click={|| on_remove.emit(())}>"×"</IconButton>
                     </View>
                 };

@@ -69,30 +69,56 @@ use egui_react::prelude::*;
 /// The size comes from the style, not the content (`leaf_fill`), so give it
 /// `grow` or an `h`; with neither it fills the window on that axis.
 ///
-/// `horizontal` lets the list scroll sideways as well. A row is then laid out
-/// as wide as the viewport, not as wide as the content: give a row that is
-/// meant to reach past the edge a `w` of its own (and `shrink={0}`), and the
-/// scroll range follows what the rows in view drew.
+/// `horizontal` lets the list scroll sideways as well, but only together with
+/// `row_w`: it is the width every row is laid out into, and with it the width
+/// of the content the list scrolls over. The element has to be told, because
+/// it cannot measure it — a row's leaves are drawn into rects the layout
+/// engine reserved, and the list reserves the row's rect and nothing more, so
+/// whatever a row draws past that rect never reaches the scroll area's `Ui`
+/// and never counts towards its scroll range. Given `row_w`, a row's
+/// `<View w="100%">` is already the width of the sheet and reaches past the
+/// edge on its own; it needs no `w` of its own and no `shrink={0}`. `row_w` is
+/// never taken as narrower than the viewport, so a list given less than its
+/// window still fills it.
+///
+/// `on_scroll` reports where the list is: the offset in points from the top
+/// left of the content to the top left of the viewport, taken after the rows
+/// are drawn, so it is the offset egui actually used this frame and not the
+/// one it will use next. It fires every frame, scrolled or not, because that
+/// is when the number is known. Anything drawn *beside* the list from that
+/// offset — a frozen column header, a row header, a ruler — is what it is
+/// for. A caller that keeps it in state must write only when it differs from
+/// what is already there: a write per frame marks the state dirty and asks for
+/// a repaint, and a list that repaints for ever is a list that never idles
+/// (ARCHITECTURE 5.6). The headers then run one frame behind the body, which
+/// is the same one-frame delay every handler write has (5.7).
 #[component]
 pub fn VirtualList(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
     rows: usize,
     row_h: f32,
+    // The width every row is laid out into, and the width of the content a
+    // `horizontal` list scrolls over. `None` is the viewport's width, which is
+    // what a list that does not scroll sideways wants.
+    row_w: Option<f32>,
     #[prop(default)] horizontal: bool,
     // The bound is spelled out rather than elided. `#[component]` rewrites an
     // elided lifetime in a prop to the props struct's own, and a closure taking
     // a `Cx` has to be callable with whatever lifetimes the row's `Cx` has.
     render: impl for<'a, 's, 'u> FnMut(&'a mut Cx<'s, 'u>, usize),
+    #[event] on_scroll: egui::Vec2,
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
     let layout = cx.layout_id();
     let mut render = render;
-    cx.leaf_fill(&style, move |ui| {
+    let offset = cx.leaf_fill(&style, move |ui| {
         // `show_rows` places the rows `row_h + item_spacing.y` apart. The
         // element promises `row_h`, so the spacing goes.
         ui.spacing_mut().item_spacing.y = 0.0;
-        egui::ScrollArea::new([horizontal, true]).show_rows(ui, row_h, rows, move |ui, range| {
+        // The row loop is bound to a name so that the `show_rows` call stays on
+        // one line: the closure is the same one it always was.
+        let draw_rows = move |ui: &mut egui::Ui, range: std::ops::Range<usize>| {
             // The rect every row's tree is laid out into, and the room it
             // takes. Fixed, so a row moves the cursor on by exactly the height
             // `show_rows` worked the visible range out from, and so a row
@@ -100,14 +126,20 @@ pub fn VirtualList(
             // `Cx::with_root_size`.
             //
             // On a sideways-scrolling list the width egui offers is infinite;
-            // the viewport's is what a row of `w="100%"` should mean.
-            let row_w = ui.available_width();
-            let row_w = if row_w.is_finite() {
-                row_w
+            // the viewport's is what a row of `w="100%"` means without `row_w`.
+            let viewport_w = ui.available_width();
+            let viewport_w = if viewport_w.is_finite() {
+                viewport_w
             } else {
                 ui.clip_rect().width()
             };
-            let row_size = egui::vec2(row_w, row_h);
+            let width = row_w.map_or(viewport_w, |w| w.max(viewport_w));
+            // What tells the scroll area how far it may scroll sideways. The
+            // rows cannot: each one takes exactly the rect reserved for it, so
+            // `min_rect` would never grow past the viewport however wide the
+            // rows were laid out.
+            ui.set_min_width(width);
+            let row_size = egui::vec2(width, row_h);
             // The same shape as any container element: rebuild a `Cx` around
             // the `Ui` egui handed back, then enter a scope per row.
             let mut cx = Cx::new(store, ui, scope);
@@ -130,6 +162,14 @@ pub fn VirtualList(
                     })
                 });
             }
-        });
+        };
+        let out = egui::ScrollArea::new([horizontal, true]).show_rows(ui, row_h, rows, draw_rows);
+        // The offset egui settled on for the frame the rows were just drawn
+        // into, handed back out of the leaf the way `Canvas` hands back its
+        // `Response`: an event is emitted from the component body, not from
+        // inside the closure the leaf runs.
+        out.state.offset
     });
+
+    on_scroll.emit(offset);
 }
