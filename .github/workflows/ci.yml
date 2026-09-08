@@ -60,6 +60,19 @@ jobs:
           components: rustfmt, clippy
           targets: wasm32-unknown-unknown
 
+      # rust-cache's key hashes `rustc -vV` of every toolchain `rustup toolchain
+      # list` knows, the runner image's own `stable` included. That compiler
+      # builds nothing here, but its version moves with every image rollout —
+      # 1.98.0 to 1.98.1 on 2026-09-08 — and while a rollout is under way the
+      # fleet is mixed, so the key depended on which runner a job landed on and
+      # each variant had to be warmed separately. Leave rustup knowing only the
+      # pinned toolchain, and the key depends only on things this repo controls.
+      - name: Forget the runner's own toolchains
+        run: |
+          active=$(rustup show active-toolchain | cut -d' ' -f1)
+          rustup toolchain list | cut -d' ' -f1 | grep -vx "$active" | xargs -r -n1 rustup toolchain uninstall
+          rustup toolchain list
+
       - uses: Swatinem/rust-cache@v2
         with:
           # A red run is the one most likely to be pushed to again in a minute.
@@ -93,6 +106,13 @@ jobs:
         with:
           toolchain: "1.95"
           targets: wasm32-unknown-unknown
+
+      # Same reason as in `check`: keep the image's own Rust out of the cache key.
+      - name: Forget the runner's own toolchains
+        run: |
+          active=$(rustup show active-toolchain | cut -d' ' -f1)
+          rustup toolchain list | cut -d' ' -f1 | grep -vx "$active" | xargs -r -n1 rustup toolchain uninstall
+          rustup toolchain list
 
       - uses: Swatinem/rust-cache@v2
         with:
