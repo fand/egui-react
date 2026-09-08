@@ -1,5 +1,5 @@
-//! The example renders with its three stacks, and the bundled one is a family
-//! egui can draw Japanese with.
+//! The example renders with its four stacks, starts on the one an app would use
+//! on this target, and the bundled one is a family egui can draw Japanese with.
 
 use egui::{FontFamily, FontId};
 use egui_kittest::Harness;
@@ -7,7 +7,7 @@ use egui_kittest::kittest::Queryable as _;
 use egui_react::prelude::*;
 use egui_react_app::fonts::Outcome;
 use egui_react_app::{root_id, root_style};
-use font::{App, LOADING, SAMPLES, STACKS, fonts};
+use font::{App, LOADING, SAMPLES, STACKS, fonts, typical};
 
 fn harness<'a>() -> Harness<'a, Store> {
     Harness::builder()
@@ -38,19 +38,64 @@ fn the_example_draws_japanese_with_the_bundled_stack() {
     fonts().apply(&harness.ctx);
     harness.run();
 
-    // The three stacks are offered, the samples are drawn, and the report
-    // lists every stack.
+    // Every stack is offered, the samples are drawn, and the report lists every
+    // stack. The buttons are matched by role: the matrix under them draws the
+    // stack names as plain text too.
+    let button = egui::accesskit::Role::Button;
+    // The typical stack's button carries the star, and which one that is
+    // depends on the target.
+    let stack_button = |name: &str| {
+        if name == typical() {
+            format!("{name} ★")
+        } else {
+            name.to_string()
+        }
+    };
     for name in STACKS {
-        assert!(harness.query_by_label(name).is_some(), "{name} missing");
+        let label = stack_button(name);
+        assert!(
+            harness.query_by_role_and_label(button, &label).is_some(),
+            "the {label} button is missing"
+        );
         let header = format!("stack \"{name}\"");
         assert!(
             harness.query_by_label(&header).is_some(),
             "{header} missing from the report"
         );
     }
+    assert!(
+        harness
+            .query_by_role_and_label(button, &format!("{} ★", typical()))
+            .is_some(),
+        "no stack is marked as the typical one"
+    );
+    assert!(
+        harness
+            .query_by_label("where each stack gets its bytes")
+            .is_some(),
+        "the target matrix is missing"
+    );
     for sample in SAMPLES {
         assert!(harness.query_by_label(sample).is_some(), "{sample} missing");
     }
+
+    // The example opens on the stack an app would use here, not on the first of
+    // the list.
+    assert!(
+        harness
+            .query_by_label(&format!("<Text font=\"{}\">", typical()))
+            .is_some(),
+        "the first frame does not draw with the typical stack"
+    );
+
+    // The Japanese checks below are about the bundled subset, so draw with it.
+    harness
+        .get_by_role_and_label(button, &stack_button("bundled"))
+        .click();
+    // One pass to apply the write, one to draw with the new value.
+    harness.run();
+    harness.run();
+    assert!(harness.query_by_label("<Text font=\"bundled\">").is_some());
 
     // The subset was loaded under the family name it declares. The `web`
     // entry is `Pending` or `Failed` here (headless, no server) and the
@@ -79,8 +124,9 @@ fn the_example_draws_japanese_with_the_bundled_stack() {
     assert!(has_japanese(FontFamily::Name("code".into())));
 
     // Picking another stack changes what the samples are drawn with.
-    harness.get_by_label("web").click();
-    // One pass to apply the write, one to draw with the new value.
+    harness
+        .get_by_role_and_label(button, &stack_button("web"))
+        .click();
     harness.run();
     harness.run();
     assert!(harness.query_by_label("<Text font=\"web\">").is_some());
@@ -92,7 +138,7 @@ fn the_example_draws_japanese_with_the_bundled_stack() {
     // wait that out, then the samples are back and the placeholder is not
     // drawn. (Catching the pending frame is a race in a headless test, so it
     // is left to the browser.)
-    harness.get_by_label("block").click();
+    harness.get_by_role_and_label(button, "block").click();
     harness.run();
     for _ in 0..200 {
         if !fonts().pending() {

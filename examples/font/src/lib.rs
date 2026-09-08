@@ -8,7 +8,16 @@
 //! resolved through one `fontdb` database into egui's per-glyph fallback
 //! lists, and picked per `<Text>` with the `font` prop.
 //!
-//! Three stacks, one per kind of source:
+//! Which stack an app reaches for depends on the target, and the example starts
+//! on that one (`typical()`, the button marked `★`). Natively that is `system`:
+//! the machine already has fonts and shipping more is waste. In the browser it
+//! is `web`, a font served from the app's own origin — or `bundled` when a
+//! subset is small enough to pay for in binary size, since then there is
+//! nothing to wait for. `system` in the browser is the odd one out: it needs
+//! the Local Font Access API, a click and a permission prompt, and only
+//! Chromium has it.
+//!
+//! Four stacks, one per kind of source:
 //!
 //! - `bundled`: a 433 KB subset of Noto Sans JP compiled in with
 //!   `include_bytes!` (`fonts/README.md` says what is in it and how it was
@@ -83,6 +92,57 @@ pub const WEB_FONT_URL: &str = "fonts/NotoSansJP-Regular.otf";
 /// The stacks, in the order the buttons show them.
 pub const STACKS: [&str; 4] = ["bundled", "web", "system", "code"];
 
+/// The stack an app normally uses on the target this build runs on, and the one
+/// the example starts on. Natively `system`: the fonts are already installed, so
+/// there is nothing to ship. On wasm `web`: the browser cannot read installed
+/// fonts, so the app serves one from its own origin — `bundled` instead when a
+/// subset is small enough, and then there is nothing to wait for either.
+pub fn typical() -> &'static str {
+    if cfg!(target_arch = "wasm32") {
+        "web"
+    } else {
+        "system"
+    }
+}
+
+/// The `★` line under the stack buttons: why that stack is the typical one here.
+pub fn typical_note() -> &'static str {
+    if cfg!(target_arch = "wasm32") {
+        "★ = what an app normally uses on this target: a font fetched from the app's own origin \
+         (a bundled subset when it is small enough)"
+    } else {
+        "★ = what an app normally uses on this target: fonts installed on the machine, nothing to \
+         ship"
+    }
+}
+
+/// One row per source kind: the stack, then what an app does with it natively
+/// and in the browser. Drawn as the little matrix under `how`, because the
+/// answer is a pair and picking one target hides half of it.
+pub const MATRIX: [(&str, &str, &str); 3] = [
+    (
+        "bundled",
+        "typical for small subsets",
+        "typical for small subsets",
+    ),
+    ("web", "works (any HTTP URL)", "typical"),
+    (
+        "system",
+        "typical",
+        "opt-in: Local Font Access, Chromium only, permission prompt",
+    ),
+];
+
+/// `▶ ` in front of the matrix column this build runs on, so the reader knows
+/// which of the two they are reading. `column` is `"native"` or `"web"`.
+pub fn here(column: &str) -> &'static str {
+    if (column == "web") == cfg!(target_arch = "wasm32") {
+        "▶ "
+    } else {
+        ""
+    }
+}
+
 /// The two `font-display` policies the example can draw, first is the default.
 pub const DISPLAYS: [&str; 2] = ["swap", "block"];
 
@@ -150,7 +210,9 @@ pub fn build_fonts() -> Fonts {
 
 #[component]
 pub fn App(cx: &mut Cx) {
-    let mut stack = use_state(cx, || STACKS[0]);
+    // Start on the stack an app would actually use here, not on the first of
+    // the list: the example is read as advice as much as a demo.
+    let mut stack = use_state(cx, typical);
     let current: &'static str = *stack;
     let mut display = use_state(cx, || DISPLAYS[0]);
     let policy: &'static str = *display;
@@ -190,13 +252,23 @@ pub fn App(cx: &mut Cx) {
                     <View direction="row" gap={8} align="center">
                         <Text>"stack:"</Text>
                         for name in STACKS {
-                            <Button key={name} on_click={|| *stack = name}>{name}</Button>
+                            // The typical one wears the star; the note under
+                            // the row says what the star means.
+                            <Button key={name} on_click={|| *stack = name}>
+                                {if name == typical() {
+                                    format!("{name} ★")
+                                } else {
+                                    name.to_string()
+                                }}
+                            </Button>
                         }
                         <Text>{format!("<Text font=\"{current}\">")}</Text>
                     </View>
+                    <Text wrap w="100%">{typical_note()}</Text>
                     // How this stack gets its bytes on the target this build
                     // runs on; `wrap` needs a width, which `w` gives it.
                     <Text wrap w="100%">{how(current)}</Text>
+                    <Matrix/>
 
                     // What to draw while a URL is in flight. The report below
                     // keeps showing that entry going pending → loaded either
@@ -227,6 +299,33 @@ pub fn App(cx: &mut Cx) {
                     <Report/>
                 </View>
             </ScrollArea>
+        </View>
+    }
+}
+
+/// The two targets side by side: which stack an app uses where, in three rows.
+/// `how` only speaks about the target this build runs on, and the choice is
+/// really a pair, so the other column is spelled out rather than implied. The
+/// column the build is on is marked, since both are drawn the same.
+#[component]
+fn Matrix(cx: &mut Cx) {
+    rsx! {
+        <View direction="column" gap={2} w="100%">
+            <Text strong>"where each stack gets its bytes"</Text>
+            <View direction="row" gap={8} w="100%">
+                <Text w={80.0} strong>"stack"</Text>
+                <Text grow={1.0} strong>{format!("{}native", here("native"))}</Text>
+                <Text grow={1.0} strong>{format!("{}web", here("web"))}</Text>
+            </View>
+            for (i, (name, native, web)) in MATRIX.iter().enumerate() {
+                <View key={i} direction="row" gap={8} w="100%">
+                    <Text w={80.0}>{*name}</Text>
+                    // The cells wrap, so the widths have to come from the row:
+                    // `w` for the name, `grow` for the two that can be long.
+                    <Text grow={1.0} wrap>{format!("{}{native}", here("native"))}</Text>
+                    <Text grow={1.0} wrap>{format!("{}{web}", here("web"))}</Text>
+                </View>
+            }
         </View>
     }
 }
