@@ -174,6 +174,9 @@ pub fn App(cx: &mut Cx) {
                         }
                         <Text>{format!("<Text font=\"{current}\">")}</Text>
                     </View>
+                    // How this stack gets its bytes on the target this build
+                    // runs on; `wrap` needs a width, which `w` gives it.
+                    <Text wrap w="100%">{how(current)}</Text>
 
                     <View direction="column" gap={4}>
                         for (i, sample) in SAMPLES.iter().enumerate() {
@@ -264,6 +267,53 @@ fn Report(cx: &mut Cx) {
                 </View>
             }
         </View>
+    }
+}
+
+/// How a stack gets its bytes on the target this build runs on. Shown under
+/// the stack buttons, so the report below it can be read as "this is what
+/// that produced".
+pub fn how(stack: &str) -> &'static str {
+    let wasm = cfg!(target_arch = "wasm32");
+    match (stack, wasm) {
+        ("bundled", true) => {
+            "Compiled into the .wasm with include_bytes! (a 433 KB subset of Noto Sans JP) and \
+             registered from Options::setup, before the first frame. Nothing to wait for and \
+             nothing to fetch; the cost is binary size, which is why it is a subset."
+        }
+        ("bundled", false) => {
+            "Compiled into the binary with include_bytes! (a 433 KB subset of Noto Sans JP) and \
+             registered from Options::setup, before the first frame."
+        }
+        ("web", true) => {
+            "fetch() of fonts/NotoSansJP-Regular.otf (4.5 MB) from the page's own origin, \
+             started by the first apply. Until the bytes arrive the entry is pending and the \
+             subset behind it draws; when they land the chains are applied again and egui \
+             rebuilds its glyph atlas once. A cross-origin URL would need CORS headers."
+        }
+        ("web", false) => {
+            "An HTTP fetch (ureq on a thread). Here the relative URL has no server to point at, \
+             so the entry is failed and the subset behind it draws; in the browser the same \
+             URL is fetched from the page's origin."
+        }
+        ("system", true) => {
+            "The browser cannot read installed fonts, so each name is missing until \"Use my \
+             fonts\" asks for them through the Local Font Access API (Chromium only, a \
+             permission prompt, has to start from a click). The granted files go into the same \
+             database and this chain is resolved again. \"Noto Sans JP\" already matches the \
+             bundled subset, which is why Japanese draws before any grant."
+        }
+        ("system", false) => {
+            "fontdb scans the OS font directories once (load_system_fonts) and each name is \
+             matched against the installed families as CSS would; a name no font declares is \
+             missing and skipped, and the report shows the family each face declares."
+        }
+        ("code", _) => {
+            "The monospace generic first (egui's Hack in the browser, the installed monospace \
+             default natively), then the bundled subset for the kana and kanji Hack lacks. It \
+             is also the Monospace default, which the gallery's source pane draws with."
+        }
+        _ => "",
     }
 }
 
