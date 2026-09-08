@@ -1,14 +1,18 @@
 //! A `<Text>` is laid out again when the fonts change.
 //!
-//! The engine caches a `<Text>`'s galley across frames, keyed by the wrap
-//! width and the pixels per point. A galley carries texture coordinates into
-//! the glyph atlas of the `Fonts` that laid it out, and `Context::set_fonts`
-//! builds a new `Fonts` with a new atlas at the start of the next pass. A
-//! galley kept across that boundary paints whatever now sits at its old
-//! coordinates: on the web, where a font arrives over HTTP after the first
-//! frame, every label that did not change its text came out as fragments of
-//! other glyphs. So the store notes the fonts once per pass and the cache key
-//! carries that generation.
+//! A galley carries texture coordinates into the glyph atlas of the `Fonts`
+//! that laid it out, and egui throws that `Fonts` away and builds a new one
+//! with a new atlas after `set_fonts`, after a change of visuals and when the
+//! atlas gets full. A galley kept across that boundary paints whatever now
+//! sits at its old coordinates: on the web, where a font arrives over HTTP
+//! after the first frame, every label that did not change its text came out as
+//! fragments of other glyphs.
+//!
+//! The rule is that the engine never keeps a galley across passes. Within a
+//! pass it reuses the one it laid out; across passes it asks epaint's own
+//! `GalleyCache`, which lives inside `Fonts` and dies with the atlas. These
+//! tests pin that: while the `Fonts` lives, that cache hands back the very same
+//! `Arc`, and a rebuilt atlas is never painted with a galley from the old one.
 
 use std::sync::Arc;
 
@@ -72,14 +76,12 @@ fn the_galley_is_kept_while_the_fonts_stay() {
     let mut store = Store::new();
 
     let first = frame(&ctx, &mut store);
-    let generation = store.fonts_generation();
     let second = frame(&ctx, &mut store);
 
     assert!(
         Arc::ptr_eq(&first, &second),
-        "nothing changed, so the cached galley is painted again"
+        "nothing changed, so epaint's cache hands back the same galley"
     );
-    assert_eq!(store.fonts_generation(), generation);
 }
 
 #[test]
@@ -88,24 +90,18 @@ fn the_galley_is_laid_out_again_after_set_fonts() {
     let mut store = Store::new();
 
     let before = frame(&ctx, &mut store);
-    let generation = store.fonts_generation();
 
     // Takes effect at the start of the next pass, as it does for an app
     // whose font arrived over HTTP between two frames.
     ctx.set_fonts(other_fonts());
     let after = frame(&ctx, &mut store);
 
-    assert_eq!(
-        store.fonts_generation(),
-        generation + 1,
-        "the store noticed the new fonts"
-    );
     assert!(
         !Arc::ptr_eq(&before, &after),
         "a galley laid out under the old fonts is not painted with the new atlas"
     );
 
-    // And the new one is cached in turn.
+    // And the new one is reused in turn.
     let again = frame(&ctx, &mut store);
     assert!(Arc::ptr_eq(&after, &again));
 }
@@ -116,22 +112,16 @@ fn the_galley_is_laid_out_again_after_a_change_of_visuals() {
     let mut store = Store::new();
 
     let dark = frame(&ctx, &mut store);
-    let generation = store.fonts_generation();
 
     // `Visuals::light` carries other `TextOptions` than `Visuals::dark`
     // (coverage maps to alpha differently on a light ground), and epaint
-    // builds a new atlas for them at the start of the next pass. The
-    // definitions are the same, so the fingerprint alone would not see it:
-    // this is what garbled the `theme` and `showcase` examples on their
-    // dark / light switch.
+    // builds a new atlas for them at the start of the next pass. The font
+    // definitions are the same, so nothing about them says so: this is what
+    // garbled the `theme` and `showcase` examples on their dark / light
+    // switch.
     ctx.set_visuals(egui::Visuals::light());
     let light = frame(&ctx, &mut store);
 
-    assert_eq!(
-        store.fonts_generation(),
-        generation + 1,
-        "the store noticed the new atlas"
-    );
     assert!(
         !Arc::ptr_eq(&dark, &light),
         "a galley laid out for the dark atlas is not painted with the light one"
@@ -141,5 +131,4 @@ fn the_galley_is_laid_out_again_after_a_change_of_visuals() {
     ctx.set_visuals(egui::Visuals::light());
     let again = frame(&ctx, &mut store);
     assert!(Arc::ptr_eq(&light, &again));
-    assert_eq!(store.fonts_generation(), generation + 1);
 }

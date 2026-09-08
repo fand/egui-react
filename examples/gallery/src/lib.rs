@@ -700,7 +700,9 @@ fn code_lines<'a>(
         ui.visuals().dark_mode,
         font_id.size,
         ui.pixels_per_point(),
-        egui_react::fonts_generation(ui.ctx()),
+        // TODO(step 3): the fonts generation is gone; this cache needs a rule
+        // of its own for a rebuilt atlas.
+        0u64,
     );
     if cache.as_ref().is_none_or(|(k, _)| *k != key) {
         let job = highlight::highlight(source, ui.visuals().dark_mode, font_id.clone());

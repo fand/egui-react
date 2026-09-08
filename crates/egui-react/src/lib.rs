@@ -29,7 +29,7 @@ pub use layout::{
     Align, AlignSelf, ContainerStyle, Direction, Display, Gap, ItemStyle, Justify, Length,
 };
 pub use state::{Handle, State};
-pub use store::{Collision, Store, fonts_generation};
+pub use store::{Collision, Store};
 pub use view::{View, view};
 
 pub use egui_react_macros::{component, hook, rsx};
