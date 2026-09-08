@@ -106,7 +106,11 @@ pub fn Collapsing(
 }
 
 /// A painted frame: background, border and inner margin.
+///
+/// `shadow` casts the theme's window shadow; `custom_shadow` casts one of the
+/// caller's own instead, and wins over `shadow`.
 #[component]
+#[allow(clippy::too_many_arguments)]
 pub fn Frame(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
@@ -114,6 +118,8 @@ pub fn Frame(
     stroke: Option<egui::Stroke>,
     inner_margin: Option<f32>,
     corner_radius: Option<f32>,
+    #[prop(default)] shadow: bool,
+    custom_shadow: Option<egui::Shadow>,
     children: impl View,
 ) {
     let (store, scope) = (cx.store, cx.scope_id());
@@ -131,6 +137,11 @@ pub fn Frame(
         }
         if let Some(radius) = corner_radius {
             frame = frame.corner_radius(radius as u8);
+        }
+        if let Some(shadow) = custom_shadow {
+            frame = frame.shadow(shadow);
+        } else if shadow {
+            frame = frame.shadow(ui.visuals().window_shadow);
         }
         frame.show(ui, move |ui| {
             let mut cx = Cx::new(store, ui, scope);
