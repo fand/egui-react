@@ -65,20 +65,6 @@ jobs:
           # A red run is the one most likely to be pushed to again in a minute.
           # Without this its dependency builds are thrown away.
           cache-on-failure: true
-          # Only main writes a cache; a pull request reads main's. An Actions
-          # cache is scoped to the branch that wrote it, so saving from pull
-          # requests too gave every open branch its own multi-GB copy of the
-          # same dependency build, and the repository's 10 GB budget started
-          # evicting them: a wasm cache that hit as a `full match` at 21:35 on
-          # this PR was gone under the same key three minutes later, and that
-          # job rebuilt from cold. rust-cache's restore key carries no lockfile
-          # hash (`v0-rust-wasm-Linux-x64-65808754`, against a cache key of
-          # `…-65808754-d34fb621`), so a branch that edits Cargo.lock still
-          # restores most of main's build through the prefix.
-          #
-          # The cost: a branch that adds a dependency recompiles it on every
-          # push, having nowhere to save it. Dependencies here move rarely.
-          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: cargo fmt
         run: cargo fmt --all --check
@@ -111,7 +97,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           cache-on-failure: true
-          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: cargo check (wasm)
         run: cargo check --workspace --target wasm32-unknown-unknown
