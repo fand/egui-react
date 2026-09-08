@@ -445,6 +445,51 @@ impl ItemStyle {
         self
     }
 
+    /// The padding this item asks for, in points, if it asked for any.
+    ///
+    /// `[top, right, bottom, left]`, resolved most-specific-wins exactly as
+    /// [`ItemStyle::to_taffy`] resolves it. `None` when no padding prop is set
+    /// — there is nothing to take over — and when any side is a percentage or
+    /// `auto`, because those need the containing block, which only the layout
+    /// has.
+    ///
+    /// This is for an element that hands its padding to the widget rather than
+    /// to the layout: `<Button>` does, so that the hover frame and the click
+    /// area cover the whole box, and `<Frame>` does outside a tree, where there
+    /// is no layout to hold it.
+    pub fn padding_px(&self) -> Option<[f32; 4]> {
+        let sides = [self.p, self.px, self.py, self.pt, self.pr, self.pb, self.pl];
+        if sides.iter().all(Option::is_none) {
+            return None;
+        }
+        let rect = resolve_rect(
+            sides,
+            |v| match v {
+                Length::Px(v) => Some(v),
+                _ => None,
+            },
+            Some(0.0),
+        );
+        Some([rect.top?, rect.right?, rect.bottom?, rect.left?])
+    }
+
+    /// This style with every padding prop cleared.
+    ///
+    /// The other half of [`ItemStyle::padding_px`]: an element that took the
+    /// padding over passes this to `cx.leaf`, so the layout does not reserve
+    /// the same points a second time.
+    #[must_use]
+    pub fn without_padding(mut self) -> Self {
+        self.p = None;
+        self.px = None;
+        self.py = None;
+        self.pt = None;
+        self.pr = None;
+        self.pb = None;
+        self.pl = None;
+        self
+    }
+
     /// The taffy style of this item, with container properties left default.
     pub fn to_taffy(&self) -> taffy::Style {
         let dim = |v: Option<Length>| {

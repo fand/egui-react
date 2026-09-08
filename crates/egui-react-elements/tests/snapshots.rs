@@ -112,3 +112,30 @@ fn snapshot_widgets() {
         .show(cx);
     });
 }
+
+#[test]
+fn snapshot_painted_box() {
+    snapshot("painted_box", |cx| {
+        rsx! {
+            <View
+                direction="column"
+                gap={8}
+                p={12}
+                w={240.0}
+                bg={egui::Color32::from_rgb(30, 34, 42)}
+                border={egui::Stroke::new(2.0, egui::Color32::from_rgb(90, 100, 120))}
+                radius={8.0}
+                shadow
+            >
+                <Label>"a painted box"</Label>
+                <Button
+                    px={16.0}
+                    py={12.0}
+                    radius={24.0}
+                    bg={egui::Color32::from_rgb(60, 70, 90)}
+                >"a floating button"</Button>
+            </View>
+        }
+        .show(cx);
+    });
+}

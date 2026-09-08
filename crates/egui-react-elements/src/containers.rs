@@ -4,6 +4,11 @@
 //! and everything inside it is laid out by egui, not by taffy. That is the
 //! documented escape hatch for places where flex layout is not wanted.
 //!
+//! Their look comes from the same `style` prop as everything else: the engine
+//! paints the node's box (`bg` `border` `radius` `shadow` `opacity`) around the
+//! egui container inside it. [`Frame`] is the exception in `Ui` mode, where
+//! there is no node to paint and it builds an `egui::Frame` instead.
+//!
 //! Each of them re-enters with a fresh [`Cx`] around the `Ui` egui handed back.
 //! They carry `cx.layout_id()` over that gap: inside a `<VirtualList>` row it is
 //! the slot's id, and a `<View>` under one of these containers has to key its
@@ -344,42 +349,60 @@ pub fn Collapsing(
     });
 }
 
-/// A painted frame: background, border and inner margin.
+/// `egui::Frame` itself, as an escape hatch from taffy.
 ///
-/// `shadow` casts the theme's window shadow; `custom_shadow` casts one of the
-/// caller's own instead, and wins over `shadow`.
+/// **Inside a tree, use `<View>` with paint.** Every element takes `bg`
+/// `border` `radius` `shadow` `custom_shadow` `opacity` through `style`, and
+/// the engine paints them on the node's own box, so a painted box costs no
+/// element and no `Ui` of its own. This one is for egui-native children: over a
+/// plain `Ui` it builds an `egui::Frame` from the same paint props and shows
+/// them inside it, which is the one thing a `<View>` cannot do there (a plain
+/// `Ui` has no rect to paint until its children have drawn).
+///
+/// The inner margin is `p` in points; a percentage padding needs a layout to
+/// resolve against and is ignored here. Inside a tree this is a `<View>`
+/// spelled with an extra `Ui`: the engine paints the box and the children are
+/// laid out by egui, vertically, as in a `<Vertical>`.
 #[component]
-#[allow(clippy::too_many_arguments)]
-pub fn Frame(
-    cx: &mut Cx,
-    #[prop(default)] style: ItemStyle,
-    fill: Option<egui::Color32>,
-    stroke: Option<egui::Stroke>,
-    inner_margin: Option<f32>,
-    corner_radius: Option<f32>,
-    #[prop(default)] shadow: bool,
-    custom_shadow: Option<egui::Shadow>,
-    children: impl View,
-) {
+pub fn Frame(cx: &mut Cx, #[prop(default)] style: ItemStyle, children: impl View) {
     let (store, scope) = (cx.store, cx.scope_id());
     let layout = cx.layout_id();
+
+    if cx.in_taffy() {
+        // A leaf whose look the engine paints, from the node's rect.
+        cx.leaf(&style, move |ui| {
+            ui.vertical(move |ui| {
+                let mut cx = Cx::new(store, ui, scope);
+                cx.with_layout_id(layout, |cx| children.show(cx));
+            });
+        });
+        return;
+    }
+
+    let paint = style.paint;
+    let padding = style.padding_px();
     cx.leaf(&style, move |ui| {
-        let mut frame = egui::Frame::default();
-        if let Some(fill) = fill {
+        let mut frame = egui::Frame::new();
+        if let Some(fill) = paint.bg {
             frame = frame.fill(fill);
         }
-        if let Some(stroke) = stroke {
+        if let Some(stroke) = paint.border {
             frame = frame.stroke(stroke);
         }
-        if let Some(margin) = inner_margin {
-            frame = frame.inner_margin(margin as i8);
+        if let Some([top, right, bottom, left]) = padding {
+            frame = frame.inner_margin(egui::Margin {
+                left: left as i8,
+                right: right as i8,
+                top: top as i8,
+                bottom: bottom as i8,
+            });
         }
-        if let Some(radius) = corner_radius {
+        if let Some(radius) = paint.radius {
             frame = frame.corner_radius(radius as u8);
         }
-        if let Some(shadow) = custom_shadow {
+        if let Some(shadow) = paint.custom_shadow {
             frame = frame.shadow(shadow);
-        } else if shadow {
+        } else if paint.shadow {
             frame = frame.shadow(ui.visuals().window_shadow);
         }
         frame.show(ui, move |ui| {
