@@ -248,8 +248,10 @@ struct PendingText {
 /// already has a layout right away, is one code path instead of two, and it is
 /// what makes a container that grew around children which stayed put right in
 /// the very pass it grew in.
-struct PendingPaint {
-    node: NodeId,
+/// `N` is how the path names a node: a `NodeId` here, an index on the lite
+/// path, which is the only thing the two do differently.
+pub(super) struct PendingPaint<N> {
+    node: N,
     /// The slot behind the children: the shadow and the background.
     bg_idx: ShapeIdx,
     /// The slot in front of them, claimed only when there is a border.
@@ -257,6 +259,91 @@ struct PendingPaint {
     paint: PaintStyle,
     /// The opacity in force inside the node, as for [`PendingText`].
     opacity: f32,
+}
+
+impl<N> PendingPaint<N> {
+    /// Close the node's slots on `ui` and record what goes in them.
+    fn new(node: N, ui: &mut egui::Ui, paint: PaintStyle, slots: BoxSlots) -> Self {
+        let border_idx = paint
+            .border
+            .is_some()
+            .then(|| ui.painter().add(Shape::Noop));
+        ui.set_opacity(slots.outer_opacity);
+        Self {
+            node,
+            bg_idx: slots.bg_idx,
+            border_idx,
+            paint,
+            opacity: slots.opacity,
+        }
+    }
+
+    /// Put the node's shapes into the slots, now that its box is known.
+    ///
+    /// `painter` is the caller's own clone rather than the `Ui`'s, because
+    /// `Painter::set` applies the painter's opacity as the shape is set and the
+    /// `Ui` is long back at the opacity it had outside this node.
+    fn paint(&self, painter: &mut egui::Painter, rect: Rect, visuals: &egui::Visuals) {
+        painter.set_opacity(self.opacity);
+
+        // One slot holds both, in the order they are drawn.
+        let behind: Vec<Shape> = self
+            .paint
+            .shadow_shape(rect, visuals)
+            .into_iter()
+            .chain(self.paint.bg_shape(rect))
+            .collect();
+        if !behind.is_empty() {
+            painter.set(self.bg_idx, Shape::Vec(behind));
+        }
+
+        if let Some(idx) = self.border_idx
+            && let Some(border) = self.paint.border_shape(rect)
+        {
+            painter.set(idx, border);
+        }
+    }
+}
+
+/// The slot a painted node claimed before it drew, and the opacity around it.
+///
+/// Both layout paths do the same four things around a node that paints: claim
+/// the slot behind it, push its opacity, draw, then claim the slot in front and
+/// put the opacity back. This is that sequence, so that it is written once.
+pub(super) struct BoxSlots {
+    bg_idx: ShapeIdx,
+    /// What `ui`'s opacity was before the node pushed its own.
+    outer_opacity: f32,
+    /// What is in force inside the node, which is what its box is painted with.
+    opacity: f32,
+}
+
+impl BoxSlots {
+    /// Claim the slot behind the node on `ui`, the tree's own `Ui`.
+    ///
+    /// `None` when there is nothing to paint or the node is hidden — a
+    /// `display="none"` node and everything under it claim no slots at all.
+    fn claim(ui: &mut egui::Ui, paint: &PaintStyle, hidden: bool) -> Option<Self> {
+        (!hidden && !paint.is_none()).then(|| Self {
+            bg_idx: ui.painter().add(Shape::Noop),
+            outer_opacity: ui.opacity(),
+            opacity: ui.opacity(),
+        })
+    }
+
+    /// Push the node's opacity onto `ui` and record what is now in force.
+    ///
+    /// `ui` is the tree's own `Ui` for a container and a `<Text>`, which have
+    /// none of their own and whose children inherit it; [`PendingPaint::new`]
+    /// puts it back. For a leaf it is the leaf's own `Ui`, which is where its
+    /// widget draws and which goes away with the node, so there is nothing to
+    /// put back there.
+    fn multiply_opacity(&mut self, ui: &mut egui::Ui, paint: &PaintStyle) {
+        if let Some(opacity) = paint.opacity {
+            ui.multiply_opacity(opacity);
+        }
+        self.opacity = ui.opacity();
+    }
 }
 
 /// One node of a tree, as looked up by its [`egui::Id`].
@@ -293,7 +380,7 @@ pub(crate) struct Tree {
     /// The `<Text>` shapes claimed this frame, waiting for the final layout.
     texts: Vec<PendingText>,
     /// The box shapes claimed this frame, waiting for the final layout.
-    paints: Vec<PendingPaint>,
+    paints: Vec<PendingPaint<NodeId>>,
     /// The pass number of the last [`Tree::visit`], for the store's sweep.
     last_visited: u64,
 }
@@ -496,24 +583,7 @@ impl Tree {
         let visuals = ui.visuals();
         for pending in std::mem::take(&mut self.paints) {
             let rect = self.border_box_of(pending.node, root_min);
-            painter.set_opacity(pending.opacity);
-
-            // One slot holds both, in the order they are drawn.
-            let behind: Vec<Shape> = pending
-                .paint
-                .shadow_shape(rect, visuals)
-                .into_iter()
-                .chain(pending.paint.bg_shape(rect))
-                .collect();
-            if !behind.is_empty() {
-                painter.set(pending.bg_idx, Shape::Vec(behind));
-            }
-
-            if let Some(idx) = pending.border_idx
-                && let Some(border) = pending.paint.border_shape(rect)
-            {
-                painter.set(idx, border);
-            }
+            pending.paint(&mut painter, rect, visuals);
         }
     }
 
@@ -956,33 +1026,18 @@ impl TreeCx<'_> {
         index
     }
 
-    /// Claim the slot a node's shadow and background go into, if it has any.
+    /// Claim the slot behind a node, if it paints anything.
     ///
-    /// The slot is taken here, in draw order, so that whatever the node draws
-    /// next covers it; what goes in it is only known once the layout is final
-    /// (see [`PendingPaint`]). `hidden` is the *node's* own flag, not this
-    /// position's: a `display="none"` container hides itself as well as its
-    /// children, and a hidden node claims nothing.
-    fn claim_bg(&mut self, paint: PaintStyle, hidden: bool) -> Option<ShapeIdx> {
-        (!hidden && !paint.is_none()).then(|| self.root_ui.painter().add(Shape::Noop))
+    /// `hidden` is the *node's* own flag, not this position's: a
+    /// `display="none"` container hides itself as well as its children.
+    fn claim(&mut self, paint: PaintStyle, hidden: bool) -> Option<BoxSlots> {
+        BoxSlots::claim(self.root_ui, &paint, hidden)
     }
 
-    /// Claim the border slot in front of the node and record both slots.
-    ///
-    /// `opacity` is the factor that was in force *inside* the node, which is
-    /// what its own box is painted with.
-    fn claim_border(&mut self, node: NodeId, paint: PaintStyle, bg_idx: ShapeIdx, opacity: f32) {
-        let border_idx = paint
-            .border
-            .is_some()
-            .then(|| self.root_ui.painter().add(Shape::Noop));
-        self.tree.borrow_mut().paints.push(PendingPaint {
-            node,
-            bg_idx,
-            border_idx,
-            paint,
-            opacity,
-        });
+    /// Close a node's slots and hand them to [`Tree::paint_boxes`].
+    fn finish_paint(&mut self, node: NodeId, paint: PaintStyle, slots: BoxSlots) {
+        let pending = PendingPaint::new(node, self.root_ui, paint, slots);
+        self.tree.borrow_mut().paints.push(pending);
     }
 
     /// Add a container node and build its children inside it.
@@ -1008,17 +1063,13 @@ impl TreeCx<'_> {
                 .add_child_node(key, style, Some(self.parent), index);
         let origin = border_box_min(&layout, self.origin);
 
-        let bg_idx = self.claim_bg(paint, hidden);
         // A container has no `Ui` of its own, so its opacity goes on the tree's
         // `Ui` around the children: every leaf `Ui` is a child of it and
         // inherits the factor, and so does a tree one of them opens.
-        let outer_opacity = self.root_ui.opacity();
-        if bg_idx.is_some()
-            && let Some(opacity) = paint.opacity
-        {
-            self.root_ui.multiply_opacity(opacity);
+        let mut slots = self.claim(paint, hidden);
+        if let Some(slots) = &mut slots {
+            slots.multiply_opacity(self.root_ui, &paint);
         }
-        let opacity = self.root_ui.opacity();
 
         let mut used = 0usize;
         let inner = {
@@ -1035,9 +1086,8 @@ impl TreeCx<'_> {
         };
         self.tree.borrow_mut().trim_children(node, used);
 
-        if let Some(bg_idx) = bg_idx {
-            self.claim_border(node, paint, bg_idx, opacity);
-            self.root_ui.set_opacity(outer_opacity);
+        if let Some(slots) = slots {
+            self.finish_paint(node, paint, slots);
         }
         inner
     }
@@ -1066,8 +1116,7 @@ impl TreeCx<'_> {
         );
 
         // Behind the widget, which draws next into a `Ui` of its own.
-        let hidden = self.hidden;
-        let bg_idx = self.claim_bg(paint, hidden);
+        let mut slots = self.claim(paint, self.hidden);
 
         let mut builder = UiBuilder::new()
             .max_rect(content_rect(&layout, self.origin))
@@ -1088,12 +1137,9 @@ impl TreeCx<'_> {
         let mut ui = self.root_ui.new_child(builder);
         // A leaf has a `Ui` of its own, so its opacity goes there: the widget
         // and any tree it opens inherit it, and the tree's `Ui` is left alone.
-        if bg_idx.is_some()
-            && let Some(opacity) = paint.opacity
-        {
-            ui.multiply_opacity(opacity);
+        if let Some(slots) = &mut slots {
+            slots.multiply_opacity(&mut ui, &paint);
         }
-        let opacity = ui.opacity();
         if self.hidden {
             // Every widget `f` registers hangs from the `Ui`'s own id
             // (`Ui::interact` -> `register_accesskit_parent`), so one hidden
@@ -1116,8 +1162,8 @@ impl TreeCx<'_> {
         }
 
         // In front of the widget.
-        if let Some(bg_idx) = bg_idx {
-            self.claim_border(node, paint, bg_idx, opacity);
+        if let Some(slots) = slots {
+            self.finish_paint(node, paint, slots);
         }
 
         let measure = if measured {
@@ -1205,15 +1251,12 @@ impl TreeCx<'_> {
                 .root_ui
                 .interact(Rect::NOTHING, scope.with(index), egui::Sense::hover());
         }
-        // Behind the galley, whichever paint path it takes below.
-        let bg_idx = self.claim_bg(paint, self.hidden);
-        let outer_opacity = self.root_ui.opacity();
-        if bg_idx.is_some()
-            && let Some(opacity) = paint.opacity
-        {
-            // A `<Text>` has no `Ui` either, so its opacity rides on the tree's
-            // `Ui` while the galley is registered and painted.
-            self.root_ui.multiply_opacity(opacity);
+        // Behind the galley, whichever paint path it takes below. A `<Text>`
+        // has no `Ui` either, so its opacity rides on the tree's `Ui` while the
+        // galley is registered and painted.
+        let mut slots = self.claim(paint, self.hidden);
+        if let Some(slots) = &mut slots {
+            slots.multiply_opacity(self.root_ui, &paint);
         }
         let opacity = self.root_ui.opacity();
 
@@ -1296,11 +1339,10 @@ impl TreeCx<'_> {
             }
         }
 
-        if let Some(bg_idx) = bg_idx {
+        if let Some(slots) = slots {
             // In front of the galley, and the tree's `Ui` goes back to the
             // opacity it had outside this node.
-            self.claim_border(node, paint, bg_idx, opacity);
-            self.root_ui.set_opacity(outer_opacity);
+            self.finish_paint(node, paint, slots);
         }
 
         response
@@ -1465,20 +1507,15 @@ pub(crate) fn show<R>(
         // The root node's own box works exactly like a container's: a slot
         // behind everything the tree draws, one in front of it, and the
         // opacity on the tree's `Ui` in between.
-        let bg_idx = tc.claim_bg(paint, hidden);
-        let outer_opacity = tc.root_ui.opacity();
-        if bg_idx.is_some()
-            && let Some(opacity) = paint.opacity
-        {
-            tc.root_ui.multiply_opacity(opacity);
+        let mut slots = tc.claim(paint, hidden);
+        if let Some(slots) = &mut slots {
+            slots.multiply_opacity(tc.root_ui, &paint);
         }
-        let opacity = tc.root_ui.opacity();
 
         let inner = f(&mut tc);
 
-        if let Some(bg_idx) = bg_idx {
-            tc.claim_border(root, paint, bg_idx, opacity);
-            tc.root_ui.set_opacity(outer_opacity);
+        if let Some(slots) = slots {
+            tc.finish_paint(root, paint, slots);
         }
         inner
     };

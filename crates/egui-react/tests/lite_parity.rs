@@ -15,6 +15,10 @@
 //!
 //! Three frames per tree, because a widget leaf has to draw once before it can
 //! say how big it is.
+//!
+//! A painted node is compared twice over: its children move by what its border
+//! and padding reserve, and the shapes themselves are picked out of the frame's
+//! output by their colour and compared rect for rect.
 
 use std::cell::RefCell;
 use std::num::NonZeroUsize;
@@ -627,6 +631,70 @@ fn percent_basis_without_a_main_size(cx: &mut Cx<'_, '_>, rects: &Rects) {
     );
 }
 
+/// The marker colours of the `painted_boxes` case: distinctive, so the shapes
+/// the engine painted can be told from everything else in the frame.
+const BG_ROOT: egui::Color32 = egui::Color32::RED;
+const BG_LEAF: egui::Color32 = egui::Color32::BLUE;
+const BG_TEXT: egui::Color32 = egui::Color32::GREEN;
+const BORDER: egui::Color32 = egui::Color32::YELLOW;
+
+/// Plan 1.2-1.4: a row whose nodes paint.
+///
+/// The container's border and padding are reserved by the layout, so both
+/// paths have to move the children by the same amount; the hidden child claims
+/// no slot on either.
+fn painted_boxes(cx: &mut Cx<'_, '_>, rects: &Rects) {
+    let style = row().gap(4.0).align("center");
+    let root = ItemStyle::default()
+        .w("100%")
+        .h("100%")
+        .p(4.0)
+        .bg(BG_ROOT)
+        .border(egui::Stroke::new(2.0, BORDER))
+        .radius(3.0);
+    view(cx, "root", &style, &root, |cx| {
+        leaf(
+            cx,
+            rects,
+            "painted-leaf",
+            &ItemStyle::default()
+                .p(1.0)
+                .bg(BG_LEAF)
+                .border(egui::Stroke::new(2.0, BORDER)),
+            egui::vec2(30.0, 8.0),
+        );
+        text(
+            cx,
+            rects,
+            "painted-text",
+            &ItemStyle::default().bg(BG_TEXT),
+            "px",
+        );
+        leaf(
+            cx,
+            rects,
+            "plain",
+            &ItemStyle::default().grow(1.0),
+            egui::vec2(10.0, 8.0),
+        );
+        view(
+            cx,
+            "hidden",
+            &column().display("none"),
+            &ItemStyle::default().p(4.0).bg(BG_ROOT),
+            |cx| {
+                leaf(
+                    cx,
+                    rects,
+                    "hidden-child",
+                    &ItemStyle::default(),
+                    egui::vec2(10.0, 8.0),
+                );
+            },
+        );
+    });
+}
+
 const CORPUS: &[(&str, Case)] = &[
     ("list_10k_row", list_10k_row),
     ("margins_and_padding", margins_and_padding),
@@ -650,6 +718,7 @@ const CORPUS: &[(&str, Case)] = &[
         "percent_basis_without_a_main_size",
         percent_basis_without_a_main_size,
     ),
+    ("painted_boxes", painted_boxes),
 ];
 
 // ---------------------------------------------------------------------------
@@ -668,23 +737,57 @@ fn context() -> egui::Context {
 /// `taffy` picks the path. With it off the case must actually take the lite
 /// path, or the comparison would be a tree against itself; that is asserted
 /// below.
-fn draw(case: Case, taffy: bool) -> Vec<(&'static str, egui::Rect)> {
+fn draw(case: Case, taffy: bool) -> Drawn {
     draw_with(case, taffy, !taffy)
 }
 
-fn draw_with(case: Case, taffy: bool, expect_lite: bool) -> Vec<(&'static str, egui::Rect)> {
+/// One drawing of a case: what the nodes were given, and what was painted.
+#[derive(Default)]
+struct Drawn {
+    /// The rect of every leaf and `<Text>`, in draw order.
+    rects: Vec<(&'static str, egui::Rect)>,
+    /// The marker-coloured rects of the frame, in the order they were painted.
+    painted: Vec<egui::Rect>,
+}
+
+/// The rects of the shapes the engine painted for a node, told apart from the
+/// rest of the frame by the marker colours of `painted_boxes`.
+fn painted_rects(shapes: &[egui::epaint::ClippedShape], out: &mut Vec<egui::Rect>) {
+    fn walk(shape: &egui::Shape, out: &mut Vec<egui::Rect>) {
+        match shape {
+            egui::Shape::Vec(shapes) => {
+                for shape in shapes {
+                    walk(shape, out);
+                }
+            }
+            egui::Shape::Rect(rect)
+                if [BG_ROOT, BG_LEAF, BG_TEXT].contains(&rect.fill)
+                    || (rect.stroke.width > 0.0 && rect.stroke.color == BORDER) =>
+            {
+                out.push(rect.rect);
+            }
+            _ => {}
+        }
+    }
+    for clipped in shapes {
+        walk(&clipped.shape, out);
+    }
+}
+
+fn draw_with(case: Case, taffy: bool, expect_lite: bool) -> Drawn {
     let ctx = context();
     let mut store = Store::new();
     store.force_taffy_rows(taffy);
-    let mut last = Vec::new();
+    let mut last = Drawn::default();
 
     for _ in 0..3 {
         let rects: Rects = Rc::new(RefCell::new(Vec::new()));
         let origin = Rc::new(RefCell::new(egui::Pos2::ZERO));
+        let mut painted = Vec::new();
         {
             let rects = Rc::clone(&rects);
             let origin = Rc::clone(&origin);
-            let output = ctx.run_ui(egui::RawInput::default(), |ui| {
+            let mut output = ctx.run_ui(egui::RawInput::default(), |ui| {
                 rects.borrow_mut().clear();
                 let mut root = ui.new_child(
                     egui::UiBuilder::new()
@@ -707,6 +810,7 @@ fn draw_with(case: Case, taffy: bool, expect_lite: bool) -> Vec<(&'static str, e
                 }
                 store.end_pass();
             });
+            painted_rects(&std::mem::take(&mut output.shapes), &mut painted);
             output.drop_without_applying_deltas();
         }
         if expect_lite {
@@ -717,11 +821,17 @@ fn draw_with(case: Case, taffy: bool, expect_lite: bool) -> Vec<(&'static str, e
             );
         }
         let origin = *origin.borrow();
-        last = rects
-            .borrow()
-            .iter()
-            .map(|(name, rect)| (*name, rect.translate(-origin.to_vec2())))
-            .collect();
+        last = Drawn {
+            rects: rects
+                .borrow()
+                .iter()
+                .map(|(name, rect)| (*name, rect.translate(-origin.to_vec2())))
+                .collect(),
+            painted: painted
+                .iter()
+                .map(|rect| rect.translate(-origin.to_vec2()))
+                .collect(),
+        };
     }
     last
 }
@@ -739,8 +849,8 @@ fn same_rect(a: &egui::Rect, b: &egui::Rect) -> bool {
 fn the_lite_path_and_taffy_agree_on_every_corpus_row() {
     let mut failures = Vec::new();
     for (name, case) in CORPUS {
-        let lite = draw(*case, false);
-        let taffy = draw(*case, true);
+        let lite = draw(*case, false).rects;
+        let taffy = draw(*case, true).rects;
         if lite.len() != taffy.len() {
             failures.push(format!(
                 "{name}: lite drew {} rects, taffy drew {}",
@@ -786,14 +896,14 @@ fn a_wrapping_row_falls_back_and_still_lays_out() {
     log::set_max_level(log::LevelFilter::Debug);
 
     let before = FALLBACKS.load(Ordering::SeqCst);
-    let rects = draw_with(wrapping_row, false, false);
+    let rects = draw_with(wrapping_row, false, false).rects;
     assert_eq!(
         FALLBACKS.load(Ordering::SeqCst) - before,
         1,
         "three frames of a row outside the subset should log the reason once",
     );
 
-    let taffy = draw(wrapping_row, true);
+    let taffy = draw(wrapping_row, true).rects;
     assert_eq!(
         rects, taffy,
         "a row that fell back should lay out exactly as it does on the taffy path",
@@ -816,5 +926,37 @@ fn wrapping_row(cx: &mut Cx<'_, '_>, rects: &Rects) {
             leaf(cx, rects, "a", &ItemStyle::default(), egui::vec2(40.0, 8.0));
             leaf(cx, rects, "b", &ItemStyle::default(), egui::vec2(40.0, 8.0));
         },
+    );
+}
+
+/// The shapes themselves, not only the rects the nodes were given: both paths
+/// paint the same boxes, in the same order.
+#[test]
+fn the_two_paths_paint_the_same_boxes() {
+    let lite = draw(painted_boxes, false);
+    let taffy = draw(painted_boxes, true);
+
+    // The root's background and border, the leaf's two, and the text's
+    // background: five shapes, and not one for the hidden child.
+    assert_eq!(
+        lite.painted.len(),
+        5,
+        "the painted shapes of the lite path: {:?}",
+        lite.painted,
+    );
+    assert_eq!(lite.painted, taffy.painted);
+
+    // And they really are the boxes of the nodes: the leaf's box is its content
+    // rect grown by its own padding and border.
+    let leaf = lite
+        .rects
+        .iter()
+        .find(|(name, _)| *name == "painted-leaf")
+        .expect("the painted leaf drew")
+        .1;
+    assert!(
+        lite.painted.contains(&leaf.expand(3.0)),
+        "the leaf's box is its rect plus p=1 and a border of 2: {leaf:?} in {:?}",
+        lite.painted,
     );
 }
