@@ -858,13 +858,20 @@ mod tests {
             ],
         )]);
         assert_eq!(out.report[0].entries[0].1, Outcome::Missing);
-        let Outcome::Loaded { key, family } = &out.report[0].entries[1].1 else {
-            panic!(
-                "sans-serif did not resolve: {:?}",
-                out.report[0].entries[1].1
-            );
-        };
-        eprintln!("sans-serif resolved to {family:?} ({key})");
+        match &out.report[0].entries[1].1 {
+            Outcome::Loaded { key, family } => {
+                eprintln!("sans-serif resolved to {family:?} ({key})");
+            }
+            // A machine with fonts but no configured sans-serif (a CI runner
+            // with DejaVu and no fontconfig alias, say) gives fontdb nothing
+            // to answer with. With egui's fonts in the build the floor stands
+            // in and the entry is `Loaded` regardless; without them `Missing`
+            // is the right answer, not a failure of this code.
+            Outcome::Missing if !cfg!(feature = "default_fonts") => {
+                eprintln!("no sans-serif configured on this machine, and no built-in behind it");
+            }
+            other => panic!("sans-serif did not resolve: {other:?}"),
+        }
     }
 
     /// A table directory with these tables and nothing else: enough for
