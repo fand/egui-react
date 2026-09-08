@@ -125,26 +125,31 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
                 // One pane, and the summary above it whichever it is.
                 <View direction="column" grow={1.0} min_h={0.0} gap={4}>
                     <Text strong wrap>{current.summary}</Text>
-                    match showing {
-                        // The same `key` as the wide layout: switching
-                        // examples sweeps the previous one's hooks. Switching
-                        // to the code does too, so the example starts over
-                        // when it comes back.
-                        Pane::Example => {
-                            <View key={current.name} direction="column" grow={1.0} min_h={0.0}>
-                                <Running name={current.name} plain={showing_plain}/>
-                            </View>
-                        }
-                        Pane::Code => {
-                            <Code
-                                w="100%"
-                                grow={1.0}
-                                min_h={0.0}
-                                meta={*current}
-                                plain={showing_plain}
-                                on_pick={|pick: bool| *plain = pick}
-                            />
-                        }
+                    // Hidden, not unmounted, while the code is up: the
+                    // example keeps running (a clock keeps time, a todo keeps
+                    // its draft), which is what a tab is expected to do. The
+                    // `key` still sweeps it on a switch.
+                    <View
+                        key={current.name}
+                        display={if showing == Pane::Example { "flex" } else { "none" }}
+                        direction="column"
+                        grow={1.0}
+                        min_h={0.0}
+                    >
+                        <Running name={current.name} plain={showing_plain}/>
+                    </View>
+                    // The code pane stays conditional: its state is a galley
+                    // cache that rebuilds in a few milliseconds, and its
+                    // source link would stay in the accessibility tree.
+                    if showing == Pane::Code {
+                        <Code
+                            w="100%"
+                            grow={1.0}
+                            min_h={0.0}
+                            meta={*current}
+                            plain={showing_plain}
+                            on_pick={|pick: bool| *plain = pick}
+                        />
                     }
                 </View>
                 // Not while the menu is down: it covers the corner the
