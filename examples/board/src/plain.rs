@@ -662,7 +662,7 @@ fn card(
                             if icon_button(ui, "×", Some("remove"), true) {
                                 pending.push(Msg::RemoveCard { card: id });
                             }
-                            if icon_button(ui, "✎", Some("edit"), true) {
+                            if icon_button(ui, "✏", Some("edit"), true) {
                                 // Opening takes a fresh copy of the saved title, so
                                 // closing the editor and opening it again starts from
                                 // what was saved rather than from an old draft.

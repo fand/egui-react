@@ -921,8 +921,8 @@ fn Toolbar(
     rsx! {
         <View style={style} direction="column" w="100%" gap={4} p={6} shrink={0.0}>
             <View direction="row" gap={6} align="center" w="100%">
-                <Button label="undo" enabled={can_undo} on_click={|| on_undo.emit(())}>"↶"</Button>
-                <Button label="redo" enabled={can_redo} on_click={|| on_redo.emit(())}>"↷"</Button>
+                <Button label="undo" enabled={can_undo} on_click={|| on_undo.emit(())}>"↺"</Button>
+                <Button label="redo" enabled={can_redo} on_click={|| on_redo.emit(())}>"↻"</Button>
                 <Separator vertical/>
                 // The name box jumps the cursor, not the view: see the note on
                 // `read_grid_keys` about what `<VirtualList>` cannot do yet.
