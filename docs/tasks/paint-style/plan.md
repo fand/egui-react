@@ -287,3 +287,36 @@ grep -rn "inner_margin=\|padding=" examples/*/src        # prints nothing
 
 Per-corner radii, per-side borders, gradients, hover / pressed `bg`,
 theming, `Overlay::fill`.
+
+## 4. As built
+
+Where the implementation departed from the plan above, and why.
+
+- **One helper for the four claim sites.** `BoxSlots` (claim the slot behind
+  the node, push the opacity) and `PendingPaint<N>` (close the slots, restore
+  the opacity, fill both once the layout is final) live in `engine/mod.rs` and
+  are used by the container, the leaf, the `<Text>` and the root on *both*
+  paths. `N` is the node id — `taffy::NodeId` on one path, an index on the
+  other — which is the only thing the two do differently.
+- **`PaintStyle::is_none` ignores `radius`.** A radius alone rounds nothing, so
+  a node that has only one claims no slot. `opacity` does count, even though it
+  draws nothing itself: the engine still has to set it around the children.
+- **Two helpers on `ItemStyle`** the plan did not name: `padding_px()` and
+  `without_padding()`, so `<Button>` and `<Frame>` can take the padding over
+  from the layout without duplicating the shorthand resolution (1.7).
+- **`patch` merged the frame and the view it wrapped into one node**, rather
+  than putting paint on a `<View>` around the old one: same props, same
+  picture, one node fewer. Its 1pt border is now reserved by the layout, so the
+  node's content sits 1pt in from each edge where egui's frame stroke used to
+  overlap it; every patch test still passes.
+- **Parity is checked on the shapes too.** Besides the `painted_boxes` corpus
+  case, `lite_parity.rs` picks the marker-coloured `RectShape`s out of
+  `FullOutput.shapes` and compares the two paths rect for rect, so a node's box
+  is checked as well as the rects its children were given.
+- **`tests/paint.rs` in `egui-react` runs over `Context::run_ui`**, not a
+  kittest harness: what is under test is the list of shapes the frame came out
+  with.
+- **The gallery's `board` snapshots were already missing** before this task
+  (only the `.new.png` artifacts are in git), so `cargo test -p gallery
+  --features snapshot` fails those two whatever the paint does. Every other
+  gallery snapshot is byte-identical after the examples were rewritten.
