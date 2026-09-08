@@ -83,11 +83,16 @@ fn a_url_is_pending_then_loaded_and_the_definitions_change_once() {
     // effect at the start of a pass, and the harness is what runs one.
     let mut harness = egui_kittest::Harness::new_ui(|_ui| {});
     let ctx = harness.ctx.clone();
+    // Nothing has been asked for yet.
+    assert!(!fonts.pending());
     fonts.apply(&ctx);
     assert_eq!(fonts.report()[0].entries[0].1, Outcome::Pending);
+    assert!(fonts.pending());
     assert_eq!(fonts.generation(), 1);
 
     let outcome = wait_for_first_entry(&fonts);
+    // The one URL has arrived, so there is nothing left to wait for.
+    assert!(!fonts.pending());
     assert_eq!(
         outcome,
         Outcome::Loaded {
@@ -128,6 +133,8 @@ fn a_url_that_404s_is_reported_as_failed() {
         panic!("expected Failed, got {outcome:?}");
     };
     assert!(reason.contains("404"), "{reason}");
+    // A failure ends the wait the same way an arrival does.
+    assert!(!fonts.pending());
     // The chain still draws with what is behind the failed entry.
     let report = fonts.report();
     assert!(matches!(report[0].entries[1].1, Outcome::Loaded { .. }));

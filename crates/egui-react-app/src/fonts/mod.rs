@@ -465,6 +465,16 @@ impl Fonts {
         self.lock().generation
     }
 
+    /// Whether any `Url` source is still being fetched. False before the
+    /// first apply (nothing has been asked for) and once every URL has
+    /// arrived or failed. For a loading screen: draw a placeholder while this
+    /// is true, or nothing special and let the chains draw with what stands
+    /// behind the URL (the `font-display: swap` way).
+    pub fn pending(&self) -> bool {
+        let inner = self.lock();
+        inner.loaded.values().any(|l| matches!(l, Loaded::Pending))
+    }
+
     /// Load font bytes obtained some other way (a file picker, an app's own
     /// loader) into the database, and apply again if a context is known.
     ///
