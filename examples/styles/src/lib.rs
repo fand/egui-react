@@ -24,9 +24,9 @@ pub const META: Meta = Meta {
 };
 
 /// The stage every row draws on: wide enough for two chips side by side,
-/// tall enough for a chip with room to move.
+/// tall enough for a chip to be clamped well short of the top.
 const STAGE_W: f32 = 180.0;
-const STAGE_H: f32 = 48.0;
+const STAGE_H: f32 = 60.0;
 
 /// A shadow of our own, for the `custom_shadow` row.
 const SHADOW: egui::Shadow = egui::Shadow {
@@ -39,8 +39,12 @@ const SHADOW: egui::Shadow = egui::Shadow {
 /// The colours the table is drawn with, read once from the theme.
 #[derive(Clone, Copy)]
 struct Look {
-    /// A chip's background.
+    /// A chip's background, which is where its padding shows.
     chip: egui::Color32,
+    /// The box the text sits in, inside the padding.
+    content: egui::Color32,
+    /// The box around a chip's margin, on the rows that have one.
+    margin: egui::Color32,
     /// The stage behind the chips.
     stage: egui::Color32,
     /// The line between two rows.
@@ -51,6 +55,10 @@ impl Look {
     fn of(visuals: &egui::Visuals) -> Self {
         Self {
             chip: visuals.selection.bg_fill,
+            // A translucent white, so the content box is a lighter shade of
+            // whatever the chip's background is, on the `bg` row too.
+            content: egui::Color32::from_rgba_unmultiplied(0xff, 0xff, 0xff, 0x30),
+            margin: egui::Color32::from_rgba_unmultiplied(0xff, 0xa0, 0x30, 0x50),
             stage: visuals.extreme_bg_color,
             line: visuals.widgets.noninteractive.bg_stroke.color,
         }
@@ -58,7 +66,8 @@ impl Look {
 }
 
 /// The box a row draws its attribute on: a `<View>` with a background and a
-/// little padding, so its edges are where the eye can see them.
+/// little padding, holding a text in a lighter box of its own, so the padding
+/// is the band between the two.
 ///
 /// The caller's `style` wins: a row about `bg` or `p` sets its own, and the
 /// defaults only fill in what the row left unsaid.
@@ -73,14 +82,15 @@ fn Chip(cx: &mut Cx, #[prop(default)] style: ItemStyle, look: Look) {
     }
     rsx! {
         <View style={style} justify="center" align="center">
-            <Text>"box"</Text>
+            <Text bg={look.content} px={4}>"box"</Text>
         </View>
     }
 }
 
 /// One row of the table: the attribute's name, the code, and the stage the
 /// code draws on. `grid` swaps the stage for a three-column grid, twice as
-/// tall, for the two grid attributes.
+/// tall, for the two grid attributes. `margins` puts the chips in a box of
+/// the margin colour, so the margin is a band and not just a gap.
 #[component]
 fn Row(
     cx: &mut Cx,
@@ -88,6 +98,7 @@ fn Row(
     name: &str,
     code: String,
     #[prop(default)] grid: bool,
+    #[prop(default)] margins: bool,
     children: impl View,
 ) {
     // A flex stage lines its chips up at the top, so a chip's own height and
@@ -113,12 +124,18 @@ fn Row(
                     gap={4}
                     w={STAGE_W}
                     h={h}
-                    p={4}
                     shrink={0.0}
                     bg={look.stage}
-                    radius={4.0}
                 >
-                    {children}
+                    // No padding on the stage: a chip with no margin touches
+                    // its edge, so a margin is the only thing that can move it.
+                    if margins {
+                        <View direction="row" align="start" bg={look.margin}>
+                            {children}
+                        </View>
+                    } else {
+                        {children}
+                    }
                 </View>
             </View>
             // The line under the row: a painted `<View>`, one point tall.
@@ -132,6 +149,17 @@ fn Row(
 fn Group(cx: &mut Cx, title: &str) {
     rsx! {
         <Text size={16.0} strong mt={16} mb={4}>{title}</Text>
+    }
+}
+
+/// One entry of the legend: a square of the colour and what it stands for.
+#[component]
+fn Swatch(cx: &mut Cx, color: egui::Color32, label: &str) {
+    rsx! {
+        <View direction="row" align="center" gap={4}>
+            <View w={12.0} h={12.0} bg={color}/>
+            <Text>{label}</Text>
+        </View>
     }
 }
 
@@ -171,6 +199,13 @@ macro_rules! row {
             </Row>
         }
     };
+    ($look:expr, $name:literal, margins, $($body:tt)*) => {
+        rsx! {
+            <Row key={$name} look={$look} name={$name} code={tidy(stringify!($($body)*))} margins>
+                $($body)*
+            </Row>
+        }
+    };
     ($look:expr, $name:literal, $($body:tt)*) => {
         rsx! {
             <Row key={$name} look={$look} name={$name} code={tidy(stringify!($($body)*))}>
@@ -190,9 +225,14 @@ pub fn App(cx: &mut Cx) {
             <ScrollArea grow={1.0}>
                 <View direction="column" p={12} w="100%">
                     <Text size={22.0} strong>"styles"</Text>
-                    <Text mb={8}>
-                        "Every attribute the `style` prop takes. `Chip` is a `<View>` with a background and `p={6}`."
+                    <Text>
+                        "Every attribute the `style` prop takes. `Chip` is a `<View p={6}>` around a text."
                     </Text>
+                    <View direction="row" align="center" gap={12} my={8}>
+                        <Swatch color={look.margin} label="margin"/>
+                        <Swatch color={look.chip} label="padding"/>
+                        <Swatch color={look.content} label="content"/>
+                    </View>
                     <View direction="row" align="center" gap={12} w="100%" py={6}>
                         <Text w={90.0} strong>"style"</Text>
                         <Text grow={1.0} strong>"code"</Text>
@@ -202,11 +242,13 @@ pub fn App(cx: &mut Cx) {
 
                     <Group title="size"/>
                     {row!(look, "w", <Chip look={look} w={120.0}/>)}
-                    {row!(look, "h", <Chip look={look} h={40.0}/>)}
-                    {row!(look, "min_w", <Chip look={look} min_w={120.0}/>)}
-                    {row!(look, "min_h", <Chip look={look} min_h={40.0}/>)}
-                    {row!(look, "max_w", <Chip look={look} w="100%" max_w={100.0}/>)}
-                    {row!(look, "max_h", <Chip look={look} h="100%" max_h={24.0}/>)}
+                    {row!(look, "h", <Chip look={look} h={44.0}/>)}
+                    // Two chips that do not fit: both shrink, one not below
+                    // its minimum. Two that grow: one not past its maximum.
+                    {row!(look, "min_w", <Chip look={look} w={150.0} min_w={120.0}/> <Chip look={look} w={150.0}/>)}
+                    {row!(look, "min_h", <Chip look={look} h="50%" min_h={44.0}/> <Chip look={look} h="50%"/>)}
+                    {row!(look, "max_w", <Chip look={look} grow={1.0} max_w={100.0}/> <Chip look={look} grow={1.0}/>)}
+                    {row!(look, "max_h", <Chip look={look} h="100%" max_h={32.0}/> <Chip look={look} h="100%"/>)}
 
                     <Group title="flex item"/>
                     {row!(look, "grow", <Chip look={look} grow={1.0}/> <Chip look={look}/>)}
@@ -215,13 +257,13 @@ pub fn App(cx: &mut Cx) {
                     {row!(look, "align_self", <Chip look={look} align_self="end"/> <Chip look={look}/>)}
 
                     <Group title="margin"/>
-                    {row!(look, "m", <Chip look={look} m={8}/>)}
-                    {row!(look, "mx", <Chip look={look} mx={8}/>)}
-                    {row!(look, "my", <Chip look={look} my={8}/>)}
-                    {row!(look, "mt", <Chip look={look} mt={8}/>)}
-                    {row!(look, "mr", <Chip look={look} mr={8}/> <Chip look={look}/>)}
-                    {row!(look, "mb", <Chip look={look} mb={8}/>)}
-                    {row!(look, "ml", <Chip look={look} ml={8}/>)}
+                    {row!(look, "m", margins, <Chip look={look} m={8}/>)}
+                    {row!(look, "mx", margins, <Chip look={look} mx={8}/>)}
+                    {row!(look, "my", margins, <Chip look={look} my={8}/>)}
+                    {row!(look, "mt", margins, <Chip look={look} mt={8}/>)}
+                    {row!(look, "mr", margins, <Chip look={look} mr={8}/> <Chip look={look}/>)}
+                    {row!(look, "mb", margins, <Chip look={look} mb={8}/>)}
+                    {row!(look, "ml", margins, <Chip look={look} ml={8}/>)}
 
                     <Group title="padding"/>
                     {row!(look, "p", <Chip look={look} p={12}/>)}
@@ -238,7 +280,7 @@ pub fn App(cx: &mut Cx) {
 
                     <Group title="paint"/>
                     {row!(look, "bg", <Chip look={look} bg={egui::Color32::from_rgb(0xd0, 0x60, 0x40)}/>)}
-                    {row!(look, "border", <Chip look={look} border={egui::Stroke::new(2.0, egui::Color32::WHITE)}/>)}
+                    {row!(look, "border", <Chip look={look} border={egui::Stroke::new(2.0, egui::Color32::RED)}/>)}
                     {row!(look, "radius", <Chip look={look} radius={12.0}/>)}
                     {row!(look, "shadow", <Chip look={look} m={8} shadow/>)}
                     {row!(look, "custom_shadow", <Chip look={look} m={8} custom_shadow={SHADOW}/>)}

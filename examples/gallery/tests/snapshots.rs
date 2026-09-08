@@ -268,7 +268,7 @@ mod list_10k {
 }
 
 same!(layout, egui::vec2(520.0, 900.0), 1000, as_it_opens);
-single!(styles, egui::vec2(560.0, 900.0));
+single!(styles, egui::vec2(560.0, 2900.0));
 
 /// The board, in two images rather than one, for the same reason as
 /// [`list_10k`]: the egui-react columns are taffy nodes with a `gap`, and the
