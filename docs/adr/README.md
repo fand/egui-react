@@ -91,4 +91,4 @@ Where a decision was made before this directory existed and no date was recorded
 
 **app**
 
-- none yet
+- [0001: The site is a VitePress documentation site with one embed wasm](app/0001-site-is-vitepress-with-one-embed-wasm.md)
