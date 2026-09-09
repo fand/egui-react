@@ -35,8 +35,24 @@
    the theme puts the image after the text (`order: 2`); this puts it first.
    A narrow window keeps the theme's stacking, the mark above the text. */
 @media (min-width: 960px) {
+  /* The mark first, and only as wide as it is: the theme gives the image a
+     third of the hero and centres it there, which leaves the text stranded
+     in the right-hand half. Here the column is the mark, the gap is a gap,
+     and the text takes everything else. */
+  .VPHero.has-image .container {
+    gap: 48px;
+  }
+
   .VPHero.has-image .container .image {
     order: 0;
+    flex: 0 0 auto;
+    width: 240px;
+    min-height: 0;
+  }
+
+  .VPHero.has-image .container .main {
+    width: auto;
+    flex: 1 1 auto;
   }
 }
 
