@@ -53,6 +53,21 @@ export function exampleNames() {
     .sort()
 }
 
+/**
+ * The one-line summary from the example's `META`, as the gallery and the
+ * README show it. Throws when there is none, so a card never comes out blank.
+ */
+export function summary(name) {
+  const source = fs.readFileSync(sourcePath(name), 'utf8')
+  // `summary: "..."` up to the closing quote. A `\` at a line end continues the
+  // literal on the next line, with its leading spaces dropped, as in Rust.
+  const match = /^\s*summary:\s*"((?:[^"\\]|\\[\s\S])*)"/m.exec(source)
+  if (!match) {
+    throw new Error(`example-source: no META summary in ${path.relative(ROOT, sourcePath(name))}`)
+  }
+  return JSON.parse(`"${match[1].replace(/\\\n\s*/g, '')}"`)
+}
+
 /** Whether this example has a plain egui version next to it. */
 export function hasPlain(name) {
   return fs.existsSync(sourcePath(name, true))

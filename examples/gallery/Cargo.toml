@@ -64,3 +64,6 @@ web-sys = { workspace = true, features = ["EventTarget", "Location", "Window"] }
 
 [dev-dependencies]
 egui_kittest.workspace = true
+# `tests/thumbnails.rs` saves what the harness rendered; the version is the
+# one egui_kittest already pulls in.
+image = { version = "0.25", default-features = false, features = ["png"] }

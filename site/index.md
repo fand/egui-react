@@ -10,7 +10,7 @@ hero:
       link: /getting-started
     - theme: alt
       text: Examples
-      link: /examples/counter
+      link: /examples/
     - theme: alt
       text: GitHub
       link: https://github.com/fand/egui-react

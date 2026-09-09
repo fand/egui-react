@@ -1668,6 +1668,7 @@ dependencies = [
  "fetch",
  "font",
  "form",
+ "image",
  "layout",
  "list-10k",
  "notes",
