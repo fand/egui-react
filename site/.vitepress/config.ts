@@ -165,7 +165,12 @@ export default defineConfig({
   // A link to a page that is not there is a bug in the docs, not something to
   // find in production; this is VitePress's default and stays on.
   ignoreDeadLinks: false,
-  head: [['script', {}, redirect]],
+  head: [
+    // Served from `public/`, so the path needs the same base as the pages;
+    // `head` is written out as-is and nothing resolves it for us.
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}atomic-ferris.svg` }],
+    ['script', {}, redirect]
+  ],
   // English at the site root, Japanese under `/ja/`. The pages themselves are
   // `site/*.md` and `site/ja/*.md`, the same tree twice: VitePress maps a
   // locale key to the directory of that name, so `site/ja/guide/rsx.md` is

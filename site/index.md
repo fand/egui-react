@@ -3,6 +3,9 @@ layout: home
 
 hero:
   name: egui-react
+  image:
+    src: /atomic-ferris.svg
+    alt: atomic ferris
   tagline: Write egui apps the way you write React
   actions:
     - theme: brand
