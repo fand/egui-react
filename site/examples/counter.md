@@ -37,9 +37,10 @@ The three handlers each take `count` as `&mut`, one after another. Nothing is
 cloned and nothing is `'static`: the closures run during the pass that built
 them, so the borrow checker is satisfied by ordinary scoping.
 
-The plain egui version keeps the same state in a struct of its own and centres
-the block by measuring it first, because egui lays out from the top left and
-has no notion of free space.
+The plain egui version is the same state in a struct and the same three
+buttons, laid out where egui puts things: the top left. `align="center"
+justify="center"` on the `<View>` is what the egui-react version adds, and
+centring that block in plain egui means measuring it first.
 
 ## Run it yourself
 

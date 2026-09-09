@@ -195,7 +195,35 @@ macro_rules! single {
 }
 
 single!(showcase, egui::vec2(700.0, 460.0), two_notes);
-same!(counter, egui::vec2(400.0, 300.0), 200, as_it_opens);
+/// The counter, in two images: its plain version is written to be read, so it
+/// does not centre the block — egui has no way to centre a row of buttons
+/// short of measuring them, and that measuring was most of the file. The
+/// egui-react side keeps `align="center" justify="center"`, which is the
+/// difference the pair is there to show.
+mod counter {
+    use super::*;
+    use ::counter::App as ExampleApp;
+    use ::counter::plain::{self, PlainState};
+
+    const SIZE: egui::Vec2 = egui::vec2(400.0, 300.0);
+
+    #[test]
+    fn egui_react() {
+        let mut harness = react(SIZE, |cx| rsx! { <ExampleApp/> }.show(cx));
+        harness.run();
+        harness.snapshot("counter_react");
+    }
+
+    #[test]
+    fn plain_egui() {
+        let mut harness = harness(SIZE, PlainState::default(), |ui, state| {
+            ui.set_min_size(ui.available_size());
+            plain::ui(ui, state);
+        });
+        harness.run();
+        harness.snapshot("counter_plain");
+    }
+}
 same!(todo, egui::vec2(400.0, 400.0), 100, two_items);
 same!(form, egui::vec2(420.0, 420.0), 0, edited);
 single!(theme, egui::vec2(420.0, 420.0));
