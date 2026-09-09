@@ -66,7 +66,7 @@ fn type_search(harness: &mut Harness<'_, Store>, text: &str) {
 /// Every note title in the sidebar.
 fn titles(harness: &Harness<'_, Store>) -> Vec<String> {
     (1..=8)
-        .map(|i| format!("untitled {i}"))
+        .map(|i| format!("Note {i}"))
         .filter(|title| harness.query_by_label(title).is_some())
         .collect()
 }
@@ -85,8 +85,40 @@ fn making_notes_fills_the_list() {
     new_note(&mut harness);
     new_note(&mut harness);
 
-    assert_eq!(titles(&harness), ["untitled 1", "untitled 2"]);
+    assert_eq!(titles(&harness), ["Note 1", "Note 2"]);
     assert!(harness.query_by_label("no notes").is_none());
+}
+
+/// `new` puts the caret in the title with the name selected, so typing
+/// replaces "Note N" outright.
+#[test]
+fn a_new_note_gets_its_title_typed_first() {
+    let mut harness = harness();
+    harness.run();
+    new_note(&mut harness);
+    settle(&mut harness);
+
+    let title = || egui::accesskit::Role::TextInput;
+    let field = harness
+        .get_all_by_role(title())
+        .nth(1)
+        .expect("the title field");
+    assert!(field.is_focused(), "the title takes the focus");
+    field.type_text("groceries");
+    settle(&mut harness);
+    let open = harness
+        .get_all_by_role(title())
+        .nth(1)
+        .and_then(|node| node.accesskit_node().value());
+    assert_eq!(
+        open.as_deref(),
+        Some("groceries"),
+        "the old name was selected"
+    );
+    assert!(
+        harness.query_by_label("groceries").is_some(),
+        "and the list follows"
+    );
 }
 
 #[test]
@@ -108,8 +140,8 @@ fn search_narrows_the_list() {
     new_note(&mut harness);
     assert_eq!(titles(&harness).len(), 2);
 
-    type_search(&mut harness, "led 1");
-    assert_eq!(titles(&harness), ["untitled 1"]);
+    type_search(&mut harness, "te 1");
+    assert_eq!(titles(&harness), ["Note 1"]);
 
     type_search(&mut harness, "zzz");
     assert!(harness.query_by_label("no notes").is_some());
@@ -126,12 +158,12 @@ fn deleting_opens_what_is_left() {
     harness.get_by_label("delete").click_accesskit();
     settle(&mut harness);
 
-    assert_eq!(titles(&harness), ["untitled 1"]);
+    assert_eq!(titles(&harness), ["Note 1"]);
     let open = harness
         .get_all_by_role(egui::accesskit::Role::TextInput)
         .nth(1)
         .and_then(|node| node.accesskit_node().value());
-    assert_eq!(open.as_deref(), Some("untitled 1"), "the title field");
+    assert_eq!(open.as_deref(), Some("Note 1"), "the title field");
 
     harness.get_by_label("delete").click_accesskit();
     settle(&mut harness);
@@ -142,36 +174,22 @@ fn deleting_opens_what_is_left() {
     );
 }
 
+/// The body field fills what the title row and the counts leave, and no
+/// more: a filling widget measures itself as all the room there is, and
+/// without `h={0}` beside `grow` the column would run off the window.
 #[test]
-fn clearing_everything_takes_two_clicks() {
+fn the_editor_stays_inside_the_window() {
     let mut harness = harness();
     harness.run();
     new_note(&mut harness);
-    new_note(&mut harness);
+    settle(&mut harness);
 
-    harness.get_by_label("settings").click_accesskit();
-    settle(&mut harness);
-    assert!(harness.query_by_label("compact rows").is_some());
-
-    // One click asks, and changes nothing.
-    harness.get_by_label("clear all").click_accesskit();
-    settle(&mut harness);
-    assert!(harness.query_by_label("delete all 2 notes?").is_some());
-    assert_eq!(titles(&harness).len(), 2);
-
-    // Backing out changes nothing either.
-    harness.get_by_label("cancel").click_accesskit();
-    settle(&mut harness);
-    assert_eq!(titles(&harness).len(), 2);
-
-    harness.get_by_label("clear all").click_accesskit();
-    settle(&mut harness);
-    harness.get_by_label("yes, clear all").click_accesskit();
-    settle(&mut harness);
-    assert!(titles(&harness).is_empty());
-
-    // And the window closes on its own button.
-    harness.get_by_label("Close window").click_accesskit();
-    settle(&mut harness);
-    assert!(harness.query_by_label("compact rows").is_none());
+    let body = harness
+        .get_by_role(egui::accesskit::Role::MultilineTextInput)
+        .rect();
+    assert!(
+        body.max.y <= 500.0 && body.max.x <= 700.0,
+        "the body runs off the window: {body:?}"
+    );
+    assert!(body.height() > 200.0, "and it fills the column: {body:?}");
 }

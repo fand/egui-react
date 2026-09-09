@@ -5,7 +5,8 @@
 //
 // The wasm behind the iframe is the gallery's `embed` binary: one build for
 // the whole site, told which example to draw by the hash
-// (`/embed/#counter`, `/embed/#counter/plain`).
+// (`/embed/#counter`, `/embed/#counter/plain`) and which theme to draw it in
+// (`?theme=dark`), as `ExamplePage.vue` does.
 //
 // The source is *not* a prop. The page keeps its own code fences and hands
 // them to the default slot, so Shiki highlights them at build time; this
@@ -15,7 +16,7 @@
 // slot content the page owns.
 
 import { computed, ref } from 'vue'
-import { withBase } from 'vitepress'
+import { useData, withBase } from 'vitepress'
 
 const props = defineProps({
   /** The example's directory name, which is also its hash in the embed. */
@@ -36,7 +37,12 @@ const plain = ref(false)
 // the wasm when the Rust changes; it hands that origin over as
 // VITE_EMBED_ORIGIN. A build has no such variable and uses the copy in `dist/`.
 const embed = import.meta.env.VITE_EMBED_ORIGIN ?? withBase('/embed/')
-const src = computed(() => `${embed}#${props.name}${plain.value ? '/plain' : ''}`)
+
+// A theme switch changes only the hash, which is a fragment navigation: the
+// example keeps running and follows it. The `key` leaves the theme out.
+const { isDark } = useData()
+const which = computed(() => `${props.name}${plain.value ? '/plain' : ''}`)
+const src = computed(() => `${embed}#${which.value}?theme=${isDark.value ? 'dark' : 'light'}`)
 </script>
 
 <template>
@@ -66,12 +72,14 @@ const src = computed(() => `${embed}#${props.name}${plain.value ? '/plain' : ''}
          `key` restarts the app on a switch instead of leaving the previous
          example's state next to the other version's code. -->
     <div class="example-frame">
-      <iframe
-        :key="src"
-        :src="src"
-        :title="`running example: ${name}`"
-        loading="lazy"
-      ></iframe>
+      <ClientOnly>
+        <iframe
+          :key="which"
+          :src="src"
+          :title="`running example: ${name}`"
+          loading="lazy"
+        ></iframe>
+      </ClientOnly>
     </div>
 
     <div class="example-code" :class="plain ? 'show-plain' : 'show-react'">

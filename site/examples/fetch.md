@@ -30,21 +30,26 @@ import { data } from '../examples.data.js'
 
 </template>
 
-Two components and about forty lines. `App` owns the URL and an attempt
-counter; `Response` calls [`use_future`](/reference/hooks) with both as deps,
-so editing the URL re-fetches on its own and the button re-fetches the same URL
-by bumping the counter. The request is built in place, where `url` is still
-borrowable, and the future that is returned owns it and is `'static`.
+Two components. `App` owns which city is picked and an attempt counter;
+`Weather` calls [`use_future`](/reference/hooks) with both as deps, so picking
+another city is a new request and `refresh` asks for the same one again by
+bumping the counter. The request is built in place, where the coordinates are
+still borrowable, and the future that is returned owns it and is `'static`.
+The answer is a real one: three days of weather from
+[Open-Meteo](https://open-meteo.com), which needs no key, and `serde` reads
+out of the body only the fields the screen shows.
 
-`Response` never draws a pending state. It ends with
+`Weather` never draws a pending state. It ends with
 `let Poll::Ready(response) = response else { return; };` and leaves the waiting
 to the [`<Suspense>`](/reference/elements) above it, which counts the pending
 futures below it and draws its `fallback` instead. That is the Rust answer to
 React's `throw`, and it means a leaf that needs a value can simply stop.
 
-The same code runs in both places: `ehttp` uses ureq on a thread of its own
-natively and the browser's fetch API on the web, and none of that difference
-reaches the types you write. The embed above is the wasm build, so what it
+The three ways a request can fail — it never arrived, the server said no, the
+body was not the JSON expected — end up as one line on screen, which is what
+`parse` is for. The same code runs in both places: `ehttp` uses ureq on a
+thread of its own natively and the browser's fetch API on the web, and none of
+that difference reaches the types you write. The embed above is the wasm build, so what it
 fetches is subject to the browser's usual cross-origin rules.
 [Async](/guide/async) has the longer story, stale results included.
 

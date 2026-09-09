@@ -74,14 +74,16 @@
   background-color: var(--vp-c-bg);
 }
 
-/* A fixed shape, so the page does not jump about while the wasm starts. */
+/* A fixed shape, so the page does not jump about while the wasm starts. The
+   box is the page's own background: the example is drawn in the page's theme,
+   so the box it starts in is that colour too. */
 .example-frame {
   aspect-ratio: 4 / 3;
   width: 100%;
   overflow: hidden;
   border: 1px solid var(--vp-c-divider);
   border-radius: 8px;
-  background-color: #101010;
+  background-color: var(--vp-c-bg-alt);
 }
 
 .example-frame iframe {

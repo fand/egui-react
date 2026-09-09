@@ -212,7 +212,7 @@ It fills the space it is given rather than reporting a size, so it needs
 trap in [Layout](/guide/layout). For long lists use `<VirtualList>`.
 
 Used in: [board](/examples/board), [notes](/examples/notes),
-[fetch](/examples/fetch), [font](/examples/font), [patch](/examples/patch).
+[fetch](/examples/fetch), [font](/examples/font).
 
 ### `<VirtualList>`
 
@@ -257,8 +257,7 @@ Used in: [list-10k](/examples/list-10k), [spreadsheet](/examples/spreadsheet).
 | `default_open` | `bool` | |
 | `children` | `impl View` | |
 
-Used in: [todo](/examples/todo), [form](/examples/form),
-[shell](/examples/shell).
+Used in: [todo](/examples/todo), [form](/examples/form).
 
 ### `<Frame>`
 
@@ -286,8 +285,6 @@ no space in the layout.
 | `children` | `impl View` | |
 
 Not drawing a `<Window>` — or `open={false}` — unmounts its children.
-
-Used in: [notes](/examples/notes), [shell](/examples/shell).
 
 ### `<Overlay>`
 
@@ -317,6 +314,9 @@ nothing unless `fill` is given, and lets every press beside them through.
 </Overlay>
 ```
 
+Used in: [patch](/examples/patch), for the two readings written over its
+canvas.
+
 ### `<Panel>` and `<CentralPanel>`
 
 Docked panels. A panel carves its space out of the nearest egui `Ui` — the one
@@ -332,10 +332,8 @@ is what docking means.
 | `children` | `impl View` | |
 
 `<CentralPanel>` takes `style` and `children` only, and fills what the docked
-panels left.
-
-Used in: [shell](/examples/shell), which is the one example that does not run
-in a browser tab here for exactly this reason.
+panels left. No example on this site uses them: the examples run in a box on
+a page, and a panel wants the window.
 
 ### `<Vertical>`, `<Horizontal>`, `<Grid>` and `<Row>`
 
@@ -385,7 +383,9 @@ The prop is `paint`, not `on_paint`: `rsx!` treats every attribute starting with
 `on_` as an event. Spell the bound out rather than eliding it, for the same
 reason as `render` on `<VirtualList>`.
 
-Used in: [shader](/examples/shader), [patch](/examples/patch).
+Used in: [shader](/examples/shader). [patch](/examples/patch) draws its
+picture the same way but from a hand-written leaf, because that leaf is also
+the patch canvas.
 
 ## Async
 

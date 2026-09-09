@@ -625,7 +625,8 @@ pub fn Code(
 /// Dropped: the crate doc comment at the top (`//!` — design notes, for the
 /// repository, not for a pane next to the running example), the `META` block
 /// and its import, `pub mod plain;` (the gallery's, not the example's), and
-/// anything between a `// gallery:hide` line and the next `// gallery:show`
+/// anything between a `// gallery:hide` line and the next `// gallery:show`,
+/// and the `#[cfg(test)]` module at the end of the file
 /// (the standalone binary's root in list-10k, say). Runs of blank lines that
 /// leaves behind are folded into one.
 pub fn shown_source(source: &str) -> String {
@@ -642,6 +643,9 @@ pub fn shown_source(source: &str) -> String {
             "// gallery:hide" => hidden = true,
             "// gallery:show" => hidden = false,
             _ if hidden => {}
+            // The unit tests at the end of a file are the crate's, not the
+            // page's; the file keeps them.
+            _ if line == "#[cfg(test)]" => hidden = true,
             // The plain version is the gallery's, not the example's.
             "use example_meta::Meta;" | "pub mod plain;" => {}
             _ if in_meta => in_meta = line != "};",
@@ -915,6 +919,16 @@ mod tests {
         assert!(shown.contains("pub fn Row"), "{shown}");
         assert!(!shown.contains("\n\n\n"), "{shown}");
         assert!(!shown.starts_with('\n'), "{shown:?}");
+        assert!(shown.ends_with("}\n"), "{shown:?}");
+    }
+
+    /// The `#[cfg(test)]` module at the end of a file is not shown.
+    #[test]
+    fn shown_source_drops_the_tests() {
+        let shown = shown_source(patch::META.source);
+        assert!(!shown.contains("#[cfg(test)]"), "{shown}");
+        assert!(!shown.contains("mod tests"), "{shown}");
+        assert!(shown.contains("fn wire("), "{shown}");
         assert!(shown.ends_with("}\n"), "{shown:?}");
     }
 

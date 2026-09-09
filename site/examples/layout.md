@@ -40,7 +40,9 @@ Every flex and grid attribute `<View>` understands, one section each.
 A visual table rather than an app: seven labelled sections, each drawing what
 one group of attributes does — `direction`, `justify`, `align` with `grow`,
 `wrap` with `gap`, nesting, `display="grid"` with `cols`, and egui's own
-containers as leaves. The
+containers as leaves. Every section is a box and every child is a filled chip,
+because the point is *where the boxes end up*: with nothing painted, `justify`
+and `grow` have nothing to show. The
 [Layout attributes](/reference/layout-attributes) reference is the full list in
 prose; this page is the part of it you can see.
 

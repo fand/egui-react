@@ -10,7 +10,7 @@
 //! ```
 //!
 //! and commit them: the site build has no GPU, so it reads the files as they
-//! are. `shell` has no thumbnail, because it does not run inside `Running`.
+//! are.
 //!
 //! Light theme, like the site around the cards. The `shader` and `patch`
 //! pipelines are built on the harness's own render state, the way the runner
@@ -22,8 +22,8 @@ use std::path::PathBuf;
 use std::thread::sleep;
 use std::time::Duration;
 
-use egui_kittest::kittest::Queryable as _;
 use egui_kittest::Harness;
+use egui_kittest::kittest::Queryable as _;
 use egui_kittest::wgpu::{WgpuTestRenderer, create_render_state, default_wgpu_setup};
 use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
@@ -153,12 +153,6 @@ fn drive(name: &str, harness: &mut Harness<'_, Store>) {
                 harness.run();
                 harness.run();
             }
-        }
-        // The board keeps a theme of its own and opens dark.
-        "board" => {
-            harness.get_by_label("light").click();
-            harness.run();
-            harness.run();
         }
         "counter" => {
             for _ in 0..3 {

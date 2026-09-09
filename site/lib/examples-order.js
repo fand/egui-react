@@ -22,8 +22,5 @@ export const EXAMPLE_ORDER = [
   'layout',
   'styles',
   'fetch',
-  'font',
-  // Not in the gallery's `EXAMPLES`: a docked panel carves up the window, so
-  // there is nothing an embed could do with it. The page is code only.
-  'shell'
+  'font'
 ]

@@ -97,8 +97,10 @@ export function lineCount(name, plain = false) {
  *
  * Dropped: the crate doc comment at the top (`//!` — design notes, for the
  * repository, not for the page next to the running example), the `META` block
- * and its import, and anything between a `// gallery:hide` line and the next
- * `// gallery:show`. Runs of blank lines that leaves behind are folded into
+ * and its import, anything between a `// gallery:hide` line and the next
+ * `// gallery:show`, and the `#[cfg(test)]` module at the end of the file (the
+ * crate keeps its tests; the page does not show them). Runs of blank lines
+ * that leaves behind are folded into
  * one. The arms below are in the same order as the Rust `match` they came
  * from, because the order is what makes a `};` inside a hidden region behave.
  */
@@ -124,6 +126,9 @@ export function shown(source) {
       hidden = false
     } else if (hidden) {
       // Nothing: the region is the standalone binary's plumbing.
+    } else if (line === '#[cfg(test)]') {
+      // The unit tests at the end of the file, and everything after them.
+      hidden = true
     } else if (trimmed === 'use example_meta::Meta;' || trimmed === 'pub mod plain;') {
       // Nothing: the import exists only for the block below, and the plain
       // version is the gallery's, not the example's.

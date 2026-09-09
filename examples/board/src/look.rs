@@ -36,6 +36,10 @@ pub fn lifted(lift: f32) -> egui::emath::TSTransform {
 }
 
 /// Provided to the whole tree; every level that draws something reads it.
+///
+/// `dark` is egui's own theme, read at the top of the tree: the board has no
+/// switch of its own and follows the window, which on the site is the page's
+/// appearance.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Theme {
     pub dark: bool,
@@ -43,6 +47,13 @@ pub struct Theme {
 
 impl Theme {
     pub const DARK: Self = Self { dark: true };
+
+    /// The theme egui is drawing in.
+    pub fn of(ctx: &egui::Context) -> Self {
+        Self {
+            dark: ctx.theme() == egui::Theme::Dark,
+        }
+    }
 
     /// Headings, the filter chips, and the outline of the gap a card would
     /// drop into.
@@ -60,6 +71,34 @@ impl Theme {
             egui::Color32::from_rgb(0x2b, 0x2b, 0x2b)
         } else {
             egui::Color32::from_rgb(0xe8, 0xe8, 0xe8)
+        }
+    }
+
+    /// The `+ card` footer: between the panel and a card, so it reads as a
+    /// place to make one rather than as one more card.
+    pub fn footer(self) -> egui::Color32 {
+        if self.dark {
+            egui::Color32::from_rgb(0x22, 0x22, 0x22)
+        } else {
+            egui::Color32::from_rgb(0xf1, 0xf1, 0xf1)
+        }
+    }
+
+    /// The fill of a card's tick box. egui's light theme paints an unticked
+    /// box in the same grey as the card, which makes it disappear; a white
+    /// box stands on the card. The dark theme's box is already darker than
+    /// the card and keeps egui's own colour.
+    pub fn control(self) -> Option<egui::Color32> {
+        (!self.dark).then_some(egui::Color32::WHITE)
+    }
+
+    /// Give a card's `Ui` the tick box fill above.
+    pub fn style_controls(self, ui: &mut egui::Ui) {
+        if let Some(fill) = self.control() {
+            let widgets = &mut ui.visuals_mut().widgets;
+            widgets.inactive.bg_fill = fill;
+            widgets.hovered.bg_fill = fill;
+            widgets.active.bg_fill = fill;
         }
     }
 

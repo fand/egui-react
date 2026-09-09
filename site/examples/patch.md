@@ -30,8 +30,8 @@ A node editor that generates, validates and previews its own WGSL shader.
 
 </template>
 
-The picture is not drawn by the editor; it is drawn by a fragment shader that
-the patch on the left *is*. Wire two nodes together and a new WGSL program is
+The picture in the corner is not drawn by the editor; it is drawn by a
+fragment shader that the patch above it *is*. Wire two nodes together and a new WGSL program is
 generated, validated by naga on the CPU, and compiled. Move a slider and
 nothing is generated at all: four floats reach a uniform buffer and the same
 program draws a different picture.
@@ -53,9 +53,18 @@ node it is ordinary `<View>` flexbox again. The nodes are keyed by hand with
 `cx.scope(node.id, ..)`, which is exactly what `key=` does, so a node's own
 state survives deleting or reordering another node.
 
-The preview draws through [`<Canvas>`](/reference/elements) and an
-`egui_wgpu` paint callback. In a browser that is WebGPU where the browser has
-it, and eframe's WebGL fallback where it does not.
+The picture is the background: the canvas draws the output shader across
+itself, contained rather than cropped, and the patch sits on top of it. Every
+parameter is edited in the node that owns it, so nothing has to be kept in
+step with the selection; what floats over the canvas in an
+[`<Overlay>`](/reference/elements) is only what belongs to no node — the node
+count in one corner, and naga's complaint in the other when there is one. The
+view fits itself to the patch the first time it is drawn, and `Recenter` puts
+it back there. The menu bar is one leaf of plain egui, because a menu opens as
+a layer of its own and takes no room in the layout; it holds the clock as
+well, a play button and a timeline over the one-minute loop the picture is
+drawn at. The picture itself is an `egui_wgpu` paint callback: WebGPU in a
+browser that has it, and eframe's WebGL fallback where it does not.
 
 ## Run it yourself
 

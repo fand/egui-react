@@ -1473,6 +1473,8 @@ dependencies = [
  "egui-react-elements",
  "ehttp",
  "example-meta",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -3671,19 +3673,6 @@ dependencies = [
  "example-meta",
  "log",
  "wgpu",
-]
-
-[[package]]
-name = "shell"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
- "egui_kittest",
- "example-meta",
 ]
 
 [[package]]

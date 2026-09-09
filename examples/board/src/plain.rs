@@ -129,9 +129,6 @@ pub struct PlainState {
     /// is spelled out at both ends.
     #[serde(skip)]
     fresh: Option<egui::Id>,
-
-    #[serde(skip)]
-    dark: bool,
 }
 
 impl Default for PlainState {
@@ -152,7 +149,6 @@ impl Default for PlainState {
             renaming: None,
             adding: None,
             fresh: None,
-            dark: true,
         }
     }
 }
@@ -259,7 +255,8 @@ impl PlainState {
 }
 
 pub fn ui(ui: &mut egui::Ui, state: &mut PlainState) {
-    let theme = Theme { dark: state.dark };
+    // egui's own theme, the way `BoardProvider` reads it.
+    let theme = Theme::of(ui.ctx());
     // A drag that ended over a slot becomes exactly one message, so that undo
     // walks back one drag in one step.
     let mut pending: Vec<Msg> = state.begin_frame(ui.ctx()).into_iter().collect();
@@ -340,17 +337,8 @@ fn toolbar(
         // `<Text grow={1.0}>` before the buttons: here the buttons go in a
         // right-to-left `Ui` filling the rest of the row.
         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            let label = if state.dark { "light" } else { "dark" };
-            if icon_button(ui, label, None, true) {
-                state.dark = !state.dark;
-                ui.ctx().set_visuals(if state.dark {
-                    egui::Visuals::dark()
-                } else {
-                    egui::Visuals::light()
-                });
-            }
-            *redo = icon_button(ui, "redo", None, !state.future.is_empty());
-            *undo = icon_button(ui, "undo", None, !state.past.is_empty());
+            *redo = icon_button(ui, "⟳", Some("redo"), !state.future.is_empty());
+            *undo = icon_button(ui, "⟲", Some("undo"), !state.past.is_empty());
         });
     });
 }
@@ -412,17 +400,23 @@ fn column(
                 Edited::Cancel => {}
             }
         } else {
+            // The rename button is only there while the pointer is over the
+            // header row, which is the rectangle the row is about to take.
+            let row = egui::Rect::from_min_size(
+                ui.cursor().min,
+                egui::vec2(ui.available_width(), ui.spacing().interact_size.y),
+            );
+            let over = ui.rect_contains_pointer(row);
             ui.label(egui::RichText::new(&name).strong().color(theme.accent()));
-        }
-        // The same reading order as the egui-react column header, where the
-        // name has `grow={1.0}` and pushes the rest to the right.
-        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-            ui.label(format!("{}/{}", shown.len(), total));
-            // While the name is an editor there is nothing left to rename.
-            if !renaming_here && icon_button(ui, "rename", None, true) {
+            if over && icon_button(ui, "✏", Some("rename"), true) {
                 state.renaming = Some((id, name.clone()));
                 state.fresh = Some(egui::Id::new(("board_plain/rename", id)));
             }
+        }
+        // The same reading order as the egui-react column header, where the
+        // name has `grow={1.0}` and pushes the count to the right.
+        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+            ui.label(format!("{}/{}", shown.len(), total));
         });
     });
 
@@ -517,7 +511,10 @@ fn column(
         if state.carrying.is_some() {
             state.slots.push((rect, end));
         }
-        let button = egui::Button::new("+ card").wrap_mode(egui::TextWrapMode::Extend);
+        // Fainter than a card: a place to make one.
+        let button = egui::Button::new("+ card")
+            .fill(theme.footer())
+            .wrap_mode(egui::TextWrapMode::Extend);
         let clicked = ui
             .with_visual_transform(lifted(lift), |ui| ui.put(rect, button).clicked())
             .inner;
@@ -642,6 +639,7 @@ fn card(
                         // `done` is read out of the board, so the box is drawn against
                         // a copy and what comes back is a message, not a write.
                         let mut done = card.done;
+                        theme.style_controls(ui);
                         let box_ = ui.add(egui::Checkbox::without_text(&mut done));
                         // A card is found by this name — by a screen reader, and by the
                         // test, which needs a hold on a card whose title has become an

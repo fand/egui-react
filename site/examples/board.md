@@ -61,7 +61,8 @@ an application has — none of them needed a change to the library. Which way
 something travels is a decision made twice here: what a component *did* goes up
 as an event, and what the whole tree shares (the theme, the drag in progress,
 the `Dispatch`) comes down through
-[context](/reference/hooks).
+[context](/reference/hooks). The theme is egui's own — the board follows the
+page's appearance switch rather than keeping one of its own.
 
 Compare the tab labels. The plain egui version does the same job; the
 difference is where the per-card state has to live.

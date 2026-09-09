@@ -18,6 +18,8 @@ pub struct PlainState;
 /// The padding inside a chip, matching `<Chip p={6}>`.
 const CHIP_PAD: f32 = 6.0;
 
+use crate::{RADIUS, look};
+
 pub fn ui(ui: &mut egui::Ui, _state: &mut PlainState) {
     egui::ScrollArea::vertical().show(ui, |ui| {
         egui::Frame::new().inner_margin(12.0).show(ui, |ui| {
@@ -89,11 +91,15 @@ pub fn ui(ui: &mut egui::Ui, _state: &mut PlainState) {
 fn section(ui: &mut egui::Ui, title: &str, body: impl FnOnce(&mut egui::Ui)) {
     ui.label(egui::RichText::new(title).strong());
     ui.add_space(4.0);
-    egui::Frame::new().inner_margin(8.0).show(ui, |ui| {
-        ui.spacing_mut().item_spacing.y = 4.0;
-        ui.set_width(ui.available_width());
-        body(ui);
-    });
+    egui::Frame::new()
+        .inner_margin(8.0)
+        .fill(look(ui.ctx()).box_fill)
+        .corner_radius(RADIUS)
+        .show(ui, |ui| {
+            ui.spacing_mut().item_spacing.y = 4.0;
+            ui.set_width(ui.available_width());
+            body(ui);
+        });
     ui.add_space(12.0);
 }
 
@@ -141,10 +147,19 @@ fn align_and_grow(ui: &mut egui::Ui) {
         egui::vec2(width, 64.0),
         egui::Layout::left_to_right(egui::Align::Center),
         |ui| {
+            // The row keeps its height whatever the chips do with it: the
+            // other side's `h={64}` is the row's, not the chips'.
+            ui.set_min_size(egui::vec2(width, 64.0));
             ui.spacing_mut().item_spacing.x = gap;
-            chip(ui, "fixed");
-            sized_chip(ui, "grow=1", grown);
-            chip(ui, "fixed");
+            // Every chip is allocated its own box first. A `Frame` fills the
+            // height it is offered, and here that is the whole 64pt row,
+            // where the other side puts a chip its own height and centres it.
+            let h = chip_height(ui);
+            boxed(ui, egui::vec2(fixed, h), |ui| chip(ui, "fixed"));
+            boxed(ui, egui::vec2(grown, h), |ui| {
+                sized_chip(ui, "grow=1", grown)
+            });
+            boxed(ui, egui::vec2(fixed, h), |ui| chip(ui, "fixed"));
         },
     );
 }
@@ -222,7 +237,10 @@ fn nested(ui: &mut egui::Ui) {
                     ui.set_min_width(*width);
                     ui.spacing_mut().item_spacing.y = 4.0;
                     for label in labels {
-                        chip(ui, label);
+                        // The other side's chips are stretched to the column
+                        // by the cross-axis default; here the width has just
+                        // been worked out, so it is passed in.
+                        sized_chip(ui, label, *width);
                     }
                 },
             );
@@ -251,19 +269,38 @@ fn grid(ui: &mut egui::Ui) {
     }
 }
 
-/// A chip: a label with `<Chip p={6}>`'s padding around it.
+/// A chip: a label with `<Chip p={6}>`'s padding and fill around it.
 fn chip(ui: &mut egui::Ui, label: &str) {
-    egui::Frame::new()
-        .inner_margin(CHIP_PAD)
-        .show(ui, |ui| ui.label(label));
+    chip_frame(ui).show(ui, |ui| ui.label(label));
 }
 
 /// A chip stretched to `width`, for the cases where taffy would have sized it.
 fn sized_chip(ui: &mut egui::Ui, label: &str, width: f32) {
-    egui::Frame::new().inner_margin(CHIP_PAD).show(ui, |ui| {
+    chip_frame(ui).show(ui, |ui| {
         ui.set_min_width((width - 2.0 * CHIP_PAD).max(0.0));
         ui.label(label);
     });
+}
+
+/// `<Chip>`'s box: the same padding, fill and corner.
+fn chip_frame(ui: &egui::Ui) -> egui::Frame {
+    egui::Frame::new()
+        .inner_margin(CHIP_PAD)
+        .fill(look(ui.ctx()).chip)
+        .corner_radius(RADIUS)
+}
+
+/// A box of exactly `size` for one chip to be drawn in.
+///
+/// `Frame` takes the height it is offered, so a chip in a row taller than
+/// itself needs to be offered its own height and no more.
+fn boxed(ui: &mut egui::Ui, size: egui::Vec2, body: impl FnOnce(&mut egui::Ui)) {
+    ui.allocate_ui_with_layout(size, egui::Layout::top_down(egui::Align::Min), body);
+}
+
+/// How tall [`chip`] will be: one line of text and the padding around it.
+fn chip_height(ui: &egui::Ui) -> f32 {
+    ui.text_style_height(&egui::TextStyle::Body) + 2.0 * CHIP_PAD
 }
 
 /// How wide [`chip`] will be.

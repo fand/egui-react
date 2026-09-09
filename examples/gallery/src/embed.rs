@@ -9,6 +9,12 @@
 //! unknown or missing name falls back to the first example, and a `plain`
 //! request for an example that has no plain version falls back to the
 //! egui-react one — the same rule the gallery follows for its own toggle.
+//!
+//! `?theme=dark` or `?theme=light` after the name is the page's appearance
+//! (`#board?theme=dark`): the page around the iframe has a switch of its own
+//! and the example is drawn in the same colours. Without it, egui follows the
+//! system, as it does anywhere else. The page changes only the hash when the
+//! switch is flipped, so the example keeps running and picks it up here.
 
 use egui_react::prelude::*;
 use egui_react_app::a11y::WebA11y;
@@ -54,9 +60,15 @@ fn main() -> eframe::Result {
         // the root hands back may not borrow the frame it was built in.
         move |_cx| {
             view(|cx| {
-                // Read every pass, not once: the page swaps examples by
-                // assigning a new hash, and this is where that is noticed.
-                let (name, plain) = requested();
+                // Read every pass, not once: the page swaps examples and
+                // themes by assigning a new hash, and this is where that is
+                // noticed.
+                let (name, plain, theme) = requested();
+                if let Some(theme) = theme
+                    && cx.ctx().theme() != theme
+                {
+                    cx.ctx().set_theme(theme);
+                }
                 rsx! {
                     // The `key` is what makes a swap clean: change it and the
                     // previous example's hooks are unreachable, so the pass-end
@@ -71,13 +83,23 @@ fn main() -> eframe::Result {
     )
 }
 
-/// The example the hash (web) or the first argument (native) asks for, and
-/// whether it is the plain egui version.
-fn requested() -> (&'static str, bool) {
+/// The example the hash (web) or the first argument (native) asks for,
+/// whether it is the plain egui version, and the theme the page is in, if it
+/// said.
+fn requested() -> (&'static str, bool, Option<egui::Theme>) {
     let asked = location().unwrap_or_default();
-    let (name, version) = asked.split_once('/').unwrap_or((asked.as_str(), ""));
+    let (which, query) = asked.split_once('?').unwrap_or((asked.as_str(), ""));
+    let (name, version) = which.split_once('/').unwrap_or((which, ""));
     let meta = find(name).unwrap_or(&EXAMPLES[0]);
-    (meta.name, version == "plain" && meta.plain.is_some())
+    let theme = query
+        .split('&')
+        .find_map(|pair| pair.strip_prefix("theme="))
+        .and_then(|theme| match theme {
+            "dark" => Some(egui::Theme::Dark),
+            "light" => Some(egui::Theme::Light),
+            _ => None,
+        });
+    (meta.name, version == "plain" && meta.plain.is_some(), theme)
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -87,7 +109,8 @@ fn location() -> Option<String> {
 }
 
 /// Natively there is no address bar, so the first argument names the example:
-/// `cargo run -p gallery --bin embed counter/plain`.
+/// `cargo run -p gallery --bin embed counter/plain` or
+/// `cargo run -p gallery --bin embed 'board?theme=light'`.
 #[cfg(not(target_arch = "wasm32"))]
 fn location() -> Option<String> {
     std::env::args().nth(1)

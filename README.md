@@ -50,13 +50,13 @@ The hooks, the elements and the layout attributes are listed in [docs/ARCHITECTU
 
 ## Examples
 
-Every example but one runs in the browser on its own page in the [documentation site](https://fand.github.io/egui-react/), next to its source. Start with `notes`, a small notes app that uses most of the library at once; the rest take one idea each. `shell` is standalone: a docked panel carves up the nearest enclosing `Ui`, which is the window, so there is nothing sensible for an embedded column to do with it. Some of them also have a version written with plain egui, so you can switch between the two and compare. `cargo run -p gallery` is the native three-column tool — the example list, the running example and its code in one window — and the site is the web version of the same thing, one page per example. Either way the example runs on a canvas, so a screen reader reads it natively but not on the web; the widget names are there in both (`docs/tasks/a11y/`).
+Every example runs in the browser on its own page in the [documentation site](https://fand.github.io/egui-react/), next to its source. Start with `notes`, a small notes app that uses most of the library at once; the rest take one idea each. Some of them also have a version written with plain egui, so you can switch between the two and compare. `cargo run -p gallery` is the native three-column tool — the example list, the running example and its code in one window — and the site is the web version of the same thing, one page per example. Either way the example runs on a canvas, so a screen reader reads it natively but not on the web; the widget names are there in both (`docs/tasks/a11y/`).
 
 ![The gallery: example list, the running example, and its source next to it](docs/gallery.png)
 
 | name | what | live | source | plain egui |
 |---|---|---|---|---|
-| `notes` | A notes app: reducer, persistence, context, memo and a settings window, together. | [notes](https://fand.github.io/egui-react/examples/notes) | [lib.rs](examples/notes/src/lib.rs) | – |
+| `notes` | A notes app: reducer, persistence, context, memo and an editor, together. | [notes](https://fand.github.io/egui-react/examples/notes) | [lib.rs](examples/notes/src/lib.rs) | – |
 | `board` | Cards that keep the title being typed into them while they are dragged between columns. | [board](https://fand.github.io/egui-react/examples/board) | [lib.rs](examples/board/src/lib.rs) | [plain.rs](examples/board/src/plain.rs) |
 | `patch` | A node editor that generates, validates and previews its own WGSL shader. | [patch](https://fand.github.io/egui-react/examples/patch) | [lib.rs](examples/patch/src/lib.rs) | – |
 | `spreadsheet` | Formulas over 26 × 10,000 cells: two memo stages, and a draft that survives scrolling out of view. | [spreadsheet](https://fand.github.io/egui-react/examples/spreadsheet) | [lib.rs](examples/spreadsheet/src/lib.rs) | – |
@@ -69,7 +69,6 @@ Every example but one runs in the browser on its own page in the [documentation 
 | `escape-hatch` | Four ways down to plain egui: a closure, a leaf, a painter, and a nested Cx. | [escape-hatch](https://fand.github.io/egui-react/examples/escape-hatch) | [lib.rs](examples/escape-hatch/src/lib.rs) | – |
 | `shader` | A wgpu fragment shader in a `<Canvas>`, with a slider wired to its uniform. | [shader](https://fand.github.io/egui-react/examples/shader) | [lib.rs](examples/shader/src/lib.rs) | – |
 | `list-10k` | Ten thousand rows: what drawing all of them costs, and what `<VirtualList>` saves. | [list-10k](https://fand.github.io/egui-react/examples/list-10k) | [lib.rs](examples/list-10k/src/lib.rs) | [plain.rs](examples/list-10k/src/plain.rs) |
-| `shell` | Docked panels, a floating window, and an editor in what is left. | – (standalone) | [lib.rs](examples/shell/src/lib.rs) | – |
 | `layout` | Every flex and grid attribute `<View>` understands, one section each. | [layout](https://fand.github.io/egui-react/examples/layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
 | `styles` | Every `style` attribute in a table: the name, the code that uses it, and what it draws. | [styles](https://fand.github.io/egui-react/examples/styles) | [lib.rs](examples/styles/src/lib.rs) | – |
 | `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [fetch](https://fand.github.io/egui-react/examples/fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |

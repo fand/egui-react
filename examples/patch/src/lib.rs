@@ -18,7 +18,19 @@
 //!
 //! — and a test (P-5) pins it: dragging a slider does not change one character
 //! of the generated source, and rewiring does. Nothing watches for that; it
-//! falls out of what the deps of each memo are.
+//! falls out of what the deps of each memo are. The source the test reads is
+//! the preview's accessibility description: the picture is described by the
+//! program that draws it.
+//!
+//! **The picture is the background.** The canvas draws the output shader
+//! behind the patch, contained rather than cropped: the picture is square in
+//! `uv`, so it is drawn in the largest square the canvas holds and centred.
+//! Every parameter is edited in the node that owns it, so there is no panel
+//! of controls anywhere to keep in step with the selection; what floats over
+//! the canvas is only what belongs to no node — the node count in one corner
+//! and naga's complaint, when there is one, in the other. The clock the
+//! picture is drawn at is in the menu bar: a play button and a timeline over
+//! one minute, which is the loop.
 //!
 //! **Nodes at absolute positions.** `ItemStyle` has no `position: absolute`
 //! and does not need one. The canvas is a single leaf: it allocates its
@@ -42,7 +54,7 @@
 //!
 //! The rest is the usual company: `use_reducer` (inside board's `use_undoable`)
 //! owns the patch, `use_persisted` keeps it across restarts, `use_future` and
-//! `<Suspense>` load the preset while the palette carries on, `provide_context`
+//! `<Suspense>` load the preset while the menu bar carries on, `provide_context`
 //! hands the dispatcher, the drag session and the port map to the tree, and the
 //! drag session itself is `board`'s `use_dnd` with a different payload type.
 //!
@@ -82,17 +94,7 @@ pub const META: Meta = Meta {
         "Cx::new",
         "Cx::leaf",
     ],
-    elements: &[
-        "View",
-        "Text",
-        "Button",
-        "Canvas",
-        "Suspense",
-        "ScrollArea",
-        "Checkbox",
-        "ComboBox",
-        "Separator",
-    ],
+    elements: &["View", "Text", "Overlay", "Suspense", "ComboBox"],
     source: include_str!("lib.rs"),
     plain: None,
 };
@@ -233,12 +235,30 @@ const PORT: f32 = 12.0;
 /// at without precision.
 const PORT_PAD: f32 = 5.0;
 
-/// The height of the preview canvas.
-const PREVIEW_H: f32 = 168.0;
+/// How wide the validation message may be before it wraps.
+const MESSAGE_W: f32 = 320.0;
 
-/// What a node is about as tall as, for placing the view over the nodes.
-/// The real height is only known once the node has drawn itself.
-const NODE_H_NOMINAL: f32 = 150.0;
+/// How long the clock runs before it starts again, in seconds. The picture is
+/// driven by `t`, so a loop is what makes it a loop.
+const LOOP: f32 = 60.0;
+
+/// How wide the timeline in the menu bar is.
+const CLOCK_W: f32 = 160.0;
+
+/// How far the node count and the validation message sit from the canvas's
+/// corners.
+const COUNT_GAP: f32 = 14.0;
+
+/// The play and pause glyphs, from egui's own icon font.
+const PLAY: &str = "⏵";
+const PAUSE: &str = "⏸";
+
+/// The undo and redo glyphs, from egui's own icon font.
+const UNDO: &str = "⟲";
+const REDO: &str = "⟳";
+
+/// How much room `Recenter` leaves around the nodes, in patch units.
+const FIT_MARGIN: f32 = 24.0;
 
 /// Where the canvas is looking. A patch point `p` is drawn at
 /// `canvas.min + zoom * (pan + p)`.
@@ -289,21 +309,21 @@ impl Camera {
         }
     }
 
-    /// Zoom 1, with the middle of the nodes in the middle of a canvas of
-    /// `size`. An empty patch looks at its origin.
-    fn home(nodes: &[Node], size: egui::Vec2) -> Self {
-        let bounds = nodes.iter().fold(egui::Rect::NOTHING, |bounds, node| {
-            bounds.union(egui::Rect::from_min_size(
-                egui::pos2(node.pos[0], node.pos[1]),
-                egui::vec2(NODE_W, NODE_H_NOMINAL),
-            ))
-        });
-        let pan = if bounds.is_positive() {
-            size / 2.0 - bounds.center().to_vec2()
-        } else {
-            egui::Vec2::ZERO
-        };
-        Self { pan, zoom: 1.0 }
+    /// Every node on a canvas of `size`: zoomed out until `bounds` fits,
+    /// with [`FIT_MARGIN`] around it, and centred. Never zoomed *in* past 1 —
+    /// a small patch is not blown up — and an empty patch looks at its origin.
+    fn fit(bounds: egui::Rect, size: egui::Vec2) -> Self {
+        if !bounds.is_positive() || size.x <= 0.0 || size.y <= 0.0 {
+            return Self::default();
+        }
+        let padded = bounds.expand(FIT_MARGIN);
+        let zoom = (size.x / padded.width())
+            .min(size.y / padded.height())
+            .clamp(*Self::ZOOM.start(), 1.0);
+        // A patch point `p` lands at `zoom * (pan + p)`, so the middle of the
+        // canvas is the middle of the bounds when `pan` is this.
+        let pan = size / (2.0 * zoom) - padded.center().to_vec2();
+        Self { pan, zoom }
     }
 }
 
@@ -333,8 +353,8 @@ fn PatchProvider(cx: &mut Cx, children: impl View) {
     });
 }
 
-/// The patch: the palette, the reducer behind it, and the two panes that wait
-/// for the preset.
+/// The patch: the menu bar, the reducer behind it, and the two panes that
+/// wait for the preset.
 #[component]
 fn PatchView(cx: &mut Cx) {
     // The reducer owns the patch and the persisted slot mirrors it, the way
@@ -362,10 +382,33 @@ fn PatchView(cx: &mut Cx) {
     // is monotonic, so the question does not arise.
     let mut epoch = use_state(cx, || 0u64);
     let mut camera = use_state(cx, Camera::default);
-    // How big the canvas is, reported by the canvas itself and written only
-    // when it changes. "Recentre" is decided here, next to the camera, and
-    // needs the one number the layout engine has and this component does not.
-    let mut canvas = use_state(cx, egui::Vec2::default);
+    // Where the canvas is, and how much of the patch the nodes cover, both
+    // reported by the canvas itself and written only when they change.
+    // `Recenter` is decided here, next to the camera, and needs two things
+    // this component does not have: the rectangle the layout engine gave the
+    // canvas, and the height the nodes turned out to be once drawn.
+    let mut canvas = use_state(cx, || egui::Rect::NOTHING);
+    let mut bounds = use_state(cx, || egui::Rect::NOTHING);
+    // Whether the view has been fitted to the patch once. The first frame
+    // knows neither number — the canvas has not been laid out and the nodes
+    // have not been drawn — so it happens on the frame both arrive, which is
+    // also the frame the preset lands.
+    let mut fitted = use_state(cx, || false);
+    // The clock the picture is drawn at, and whether it is running. It lives
+    // here, next to the menu bar that shows it, rather than in the canvas
+    // that draws with it: the bar can scrub it, and a paused patch is still
+    // a patch to edit.
+    let mut playing = use_state(cx, || true);
+    let mut clock = use_state(cx, || 0.0f32);
+    if *playing {
+        // egui's frame time, and the clock wraps at the end of the loop. A
+        // write is a repaint (5.6), which is what keeps the picture moving;
+        // paused, nothing is written and the app goes idle.
+        let dt = cx.ui().input(|i| i.stable_dt).min(0.1);
+        *clock = (*clock + dt).rem_euclid(LOOP);
+    }
+    let now = *clock;
+    let running = *playing;
 
     // Read once: an element may not hold a shared borrow of a state *and* a
     // handler that writes it (ARCHITECTURE 3.7).
@@ -373,7 +416,17 @@ fn PatchView(cx: &mut Cx) {
     let view_at = *camera;
     let graph = &history.present;
     let full = graph.nodes.len() >= graph::MAX_NODES;
-    let home = Camera::home(&graph.nodes, *canvas);
+    let home = Camera::fit(*bounds, canvas.size());
+    // Fit the view to the patch once, on the first frame that knows both
+    // numbers: the canvas has to have been laid out, and the nodes have to
+    // have been drawn once to have a height. `is_untouched` keeps it from
+    // firing on the empty patch that exists for the frame before the preset
+    // lands — that would centre the one output node and leave the preset off
+    // the screen.
+    if !*fitted && bounds.is_positive() && canvas.is_positive() && !graph.is_untouched() {
+        *fitted = true;
+        *camera = home;
+    }
     // Where a new node lands: the first free place near the canvas's top-left
     // corner, in patch coordinates.
     let next_pos = graph.free_pos([
@@ -382,12 +435,13 @@ fn PatchView(cx: &mut Cx) {
     ]);
 
     let view = rsx! {
-        <View direction="row" grow={1.0} w="100%" h="100%" gap={8} p={8}>
-            <Palette
+        <View direction="column" grow={1.0} w="100%" h="100%" gap={8} p={8}>
+            <MenuBar
                 full={full}
-                count={graph.nodes.len()}
                 can_undo={history.can_undo()}
                 can_redo={history.can_redo()}
+                playing={running}
+                time={now}
                 on_add={|kind: Kind| {
                     dispatch.send(Undoable::Do(Msg::AddNode { kind, pos: next_pos }));
                 }}
@@ -400,9 +454,11 @@ fn PatchView(cx: &mut Cx) {
                     dispatch.send(Undoable::Redo);
                 }}
                 on_home={|| *camera = home}
+                on_play={|| *playing = !running}
+                on_seek={|to: f32| *clock = to}
             />
-            // Only the canvas and the preview wait for the preset; the palette
-            // above is drawn and usable while the future is pending.
+            // Only the canvas and the bottom bar wait for the preset; the menu
+            // bar above is drawn and usable while the future is pending.
             <Suspense fallback={view(|cx| {
                 cx.leaf(&ItemStyle::default().grow(1.0), |ui| {
                     ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
@@ -413,11 +469,17 @@ fn PatchView(cx: &mut Cx) {
                     graph={graph}
                     epoch={steps}
                     camera={view_at}
+                    time={now}
                     on_camera={|next: Camera| *camera = next}
-                    on_size={|size: egui::Vec2| {
+                    on_size={|rect: egui::Rect| {
                         // Every frame, so only a change may write.
-                        if *canvas != size {
-                            *canvas = size;
+                        if *canvas != rect {
+                            *canvas = rect;
+                        }
+                    }}
+                    on_bounds={|covered: egui::Rect| {
+                        if *bounds != covered {
+                            *bounds = covered;
                         }
                     }}
                 />
@@ -427,53 +489,117 @@ fn PatchView(cx: &mut Cx) {
     provide_context(cx, actions, |cx| view.show(cx));
 }
 
-/// The node palette, the history buttons and the counts.
+/// The menu bar: the node menu, the history buttons, and the clock.
 ///
-/// Everything here belongs to the patch rather than to the palette, so the
-/// palette owns none of it: it is handed what to show and reports what was
-/// pressed.
+/// Everything here belongs to the patch rather than to the bar, so the bar
+/// owns none of it: it is handed what to show and reports what was pressed.
+///
+/// One leaf, because the node menu is an `egui::Popup`, a container of egui's
+/// own that opens as a layer of its own and takes no room in the layout. The
+/// escape hatch goes one level deeper than usual — the row itself is egui's —
+/// and everything the bar reports comes back out through events, the same as
+/// a `<Button>` would.
 #[component]
-fn Palette(
+#[allow(clippy::too_many_arguments)]
+fn MenuBar(
     cx: &mut Cx,
     #[prop(default)] style: ItemStyle,
-    count: usize,
     full: bool,
     can_undo: bool,
     can_redo: bool,
+    playing: bool,
+    time: f32,
     #[event] on_add: Kind,
     #[event] on_undo: (),
     #[event] on_redo: (),
     #[event] on_home: (),
+    #[event] on_play: (),
+    #[event] on_seek: f32,
 ) {
     let accent = look(cx.ctx()).accent;
 
-    rsx! {
-        <View style={style} direction="column" w={150.0} shrink={0.0} gap={6}>
-            <Text size={20.0} strong color={accent}>"patch"</Text>
-            <View direction="row" gap={4} w="100%">
-                <Button enabled={can_undo} on_click={|| on_undo.emit(())}>"undo"</Button>
-                <Button enabled={can_redo} on_click={|| on_redo.emit(())}>"redo"</Button>
-            </View>
-            <Separator/>
-            <Text strong>"add"</Text>
-            for kind in Kind::palette() {
-                <Button
-                    key={kind.name()}
-                    w="100%"
-                    enabled={!full}
-                    on_click={|| on_add.emit(kind.clone())}
-                >
-                    {kind.name()}
-                </Button>
+    cx.leaf(&style.w("100%"), |ui| {
+        // A hand-written leaf sets the wrap mode itself: measured in the
+        // zero-width `Ui` of its first draw, a wrapping row would report
+        // one word wide (ARCHITECTURE 6).
+        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+        ui.horizontal(|ui| {
+            ui.label(
+                egui::RichText::new("patch")
+                    .size(20.0)
+                    .strong()
+                    .color(accent),
+            );
+            ui.add_space(4.0);
+
+            // The palette is a menu: one button in the bar, one entry per
+            // kind under it. A click on an entry closes the menu. The button
+            // shows the arrow; the tree says the name.
+            let button = ui.add_enabled(!full, egui::Button::new("Add node ⏷"));
+            button.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::WidgetType::Button, !full, "Add node")
+            });
+            egui::Popup::menu(&button)
+                .close_behavior(egui::PopupCloseBehavior::CloseOnClick)
+                .show(|ui| {
+                    for kind in Kind::palette() {
+                        if ui.button(kind.name()).clicked() {
+                            on_add.emit(kind);
+                        }
+                    }
+                });
+
+            if icon_button(ui, UNDO, "undo", can_undo) {
+                on_undo.emit(());
             }
-            <Separator/>
-            <Text>{format!("{count} / {} nodes", graph::MAX_NODES)}</Text>
-            <Button w="100%" on_click={|| on_home.emit(())}>"recentre"</Button>
-            <Text size={11.0} wrap w="100%">
-                "Drag a header to move a node, a port to wire one. Click a wired input to unplug it. Drag the background to pan, scroll or pinch to zoom."
-            </Text>
-        </View>
-    }
+            if icon_button(ui, REDO, "redo", can_redo) {
+                on_redo.emit(());
+            }
+            if ui.button("Recenter").clicked() {
+                on_home.emit(());
+            }
+
+            // The clock goes at the far end of the row. Right to left, so
+            // the timeline is added first and ends up rightmost.
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                let mut at = time;
+                ui.spacing_mut().slider_width = CLOCK_W;
+                let slider = ui.add(
+                    egui::Slider::new(&mut at, 0.0..=LOOP)
+                        .show_value(false)
+                        .suffix("s"),
+                );
+                slider.widget_info(|| {
+                    egui::WidgetInfo::labeled(egui::WidgetType::Slider, ui.is_enabled(), "t")
+                });
+                if slider.changed() {
+                    on_seek.emit(at);
+                }
+                // A fixed width, so the row does not shuffle sideways every
+                // tenth of a second as the number grows a digit.
+                ui.add_sized(
+                    egui::vec2(44.0, ui.spacing().interact_size.y),
+                    egui::Label::new(format!("t {time:.1}")).selectable(false),
+                );
+                let (glyph, name) = if playing {
+                    (PAUSE, "pause")
+                } else {
+                    (PLAY, "play")
+                };
+                if icon_button(ui, glyph, name, true) {
+                    on_play.emit(());
+                }
+            });
+        });
+    });
+}
+
+/// A button in the menu bar that shows a glyph and is named in words: the
+/// name is what a screen reader, and the test, call it.
+fn icon_button(ui: &mut egui::Ui, glyph: &str, name: &str, enabled: bool) -> bool {
+    let response = ui.add_enabled(enabled, egui::Button::new(glyph));
+    response.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Button, enabled, name));
+    response.clicked()
 }
 
 /// The canvas and the preview: everything that needs the patch to exist.
@@ -488,8 +614,11 @@ fn Stage(
     graph: &Graph,
     epoch: u64,
     camera: Camera,
+    // The clock the picture is drawn at; the menu bar owns it.
+    time: f32,
     #[event] on_camera: Camera,
-    #[event] on_size: egui::Vec2,
+    #[event] on_size: egui::Rect,
+    #[event] on_bounds: egui::Rect,
 ) {
     let loaded = use_future(cx, (), || async { preset::parse(preset::STARTER) });
     let Poll::Ready(preset) = loaded else {
@@ -544,32 +673,40 @@ fn Stage(
     let error = generated.as_ref().err().map(|err| err.to_string());
     let mut selected = use_state(cx, || None::<NodeId>);
     let picked = *selected;
+    // Whether the picture is moving. egui's clock only advances while
+    // something asks for a repaint, which is what makes this work.
 
     rsx! {
-        <View direction="column" grow={1.0} min_w={0.0} gap={4}>
-            <PatchCanvas
-                grow={1.0}
-                h={0.0}
-                w="100%"
-                graph={graph}
-                camera={camera}
-                selected={&picked}
-                on_select={|node: NodeId| *selected = Some(node)}
-                on_camera={|next: Camera| on_camera.emit(next)}
-                on_size={|size: egui::Vec2| on_size.emit(size)}
-            />
-        </View>
-        <View direction="column" w={300.0} shrink={0.0} gap={6}>
-            <Preview program={&current} params={params}/>
-            <Inspector
-                grow={1.0}
-                h={0.0}
-                graph={graph}
-                selected={&picked}
-                program={&current}
-                error={&error}
-            />
-        </View>
+        // The canvas takes what the bar leaves. `h={0}` beside `grow`: a
+        // canvas reports the whole window as the size it could fill, and
+        // without it the bar would be pushed off the bottom (plan.md
+        // section 8).
+        <PatchCanvas
+            grow={1.0}
+            h={0.0}
+            w="100%"
+            graph={graph}
+            camera={camera}
+            selected={&picked}
+            program={&current}
+            params={params}
+            time={time}
+            on_select={|node: NodeId| *selected = Some(node)}
+            on_camera={|next: Camera| on_camera.emit(next)}
+            on_size={|rect: egui::Rect| on_size.emit(rect)}
+            on_bounds={|covered: egui::Rect| on_bounds.emit(covered)}
+        />
+        // The knobs, floating over the picture in the corner. An `<Overlay>`
+        // rather than a column of the layout: the canvas is the whole screen
+        // and the panel is on top of it, which is what a shader editor looks
+        // like and what leaves the picture uncropped.
+        // Why the picture stopped following the patch, if it has. Over the
+        // canvas rather than beside it: everything a node needs is drawn in
+        // the node, and this is the one thing that belongs to no node.
+        <Message text={&error}/>
+        // How full the patch is, small and unbacked in the other corner: a
+        // number to glance at, not a control.
+        <NodeCount count={graph.nodes.len()}/>
     }
 }
 
@@ -588,14 +725,31 @@ fn PatchCanvas(
     // A real `Option`, so `&Option<T>`: a bare `Option<T>` prop is the
     // *optional* kind, whose setter takes the inner value (board 8.5).
     selected: &Option<NodeId>,
+    // The picture drawn behind the patch, and what it is drawn with.
+    program: &Option<Program>,
+    params: &[[f32; 4]; codegen::SLOTS],
+    time: f32,
     #[event] on_select: NodeId,
     #[event] on_camera: Camera,
-    #[event] on_size: egui::Vec2,
+    #[event] on_size: egui::Rect,
+    // The rectangle the nodes cover, in patch units, with the heights they
+    // were drawn at. Reported after every frame, for `Recenter`.
+    #[event] on_bounds: egui::Rect,
 ) {
     let dnd = use_drag(cx);
     let ports = use_port_map(cx);
     let actions = use_actions(cx);
     let look = look(cx.ctx());
+    let points_to_pixels = cx.ctx().pixels_per_point();
+    let program = program.clone();
+    let params = *params;
+    // What the tests read, and what a screen reader is told the picture is:
+    // a painted picture has nothing to say for itself, and the program that
+    // draws it is the honest description.
+    let wgsl = program
+        .as_ref()
+        .map(|program| String::from(&*program.wgsl))
+        .unwrap_or_default();
 
     // A drag that ended on a port becomes exactly one message, which is what
     // makes it exactly one step of the undo history.
@@ -636,10 +790,43 @@ fn PatchCanvas(
     let chosen = *selected;
 
     cx.leaf_fill(&style, move |ui| {
-        let (rect, _) = ui.allocate_exact_size(ui.available_size(), egui::Sense::hover());
-        on_size.emit(rect.size());
+        let (rect, response) = ui.allocate_exact_size(ui.available_size(), egui::Sense::hover());
+        // A `leaf_fill` is measured in a `Ui` with all the room in the world,
+        // so a rectangle bigger than the window is a measurement rather than
+        // a canvas, and "fit the view to the patch" would fit the view to it.
+        let window = ui.ctx().content_rect().size();
+        if rect.width() <= window.x && rect.height() <= window.y {
+            on_size.emit(rect);
+        }
         let painter = ui.painter();
         painter.rect_filled(rect, 4.0, look.canvas);
+        // The picture, behind everything: contained, not cropped. `uv` runs
+        // 0..1 on both axes, so the picture is square and it is drawn in the
+        // largest square the canvas holds, centred.
+        let side = rect.width().min(rect.height());
+        let picture = egui::Rect::from_center_size(rect.center(), egui::Vec2::splat(side));
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(egui::WidgetType::Other, ui.is_enabled(), "preview")
+        });
+        ui.ctx()
+            .accesskit_node_builder(response.id, |node| node.set_description(wgsl));
+        if let Some(program) = program {
+            let resolution = picture.size() * points_to_pixels;
+            painter.add(egui_wgpu::Callback::new_paint_callback(
+                picture,
+                gpu::PatchCallback {
+                    wgsl: program.wgsl.clone(),
+                    source_hash: program.hash,
+                    uniforms: gpu::Uniforms {
+                        time,
+                        pad: 0.0,
+                        resolution: [resolution.x, resolution.y],
+                        params,
+                    },
+                },
+            ));
+        }
+        let painter = ui.painter();
         grid(painter, rect, camera, look);
 
         // The nodes go in a layer of their own, right above this one, and the
@@ -658,8 +845,20 @@ fn PatchCanvas(
                 .sense(egui::Sense::click_and_drag()),
         );
         // The clip rect is the canvas, in layer coordinates: it is what keeps
-        // a node panned past the edge from painting over the palette.
+        // a node panned past the edge from painting over the canvas's edge.
         local.set_clip_rect(to_global.inverse() * rect);
+        // egui warns in a debug build about a `Ui` whose rectangle does not
+        // land on whole points, by drawing an orange "Unaligned" over it.
+        // Inside this layer that is every node at any zoom but 1: the whole
+        // point of the layer is that patch coordinates are not screen
+        // coordinates. The warning is off for the layer, and stays on
+        // everywhere else, because everywhere else it is worth reading. The
+        // style is inherited, so the nodes below get it too. `Style::debug`
+        // only exists in a debug build, which is the only build that draws it.
+        #[cfg(debug_assertions)]
+        {
+            local.style_mut().debug.show_unaligned = false;
+        }
         ui.ctx().set_transform_layer(layer, to_global);
         let background = local.response();
 
@@ -693,6 +892,7 @@ fn PatchCanvas(
         let wires = painter.add(egui::Shape::Noop);
 
         let origin = rect.min + camera.pan;
+        let mut covered = egui::Rect::NOTHING;
         for node in &graph.nodes {
             let mut at = origin + egui::vec2(node.pos[0], node.pos[1]);
             if let Some((id, offset)) = live
@@ -713,7 +913,7 @@ fn PatchCanvas(
             // still move them. Anything in a node that has to keep its id
             // across a reorder (the header, the sockets) names its id itself.
             let builder = egui::UiBuilder::new().id_salt(node.id).max_rect(node_rect);
-            ui.scope_builder(builder, |ui| {
+            let drawn = ui.scope_builder(builder, |ui| {
                 let mut cx = Cx::new(store, ui, scope);
                 // `key={node.id}`, written out. The scope chain of a node's
                 // hooks is canvas → node id → component, with nothing about
@@ -761,7 +961,14 @@ fn PatchCanvas(
                     view.show(cx);
                 });
             });
+            // What the node took, at its saved position: a drag in progress
+            // does not move the bounds until it is let go.
+            covered = covered.union(egui::Rect::from_min_size(
+                egui::pos2(node.pos[0], node.pos[1]),
+                egui::vec2(NODE_W, drawn.response.rect.height()),
+            ));
         }
+        on_bounds.emit(covered);
 
         // Every node has now said where its ports are.
         let mut shapes = Vec::new();
@@ -1106,23 +1313,22 @@ fn PortDot(
 
 /// The controls inside a node, by kind.
 ///
-/// The `match` is the polymorphism: every kind has its own component, and the
-/// same components are used again by the inspector with `wide` turned on. A
-/// node's box is narrow, so it gets drag values; the inspector has room for
-/// sliders.
+/// The `match` is the polymorphism: every kind has its own component, and a
+/// node's box is where its parameters are edited. There is no panel of them
+/// somewhere else to keep in step.
 #[component]
-fn NodeBody(cx: &mut Cx, node: &Node, #[prop(default)] wide: bool) {
+fn NodeBody(cx: &mut Cx, node: &Node) {
     rsx! {
         match &node.kind {
-            Kind::Shader { src } => { <ShaderParams node={node} src={src.as_str()} wide={wide}/> }
-            Kind::Level => { <LevelParams node={node} wide={wide}/> }
-            Kind::Hsv => { <HsvParams node={node} wide={wide}/> }
-            Kind::Transform => { <TransformParams node={node} wide={wide}/> }
-            Kind::Mix { mode } => { <MixParams node={node} mode={*mode} wide={wide}/> }
-            Kind::Invert => { <InvertParams node={node} wide={wide}/> }
-            Kind::Posterize => { <PosterizeParams node={node} wide={wide}/> }
-            Kind::Pixelate => { <PixelateParams node={node} wide={wide}/> }
-            Kind::Tile => { <TileParams node={node} wide={wide}/> }
+            Kind::Shader { src } => { <ShaderParams node={node} src={src.as_str()}/> }
+            Kind::Level => { <LevelParams node={node}/> }
+            Kind::Hsv => { <HsvParams node={node}/> }
+            Kind::Transform => { <TransformParams node={node}/> }
+            Kind::Mix { mode } => { <MixParams node={node} mode={*mode}/> }
+            Kind::Invert => { <InvertParams node={node}/> }
+            Kind::Posterize => { <PosterizeParams node={node}/> }
+            Kind::Pixelate => { <PixelateParams node={node}/> }
+            Kind::Tile => { <TileParams node={node}/> }
             // Nothing to slide: the method is the whole node.
             Kind::Grayscale { method } => { <GrayParams node={node} method={*method}/> }
             Kind::Output => { <Text size={10.0}>"the picture"</Text> }
@@ -1131,7 +1337,7 @@ fn NodeBody(cx: &mut Cx, node: &Node, #[prop(default)] wide: bool) {
 }
 
 #[component]
-fn ShaderParams(cx: &mut Cx, node: &Node, src: &str, wide: bool) {
+fn ShaderParams(cx: &mut Cx, node: &Node, src: &str) {
     let actions = use_actions(cx);
     let id = node.id;
 
@@ -1139,56 +1345,56 @@ fn ShaderParams(cx: &mut Cx, node: &Node, src: &str, wide: bool) {
         <View direction="column" w="100%" gap={2}>
             <SourceEdit
                 src={src}
-                rows={if wide { 6 } else { 3 }}
+                rows={3}
                 on_change={|next: String| send(&actions, Msg::SetShaderSrc { node: id, src: next })}
             />
             <Text size={10.0}>"uv, t, p0, p1, p2, res"</Text>
-            <Knob node={id} owner={node.name.as_str()} index={0} label="p0" value={node.params[0]} range={0.0..=4.0} wide={wide}/>
-            <Knob node={id} owner={node.name.as_str()} index={1} label="p1" value={node.params[1]} range={0.0..=4.0} wide={wide}/>
-            <Knob node={id} owner={node.name.as_str()} index={2} label="p2" value={node.params[2]} range={0.0..=1.0} wide={wide}/>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="p0" value={node.params[0]} range={0.0..=4.0}/>
+            <Knob node={id} owner={node.name.as_str()} index={1} label="p1" value={node.params[1]} range={0.0..=4.0}/>
+            <Knob node={id} owner={node.name.as_str()} index={2} label="p2" value={node.params[2]} range={0.0..=1.0}/>
         </View>
     }
 }
 
 #[component]
-fn LevelParams(cx: &mut Cx, node: &Node, wide: bool) {
+fn LevelParams(cx: &mut Cx, node: &Node) {
     let id = node.id;
     rsx! {
         <View direction="column" w="100%" gap={2}>
-            <Knob node={id} owner={node.name.as_str()} index={0} label="bright" value={node.params[0]} range={-1.0..=1.0} wide={wide}/>
-            <Knob node={id} owner={node.name.as_str()} index={1} label="contrast" value={node.params[1]} range={0.0..=4.0} wide={wide}/>
-            <Knob node={id} owner={node.name.as_str()} index={2} label="gamma" value={node.params[2]} range={0.1..=4.0} wide={wide}/>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="bright" value={node.params[0]} range={-1.0..=1.0}/>
+            <Knob node={id} owner={node.name.as_str()} index={1} label="contrast" value={node.params[1]} range={0.0..=4.0}/>
+            <Knob node={id} owner={node.name.as_str()} index={2} label="gamma" value={node.params[2]} range={0.1..=4.0}/>
         </View>
     }
 }
 
 #[component]
-fn HsvParams(cx: &mut Cx, node: &Node, wide: bool) {
+fn HsvParams(cx: &mut Cx, node: &Node) {
     let id = node.id;
     rsx! {
         <View direction="column" w="100%" gap={2}>
-            <Knob node={id} owner={node.name.as_str()} index={0} label="hue" value={node.params[0]} range={0.0..=1.0} wide={wide}/>
-            <Knob node={id} owner={node.name.as_str()} index={1} label="sat" value={node.params[1]} range={0.0..=2.0} wide={wide}/>
-            <Knob node={id} owner={node.name.as_str()} index={2} label="val" value={node.params[2]} range={0.0..=2.0} wide={wide}/>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="hue" value={node.params[0]} range={0.0..=1.0}/>
+            <Knob node={id} owner={node.name.as_str()} index={1} label="sat" value={node.params[1]} range={0.0..=2.0}/>
+            <Knob node={id} owner={node.name.as_str()} index={2} label="val" value={node.params[2]} range={0.0..=2.0}/>
         </View>
     }
 }
 
 #[component]
-fn TransformParams(cx: &mut Cx, node: &Node, wide: bool) {
+fn TransformParams(cx: &mut Cx, node: &Node) {
     let id = node.id;
     rsx! {
         <View direction="column" w="100%" gap={2}>
-            <Knob node={id} owner={node.name.as_str()} index={0} label="x" value={node.params[0]} range={-1.0..=1.0} wide={wide}/>
-            <Knob node={id} owner={node.name.as_str()} index={1} label="y" value={node.params[1]} range={-1.0..=1.0} wide={wide}/>
-            <Knob node={id} owner={node.name.as_str()} index={2} label="turn" value={node.params[2]} range={-3.15..=3.15} wide={wide}/>
-            <Knob node={id} owner={node.name.as_str()} index={3} label="scale" value={node.params[3]} range={0.1..=4.0} wide={wide}/>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="x" value={node.params[0]} range={-1.0..=1.0}/>
+            <Knob node={id} owner={node.name.as_str()} index={1} label="y" value={node.params[1]} range={-1.0..=1.0}/>
+            <Knob node={id} owner={node.name.as_str()} index={2} label="turn" value={node.params[2]} range={-3.15..=3.15}/>
+            <Knob node={id} owner={node.name.as_str()} index={3} label="scale" value={node.params[3]} range={0.1..=4.0}/>
         </View>
     }
 }
 
 #[component]
-fn MixParams(cx: &mut Cx, node: &Node, mode: MixMode, wide: bool) {
+fn MixParams(cx: &mut Cx, node: &Node, mode: MixMode) {
     let actions = use_actions(cx);
     let id = node.id;
     let names: Vec<&str> = MixMode::ALL.iter().map(|mode| mode.name()).collect();
@@ -1205,48 +1411,48 @@ fn MixParams(cx: &mut Cx, node: &Node, mode: MixMode, wide: bool) {
                     send(&actions, Msg::SetMode { node: id, mode: MixMode::ALL[picked] });
                 }}
             />
-            <Knob node={id} owner={node.name.as_str()} index={0} label="amount" value={node.params[0]} range={0.0..=1.0} wide={wide}/>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="amount" value={node.params[0]} range={0.0..=1.0}/>
         </View>
     }
 }
 
 #[component]
-fn InvertParams(cx: &mut Cx, node: &Node, wide: bool) {
+fn InvertParams(cx: &mut Cx, node: &Node) {
     let id = node.id;
     rsx! {
         <View direction="column" w="100%" gap={2}>
-            <Knob node={id} owner={node.name.as_str()} index={0} label="amount" value={node.params[0]} range={0.0..=1.0} wide={wide}/>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="amount" value={node.params[0]} range={0.0..=1.0}/>
         </View>
     }
 }
 
 #[component]
-fn PosterizeParams(cx: &mut Cx, node: &Node, wide: bool) {
+fn PosterizeParams(cx: &mut Cx, node: &Node) {
     let id = node.id;
     rsx! {
         <View direction="column" w="100%" gap={2}>
-            <Knob node={id} owner={node.name.as_str()} index={0} label="levels" value={node.params[0]} range={2.0..=16.0} wide={wide}/>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="levels" value={node.params[0]} range={2.0..=16.0}/>
         </View>
     }
 }
 
 #[component]
-fn PixelateParams(cx: &mut Cx, node: &Node, wide: bool) {
+fn PixelateParams(cx: &mut Cx, node: &Node) {
     let id = node.id;
     rsx! {
         <View direction="column" w="100%" gap={2}>
-            <Knob node={id} owner={node.name.as_str()} index={0} label="cells" value={node.params[0]} range={2.0..=128.0} wide={wide}/>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="cells" value={node.params[0]} range={2.0..=128.0}/>
         </View>
     }
 }
 
 #[component]
-fn TileParams(cx: &mut Cx, node: &Node, wide: bool) {
+fn TileParams(cx: &mut Cx, node: &Node) {
     let id = node.id;
     rsx! {
         <View direction="column" w="100%" gap={2}>
-            <Knob node={id} owner={node.name.as_str()} index={0} label="x" value={node.params[0]} range={1.0..=8.0} wide={wide}/>
-            <Knob node={id} owner={node.name.as_str()} index={1} label="y" value={node.params[1]} range={1.0..=8.0} wide={wide}/>
+            <Knob node={id} owner={node.name.as_str()} index={0} label="x" value={node.params[0]} range={1.0..=8.0}/>
+            <Knob node={id} owner={node.name.as_str()} index={1} label="y" value={node.params[1]} range={1.0..=8.0}/>
         </View>
     }
 }
@@ -1272,8 +1478,7 @@ fn GrayParams(cx: &mut Cx, node: &Node, method: GrayMethod) {
     }
 }
 
-/// One parameter: a slider where there is room, a drag value where there is
-/// not, and a `SetParam` when it moved.
+/// One parameter: a drag value, and a `SetParam` when it moved.
 ///
 /// The escape hatch rather than `<Slider>`, because the value being edited
 /// lives in the reducer: a bound element would need a `&mut f32` that no one
@@ -1284,14 +1489,12 @@ fn Knob(
     cx: &mut Cx,
     node: NodeId,
     // The node's name, which is what tells eight "bright" knobs apart for
-    // anyone who cannot see which box this one is in. The inspector draws the
-    // name above its own copy, so there it is only "bright".
+    // anyone who cannot see which box this one is in.
     owner: &str,
     index: usize,
     label: &str,
     value: f32,
     range: std::ops::RangeInclusive<f32>,
-    #[prop(default)] wide: bool,
 ) {
     let actions = use_actions(cx);
     let mut current = value;
@@ -1301,25 +1504,23 @@ fn Knob(
         // zero-width `Ui`; a widget left to wrap would report one character
         // wide and stay that way (ARCHITECTURE 6).
         ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
-        if wide {
-            ui.add(egui::Slider::new(&mut current, range).text(label))
-                .changed()
-        } else {
-            let response = ui.add(
-                egui::DragValue::new(&mut current)
-                    .range(range)
-                    .speed(0.01)
-                    .prefix(format!("{label} ")),
-            );
-            response.widget_info(|| {
-                egui::WidgetInfo::labeled(
-                    egui::WidgetType::DragValue,
-                    ui.is_enabled(),
-                    format!("{owner} {label}"),
-                )
-            });
-            response.changed()
-        }
+        let response = ui.add(
+            egui::DragValue::new(&mut current)
+                .range(range)
+                .speed(0.01)
+                .prefix(format!("{label} ")),
+        );
+        // The name on screen is the prefix, which is not a label; the tree is
+        // told the node's name as well, because every level node has a
+        // "bright".
+        response.widget_info(|| {
+            egui::WidgetInfo::labeled(
+                egui::WidgetType::DragValue,
+                ui.is_enabled(),
+                format!("{owner} {label}"),
+            )
+        });
+        response.changed()
     });
 
     if changed {
@@ -1361,138 +1562,38 @@ fn SourceEdit(cx: &mut Cx, src: &str, rows: usize, #[event] on_change: String) {
     }
 }
 
-/// The picture, and the two things that reach it.
-#[component]
-fn Preview(cx: &mut Cx, program: &Option<Program>, params: &[[f32; 4]; codegen::SLOTS]) {
-    let mut playing = use_state(cx, || true);
-
-    // egui's own clock, in seconds since the app started. It stops moving when
-    // nothing asks for a repaint, which is what makes `play` work.
-    let time = cx.ui().input(|i| i.time) as f32;
-    if *playing {
-        cx.ctx().request_repaint();
-    }
-    let points_to_pixels = cx.ctx().pixels_per_point();
-    let program = program.clone();
-    let params = *params;
-
-    rsx! {
-        <View direction="column" w="100%" gap={4}>
-            <Canvas
-                w="100%"
-                h={PREVIEW_H}
-                paint={move |ui: &mut egui::Ui, rect: egui::Rect| {
-                    let Some(program) = program else {
-                        return;
-                    };
-                    let resolution = rect.size() * points_to_pixels;
-                    ui.painter().add(egui_wgpu::Callback::new_paint_callback(
-                        rect,
-                        gpu::PatchCallback {
-                            wgsl: program.wgsl.clone(),
-                            source_hash: program.hash,
-                            uniforms: gpu::Uniforms {
-                                time,
-                                pad: 0.0,
-                                resolution: [resolution.x, resolution.y],
-                                params,
-                            },
-                        },
-                    ));
-                }}
-            />
-            <View direction="row" gap={8} align="center">
-                <Checkbox bind={playing.bind()} label="play"/>
-                <Text>{format!("t {time:.1}")}</Text>
-            </View>
-        </View>
-    }
-}
-
-/// The selected node's parameters, or the program, or the reason there is no
-/// program.
+/// The validation message, over the canvas's top left corner.
 ///
-/// The `wgsl` tab is a feature and a test surface at once: what it shows is
-/// exactly the text that was compiled, so a test can read it and assert that a
-/// slider did not change it (P-5).
+/// naga's complaint about the generated program, or the editor's about a
+/// cycle. It belongs to the patch as a whole rather than to any node, so it
+/// is written on the canvas rather than in a box beside it, and it is not
+/// drawn at all when there is nothing wrong.
 #[component]
-fn Inspector(
-    cx: &mut Cx,
-    #[prop(default)] style: ItemStyle,
-    graph: &Graph,
-    selected: &Option<NodeId>,
-    program: &Option<Program>,
-    error: &Option<String>,
-) {
+fn Message(cx: &mut Cx, text: &Option<String>) {
+    let Some(text) = text else {
+        return;
+    };
     let look = look(cx.ctx());
-    let mut code = use_state(cx, || false);
-    let showing_code = *code;
-    let node = selected.and_then(|id| graph.node(id));
-    let source = program
-        .as_ref()
-        .map(|program| String::from(&*program.wgsl))
-        .unwrap_or_default();
-    let message = error.clone().unwrap_or_default();
 
     rsx! {
-        <View style={style} direction="column" w="100%" gap={4}>
-            <View direction="row" gap={4} align="center">
-                <Tab label="params" active={!showing_code} on_click={|| *code = false}/>
-                <Tab label="wgsl" active={showing_code} on_click={|| *code = true}/>
-            </View>
-
-            // The validation message, whichever tab is open: it is the reason
-            // the picture stopped following the patch.
-            if !message.is_empty() {
-                <Text w="100%" wrap size={11.0} color={look.warn}>{message.as_str()}</Text>
-            }
-
-            <ScrollArea grow={1.0} h={0.0} horizontal>
-                if showing_code {
-                    {view(move |cx| {
-                        // `leaf`, not `leaf_fill`: this is measured by its
-                        // longest line, and the scroll area is what handles
-                        // the overflow.
-                        cx.leaf(&ItemStyle::default(), move |ui| {
-                            ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
-                            ui.label(egui::RichText::new(source).monospace().size(10.0));
-                        });
-                    })}
-                } else {
-                    match node {
-                        Some(node) => {
-                            <View direction="column" w="100%" gap={6} pr={6}>
-                                <Text strong size={16.0} color={look.accent}>{node.name.as_str()}</Text>
-                                <Text size={11.0}>{node.kind.name()}</Text>
-                                <Separator/>
-                                <NodeBody node={node} wide/>
-                            </View>
-                        }
-                        None => { <Text>"pick a node"</Text> }
-                    }
-                }
-            </ScrollArea>
-        </View>
+        <Overlay anchor="top-left" offset={(COUNT_GAP, COUNT_GAP)}>
+            <Text w={MESSAGE_W} wrap size={11.0} color={look.warn}>{text.as_str()}</Text>
+        </Overlay>
     }
 }
 
-/// A tab, and the smallest example of the shape every component here has: take
-/// a style, draw one thing, report the click. `egui-react-elements` has no
-/// toggle, so this is the escape hatch one leaf deep.
+/// How many nodes the patch has, over the canvas's bottom right corner.
+///
+/// An `<Overlay>` with no fill: it is written on the picture rather than in a
+/// box of its own, and it takes no room from the canvas. Anchored to the
+/// window, whose bottom right corner is the canvas's own — the canvas is the
+/// last thing in the column and the root's padding is the gap.
 #[component]
-fn Tab(
-    cx: &mut Cx,
-    #[prop(default)] style: ItemStyle,
-    label: &str,
-    active: bool,
-    #[event] on_click: (),
-) {
-    let clicked = cx.leaf(&style.shrink(0.0), |ui| {
-        ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
-        ui.selectable_label(active, label).clicked()
-    });
-    if clicked {
-        on_click.emit(());
+fn NodeCount(cx: &mut Cx, count: usize) {
+    rsx! {
+        <Overlay anchor="bottom-right" offset={(-COUNT_GAP, -COUNT_GAP)}>
+            <Text size={11.0}>{format!("{count} / {} nodes", graph::MAX_NODES)}</Text>
+        </Overlay>
     }
 }
 
@@ -1638,26 +1739,38 @@ mod tests {
         assert_eq!(camera.to_global(CORNER), egui::emath::TSTransform::IDENTITY);
     }
 
-    /// Home puts the middle of the nodes in the middle of the canvas.
+    /// Fit puts the middle of the nodes in the middle of the canvas, at
+    /// zoom 1 when they fit.
     #[test]
-    fn home_centres_the_nodes() {
-        let node = |x: f32, y: f32| Node {
-            id: 1,
-            name: String::from("n"),
-            kind: Kind::Level,
-            pos: [x, y],
-            params: [0.0; 4],
-            inputs: [None, None],
-        };
-        let nodes = [node(0.0, 0.0), node(400.0, 200.0)];
+    fn fit_centres_the_nodes() {
+        let bounds = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(568.0, 350.0));
         let size = egui::vec2(800.0, 600.0);
-        let home = Camera::home(&nodes, size);
+        let home = Camera::fit(bounds, size);
         assert_eq!(home.zoom, 1.0);
-        // The nodes span 0..400+NODE_W by 0..200+NODE_H_NOMINAL.
-        let centre = egui::pos2((400.0 + NODE_W) / 2.0, (200.0 + NODE_H_NOMINAL) / 2.0);
-        let on_screen = (home.pan + centre.to_vec2()) * home.zoom;
+        let on_screen = (home.pan + bounds.center().to_vec2()) * home.zoom;
         assert_eq!(on_screen, size / 2.0);
 
-        assert_eq!(Camera::home(&[], size), Camera::default());
+        assert_eq!(Camera::fit(egui::Rect::NOTHING, size), Camera::default());
+    }
+
+    /// Nodes wider than the canvas are zoomed out until every one is on it,
+    /// margin included.
+    #[test]
+    fn fit_zooms_out_until_everything_is_on_screen() {
+        let bounds = egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(2000.0, 300.0));
+        let size = egui::vec2(800.0, 600.0);
+        let home = Camera::fit(bounds, size);
+        assert!(home.zoom < 1.0);
+        let padded = bounds.expand(FIT_MARGIN);
+        for corner in [padded.left_top(), padded.right_bottom()] {
+            let on_screen = (home.pan + corner.to_vec2()) * home.zoom;
+            assert!(
+                on_screen.x >= -0.01
+                    && on_screen.y >= -0.01
+                    && on_screen.x <= size.x + 0.01
+                    && on_screen.y <= size.y + 0.01,
+                "{corner:?} lands at {on_screen:?}"
+            );
+        }
     }
 }

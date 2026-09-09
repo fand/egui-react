@@ -52,12 +52,13 @@ fn react<'a>(size: egui::Vec2, view: impl Fn(&mut Cx<'_, '_>) + 'a) -> Harness<'
 /// How much of a difference is still the same picture.
 ///
 /// `threshold` is egui_kittest's own default; the allowance is a pixel count,
-/// because what differs is glyph edges. taffy positions in floats and egui's
-/// own layout rounds to whole points, so a shared edge can land a fraction of
-/// a point apart and the text is rasterised one pixel over. The numbers below
-/// are the measured differences with headroom — a real layout regression runs
-/// to thousands (the background bug was 110k), so they still fail loudly. See
-/// plan.md section 7.
+/// because what differs is edges. taffy positions in floats and egui's own
+/// layout rounds to whole points, so a shared edge can land a fraction of a
+/// point apart: a glyph is rasterised one pixel over, and a filled box has a
+/// one-pixel seam down its side. The numbers below are the measured
+/// differences with headroom — a real layout regression runs to tens of
+/// thousands (the background bug was 110k, and a chip that stretched where it
+/// should not was 108k), so they still fail loudly. See plan.md section 7.
 fn shared(max_failed_pixels: usize) -> SnapshotOptions {
     SnapshotOptions::default().max_failed_pixels(max_failed_pixels)
 }
@@ -267,7 +268,10 @@ mod list_10k {
     }
 }
 
-same!(layout, egui::vec2(520.0, 900.0), 1000, as_it_opens);
+// 2500, where the other pairs need a few hundred: every chip in the tour is
+// filled, so each of the ~50 boxes can differ down one edge rather than only
+// at its text.
+same!(layout, egui::vec2(520.0, 900.0), 2500, as_it_opens);
 single!(styles, egui::vec2(560.0, 2900.0));
 
 /// The board, in two images rather than one, for the same reason as

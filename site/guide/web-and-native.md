@@ -120,7 +120,6 @@ site is HTML and only the examples are wasm.
 
 Every example page is the same wasm build, told which example to draw by the
 URL. [shader](/examples/shader) is the wgpu path. [font](/examples/font)
-fetches a font over HTTP. [shell](/examples/shell) runs natively only, since
-docked panels carve up the window. The runner and platform notes are in
+fetches a font over HTTP. The runner and platform notes are in
 [docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#7-crate-layout)
 sections 7 and 8.

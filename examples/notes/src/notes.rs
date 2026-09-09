@@ -46,7 +46,6 @@ pub enum Msg {
         id: u64,
         now: f64,
     },
-    ClearAll,
 }
 
 pub fn reduce(notes: &mut Notes, msg: Msg) {
@@ -56,7 +55,7 @@ pub fn reduce(notes: &mut Notes, msg: Msg) {
             let id = notes.next_id;
             notes.items.push(Note {
                 id,
-                title: format!("untitled {id}"),
+                title: format!("Note {id}"),
                 body: String::new(),
                 updated: now,
             });
@@ -67,7 +66,6 @@ pub fn reduce(notes: &mut Notes, msg: Msg) {
                 note.updated = now;
             }
         }
-        Msg::ClearAll => notes.items.clear(),
     }
 }
 
