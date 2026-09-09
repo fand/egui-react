@@ -31,6 +31,15 @@
   --vp-home-hero-name-background: linear-gradient(120deg, #fdba74, #f97316);
 }
 
+/* The home page's hero: the mark to the left of the name. On a wide window
+   the theme puts the image after the text (`order: 2`); this puts it first.
+   A narrow window keeps the theme's stacking, the mark above the text. */
+@media (min-width: 960px) {
+  .VPHero.has-image .container .image {
+    order: 0;
+  }
+}
+
 /* The columns. The default theme centres a 1440px layout, so on a wider
    window the margin lands on the sidebar's side and the links sit far from
    the edge. Here the layout is the window: the sidebar starts at the left

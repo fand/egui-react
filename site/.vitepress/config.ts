@@ -229,6 +229,9 @@ export default defineConfig({
     }
   },
   themeConfig: {
+    // Left of the site title in the nav bar, on every page and in both
+    // languages. VitePress resolves the path against `base` itself.
+    logo: '/atomic-ferris.svg',
     // No server to run a query against: the whole index ships with the site.
     // One index per locale, so a Japanese search does not answer in English.
     search: {
