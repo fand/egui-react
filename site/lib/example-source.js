@@ -158,9 +158,14 @@ export function exampleSourcePlugin(md) {
       // A fence token, not raw HTML: the highlighting is then VitePress's own,
       // done at build time, and the block gets the copy button and the theme
       // every other code block on the page has.
+      const plain = match[2] === 'plain'
+      // VitePress watches whatever a page's `env.includes` names (its own
+      // `<<<` snippets go through the same list), so an edit to the example
+      // re-renders the page under `vitepress dev`.
+      state.env.includes?.push(sourcePath(match[1], plain))
       const token = state.push('fence', 'code', 0)
       token.info = 'rust'
-      token.content = shownSource(match[1], match[2] === 'plain')
+      token.content = shownSource(match[1], plain)
       token.markup = '```'
       token.map = [startLine, line + 1]
       state.line = line + 1

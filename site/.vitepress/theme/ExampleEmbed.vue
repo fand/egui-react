@@ -30,9 +30,11 @@ const props = defineProps({
 /// false, the same rule the gallery and the embed follow.
 const plain = ref(false)
 
-const src = computed(
-  () => `${withBase('/embed/')}#${props.name}${plain.value ? '/plain' : ''}`
-)
+// `site/dev.sh` runs the embed on trunk's own dev server, which rebuilds
+// the wasm when the Rust changes; it hands that origin over as
+// VITE_EMBED_ORIGIN. A build has no such variable and uses the copy in `dist/`.
+const embed = import.meta.env.VITE_EMBED_ORIGIN ?? withBase('/embed/')
+const src = computed(() => `${embed}#${props.name}${plain.value ? '/plain' : ''}`)
 </script>
 
 <template>

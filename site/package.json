@@ -7,6 +7,7 @@
   "license": "MIT OR Apache-2.0",
   "scripts": {
     "dev": "vitepress dev",
+    "dev:all": "bash dev.sh",
     "build": "vitepress build",
     "preview": "vitepress preview"
   },
