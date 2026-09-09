@@ -195,11 +195,11 @@ macro_rules! single {
 }
 
 single!(showcase, egui::vec2(700.0, 460.0), two_notes);
-/// The counter, in two images: its plain version is written to be read, so it
-/// does not centre the block — egui has no way to centre a row of buttons
-/// short of measuring them, and that measuring was most of the file. The
-/// egui-react side keeps `align="center" justify="center"`, which is the
-/// difference the pair is there to show.
+/// The counter, in two images: the plain version centres its block by
+/// measuring it (egui has no other way), and the egui-react version by
+/// `align="center" justify="center"`, so the two land within a point of each
+/// other rather than on the same pixels — the same line list-10k and board
+/// draw.
 mod counter {
     use super::*;
     use ::counter::App as ExampleApp;
