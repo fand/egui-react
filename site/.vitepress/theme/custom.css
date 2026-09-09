@@ -6,6 +6,31 @@
    and hide code fences that the *page* owns and passes through a slot, and a
    scoped style cannot select those. */
 
+/* The brand colour: orange. The default theme's indigo scale is replaced
+   rather than recoloured per component, so links, the active sidebar entry,
+   the hero buttons, the search box and the code-block highlights all move
+   together. `-1` is text on the page background and is the darkest in light
+   and the lightest in dark, so it stays readable either way; `-3` is a solid
+   background under white button text. */
+:root {
+  --vp-c-brand-1: #b1400c;
+  --vp-c-brand-2: #c2410c;
+  --vp-c-brand-3: #d2510f;
+  --vp-c-brand-soft: rgba(234, 88, 12, 0.14);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #f97316, #c2410c);
+}
+
+.dark {
+  --vp-c-brand-1: #fdba74;
+  --vp-c-brand-2: #fb923c;
+  --vp-c-brand-3: #cf4d0a;
+  --vp-c-brand-soft: rgba(249, 115, 22, 0.18);
+
+  --vp-home-hero-name-background: linear-gradient(120deg, #fdba74, #f97316);
+}
+
 /* The columns. The default theme centres a 1440px layout, so on a wider
    window the margin lands on the sidebar's side and the links sit far from
    the edge. Here the layout is the window: the sidebar starts at the left
