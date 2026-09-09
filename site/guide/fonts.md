@@ -4,17 +4,15 @@ title: Fonts
 
 # Fonts
 
-## Why fonts need saying at all
+## Why fonts need setup
 
-egui draws text itself. epaint rasterizes glyphs from font bytes handed to
-`Context::set_fonts`; the browser's fonts and the OS's font matching are never
-involved. egui's own four bundled fonts have no CJK glyphs, so Japanese draws
-as boxes in a plain egui app on any platform — including one whose system fonts
-have every glyph you need, because nothing looked at them.
+egui draws text itself, from font bytes handed to `Context::set_fonts`. The
+browser's fonts and the OS font matching are never used. egui's four built-in
+fonts have no CJK glyphs, so Japanese draws as boxes in a plain egui app, on
+every platform.
 
-`egui_react_app::fonts` is the answer: CSS-like fallback chains of named
-sources, resolved through one `fontdb` database into egui's per-family fallback
-lists.
+`egui_react_app::fonts` fixes this with CSS-like fallback chains of named
+sources, resolved through `fontdb` into egui's font families.
 
 ## A chain
 
@@ -50,30 +48,28 @@ run(
 )
 ```
 
-Entries are tried in order, per glyph, the way a CSS `font-family` list is.
-`default_proportional(name)` and `default_monospace(name)` make a chain the one
-every widget uses; without them a chain is only used where it is named.
+Entries are tried in order, per glyph, like a CSS `font-family` list.
+`default_proportional(name)` and `default_monospace(name)` make a chain the
+default for every widget. Without them, a chain is used only where named.
 
 ## The four sources
 
-| Source | Where the bytes come from |
+| Source | Bytes come from |
 |---|---|
-| `Bundled(&'static [u8])` | `include_bytes!`. Works identically on native and wasm; the cost is binary size |
-| `System(String)` | A font installed on the device, by the family name the font declares. Native reads the font directories; on the web this needs the Local Font Access API |
+| `Bundled(&'static [u8])` | `include_bytes!`. Same on native and wasm. Costs binary size |
+| `System(String)` | A font installed on the device, by its declared family name. On the web this needs the Local Font Access API |
 | `Url(String)` | Fetched over HTTP. Pending until the bytes arrive, then the chain is applied again |
-| `Generic(Generic::SansSerif)` | A CSS generic — `sans-serif`, `serif`, `monospace`, `cursive`, `fantasy` — resolved by fontdb, with egui's own font behind it |
+| `Generic(Generic::SansSerif)` | A CSS generic (`sans-serif`, `serif`, `monospace`, `cursive`, `fantasy`), resolved by fontdb, with egui's own font behind it |
 
-A `System` name must match what the face declares, in any of its languages:
-`"Hiragino Sans"` and `"ヒラギノ角ゴシック"` both work, `"hiragino sans"` does
-not. `Fonts::report()` lists, per entry, the face it resolved to and the family
-name that face declares — which is how you find the spelling to write.
+A `System` name must match what the face declares, in any of its languages.
+`"Hiragino Sans"` and `"ヒラギノ角ゴシック"` both work. `"hiragino sans"` does
+not. `Fonts::report()` lists what each entry resolved to, which is how you
+find the right spelling.
 
-Which source an app reaches for depends on the target. Natively, `System`:
-the machine already has fonts and shipping more is waste. In a browser, `Url`
-from your own origin, or `Bundled` when a subset is small enough that there is
-nothing to wait for. `System` in a browser is the odd one out: Local Font
-Access is Chromium-only, needs a permission prompt, and must be called from a
-click.
+Which source to use depends on the target. Natively, `System`: the machine
+already has fonts. In a browser, `Url` from your own origin, or `Bundled` when
+the subset is small. `System` in a browser is Chromium-only, needs a
+permission prompt, and must be called from a click.
 
 ## Picking a font per text
 
@@ -85,39 +81,34 @@ rsx! {
 ```
 
 `font` takes the name of a registered stack, or `"proportional"` /
-`"monospace"` for egui's two built-in families. An unknown name would make
-epaint panic at layout, so it is checked first: the text draws with the style's
-own family instead and one warning is logged per name.
+`"monospace"` for egui's built-in families. An unknown name falls back to the
+style's own family and logs one warning.
 
-Only `<Text>` has the prop. A `<Button>` or `<Checkbox>` label follows
-`default_proportional`, or takes a `RichText::new(..).family(..)` as its
-children.
+Only `<Text>` has this prop. A `<Button>` or `<Checkbox>` label uses
+`default_proportional`, or takes `RichText::new(..).family(..)` as children.
 
-## The floor under every chain
+## The fallback under every chain
 
-egui's four embedded fonts (Ubuntu-Light, Hack, two emoji fonts, about 1.4 MB)
-stand behind every generic and at the tail of every chain. They sit behind
-`egui-react-app`'s `default_fonts` feature, which is on by default. Turn it off
-and nothing panics — but a chain that resolves to nothing is an empty family,
-and epaint draws it as zero glyphs. An app that turns it off must give every
-stack a `Bundled` (or, natively, `System`) face and apply it before the first
-frame, or draw a text-free loading screen until `Fonts::pending()` goes false.
+egui's four built-in fonts (about 1.4 MB) stand behind every generic and at
+the tail of every chain. They are behind the `default_fonts` feature of
+`egui-react-app`, on by default. Turn it off and nothing panics, but a chain
+that resolves to nothing draws no glyphs. An app that turns it off must give
+every stack a `Bundled` or `System` face, or draw a text-free screen until
+`Fonts::pending()` goes false.
 
 ## Web fonts: size and the wait
 
-A web font is a real download, so keep two things in mind.
+A web font is a real download.
 
-**Subset it.** The full Noto Sans JP used by the [font](/examples/font) example
-is 4.5 MB; the subset it bundles — ASCII, Latin-1, kana, CJK punctuation,
-fullwidth forms and about five hundred kanji — is 433 KB. The subset is small
-enough to compile in; the full font is not.
+**Subset it.** The full Noto Sans JP in the [font](/examples/font) example is
+4.5 MB. The subset it bundles (ASCII, Latin-1, kana, CJK punctuation, about
+five hundred kanji) is 433 KB. The subset can be compiled in. The full font
+cannot.
 
-**Decide what to draw while it loads.** The library only tells you whether a URL
-is still in flight, through `Fonts::pending()`; the policy is yours. Putting a
-bundled subset behind the `Url` entry in the same chain gives you CSS's `swap`:
-readable text immediately, better text when the bytes land. Drawing a
-placeholder until `pending()` is false gives you `block`. Both are shown in the
-font example.
+**Decide what to draw while it loads.** `Fonts::pending()` tells you whether
+a URL is still in flight. The policy is yours. A bundled subset behind the
+`Url` entry gives you CSS's `swap`: readable text now, better text later. A
+placeholder until `pending()` is false gives you `block`.
 
 ```rust
 Fonts::new().stack(
@@ -130,18 +121,15 @@ Fonts::new().stack(
 )
 ```
 
-A same-origin relative URL is the normal case on the web; a cross-origin one
-needs `Access-Control-Allow-Origin`. WOFF and WOFF2 need the `woff2` cargo
-feature; without it such a response is reported as failed rather than
-panicking. Prefer a static face over a variable font: epaint draws a variable
-font's default instance, which is not always the weight you expected.
+A cross-origin URL needs `Access-Control-Allow-Origin`. WOFF and WOFF2 need
+the `woff2` cargo feature. Prefer a static face over a variable font: epaint
+draws a variable font's default instance, which may not be the weight you
+wanted.
 
 ## See it running
 
 [font](/examples/font) has all four chains, the three sources, the per-entry
-report, and the `swap` versus `block` switch.
-
-The resolver's design is in
+report, and the `swap` versus `block` switch. The resolver is in
 [docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#8-platforms)
-section 8, and the decisions behind it in
+section 8, and the decisions in
 [docs/adr/fonts/](https://github.com/fand/egui-react/tree/main/docs/adr/fonts).

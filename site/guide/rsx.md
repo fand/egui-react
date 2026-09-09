@@ -4,10 +4,9 @@ title: rsx!
 
 # rsx!
 
-`rsx! { .. }` returns an `impl View`, which is in practice a closure that draws
-when it is shown. Everything inside it is real Rust: the macro expands to egui
-calls in place, which is why control flow is written with `if` and `for` rather
-than with helpers.
+`rsx! { .. }` returns an `impl View`: a closure that draws when shown. The
+macro expands into egui calls in place, so control flow is plain `if` and
+`for`.
 
 ## Elements
 
@@ -20,14 +19,10 @@ rsx! {
 }
 ```
 
-Every element name is a Rust function component, so `<Button/>` needs `Button`
-in scope. There are no lowercase HTML tags. A path works too:
+Every element is a Rust function component, so `<Button/>` needs `Button` in
+scope. There are no HTML tags. Paths work too: `<elements::Separator vertical/>`.
 
-```rust
-rsx! { <elements::Separator vertical/> }
-```
-
-The usual import is the two preludes:
+The usual imports:
 
 ```rust
 use egui_react::prelude::*;
@@ -36,8 +31,7 @@ use egui_react_elements::prelude::*;
 
 ## Text and expressions
 
-Text must be a string literal. Unquoted words are a compile error, on purpose:
-it keeps `<Text>` children unambiguous.
+Text must be a string literal. Bare words are a compile error.
 
 ```rust
 rsx! {
@@ -52,15 +46,14 @@ rsx! {
 
 ## Attributes
 
-Three kinds, and they are told apart by name:
+Three kinds, told apart by name:
 
 - `on_*={handler}` is an event. See
   [Components and events](/guide/components-and-events).
-- Layout and paint attributes — `w` `h` `min_w` `grow` `shrink` `basis` `m*`
-  `p*` `align_self` `col_span` `row_span`, and `bg` `border` `radius` `shadow`
-  `opacity` — are collected into the element's `style` prop. Every element
-  takes them.
-- Everything else is a prop setter on that component.
+- Layout and paint attributes (`w`, `h`, `grow`, `p`, `m`, `bg`, `border`,
+  `radius`, ...) go into the element's `style` prop. Every element takes them.
+  Full list: [Layout attributes](/reference/layout-attributes).
+- Everything else is a prop of that component.
 
 An attribute with no value is `true`:
 
@@ -71,8 +64,7 @@ rsx! {
 }
 ```
 
-Layout values take numbers or CSS-ish strings, and both spellings mean the same
-thing:
+Layout values take numbers or CSS-like strings:
 
 ```rust
 rsx! {
@@ -82,32 +74,20 @@ rsx! {
 }
 ```
 
-If you pass `style={expr}` *and* shorthands, the shorthands chain off the
-expression — `<Chip style={style} p={6}/>` becomes `.style((style).p(6))` — so
-a wrapper component can take its caller's layout and add to it. The full list
-is in [Layout attributes](/reference/layout-attributes).
+`style={expr}` plus shorthands chain: `<Chip style={style} p={6}/>` becomes
+`.style((style).p(6))`. A wrapper component can take its caller's layout and
+add to it.
 
 ## Children
 
-Children are whatever sits between the tags:
-
-```rust
-rsx! {
-    <View direction="column">
-        <Text>"first"</Text>
-        <Text>"second"</Text>
-    </View>
-}
-```
-
-With no children the element gets `()`. A single string literal or a single
-`{expr}` is passed as that expression itself, which is what lets
+Children are whatever sits between the tags. No children means `()`. A single
+literal or `{expr}` is passed as that expression itself. That is why
 `<Button>"OK"</Button>` (children: `impl Into<WidgetText>`) and
-`<View>..</View>` (children: `impl View`) share one syntax.
+`<View>..</View>` (children: `impl View`) look the same.
 
 ## Control flow
 
-Write it directly. `if`, `else`, `for` and `match` all work inside `rsx!`:
+`if`, `else`, `for` and `match` work inside `rsx!`:
 
 ```rust
 rsx! {
@@ -130,18 +110,16 @@ rsx! {
 }
 ```
 
-Note the braces around each `match` arm's body: an arm holds element nodes, not
-an expression.
+Each `match` arm body needs braces: an arm holds elements, not an expression.
 
-Because expansion is direct, none of this needs the `items.iter().map(|i|
-rsx!{..})` shape that other Rust frameworks use — and it avoids the borrow
-errors that shape causes.
+No `items.iter().map(|i| rsx!{..})` is needed, and the borrow errors that
+shape causes do not come up.
 
 ## `key`
 
-`key={expr}` is mixed into the element's scope id. Inside a `for`, any element
-that owns hooks needs one, or every iteration asks for the same slot and the
-collision detector complains:
+`key={expr}` is mixed into the element's id. Inside a `for`, any element with
+hooks needs one. Without it, every iteration hits the same slot and the
+collision detector complains.
 
 ```rust
 for card in cards.iter() {
@@ -149,13 +127,12 @@ for card in cards.iter() {
 }
 ```
 
-The expression must be `Hash + Debug`. Changing a key is how you deliberately
-reset a subtree: the old id is not visited, the sweep drops its state, and the
-new one mounts clean.
+The key must be `Hash + Debug`. Changing a key resets the subtree: the old id
+is dropped, the new one mounts fresh.
 
 ## Dropping into plain egui
 
-`{view(|cx| ..)}` is ordinary code in the middle of a tree:
+`{view(|cx| ..)}` is plain code in the middle of a tree:
 
 ```rust
 rsx! {
@@ -170,24 +147,13 @@ rsx! {
 }
 ```
 
-Hooks work in there, because it is the same `Cx`. Draw through `cx.leaf`, not
-through `cx.ui()` — see [Escape hatches](/guide/escape-hatches) for why.
-
-## Rules worth remembering
-
-- Text is always quoted; there is no bare text node.
-- An element's children are `.children(..)`; a component that wants children
-  declares `children: impl View`.
-- Handlers are generated and called immediately, so borrowing state with `&mut`
-  in two sibling handlers is fine.
-- `key` is required inside loops over components with hooks.
+Hooks work in there, since it is the same `Cx`. Draw through `cx.leaf`, not
+`cx.ui()`. See [Escape hatches](/guide/escape-hatches).
 
 ## See it running
 
-[layout](/examples/layout) is one section per layout attribute,
-[styles](/examples/styles) is one row per paint attribute with the code that
-draws it, and [showcase](/examples/showcase) uses the whole syntax at once.
-
-The macro's own rules are in
+[layout](/examples/layout) and [styles](/examples/styles) show one attribute
+at a time. [notes](/examples/notes) uses the whole syntax. The macro's rules
+are in
 [docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#32-view-and-rsx)
 section 3.2.
