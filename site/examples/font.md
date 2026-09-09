@@ -2,21 +2,25 @@
 title: font
 ---
 
-# font
-
-CSS-style font chains: bundled, fetched and installed fonts, and what each entry
-resolved to.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="font"
   :has-plain="data.font.hasPlain"
   :react-lines="data.font.reactLines"
   :plain-lines="data.font.plainLines"
 >
+
+<template v-slot:summary>
+
+CSS-style font chains: bundled, fetched and installed fonts, and what each entry
+resolved to.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -25,7 +29,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 egui draws text from font bytes it was handed: the browser's fonts and the OS's
 font matching are never involved, and egui's own four fonts have no CJK glyphs,
@@ -65,3 +69,5 @@ server to point at, so that entry is reported as failed and the chain draws with
 the subset — the report shows that too.
 
 The source is [`examples/font/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/font/src/lib.rs).
+
+</ExamplePage>

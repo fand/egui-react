@@ -2,21 +2,25 @@
 title: clock
 ---
 
-# clock
-
-A stopwatch that asks for its own repaints, and an effect that cleans up after
-itself.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="clock"
   :has-plain="data.clock.hasPlain"
   :react-lines="data.clock.reactLines"
   :plain-lines="data.clock.plainLines"
 >
+
+<template v-slot:summary>
+
+A stopwatch that asks for its own repaints, and an effect that cleans up after
+itself.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -25,7 +29,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 Repainting is explicit here, which is the part worth understanding. egui only
 draws when something asks it to, so a stopped clock asks for one frame a second
@@ -54,3 +58,5 @@ trunk serve --config examples/clock/Trunk.toml
 ```
 
 The source is [`examples/clock/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/clock/src/lib.rs).
+
+</ExamplePage>

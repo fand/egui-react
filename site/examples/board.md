@@ -2,21 +2,25 @@
 title: board
 ---
 
-# board
-
-Cards that keep the title being typed into them while they are dragged between
-columns.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="board"
   :has-plain="data.board.hasPlain"
   :react-lines="data.board.reactLines"
   :plain-lines="data.board.plainLines"
 >
+
+<template v-slot:summary>
+
+Cards that keep the title being typed into them while they are dragged between
+columns.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -32,7 +36,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 Every other example holds its state in one place and draws it. This one is
 about state that belongs to the *items*: the half-typed title someone is in the
@@ -72,3 +76,5 @@ trunk serve --config examples/board/Trunk.toml
 
 The source is [`examples/board/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/board/src/lib.rs)
 and [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/board/src/plain.rs).
+
+</ExamplePage>

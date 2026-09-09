@@ -16,6 +16,10 @@ use egui_react_app::{Options, run};
 use egui_react_elements::prelude::*;
 use gallery::{EXAMPLES, Running, find};
 
+/// How much larger the embed draws than egui's default: the page's 16px body
+/// over egui's 12.5-point body text.
+const ZOOM: f32 = 16.0 / 12.5;
+
 fn main() -> eframe::Result {
     let canvas_id = Options::default().canvas_id;
     run(
@@ -33,6 +37,12 @@ fn main() -> eframe::Result {
                 // over the canvas. Does nothing off the web; there, egui's tree
                 // would otherwise be thrown away by eframe.
                 cc.egui_ctx.add_plugin(WebA11y::new(canvas_id));
+                // egui's body text is 12.5 points and the page around the
+                // iframe sets its text at 16px, so an example at egui's own
+                // scale reads as small print next to the notes. Zoom rather
+                // than a bigger text style: spacing and widgets grow with the
+                // text, which is what a reader on a page at 16px expects.
+                cc.egui_ctx.set_zoom_factor(ZOOM);
                 // The `Context` is only reachable here, and this is the one
                 // place that runs before the first pass.
                 watch_hash(&cc.egui_ctx);

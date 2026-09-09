@@ -26,9 +26,9 @@ use font::App as FontApp;
 use form::App as FormApp;
 use layout::App as LayoutApp;
 use list_10k::App as ListApp;
+use notes::App as NotesApp;
 use patch::App as PatchApp;
 use shader::App as ShaderApp;
-use showcase::App as ShowcaseApp;
 use spreadsheet::App as SpreadsheetApp;
 use styles::App as StyleApp;
 use theme::App as ThemeApp;
@@ -41,7 +41,7 @@ use todo::App as TodoApp;
 /// `#[component]` has a props type of its own and they cannot share a `fn`
 /// pointer.
 pub const EXAMPLES: &[Meta] = &[
-    showcase::META,
+    notes::META,
     board::META,
     patch::META,
     spreadsheet::META,
@@ -476,7 +476,7 @@ pub fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "styles" => { <StyleApp/> }
                 "fetch" => { <FetchApp/> }
                 "font" => { <FontApp/> }
-                _ => { <ShowcaseApp/> }
+                _ => { <NotesApp/> }
             }
         }
     }

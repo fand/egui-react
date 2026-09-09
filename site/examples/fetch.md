@@ -2,20 +2,24 @@
 title: fetch
 ---
 
-# fetch
-
-`use_future` runs the request; the nearest `<Suspense>` draws the spinner.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="fetch"
   :has-plain="data.fetch.hasPlain"
   :react-lines="data.fetch.reactLines"
   :plain-lines="data.fetch.plainLines"
 >
+
+<template v-slot:summary>
+
+`use_future` runs the request; the nearest `<Suspense>` draws the spinner.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -24,7 +28,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 Two components and about forty lines. `App` owns the URL and an attempt
 counter; `Response` calls [`use_future`](/reference/hooks) with both as deps,
@@ -52,3 +56,5 @@ trunk serve --config examples/fetch/Trunk.toml
 ```
 
 The source is [`examples/fetch/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/fetch/src/lib.rs).
+
+</ExamplePage>

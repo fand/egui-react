@@ -1,6 +1,6 @@
 [package]
-name = "showcase"
-description = "egui-react example: showcase"
+name = "notes"
+description = "egui-react example: notes"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -9,11 +9,11 @@ rust-version.workspace = true
 publish = false
 
 [lib]
-name = "showcase"
+name = "notes"
 path = "src/lib.rs"
 
 [[bin]]
-name = "showcase"
+name = "notes"
 path = "src/main.rs"
 
 [dependencies]

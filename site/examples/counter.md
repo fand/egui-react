@@ -2,20 +2,24 @@
 title: counter
 ---
 
-# counter
-
-One piece of state, three handlers that borrow it in turn.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="counter"
   :has-plain="data.counter.hasPlain"
   :react-lines="data.counter.reactLines"
   :plain-lines="data.counter.plainLines"
 >
+
+<template v-slot:summary>
+
+One piece of state, three handlers that borrow it in turn.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -24,7 +28,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 The three handlers each take `count` as `&mut`, one after another. Nothing is
 cloned and nothing is `'static`: the closures run during the pass that built
@@ -42,3 +46,5 @@ trunk serve --config examples/counter/Trunk.toml
 ```
 
 The source is [`examples/counter/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/counter/src/lib.rs).
+
+</ExamplePage>

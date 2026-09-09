@@ -2,20 +2,24 @@
 title: layout
 ---
 
-# layout
-
-Every flex and grid attribute `<View>` understands, one section each.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="layout"
   :has-plain="data.layout.hasPlain"
   :react-lines="data.layout.reactLines"
   :plain-lines="data.layout.plainLines"
 >
+
+<template v-slot:summary>
+
+Every flex and grid attribute `<View>` understands, one section each.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -31,7 +35,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 A visual table rather than an app: seven labelled sections, each drawing what
 one group of attributes does — `direction`, `justify`, `align` with `grow`,
@@ -62,3 +66,5 @@ trunk serve --config examples/layout/Trunk.toml
 
 The source is [`examples/layout/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/layout/src/lib.rs)
 and [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/layout/src/plain.rs).
+
+</ExamplePage>

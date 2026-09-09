@@ -2,20 +2,24 @@
 title: form
 ---
 
-# form
-
-Every bound widget, a change log, and settings that survive a restart.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="form"
   :has-plain="data.form.hasPlain"
   :react-lines="data.form.reactLines"
   :plain-lines="data.form.plainLines"
 >
+
+<template v-slot:summary>
+
+Every bound widget, a change log, and settings that survive a restart.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -31,7 +35,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 One settings screen with every bound element in it:
 [`<TextEdit>`, `<Checkbox>`, `<Slider>` and `<ComboBox>`](/reference/elements).
@@ -62,3 +66,5 @@ trunk serve --config examples/form/Trunk.toml
 
 The source is [`examples/form/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/form/src/lib.rs)
 and [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/form/src/plain.rs).
+
+</ExamplePage>

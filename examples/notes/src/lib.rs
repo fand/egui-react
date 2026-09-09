@@ -28,7 +28,7 @@ pub mod notes;
 use notes::{Msg, Note, Notes, reduce, visible};
 
 pub const META: Meta = Meta {
-    name: "showcase",
+    name: "notes",
     summary: "A notes app: reducer, persistence, context, memo and a settings window, together.",
     hooks: &[
         "use_state",
@@ -109,7 +109,7 @@ fn Notebook(cx: &mut Cx) {
     // The reducer owns the notes; the persisted slot is the copy that survives
     // a restart. `use_persisted` first, so its value is there to seed the
     // reducer on the very first frame.
-    let mut saved = use_persisted(cx, "showcase/notes", Notes::default);
+    let mut saved = use_persisted(cx, "notes/notes", Notes::default);
     let (mut notes, dispatch) = use_reducer(cx, reduce, || saved.clone());
     if *saved != *notes {
         *saved = notes.clone();

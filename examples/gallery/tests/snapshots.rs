@@ -194,7 +194,7 @@ macro_rules! single {
     };
 }
 
-single!(showcase, egui::vec2(700.0, 460.0), two_notes);
+single!(notes, egui::vec2(700.0, 460.0), two_notes);
 single!(counter, egui::vec2(400.0, 300.0));
 same!(todo, egui::vec2(400.0, 400.0), 100, two_items);
 same!(form, egui::vec2(420.0, 420.0), 0, edited);

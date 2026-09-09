@@ -2,21 +2,25 @@
 title: spreadsheet
 ---
 
-# spreadsheet
-
-Formulas over 26 x 10,000 cells: two memo stages, and a draft that survives
-scrolling out of view.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="spreadsheet"
   :has-plain="data.spreadsheet.hasPlain"
   :react-lines="data.spreadsheet.reactLines"
   :plain-lines="data.spreadsheet.plainLines"
 >
+
+<template v-slot:summary>
+
+Formulas over 26 x 10,000 cells: two memo stages, and a draft that survives
+scrolling out of view.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -25,7 +29,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 Type a number into a cell and every total that reads it moves. Type a formula
 and the sheet is parsed again, ordered again, and evaluated again. Those are
@@ -60,3 +64,5 @@ trunk serve --config examples/spreadsheet/Trunk.toml
 ```
 
 The source is [`examples/spreadsheet/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/spreadsheet/src/lib.rs).
+
+</ExamplePage>

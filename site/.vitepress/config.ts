@@ -15,7 +15,7 @@ const SITE = path.dirname(fileURLToPath(import.meta.url))
 /// below are both built from this, so a page that is added or renamed needs no
 /// second edit here.
 const EXAMPLES = [
-  'showcase',
+  'notes',
   'board',
   'patch',
   'spreadsheet',
@@ -57,8 +57,11 @@ const redirect = `
   var path = location.pathname;
   if (path !== base && path !== base + 'index.html') return;
   var match = /^#([a-z0-9-]+)(\\/plain)?$/.exec(location.hash);
-  if (match && names.indexOf(match[1]) !== -1) {
-    location.replace(base + 'examples/' + match[1] + '.html');
+  if (!match) return;
+  // The example was called showcase until September 2026; old links still work.
+  var name = match[1] === 'showcase' ? 'notes' : match[1];
+  if (names.indexOf(name) !== -1) {
+    location.replace(base + 'examples/' + name + '.html');
   }
 })();
 `.trim()
@@ -74,6 +77,21 @@ export default defineConfig({
   // find in production; this is VitePress's default and stays on.
   ignoreDeadLinks: false,
   head: [['script', {}, redirect]],
+  // An example page is the running example beside its code, the way the
+  // gallery laid them out (`theme/ExamplePage.vue`): the whole content area,
+  // no outline aside. Set here rather than in seventeen frontmatter blocks so
+  // a new page gets it by being in the directory. `shell` has no running
+  // example and stays an ordinary page.
+  transformPageData(pageData) {
+    if (
+      pageData.relativePath.startsWith('examples/') &&
+      pageData.relativePath !== 'examples/shell.md'
+    ) {
+      pageData.frontmatter.aside = false
+      pageData.frontmatter.outline = false
+      pageData.frontmatter.pageClass = 'example-page'
+    }
+  },
   markdown: {
     config: (md) => {
       md.use(exampleSourcePlugin)

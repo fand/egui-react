@@ -1,5 +1,7 @@
 <script setup>
-// One example, running in an iframe, with its source next to it.
+// One example, running in an iframe, with its source next to it: the home
+// page's counter. The example pages have a layout of their own,
+// `ExamplePage.vue`.
 //
 // The wasm behind the iframe is the gallery's `embed` binary: one build for
 // the whole site, told which example to draw by the hash

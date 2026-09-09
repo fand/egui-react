@@ -2,20 +2,24 @@
 title: list-10k
 ---
 
-# list-10k
-
-Ten thousand rows, and what drawing all of them costs.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="list-10k"
   :has-plain="data['list-10k'].hasPlain"
   :react-lines="data['list-10k'].reactLines"
   :plain-lines="data['list-10k'].plainLines"
 >
+
+<template v-slot:summary>
+
+Ten thousand rows, and what drawing all of them costs.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -31,7 +35,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 [`<VirtualList>`](/reference/elements) draws only the rows the viewport can see
 and reserves the height of the rest, so the frame time does not depend on the
@@ -65,3 +69,5 @@ trunk serve --config examples/list-10k/Trunk.toml
 
 The source is [`examples/list-10k/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/list-10k/src/lib.rs)
 and [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/list-10k/src/plain.rs).
+
+</ExamplePage>

@@ -50,13 +50,13 @@ The hooks, the elements and the layout attributes are listed in [docs/ARCHITECTU
 
 ## Examples
 
-Every example but one runs in the browser on its own page in the [documentation site](https://fand.github.io/egui-react/), next to its source. Start with `showcase`, a small notes app that uses most of the library at once; the rest take one idea each. `shell` is standalone: a docked panel carves up the nearest enclosing `Ui`, which is the window, so there is nothing sensible for an embedded column to do with it. Some of them also have a version written with plain egui, so you can switch between the two and compare. `cargo run -p gallery` is the native three-column tool — the example list, the running example and its code in one window — and the site is the web version of the same thing, one page per example. Either way the example runs on a canvas, so a screen reader reads it natively but not on the web; the widget names are there in both (`docs/tasks/a11y/`).
+Every example but one runs in the browser on its own page in the [documentation site](https://fand.github.io/egui-react/), next to its source. Start with `notes`, a small notes app that uses most of the library at once; the rest take one idea each. `shell` is standalone: a docked panel carves up the nearest enclosing `Ui`, which is the window, so there is nothing sensible for an embedded column to do with it. Some of them also have a version written with plain egui, so you can switch between the two and compare. `cargo run -p gallery` is the native three-column tool — the example list, the running example and its code in one window — and the site is the web version of the same thing, one page per example. Either way the example runs on a canvas, so a screen reader reads it natively but not on the web; the widget names are there in both (`docs/tasks/a11y/`).
 
 ![The gallery: example list, the running example, and its source next to it](docs/gallery.png)
 
 | name | what | live | source | plain egui |
 |---|---|---|---|---|
-| `showcase` | A notes app: reducer, persistence, context, memo and a settings window, together. | [showcase](https://fand.github.io/egui-react/examples/showcase) | [lib.rs](examples/showcase/src/lib.rs) | – |
+| `notes` | A notes app: reducer, persistence, context, memo and a settings window, together. | [notes](https://fand.github.io/egui-react/examples/notes) | [lib.rs](examples/notes/src/lib.rs) | – |
 | `board` | Cards that keep the title being typed into them while they are dragged between columns. | [board](https://fand.github.io/egui-react/examples/board) | [lib.rs](examples/board/src/lib.rs) | [plain.rs](examples/board/src/plain.rs) |
 | `patch` | A node editor that generates, validates and previews its own WGSL shader. | [patch](https://fand.github.io/egui-react/examples/patch) | [lib.rs](examples/patch/src/lib.rs) | – |
 | `spreadsheet` | Formulas over 26 × 10,000 cells: two memo stages, and a draft that survives scrolling out of view. | [spreadsheet](https://fand.github.io/egui-react/examples/spreadsheet) | [lib.rs](examples/spreadsheet/src/lib.rs) | – |

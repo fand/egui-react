@@ -2,20 +2,24 @@
 title: patch
 ---
 
-# patch
-
-A node editor that generates, validates and previews its own WGSL shader.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="patch"
   :has-plain="data.patch.hasPlain"
   :react-lines="data.patch.reactLines"
   :plain-lines="data.patch.plainLines"
 >
+
+<template v-slot:summary>
+
+A node editor that generates, validates and previews its own WGSL shader.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -24,7 +28,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 The picture is not drawn by the editor; it is drawn by a fragment shader that
 the patch on the left *is*. Wire two nodes together and a new WGSL program is
@@ -61,3 +65,5 @@ trunk serve --config examples/patch/Trunk.toml
 ```
 
 The source is [`examples/patch/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/patch/src/lib.rs).
+
+</ExamplePage>

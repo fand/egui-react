@@ -2,20 +2,24 @@
 title: escape-hatch
 ---
 
-# escape-hatch
-
-Four ways down to plain egui: a closure, a leaf, a painter, and a nested Cx.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="escape-hatch"
   :has-plain="data['escape-hatch'].hasPlain"
   :react-lines="data['escape-hatch'].reactLines"
   :plain-lines="data['escape-hatch'].plainLines"
 >
+
+<template v-slot:summary>
+
+Four ways down to plain egui: a closure, a leaf, a painter, and a nested Cx.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -24,7 +28,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 egui-react wraps a useful subset of egui, not all of it, and it never has to.
 Everything is `&mut egui::Ui` in the end, so anything egui can do is one call
@@ -59,3 +63,5 @@ trunk serve --config examples/escape-hatch/Trunk.toml
 ```
 
 The source is [`examples/escape-hatch/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/escape-hatch/src/lib.rs).
+
+</ExamplePage>

@@ -211,7 +211,7 @@ It fills the space it is given rather than reporting a size, so it needs
 `grow` under a parent with a definite height, or a height of its own — see the
 trap in [Layout](/guide/layout). For long lists use `<VirtualList>`.
 
-Used in: [board](/examples/board), [showcase](/examples/showcase),
+Used in: [board](/examples/board), [notes](/examples/notes),
 [fetch](/examples/fetch), [font](/examples/font), [patch](/examples/patch).
 
 ### `<VirtualList>`
@@ -287,7 +287,7 @@ no space in the layout.
 
 Not drawing a `<Window>` — or `open={false}` — unmounts its children.
 
-Used in: [showcase](/examples/showcase), [shell](/examples/shell).
+Used in: [notes](/examples/notes), [shell](/examples/shell).
 
 ### `<Overlay>`
 

@@ -2,21 +2,25 @@
 title: theme
 ---
 
-# theme
-
-Two values provided at the top and read three levels down, with nothing in
-between.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="theme"
   :has-plain="data.theme.hasPlain"
   :react-lines="data.theme.reactLines"
   :plain-lines="data.theme.plainLines"
 >
+
+<template v-slot:summary>
+
+Two values provided at the top and read three levels down, with nothing in
+between.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -25,7 +29,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 `Themed` owns a `Theme` and a `Locale` and provides both to its children.
 `Page` and `Card` sit in between and take no props at all — they do not know a
@@ -58,3 +62,5 @@ trunk serve --config examples/theme/Trunk.toml
 ```
 
 The source is [`examples/theme/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/theme/src/lib.rs).
+
+</ExamplePage>

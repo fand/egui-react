@@ -2,21 +2,25 @@
 title: styles
 ---
 
-# styles
-
-Every `style` attribute in a table: the name, the code that uses it, and what it
-draws.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="styles"
   :has-plain="data.styles.hasPlain"
   :react-lines="data.styles.reactLines"
   :plain-lines="data.styles.plainLines"
 >
+
+<template v-slot:summary>
+
+Every `style` attribute in a table: the name, the code that uses it, and what it
+draws.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -25,7 +29,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 One row per attribute: its name, the code, and the picture that code produces.
 Every attribute goes through the one `style` prop that every element takes —
@@ -55,3 +59,5 @@ trunk serve --config examples/styles/Trunk.toml
 ```
 
 The source is [`examples/styles/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/styles/src/lib.rs).
+
+</ExamplePage>

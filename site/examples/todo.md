@@ -2,20 +2,24 @@
 title: todo
 ---
 
-# todo
-
-A reducer drives the list; `use_persisted` keeps it across restarts.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="todo"
   :has-plain="data.todo.hasPlain"
   :react-lines="data.todo.reactLines"
   :plain-lines="data.todo.plainLines"
 >
+
+<template v-slot:summary>
+
+A reducer drives the list; `use_persisted` keeps it across restarts.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -31,7 +35,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 Everything that can change the list is a message — `Add`, `Toggle`, `Remove`,
 `ClearDone` — and one `reduce` function applies them.
@@ -66,3 +70,5 @@ trunk serve --config examples/todo/Trunk.toml
 
 The source is [`examples/todo/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/todo/src/lib.rs)
 and [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/todo/src/plain.rs).
+
+</ExamplePage>

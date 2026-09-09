@@ -2,20 +2,24 @@
 title: shader
 ---
 
-# shader
-
-A ray-traced black hole in a `<Canvas>`, with sliders wired to its uniform.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="shader"
   :has-plain="data.shader.hasPlain"
   :react-lines="data.shader.reactLines"
   :plain-lines="data.shader.plainLines"
 >
+
+<template v-slot:summary>
+
+A ray-traced black hole in a `<Canvas>`, with sliders wired to its uniform.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -24,7 +28,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 Three pieces meet here, and each stays on its own side of the fence. The
 pipeline is built once at startup by `Options::setup`, which eframe hands a
@@ -58,3 +62,5 @@ trunk serve --config examples/shader/Trunk.toml
 The source is [`examples/shader/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/shader/src/lib.rs);
 the pipeline is in [`src/gpu.rs`](https://github.com/fand/egui-react/blob/main/examples/shader/src/gpu.rs)
 and the shader in [`src/shader.wgsl`](https://github.com/fand/egui-react/blob/main/examples/shader/src/shader.wgsl).
+
+</ExamplePage>

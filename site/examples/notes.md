@@ -1,30 +1,34 @@
 ---
-title: showcase
+title: notes
 ---
-
-# showcase
-
-A notes app: reducer, persistence, context, memo and a settings window, together.
 
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
-  name="showcase"
-  :has-plain="data.showcase.hasPlain"
-  :react-lines="data.showcase.reactLines"
-  :plain-lines="data.showcase.plainLines"
+<ExamplePage
+  name="notes"
+  :has-plain="data.notes.hasPlain"
+  :react-lines="data.notes.reactLines"
+  :plain-lines="data.notes.plainLines"
 >
+
+<template v-slot:summary>
+
+A notes app: reducer, persistence, context, memo and a settings window, together.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
-::: example-source showcase
+::: example-source notes
 :::
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 Nothing here is new. It is the pieces the other examples show one at a time,
 put together the way an application would put them: `use_reducer` owns the
@@ -49,8 +53,10 @@ piece you want one at a time.
 ## Run it yourself
 
 ```sh
-cargo run -p showcase
-trunk serve --config examples/showcase/Trunk.toml
+cargo run -p notes
+trunk serve --config examples/notes/Trunk.toml
 ```
 
-The source is [`examples/showcase/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/showcase/src/lib.rs).
+The source is [`examples/notes/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/notes/src/lib.rs).
+
+</ExamplePage>

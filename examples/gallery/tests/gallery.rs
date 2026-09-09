@@ -1,6 +1,7 @@
 //! Plan test A-4: picking an example from the list runs it, and a tag narrows
 //! the list. And the compact layout: one pane, a floating toggle and a menu.
 
+use egui::accesskit::Role;
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT as _, Queryable as _};
 use egui_react::prelude::*;
@@ -49,7 +50,7 @@ fn selecting_an_example_runs_it() {
     let mut harness = harness();
     harness.run();
 
-    // `showcase` is the first example, and it opens on an empty notebook.
+    // `notes` is the first example, and it opens on an empty notebook.
     assert!(harness.query_by_label("no notes").is_some());
     assert!(harness.query_by_label("0 left").is_none());
 
@@ -58,7 +59,7 @@ fn selecting_an_example_runs_it() {
     harness.run();
     harness.run();
 
-    // The todo example is running, and showcase's hooks went with its scope.
+    // The todo example is running, and notes' hooks went with its scope.
     assert!(harness.query_by_label("0 left").is_some());
     assert!(harness.query_by_label("no notes").is_none());
 }
@@ -81,8 +82,15 @@ fn a_tag_narrows_the_list() {
     let mut harness = harness();
     harness.run();
 
-    for name in ["showcase", "counter", "todo", "layout", "fetch"] {
-        assert!(harness.query_by_label(name).is_some(), "{name} missing");
+    // By role as well as label: the notes app is running beside the list, and
+    // its heading is the word `notes` too.
+    for name in ["notes", "counter", "todo", "layout", "fetch"] {
+        assert!(
+            harness
+                .query_by_role_and_label(Role::Button, name)
+                .is_some(),
+            "{name} missing"
+        );
     }
 
     // The chips wrap as a row, they do not shrink to one letter per line.
@@ -96,9 +104,11 @@ fn a_tag_narrows_the_list() {
 
     assert!(harness.query_by_label("fetch").is_some());
     assert!(harness.query_by_label("patch").is_some());
-    for name in ["showcase", "counter", "todo", "layout"] {
+    for name in ["notes", "counter", "todo", "layout"] {
         assert!(
-            harness.query_by_label(name).is_none(),
+            harness
+                .query_by_role_and_label(Role::Button, name)
+                .is_none(),
             "{name} not filtered"
         );
     }
@@ -156,7 +166,7 @@ fn the_toggle_follows_the_example() {
     let mut harness = harness();
     harness.run();
 
-    // `showcase` has no plain version, so there is no toggle to start with.
+    // `notes` has no plain version, so there is no toggle to start with.
     assert!(harness.query_by_label("plain egui").is_none());
     harness.get_by_label("form").click();
     harness.run();
@@ -276,7 +286,7 @@ fn a_phone_shows_one_pane_at_a_time() {
     assert!(harness.query_by_label("examples").is_none());
     assert!(harness.query_by_label("use_future").is_none());
 
-    // The example pane is up: showcase is running, and the code is not there.
+    // The example pane is up: notes is running, and the code is not there.
     assert!(harness.query_by_label("no notes").is_some());
     assert!(harness.query_by_label("source on GitHub").is_none());
 
@@ -303,10 +313,7 @@ fn a_phone_shows_one_pane_at_a_time() {
         link.right() <= PHONE.x,
         "the code pane ran off the right edge: {link:?}"
     );
-    let counted = format!(
-        "{} lines",
-        shown_source(showcase::META.source).lines().count()
-    );
+    let counted = format!("{} lines", shown_source(notes::META.source).lines().count());
     let counted = harness.get_by_label(&counted).rect();
     assert!(
         counted.left() < 40.0,
@@ -431,7 +438,7 @@ fn the_menu_covers_the_pane() {
     let mut harness = phone_harness();
     harness.run();
 
-    // Where showcase's "new" button is with the menu away.
+    // Where notes' "new" button is with the menu away.
     let new = harness.get_by_label("new").rect().center();
 
     harness.get_by_label("menu").click();

@@ -2,21 +2,25 @@
 title: custom-hook
 ---
 
-# custom-hook
-
-Three hooks of your own, each called from two components that keep their own
-state.
-
 <script setup>
 import { data } from '../examples.data.js'
 </script>
 
-<ExampleEmbed
+<ExamplePage
   name="custom-hook"
   :has-plain="data['custom-hook'].hasPlain"
   :react-lines="data['custom-hook'].reactLines"
   :plain-lines="data['custom-hook'].plainLines"
 >
+
+<template v-slot:summary>
+
+Three hooks of your own, each called from two components that keep their own
+state.
+
+</template>
+
+<template v-slot:code>
 
 <div data-version="react">
 
@@ -25,7 +29,7 @@ import { data } from '../examples.data.js'
 
 </div>
 
-</ExampleEmbed>
+</template>
 
 A custom hook is an ordinary function that takes `&mut Cx` and calls other
 hooks. `#[hook]` is what makes it reusable: it enters a scope keyed by the
@@ -56,3 +60,5 @@ trunk serve --config examples/custom-hook/Trunk.toml
 
 The source is [`examples/custom-hook/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/custom-hook/src/lib.rs);
 the hooks themselves are in [`src/hooks.rs`](https://github.com/fand/egui-react/blob/main/examples/custom-hook/src/hooks.rs).
+
+</ExamplePage>
