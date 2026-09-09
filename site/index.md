@@ -20,12 +20,6 @@ hero:
 import { data } from './examples.data.js'
 </script>
 
-## The counter, running
-
-The example below is the wasm build of `examples/counter`, next to the source
-it was built from. Switch to the plain egui version to see the same program
-without the library.
-
 <ExampleEmbed
   name="counter"
   :has-plain="data.counter.hasPlain"
@@ -51,22 +45,13 @@ without the library.
 
 <div class="home-features">
   <div class="feature">
-    <h3>No reconciler</h3>
-    <p>
-      egui is immediate mode, so there is no retained tree to diff. Event
-      handlers run where they are written and borrow local state with
-      <code>&amp;mut</code> — none of the <code>'static</code> closures,
-      <code>Rc&lt;RefCell&lt;_&gt;&gt;</code> or <code>.clone()</code> ceremony
-      that retained-mode Rust UI frameworks require.
-    </p>
-  </div>
-  <div class="feature">
     <h3>Components and hooks</h3>
     <p>
       A JSX-like <code>rsx!</code> macro, function components with
       <code>#[component]</code>, and hooks such as <code>use_state</code>,
-      <code>use_effect</code> and <code>use_future</code> — including hooks of
-      your own, written with <code>#[hook]</code>.
+      <code>use_effect</code> and <code>use_future</code> — event handlers
+      simply borrow local state with <code>&amp;mut</code>, with no
+      <code>.clone()</code> ceremony.
     </p>
   </div>
   <div class="feature">

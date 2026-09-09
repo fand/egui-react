@@ -67,6 +67,22 @@
   display: none;
 }
 
+/* The default hero padding pushes the demo below the fold. The hero here is
+   one name and one line, so it gives up its air and the running example is in
+   the first view, which is the page's whole argument. */
+.VPHome .VPHero {
+  padding-bottom: 16px;
+}
+
+.VPHome .VPHero.has-image .container,
+.VPHome .VPHero .container {
+  margin-bottom: 0;
+}
+
+.VPHome .example-embed {
+  margin-top: 8px;
+}
+
 /* On the home page the code sits beside the running example rather than under
    it: the point being made there is that the one is the other. */
 @media (min-width: 960px) {
