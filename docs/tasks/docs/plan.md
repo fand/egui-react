@@ -210,4 +210,37 @@ call it. With `SITE_BASE` defaulting to `/`:
 
 ## 8. Differences found during implementation
 
-(To be filled in as they come up.)
+Steps 1 to 4:
+
+- **`embed.rs`'s root reads the hash one level in.** `rsx!` expands to a
+  non-`move` closure, so reading the hash beside it made the returned view
+  borrow the root closure's frame (E0373). The root is
+  `view(|cx| { let (name, plain) = requested(); rsx!{..}.show(cx); })`, which
+  keeps the borrow inside the pass and still re-reads every pass.
+- **Home's feature cards are markdown, not frontmatter.** VitePress's home
+  layout renders the page body *after* `features`, and section 4 wants the live
+  counter above the cards, so the four cards are HTML in `index.md` with a
+  small grid in the theme's CSS. The hero stays stock frontmatter.
+- **Line counts reach the pages through a data loader.** `site/examples.data.js`
+  (a VitePress loader, so it runs in Node at build time) exports
+  `hasPlain` / `reactLines` / `plainLines` per example; the pages pass them to
+  `ExampleEmbed`. Hardcoding the numbers in markdown would drift.
+- **`::: example-source` is a markdown-it block rule, not a container.** A
+  container's `render` emits raw HTML and would bypass Shiki; the rule pushes a
+  `fence` token instead, so the block is highlighted at build time and gets the
+  copy button like any other fence. It also keeps the dependency list to
+  vitepress + vue.
+- **The code panes are shown and hidden from global CSS.** The page owns the
+  fences and passes them through `ExampleEmbed`'s slot, so a `<style scoped>`
+  cannot reach them; the component toggles a class and
+  `.vitepress/theme/custom.css` hides the version that is not selected.
+- **`/api/` needs an index of its own.** `cargo doc` writes one directory per
+  crate and no root `index.html`, so `site/build.sh` writes a redirect to
+  `egui_react/index.html`.
+- **`Trunk-embed.toml`'s output needs its own ignore entry.** `.gitignore`'s
+  `dist/` matches only directories named exactly `dist`, so `dist-embed/` was
+  added.
+- **The site build prints a chunk-size warning.** The example sources are
+  inlined into their page chunks (board alone is 826 lines), so rollup warns
+  about chunks over 500 kB. It is a warning, not an error; revisit if the
+  deployed size starts to matter.

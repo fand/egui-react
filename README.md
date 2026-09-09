@@ -2,6 +2,8 @@
 
 egui-react is a Rust library for writing [egui](https://github.com/emilk/egui) applications the way you write React: a JSX-like `rsx!` macro, function components with `#[component]`, and hooks such as `use_state` and `use_effect`. Because egui is immediate mode there is no retained tree and no reconciler, so event handlers run where they are written and can borrow local state with `&mut` — none of the `'static` closures, `Rc<RefCell<_>>` or `.clone()` ceremony that retained-mode Rust UI frameworks require. Flexbox and Grid layout are first-class: `<View>` is a node in a small layout engine of our own, written over [taffy](https://github.com/DioxusLabs/taffy).
 
+The documentation — a guide, a reference and every example running in the browser next to its source — is at [fand.github.io/egui-react](https://fand.github.io/egui-react/).
+
 The current design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); design decisions are in [docs/adr/](docs/adr/).
 
 ## Usage
@@ -48,30 +50,30 @@ The hooks, the elements and the layout attributes are listed in [docs/ARCHITECTU
 
 ## Examples
 
-Every example but one runs in the browser in the [gallery](https://fand.github.io/egui-react/), next to its source. Start with `showcase`, a small notes app that uses most of the library at once; the rest take one idea each. `shell` is standalone: a docked panel carves up the nearest enclosing `Ui`, which is the window, so there is nothing sensible for a gallery column to do with it. Some of them also have a version written with plain egui, so you can switch between the two and compare. The gallery draws to a canvas, so a screen reader cannot read it on the web — natively it can, and the widget names are there either way (`docs/tasks/a11y/`).
+Every example but one runs in the browser on its own page in the [documentation site](https://fand.github.io/egui-react/), next to its source. Start with `showcase`, a small notes app that uses most of the library at once; the rest take one idea each. `shell` is standalone: a docked panel carves up the nearest enclosing `Ui`, which is the window, so there is nothing sensible for an embedded column to do with it. Some of them also have a version written with plain egui, so you can switch between the two and compare. `cargo run -p gallery` is the native three-column tool — the example list, the running example and its code in one window — and the site is the web version of the same thing, one page per example. Either way the example runs on a canvas, so a screen reader reads it natively but not on the web; the widget names are there in both (`docs/tasks/a11y/`).
 
 ![The gallery: example list, the running example, and its source next to it](docs/gallery.png)
 
 | name | what | live | source | plain egui |
 |---|---|---|---|---|
-| `showcase` | A notes app: reducer, persistence, context, memo and a settings window, together. | [#showcase](https://fand.github.io/egui-react/#showcase) | [lib.rs](examples/showcase/src/lib.rs) | – |
-| `board` | Cards that keep the title being typed into them while they are dragged between columns. | [#board](https://fand.github.io/egui-react/#board) | [lib.rs](examples/board/src/lib.rs) | [plain.rs](examples/board/src/plain.rs) |
-| `patch` | A node editor that generates, validates and previews its own WGSL shader. | [#patch](https://fand.github.io/egui-react/#patch) | [lib.rs](examples/patch/src/lib.rs) | – |
-| `spreadsheet` | Formulas over 26 × 10,000 cells: two memo stages, and a draft that survives scrolling out of view. | [#spreadsheet](https://fand.github.io/egui-react/#spreadsheet) | [lib.rs](examples/spreadsheet/src/lib.rs) | – |
-| `counter` | One piece of state, three handlers that borrow it in turn. | [#counter](https://fand.github.io/egui-react/#counter) | [lib.rs](examples/counter/src/lib.rs) | [plain.rs](examples/counter/src/plain.rs) |
-| `todo` | A reducer drives the list; `use_persisted` keeps it across restarts. | [#todo](https://fand.github.io/egui-react/#todo) | [lib.rs](examples/todo/src/lib.rs) | [plain.rs](examples/todo/src/plain.rs) |
-| `form` | Every bound widget, a change log, and settings that survive a restart. | [#form](https://fand.github.io/egui-react/#form) | [lib.rs](examples/form/src/lib.rs) | [plain.rs](examples/form/src/plain.rs) |
-| `theme` | Two values provided at the top and read three levels down, with nothing in between. | [#theme](https://fand.github.io/egui-react/#theme) | [lib.rs](examples/theme/src/lib.rs) | – |
-| `clock` | A stopwatch that asks for its own repaints, and an effect that cleans up after itself. | [#clock](https://fand.github.io/egui-react/#clock) | [lib.rs](examples/clock/src/lib.rs) | – |
-| `custom-hook` | Three hooks of your own, each called from two components that keep their own state. | [#custom-hook](https://fand.github.io/egui-react/#custom-hook) | [lib.rs](examples/custom-hook/src/lib.rs) | – |
-| `escape-hatch` | Four ways down to plain egui: a closure, a leaf, a painter, and a nested Cx. | [#escape-hatch](https://fand.github.io/egui-react/#escape-hatch) | [lib.rs](examples/escape-hatch/src/lib.rs) | – |
-| `shader` | A wgpu fragment shader in a `<Canvas>`, with a slider wired to its uniform. | [#shader](https://fand.github.io/egui-react/#shader) | [lib.rs](examples/shader/src/lib.rs) | – |
-| `list-10k` | Ten thousand rows: what drawing all of them costs, and what `<VirtualList>` saves. | [#list-10k](https://fand.github.io/egui-react/#list-10k) | [lib.rs](examples/list-10k/src/lib.rs) | [plain.rs](examples/list-10k/src/plain.rs) |
+| `showcase` | A notes app: reducer, persistence, context, memo and a settings window, together. | [showcase](https://fand.github.io/egui-react/examples/showcase) | [lib.rs](examples/showcase/src/lib.rs) | – |
+| `board` | Cards that keep the title being typed into them while they are dragged between columns. | [board](https://fand.github.io/egui-react/examples/board) | [lib.rs](examples/board/src/lib.rs) | [plain.rs](examples/board/src/plain.rs) |
+| `patch` | A node editor that generates, validates and previews its own WGSL shader. | [patch](https://fand.github.io/egui-react/examples/patch) | [lib.rs](examples/patch/src/lib.rs) | – |
+| `spreadsheet` | Formulas over 26 × 10,000 cells: two memo stages, and a draft that survives scrolling out of view. | [spreadsheet](https://fand.github.io/egui-react/examples/spreadsheet) | [lib.rs](examples/spreadsheet/src/lib.rs) | – |
+| `counter` | One piece of state, three handlers that borrow it in turn. | [counter](https://fand.github.io/egui-react/examples/counter) | [lib.rs](examples/counter/src/lib.rs) | [plain.rs](examples/counter/src/plain.rs) |
+| `todo` | A reducer drives the list; `use_persisted` keeps it across restarts. | [todo](https://fand.github.io/egui-react/examples/todo) | [lib.rs](examples/todo/src/lib.rs) | [plain.rs](examples/todo/src/plain.rs) |
+| `form` | Every bound widget, a change log, and settings that survive a restart. | [form](https://fand.github.io/egui-react/examples/form) | [lib.rs](examples/form/src/lib.rs) | [plain.rs](examples/form/src/plain.rs) |
+| `theme` | Two values provided at the top and read three levels down, with nothing in between. | [theme](https://fand.github.io/egui-react/examples/theme) | [lib.rs](examples/theme/src/lib.rs) | – |
+| `clock` | A stopwatch that asks for its own repaints, and an effect that cleans up after itself. | [clock](https://fand.github.io/egui-react/examples/clock) | [lib.rs](examples/clock/src/lib.rs) | – |
+| `custom-hook` | Three hooks of your own, each called from two components that keep their own state. | [custom-hook](https://fand.github.io/egui-react/examples/custom-hook) | [lib.rs](examples/custom-hook/src/lib.rs) | – |
+| `escape-hatch` | Four ways down to plain egui: a closure, a leaf, a painter, and a nested Cx. | [escape-hatch](https://fand.github.io/egui-react/examples/escape-hatch) | [lib.rs](examples/escape-hatch/src/lib.rs) | – |
+| `shader` | A wgpu fragment shader in a `<Canvas>`, with a slider wired to its uniform. | [shader](https://fand.github.io/egui-react/examples/shader) | [lib.rs](examples/shader/src/lib.rs) | – |
+| `list-10k` | Ten thousand rows: what drawing all of them costs, and what `<VirtualList>` saves. | [list-10k](https://fand.github.io/egui-react/examples/list-10k) | [lib.rs](examples/list-10k/src/lib.rs) | [plain.rs](examples/list-10k/src/plain.rs) |
 | `shell` | Docked panels, a floating window, and an editor in what is left. | – (standalone) | [lib.rs](examples/shell/src/lib.rs) | – |
-| `layout` | Every flex and grid attribute `<View>` understands, one section each. | [#layout](https://fand.github.io/egui-react/#layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
-| `styles` | Every `style` attribute in a table: the name, the code that uses it, and what it draws. | [#styles](https://fand.github.io/egui-react/#styles) | [lib.rs](examples/styles/src/lib.rs) | – |
-| `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [#fetch](https://fand.github.io/egui-react/#fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |
-| `font` | CSS-style font chains: a bundled subset, a 4.5 MB web font fetched on demand, and the installed fonts, with what each entry resolved to. | [#font](https://fand.github.io/egui-react/#font) | [lib.rs](examples/font/src/lib.rs) | – |
+| `layout` | Every flex and grid attribute `<View>` understands, one section each. | [layout](https://fand.github.io/egui-react/examples/layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
+| `styles` | Every `style` attribute in a table: the name, the code that uses it, and what it draws. | [styles](https://fand.github.io/egui-react/examples/styles) | [lib.rs](examples/styles/src/lib.rs) | – |
+| `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [fetch](https://fand.github.io/egui-react/examples/fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |
+| `font` | CSS-style font chains: a bundled subset, a 4.5 MB web font fetched on demand, and the installed fonts, with what each entry resolved to. | [font](https://fand.github.io/egui-react/examples/font) | [lib.rs](examples/font/src/lib.rs) | – |
 
 Run one natively, or in a browser with [trunk](https://trunkrs.dev/):
 
