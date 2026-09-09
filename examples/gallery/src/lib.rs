@@ -439,8 +439,10 @@ fn Chip(
 /// every component its own props type, so the four `App`s have four different
 /// signatures and no common `fn` type to store. The plain versions have the
 /// same problem for the opposite reason — each has its own `PlainState`.
+///
+/// `pub` for the `embed` binary, which is this component and nothing else.
 #[component]
-fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
+pub fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
     rsx! {
         if plain {
             match name {

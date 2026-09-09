@@ -1677,6 +1677,7 @@ dependencies = [
  "styles",
  "theme",
  "todo",
+ "wasm-bindgen",
  "web-sys",
 ]
 

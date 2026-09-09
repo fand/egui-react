@@ -16,6 +16,13 @@ path = "src/lib.rs"
 name = "gallery"
 path = "src/main.rs"
 
+# The documentation site's iframe: one example filling the canvas, picked by
+# `location.hash`. A second bin rather than a crate of its own, so it reuses the
+# gallery's example imports and `EXAMPLES` and adds no workspace member.
+[[bin]]
+name = "embed"
+path = "src/embed.rs"
+
 [features]
 # Pixel snapshot tests: the egui-react and plain egui versions of an example
 # rendered at the same size and compared with the same image. Needs a GPU (or a
@@ -49,9 +56,11 @@ theme = { path = "../theme" }
 todo = { path = "../todo" }
 
 # `location.hash` is the deep link on the web; natively the first argument does
-# the same job and needs nothing.
+# the same job and needs nothing. `EventTarget` and `wasm-bindgen` are the
+# embed's `hashchange` listener, which is how it hears about a new deep link.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-web-sys = { workspace = true, features = ["Location", "Window"] }
+wasm-bindgen.workspace = true
+web-sys = { workspace = true, features = ["EventTarget", "Location", "Window"] }
 
 [dev-dependencies]
 egui_kittest.workspace = true
