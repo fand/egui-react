@@ -48,6 +48,7 @@
     flex: 0 0 auto;
     width: 240px;
     min-height: 0;
+    margin: 0 30px;
   }
 
   .VPHero.has-image .container .main {
