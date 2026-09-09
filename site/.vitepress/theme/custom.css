@@ -1,0 +1,134 @@
+/* Everything the default theme does not already do: the example embed, its
+   tabs, and the home page's feature cards.
+
+   Not scoped to a component on purpose. `ExampleEmbed` shows and hides code
+   fences that the *page* owns and passes through a slot, and a scoped style
+   cannot select those. */
+
+.example-embed {
+  margin: 24px 0;
+}
+
+/* The tab row: the two versions of the example, with what each costs in lines.
+   Styled as buttons rather than links because nothing about the page's URL
+   changes. */
+.example-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.example-tabs button {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  background-color: var(--vp-c-bg-soft);
+  transition:
+    color 0.25s,
+    border-color 0.25s,
+    background-color 0.25s;
+}
+
+.example-tabs button:hover {
+  color: var(--vp-c-text-1);
+  border-color: var(--vp-c-brand-1);
+}
+
+.example-tabs button.active {
+  color: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+  background-color: var(--vp-c-bg);
+}
+
+/* A fixed shape, so the page does not jump about while the wasm starts. */
+.example-frame {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background-color: #101010;
+}
+
+.example-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* The slot: one wrapper per version, and only the selected one is shown. The
+   page marks them, the component picks. */
+.example-code.show-react [data-version='plain'],
+.example-code.show-plain [data-version='react'] {
+  display: none;
+}
+
+/* On the home page the code sits beside the running example rather than under
+   it: the point being made there is that the one is the other. */
+@media (min-width: 960px) {
+  .VPHome .example-embed {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'tabs tabs'
+      'frame code';
+    gap: 0 24px;
+    align-items: start;
+  }
+
+  .VPHome .example-tabs {
+    grid-area: tabs;
+  }
+
+  .VPHome .example-frame {
+    grid-area: frame;
+  }
+
+  .VPHome .example-code {
+    grid-area: code;
+    /* The source is longer than the canvas is tall; scroll it there rather
+       than stretching the row. */
+    max-height: 520px;
+    overflow: auto;
+  }
+
+  .VPHome .example-code div[class*='language-'] {
+    margin: 0;
+  }
+}
+
+/* The home page's feature cards. The default theme draws these from the
+   frontmatter, but it puts them above the markdown body, and here the live
+   counter is what should come first. */
+.home-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin: 32px 0;
+}
+
+.home-features .feature {
+  padding: 20px;
+  border: 1px solid var(--vp-c-bg-soft);
+  border-radius: 12px;
+  background-color: var(--vp-c-bg-soft);
+}
+
+.home-features .feature h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: -0.02em;
+}
+
+.home-features .feature p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 24px;
+  color: var(--vp-c-text-2);
+}

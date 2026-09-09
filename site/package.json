@@ -1,0 +1,17 @@
+{
+  "name": "egui-react-site",
+  "version": "0.0.0",
+  "description": "The egui-react documentation site",
+  "private": true,
+  "type": "module",
+  "license": "MIT OR Apache-2.0",
+  "scripts": {
+    "dev": "vitepress dev",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4",
+    "vue": "3.5.42"
+  }
+}
