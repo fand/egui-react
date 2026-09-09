@@ -40,6 +40,19 @@
   }
 }
 
+/* 240px at every width. The theme grows the mark from 192px to 320px with
+   the window and reserves a square of its own around it; both are pinned so
+   the hero keeps the same proportions on a phone and on a desktop. */
+.VPHero .image-container {
+  width: 240px;
+  height: 240px;
+}
+
+.VPHero .image-src {
+  max-width: 240px;
+  max-height: 240px;
+}
+
 /* The columns. The default theme centres a 1440px layout, so on a wider
    window the margin lands on the sidebar's side and the links sit far from
    the edge. Here the layout is the window: the sidebar starts at the left
