@@ -109,8 +109,9 @@ export function shown(source) {
       hidden = false
     } else if (hidden) {
       // Nothing: the region is the standalone binary's plumbing.
-    } else if (trimmed === 'use example_meta::Meta;') {
-      // Nothing: the import exists only for the block below.
+    } else if (trimmed === 'use example_meta::Meta;' || trimmed === 'pub mod plain;') {
+      // Nothing: the import exists only for the block below, and the plain
+      // version is the gallery's, not the example's.
     } else if (inMeta) {
       inMeta = line !== '};'
     } else if (line.startsWith(META_START)) {

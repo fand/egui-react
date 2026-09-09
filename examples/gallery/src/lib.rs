@@ -623,9 +623,10 @@ pub fn Code(
 ///
 /// Dropped: the crate doc comment at the top (`//!` — design notes, for the
 /// repository, not for a pane next to the running example), the `META` block
-/// and its import, and anything between a `// gallery:hide` line and the next
-/// `// gallery:show` (the standalone binary's root in list-10k, say). Runs of
-/// blank lines that leaves behind are folded into one.
+/// and its import, `pub mod plain;` (the gallery's, not the example's), and
+/// anything between a `// gallery:hide` line and the next `// gallery:show`
+/// (the standalone binary's root in list-10k, say). Runs of blank lines that
+/// leaves behind are folded into one.
 pub fn shown_source(source: &str) -> String {
     let mut out = String::new();
     let mut lines = source.lines().peekable();
@@ -640,7 +641,8 @@ pub fn shown_source(source: &str) -> String {
             "// gallery:hide" => hidden = true,
             "// gallery:show" => hidden = false,
             _ if hidden => {}
-            "use example_meta::Meta;" => {}
+            // The plain version is the gallery's, not the example's.
+            "use example_meta::Meta;" | "pub mod plain;" => {}
             _ if in_meta => in_meta = line != "};",
             _ if line.starts_with("pub const META: Meta = Meta {") => in_meta = true,
             "" if blank => {}
@@ -905,6 +907,7 @@ mod tests {
         assert!(!shown.contains("//!"), "{shown}");
         assert!(!shown.contains("pub const META"), "{shown}");
         assert!(!shown.contains("example_meta"), "{shown}");
+        assert!(!shown.contains("pub mod plain;"), "{shown}");
         assert!(!shown.contains("fn Compare"), "{shown}");
         assert!(!shown.contains("fn PlainApp"), "{shown}");
         assert!(shown.contains("pub fn App"), "{shown}");
