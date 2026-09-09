@@ -195,35 +195,7 @@ macro_rules! single {
 }
 
 single!(showcase, egui::vec2(700.0, 460.0), two_notes);
-/// The counter, in two images: the plain version centres its block by
-/// measuring it (egui has no other way), and the egui-react version by
-/// `align="center" justify="center"`, so the two land within a point of each
-/// other rather than on the same pixels — the same line list-10k and board
-/// draw.
-mod counter {
-    use super::*;
-    use ::counter::App as ExampleApp;
-    use ::counter::plain::{self, PlainState};
-
-    const SIZE: egui::Vec2 = egui::vec2(400.0, 300.0);
-
-    #[test]
-    fn egui_react() {
-        let mut harness = react(SIZE, |cx| rsx! { <ExampleApp/> }.show(cx));
-        harness.run();
-        harness.snapshot("counter_react");
-    }
-
-    #[test]
-    fn plain_egui() {
-        let mut harness = harness(SIZE, PlainState::default(), |ui, state| {
-            ui.set_min_size(ui.available_size());
-            plain::ui(ui, state);
-        });
-        harness.run();
-        harness.snapshot("counter_plain");
-    }
-}
+single!(counter, egui::vec2(400.0, 300.0));
 same!(todo, egui::vec2(400.0, 400.0), 100, two_items);
 same!(form, egui::vec2(420.0, 420.0), 0, edited);
 single!(theme, egui::vec2(420.0, 420.0));

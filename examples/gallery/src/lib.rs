@@ -451,7 +451,9 @@ pub fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "form" => { <FormPlain/> }
                 "list-10k" => { <ListPlain/> }
                 "layout" => { <LayoutPlain/> }
-                _ => { <CounterPlain/> }
+                // Never reached: `plain` is only true for an example that
+                // has a plain version. The egui-react counter stands in.
+                _ => { <CounterApp/> }
             }
         } else {
             match name {
@@ -504,7 +506,6 @@ macro_rules! plain_example {
 }
 
 plain_example!(BoardPlain, board::plain);
-plain_example!(CounterPlain, counter::plain);
 plain_example!(TodoPlain, todo::plain);
 plain_example!(FormPlain, form::plain);
 

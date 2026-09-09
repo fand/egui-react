@@ -60,7 +60,7 @@ Every example but one runs in the browser on its own page in the [documentation 
 | `board` | Cards that keep the title being typed into them while they are dragged between columns. | [board](https://fand.github.io/egui-react/examples/board) | [lib.rs](examples/board/src/lib.rs) | [plain.rs](examples/board/src/plain.rs) |
 | `patch` | A node editor that generates, validates and previews its own WGSL shader. | [patch](https://fand.github.io/egui-react/examples/patch) | [lib.rs](examples/patch/src/lib.rs) | – |
 | `spreadsheet` | Formulas over 26 × 10,000 cells: two memo stages, and a draft that survives scrolling out of view. | [spreadsheet](https://fand.github.io/egui-react/examples/spreadsheet) | [lib.rs](examples/spreadsheet/src/lib.rs) | – |
-| `counter` | One piece of state, three handlers that borrow it in turn. | [counter](https://fand.github.io/egui-react/examples/counter) | [lib.rs](examples/counter/src/lib.rs) | [plain.rs](examples/counter/src/plain.rs) |
+| `counter` | One piece of state, three handlers that borrow it in turn. | [counter](https://fand.github.io/egui-react/examples/counter) | [lib.rs](examples/counter/src/lib.rs) | – |
 | `todo` | A reducer drives the list; `use_persisted` keeps it across restarts. | [todo](https://fand.github.io/egui-react/examples/todo) | [lib.rs](examples/todo/src/lib.rs) | [plain.rs](examples/todo/src/plain.rs) |
 | `form` | Every bound widget, a change log, and settings that survive a restart. | [form](https://fand.github.io/egui-react/examples/form) | [lib.rs](examples/form/src/lib.rs) | [plain.rs](examples/form/src/plain.rs) |
 | `theme` | Two values provided at the top and read three levels down, with nothing in between. | [theme](https://fand.github.io/egui-react/examples/theme) | [lib.rs](examples/theme/src/lib.rs) | – |
@@ -79,7 +79,7 @@ Run one natively, or in a browser with [trunk](https://trunkrs.dev/):
 
 ```sh
 cargo run -p counter
-cargo run -p counter --bin counter-plain    # the plain egui version
+cargo run -p todo --bin todo-plain          # the plain egui version
 trunk serve --config examples/counter/Trunk.toml
 ```
 

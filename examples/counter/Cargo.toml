@@ -16,10 +16,6 @@ path = "src/lib.rs"
 name = "counter"
 path = "src/main.rs"
 
-[[bin]]
-name = "counter-plain"
-path = "src/plain_main.rs"
-
 [dependencies]
 eframe.workspace = true
 egui.workspace = true

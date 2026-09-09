@@ -158,11 +158,11 @@ fn the_toggle_follows_the_example() {
 
     // `showcase` has no plain version, so there is no toggle to start with.
     assert!(harness.query_by_label("plain egui").is_none());
-    harness.get_by_label("counter").click();
+    harness.get_by_label("form").click();
     harness.run();
     harness.run();
 
-    // counter has one, so both buttons are there and egui-react is the one on.
+    // form has one, so both buttons are there and egui-react is the one on.
     assert!(toggled(&harness, "egui-react"));
     assert!(!toggled(&harness, "plain egui"));
 

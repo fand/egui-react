@@ -34,13 +34,6 @@ import { data } from './examples.data.js'
 
 </div>
 
-<div data-version="plain">
-
-::: example-source counter plain
-:::
-
-</div>
-
 </ExampleEmbed>
 
 <div class="home-features">
