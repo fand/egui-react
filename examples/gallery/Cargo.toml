@@ -67,3 +67,6 @@ egui_kittest.workspace = true
 # `tests/thumbnails.rs` saves what the harness rendered; the version is the
 # one egui_kittest already pulls in.
 image = { version = "0.25", default-features = false, features = ["png"] }
+# `tests/thumbnails.rs` builds the shader and patch pipelines on the harness's
+# own render state, the way `Options::setup` does on eframe's.
+egui-wgpu.workspace = true

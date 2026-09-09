@@ -59,7 +59,9 @@ import { data } from '../../examples-index.data.js'
 
 .thumb {
   aspect-ratio: 16 / 10;
-  background-color: #101010;
+  /* egui's light panel fill, so a picture that does not cover the box
+     (none should) has no visible edge. */
+  background-color: #f8f8f8;
   display: flex;
   align-items: center;
   justify-content: center;

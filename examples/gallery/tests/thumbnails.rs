@@ -11,6 +11,10 @@
 //!
 //! and commit them: the site build has no GPU, so it reads the files as they
 //! are. `shell` has no thumbnail, because it does not run inside `Running`.
+//!
+//! Light theme, like the site around the cards. The `shader` and `patch`
+//! pipelines are built on the harness's own render state, the way the runner
+//! builds them on eframe's, so their canvases are in the picture too.
 
 #![cfg(feature = "snapshot")]
 
@@ -20,6 +24,7 @@ use std::time::Duration;
 
 use egui_kittest::kittest::Queryable as _;
 use egui_kittest::Harness;
+use egui_kittest::wgpu::{WgpuTestRenderer, create_render_state, default_wgpu_setup};
 use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
 use egui_react_elements::prelude::*;
@@ -40,10 +45,17 @@ fn thumbs_dir() -> PathBuf {
 }
 
 fn thumbnail(name: &'static str) {
+    let render_state = create_render_state(
+        default_wgpu_setup(),
+        egui_wgpu::RendererOptions::PREDICTABLE,
+    );
+    shader::gpu::setup_render_state(&render_state);
+    patch::gpu::setup_render_state(&render_state);
+
     let mut harness = Harness::builder()
         .with_size(SIZE)
         .with_pixels_per_point(SCALE)
-        .renderer(egui_kittest::wgpu::WgpuTestRenderer::default())
+        .renderer(WgpuTestRenderer::from_render_state(render_state))
         .build_ui_state(
             move |ui, store: &mut Store| {
                 store.begin_pass(ui.ctx());
@@ -63,6 +75,7 @@ fn thumbnail(name: &'static str) {
             },
             Store::new(),
         );
+    harness.ctx.set_theme(egui::Theme::Light);
     harness.step();
     drive(name, &mut harness);
     // The clicks above leave a hovered button and a painted cursor behind.
@@ -140,6 +153,12 @@ fn drive(name: &str, harness: &mut Harness<'_, Store>) {
                 harness.run();
                 harness.run();
             }
+        }
+        // The board keeps a theme of its own and opens dark.
+        "board" => {
+            harness.get_by_label("light").click();
+            harness.run();
+            harness.run();
         }
         "counter" => {
             for _ in 0..3 {
