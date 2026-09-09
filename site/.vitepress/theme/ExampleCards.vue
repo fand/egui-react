@@ -7,8 +7,15 @@
 // has no GPU. An example without one gets its summary where the picture
 // would be.
 
-import { withBase } from 'vitepress'
+import { computed } from 'vue'
+import { useData, withBase } from 'vitepress'
 import { data } from '../../examples-index.data.js'
+
+// The Japanese pages link to the Japanese pages, and show the Japanese
+// summaries. `lang` is the locale's, set in `config.ts`.
+const { lang } = useData()
+const ja = computed(() => lang.value === 'ja')
+const prefix = computed(() => (ja.value ? '/ja' : ''))
 </script>
 
 <template>
@@ -17,7 +24,7 @@ import { data } from '../../examples-index.data.js'
       v-for="example in data"
       :key="example.name"
       class="example-card"
-      :href="withBase(`/examples/${example.name}.html`)"
+      :href="withBase(`${prefix}/examples/${example.name}.html`)"
     >
       <div class="thumb">
         <img
@@ -26,10 +33,10 @@ import { data } from '../../examples-index.data.js'
           :alt="`${example.name} running`"
           loading="lazy"
         />
-        <span v-else>native only</span>
+        <span v-else>{{ ja ? 'ネイティブのみ' : 'native only' }}</span>
       </div>
       <h3>{{ example.name }}</h3>
-      <p>{{ example.summary }}</p>
+      <p>{{ ja ? example.summaryJa : example.summary }}</p>
     </a>
   </div>
 </template>

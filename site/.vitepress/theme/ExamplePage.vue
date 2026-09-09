@@ -12,7 +12,9 @@
 //
 // The wasm behind the iframe is the gallery's `embed` binary: one build for
 // the whole site, told which example to draw by the hash
-// (`/embed/#counter`, `/embed/#counter/plain`).
+// (`/embed/#counter`, `/embed/#counter/plain`). The hash also carries the
+// site's theme (`?theme=dark`), so the example is drawn in the colours of the
+// page around it and follows the appearance switch in the nav bar.
 //
 // The page's markdown comes in through three slots: `summary` (one line under
 // the title), `code` (one `[data-version]` wrapper per version, each holding
@@ -23,7 +25,7 @@
 // live in `custom.css`: scoped styles cannot reach slot content the page owns.
 
 import { computed, ref } from 'vue'
-import { withBase } from 'vitepress'
+import { useData, withBase } from 'vitepress'
 
 const props = defineProps({
   /** The example's directory name, which is also its hash in the embed. */
@@ -49,7 +51,35 @@ const plain = computed(() => props.hasPlain && pane.value === 'plain')
 // the wasm when the Rust changes; it hands that origin over as
 // VITE_EMBED_ORIGIN. A build has no such variable and uses the copy in `dist/`.
 const embed = import.meta.env.VITE_EMBED_ORIGIN ?? withBase('/embed/')
-const src = computed(() => `${embed}#${props.name}${plain.value ? '/plain' : ''}`)
+
+/// The site's appearance. Changing it changes only the hash of `src`, and a
+/// hash-only change is a fragment navigation, so the example keeps running
+/// and picks the theme up from its `hashchange` listener. The `key` leaves
+/// the theme out for the same reason: it restarts the app on a version
+/// switch, not on a theme switch.
+const { isDark, lang } = useData()
+
+/// The tab labels and the iframe's title, in the page's language. Three
+/// strings is too few for an i18n library; `lang` comes from the locale in
+/// `config.ts`.
+const t = computed(() =>
+  lang.value === 'ja'
+    ? {
+        example: 'サンプル',
+        react: (lines) => `egui-react · ${lines} 行`,
+        plain: (lines) => `素の egui · ${lines} 行`,
+        running: (name) => `実行中のサンプル: ${name}`
+      }
+    : {
+        example: 'example',
+        react: (lines) => `egui-react · ${lines} lines`,
+        plain: (lines) => `plain egui · ${lines} lines`,
+        running: (name) => `running example: ${name}`
+      }
+)
+
+const which = computed(() => `${props.name}${plain.value ? '/plain' : ''}`)
+const src = computed(() => `${embed}#${which.value}?theme=${isDark.value ? 'dark' : 'light'}`)
 </script>
 
 <template>
@@ -70,7 +100,7 @@ const src = computed(() => `${embed}#${props.name}${plain.value ? '/plain' : ''}
           :aria-pressed="pane === 'example'"
           @click="pane = 'example'"
         >
-          example
+          {{ t.example }}
         </button>
         <button
           type="button"
@@ -78,7 +108,7 @@ const src = computed(() => `${embed}#${props.name}${plain.value ? '/plain' : ''}
           :aria-pressed="pane === 'react'"
           @click="pane = 'react'"
         >
-          egui-react · {{ reactLines }} lines
+          {{ t.react(reactLines) }}
         </button>
         <button
           v-if="hasPlain"
@@ -87,7 +117,7 @@ const src = computed(() => `${embed}#${props.name}${plain.value ? '/plain' : ''}
           :aria-pressed="pane === 'plain'"
           @click="pane = 'plain'"
         >
-          plain egui · {{ plainLines }} lines
+          {{ t.plain(plainLines) }}
         </button>
       </div>
 
@@ -95,14 +125,19 @@ const src = computed(() => `${embed}#${props.name}${plain.value ? '/plain' : ''}
            wasm app that resizes the page as it loads would move the text
            under it. `loading="lazy"` keeps a prefetched page from booting
            wasm, and the `key` restarts the app on a switch instead of leaving
-           the previous example's state next to the other version's code. -->
+           the previous example's state next to the other version's code.
+           `ClientOnly`, because `src` carries the theme and the theme is only
+           known in the browser: a server-rendered `src` would not be patched
+           on hydration. -->
       <div class="example-frame">
-        <iframe
-          :key="src"
-          :src="src"
-          :title="`running example: ${name}`"
-          loading="lazy"
-        ></iframe>
+        <ClientOnly>
+          <iframe
+            :key="which"
+            :src="src"
+            :title="t.running(name)"
+            loading="lazy"
+          ></iframe>
+        </ClientOnly>
       </div>
 
       <div class="example-notes">
@@ -120,7 +155,7 @@ const src = computed(() => `${embed}#${props.name}${plain.value ? '/plain' : ''}
           :aria-pressed="!plain"
           @click="pane = 'react'"
         >
-          egui-react · {{ reactLines }} lines
+          {{ t.react(reactLines) }}
         </button>
         <button
           type="button"
@@ -128,7 +163,7 @@ const src = computed(() => `${embed}#${props.name}${plain.value ? '/plain' : ''}
           :aria-pressed="plain"
           @click="pane = 'plain'"
         >
-          plain egui · {{ plainLines }} lines
+          {{ t.plain(plainLines) }}
         </button>
       </div>
 
