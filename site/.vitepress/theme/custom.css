@@ -358,20 +358,22 @@
 @media (min-width: 960px) {
   .VPHome .example-embed {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 2fr;
     grid-template-areas:
       'tabs tabs'
       'frame code';
     gap: 0 24px;
-    align-items: start;
   }
 
   .VPHome .example-tabs {
     grid-area: tabs;
   }
 
+  /* The code sets the row's height; the canvas takes the same, rather than
+     its own 4:3. */
   .VPHome .example-frame {
     grid-area: frame;
+    aspect-ratio: auto;
   }
 
   .VPHome .example-code {
@@ -417,4 +419,25 @@
   font-size: 14px;
   line-height: 24px;
   color: var(--vp-c-text-2);
+}
+
+/* On a phone the 240px mark is too big. The theme's `margin: -76px -24px -48px`
+   assumes its own 320px box with a 192px mark centred in it: the slack absorbs
+   the pull. Pinned to 180px there is no slack, so the negative top runs the mark
+   into the nav bar and the negative bottom runs the name into the mark. */
+@media (max-width: 959px) {
+  .VPHero .image {
+    margin-top: -32px;
+    margin-bottom: 0;
+  }
+
+  .VPHero .image-container {
+    width: 180px;
+    height: 180px;
+  }
+
+  .VPHero .image-src {
+    max-width: 180px;
+    max-height: 180px;
+  }
 }
