@@ -48,7 +48,10 @@
     flex: 0 0 auto;
     width: 240px;
     min-height: 0;
-    margin: 0 30px;
+    /* The mark alone moves right; a margin here would push the text with
+       it. The theme's own `translate(-32px, -32px)` on the container inside
+       is what it is being nudged back from. */
+    transform: translateX(30px);
   }
 
   .VPHero.has-image .container .main {
