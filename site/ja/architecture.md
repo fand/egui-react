@@ -5,7 +5,7 @@ title: アーキテクチャ
 # アーキテクチャ
 
 <script setup>
-// `withBase` を使うのは、このサイトが GitHub Pages では `/egui-reactor/`、
+// `withBase` を使うのは、このサイトが GitHub Pages では `/egui-react/`、
 // プレビューでは `/` から配信されるため。`/api/` は cargo doc の出力で、
 // このサイトのページではないので、ルータのルートではなく素のリンクにする。
 import { withBase } from 'vitepress'

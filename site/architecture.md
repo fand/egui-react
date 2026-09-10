@@ -5,7 +5,7 @@ title: Architecture
 # Architecture
 
 <script setup>
-// `withBase`, because the site is served from `/egui-reactor/` on GitHub Pages
+// `withBase`, because the site is served from `/egui-react/` on GitHub Pages
 // and from `/` on the preview; `/api/` is cargo doc's output, not a page of
 // this site, so it is a plain link and not a router route.
 import { withBase } from 'vitepress'

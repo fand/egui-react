@@ -5,7 +5,7 @@ import { defineConfig } from 'vitepress'
 import { exampleSourcePlugin } from '../lib/example-source.js'
 import { EXAMPLE_ORDER } from '../lib/examples-order.js'
 
-// GitHub Pages serves the site under `/egui-reactor/`, the Cloudflare preview
+// GitHub Pages serves the site under `/egui-react/`, the Cloudflare preview
 // under `/`; `site/build.sh` passes whichever applies. A trailing slash is
 // what VitePress and `withBase` expect.
 const base = process.env.SITE_BASE ?? '/'

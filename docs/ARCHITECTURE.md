@@ -574,7 +574,7 @@ Decisions are recorded in [docs/adr/](adr/), one file per decision, grouped by d
 
 `https://fand.github.io/egui-react/` is a [VitePress](https://vitepress.dev/) site in `site/`: a home page, Getting Started, a guide, a reference (hooks, elements, layout attributes) and one page per example. It replaced the gallery wasm, which was everything the site used to be; the decision and what was turned down are in [adr/app/0001](adr/app/0001-site-is-vitepress-with-one-embed-wasm.md). Numbered last because it is the only section about the published artefact rather than the library.
 
-Three things are served from one directory, assembled by `site/build.sh` (the one place the assembly lives; the workflows and a human run the same script, with `SITE_BASE` `/egui-reactor/` on GitHub Pages and `/` on the Cloudflare PR preview).
+Three things are served from one directory, assembled by `site/build.sh` (the one place the assembly lives; the workflows and a human run the same script, with `SITE_BASE` `/egui-react/` on GitHub Pages and `/` on the Cloudflare PR preview).
 
 | URL | What | Built by |
 |---|---|---|
