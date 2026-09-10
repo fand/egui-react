@@ -168,7 +168,7 @@ export default defineConfig({
   head: [
     // Served from `public/`, so the path needs the same base as the pages;
     // `head` is written out as-is and nothing resolves it for us.
-    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}atomic-ferris.svg` }],
+    ['link', { rel: 'icon', type: 'image/svg+xml', href: `${base}atomic-ferris-icon.svg` }],
     ['script', {}, redirect]
   ],
   // English at the site root, Japanese under `/ja/`. The pages themselves are
@@ -230,8 +230,10 @@ export default defineConfig({
   },
   themeConfig: {
     // Left of the site title in the nav bar, on every page and in both
-    // languages. VitePress resolves the path against `base` itself.
-    logo: '/atomic-ferris.svg',
+    // languages. VitePress resolves the path against `base` itself. The icon
+    // is the mark drawn for this size: twice the stroke, two balls parked,
+    // no animation — the hero's own file disappears at 24px.
+    logo: '/atomic-ferris-icon.svg',
     // No server to run a query against: the whole index ships with the site.
     // One index per locale, so a Japanese search does not answer in English.
     search: {
