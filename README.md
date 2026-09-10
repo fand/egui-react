@@ -1,8 +1,12 @@
-# egui-reactor
+<div align="center">
+  <img src="site/public/atomic-ferris.svg" alt="atomic ferris" width="180">
+  <h1>egui-reactor</h1>
+  <p>Write Rust GUI apps like React!</p>
+</div>
 
 egui-reactor is a Rust library for writing [egui](https://github.com/emilk/egui) applications the way you write React: a JSX-like `rsx!` macro, function components with `#[component]`, and hooks such as `use_state` and `use_effect`. Because egui is immediate mode there is no retained tree and no reconciler, so event handlers run where they are written and can borrow local state with `&mut` — none of the `'static` closures, `Rc<RefCell<_>>` or `.clone()` ceremony that retained-mode Rust UI frameworks require. Flexbox and Grid layout are first-class: `<View>` is a node in a small layout engine of our own, written over [taffy](https://github.com/DioxusLabs/taffy).
 
-The documentation — a guide, a reference and every example running in the browser next to its source — is at [fand.github.io/egui-react](https://fand.github.io/egui-reactor/).
+The documentation — a guide, a reference and every example running in the browser next to its source — is at [fand.github.io/egui-reactor](https://fand.github.io/egui-reactor/).
 
 The current design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); design decisions are in [docs/adr/](docs/adr/).
 
@@ -42,15 +46,11 @@ fn main() -> eframe::Result {
 }
 ```
 
-That is the `counter` example: the component is [`examples/counter/src/lib.rs`](examples/counter/src/lib.rs) and the `run(..)` call is its [`src/main.rs`](examples/counter/src/main.rs). Each example is a library so that the gallery can embed it and tests can drive it, with a thin binary on top.
-
-Work that spans frames is one `use_future(cx, deps, || async { .. })` returning a `&Poll<T>`; a child waits with `let Poll::Ready(x) = .. else { return };` and the nearest `<Suspense fallback={..}>` draws its fallback until everything below it is ready.
-
-The hooks, the elements and the layout attributes are listed in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) sections 4 and 6.
+That is the `counter` example: [`examples/counter/src/lib.rs`](examples/counter/src/lib.rs) and its [`src/main.rs`](examples/counter/src/main.rs).
 
 ## Examples
 
-Every example runs in the browser on its own page in the [documentation site](https://fand.github.io/egui-reactor/), next to its source. Start with `notes`, a small notes app that uses most of the library at once; the rest take one idea each. Some of them also have a version written with plain egui, so you can switch between the two and compare. `cargo run -p gallery` is the native three-column tool — the example list, the running example and its code in one window — and the site is the web version of the same thing, one page per example. Either way the example runs on a canvas, so a screen reader reads it natively but not on the web; the widget names are there in both (`docs/tasks/a11y/`).
+Every example runs in the browser on the [documentation site](https://fand.github.io/egui-reactor/), next to its source. Start with `notes`; the rest take one idea each. Some also have a plain egui version to compare against. `cargo run -p gallery` is the native version of the same thing.
 
 ![The gallery: example list, the running example, and its source next to it](docs/gallery.png)
 
@@ -89,8 +89,6 @@ cargo run -p gallery todo
 trunk serve --config examples/gallery/Trunk.toml
 ```
 
-A font an app bundles with `include_bytes!` goes into the wasm (`examples/font` ships a 433 KB subset of Noto Sans JP for that reason and its `fonts/README.md` says how it was cut); the full 4.5 MB font the same example fetches at run time is not committed, a pre-build hook in its `Trunk.toml` (and the gallery's) downloads it the first time trunk builds. egui's own four fonts (Ubuntu-Light, Hack and two emoji fonts, 1.4 MB) are behind `egui-reactor-app`'s `default_fonts` feature, on by default; take the crate with `default-features = false` to leave them out, and then hand `Fonts` a bundled face before the first frame, because a chain with nothing loaded draws no glyphs at all.
-
 ## Testing
 
 ```sh
@@ -100,23 +98,14 @@ cargo test --workspace
 cargo check --workspace --target wasm32-unknown-unknown
 ```
 
-Pixel snapshot tests live behind a cargo feature because they need a GPU, and the committed images were rendered on macOS, so they will not match another platform's renderer. They do not run in CI, so regenerate them by hand after any change that alters what they draw.
+Pixel snapshot tests need a GPU and the committed images were rendered on macOS, so they run locally only, not in CI:
 
 ```sh
 cargo test -p egui-reactor-elements --features snapshot
-# Each example drawn twice, egui-reactor and plain egui, compared with one image:
-# if both render the same picture, the only difference is the code.
 cargo test -p gallery --features snapshot
-```
-
-After an intentional visual change, regenerate on the platform the images came from:
-
-```sh
+# after an intentional visual change, on macOS:
 UPDATE_SNAPSHOTS=1 cargo test -p egui-reactor-elements --features snapshot
-# The gallery's pairs share one file, so write it from the egui-reactor side
-# first and then let the plain egui side check itself against it.
 UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_reactor
-cargo test -p gallery --features snapshot
 ```
 
 ## License
