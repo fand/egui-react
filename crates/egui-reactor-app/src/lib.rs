@@ -13,13 +13,16 @@ pub mod fonts;
 /// The eframe storage key everything `use_persisted` holds is written under.
 ///
 /// Keeps the pre-rename name: the crate is now egui-reactor, but changing the
-/// key would drop the `use_persisted` data already saved on the live site.
+/// key would drop the `use_persisted` data already saved on the live site
+/// (ARCHITECTURE 4, adr/app/0003).
 const STORAGE_KEY: &str = "egui_react";
 
 /// The egui id of the root taffy container.
 ///
-/// Keeps the pre-rename name for the same reason: egui memory keyed off this id
-/// (scroll offsets and such) already sits in saved state.
+/// Keeps the pre-rename name too, so the egui memory scoped under it (scroll
+/// offsets and such) is not reset by the rename alone. That memory is keyed by
+/// source position below this id and resets whenever those lines move, so this
+/// is a courtesy, not a promise (adr/app/0003).
 const ROOT_ID: &str = "egui_react_root";
 
 /// The egui id of the root taffy container, as the runner builds it.

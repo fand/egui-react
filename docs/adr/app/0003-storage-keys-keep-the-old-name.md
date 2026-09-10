@@ -18,7 +18,8 @@ An identifier that keys persisted state keeps its name across a crate rename. `S
 ## Consequences
 
 - The constant names no longer match the crate name. A reader who greps for `egui_reactor` will not find them; the comment on each is what explains the gap.
-- The native storage directory is not pinned. eframe derives it from the window title, which the rename did change, so examples on a developer's machine reset once. That was accepted: it is dev-machine state, not the published site.
+- `ROOT_ID` is kept as a courtesy, not a promise. Every id under it also carries the source file, line and column of the element that made it, so the egui memory it scopes already resets whenever those lines move. Keeping the name only means the rename by itself did not reset it.
+- The native storage directory is not pinned. eframe names it after `viewport.app_id`, falling back to the window title, and the runner never sets `app_id`. The default title and the titles the docs suggest all changed with the rename, so a native app that bumps to the renamed crate opens a fresh directory and its `use_persisted` data comes back empty. That was accepted for now: the crate is a git dependency with no release, and the examples are the only known native apps. An app that needs its native state to survive sets `options.native.viewport.app_id` to a name that does not change.
 - `persisted_id`'s `"egui_reactor_persisted"` was renamed and stays renamed. That id keys the store's in-memory slot map; the saved JSON is keyed by the user's own `use_persisted` key, so it never reaches storage.
 
 ## Links

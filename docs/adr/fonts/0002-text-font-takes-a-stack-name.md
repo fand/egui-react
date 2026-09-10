@@ -20,7 +20,7 @@ A typo in a stack name is a runtime warning, not a compile error. The check is n
 
 ## Links
 
-- [ARCHITECTURE section 6, elements list](../../ARCHITECTURE.md#elements-list-egui-react-elements)
+- [ARCHITECTURE section 6, elements list](../../ARCHITECTURE.md#elements-list-egui-reactor-elements)
 - [ARCHITECTURE section 8, fonts](../../ARCHITECTURE.md#8-platforms)
 - `docs/tasks/font/plan.md` (2.3, section 5)
 - Commit `3bbc057`

@@ -234,7 +234,7 @@ The second is "passing to the same element both a value prop that borrows state 
 - `Store` holds a `HashMap` of "key -> JSON string". `load_persisted(&mut self, json)` loads it wholesale, and `save_persisted(&self) -> String` serializes the live slots, overwrites the map, and then turns the whole thing into JSON. Unreadable JSON is ignored with `log::warn!`, and the value falls back to `init`.
 - `Slot` holds `persist: Option<(key, fn(&dyn Any) -> Option<String>)>`. When the sweep drops a slot with persist, it serializes it into the map first. Even after unmount it remains for the next launch.
 - The save format is JSON, written to eframe `Storage` under the single key `"egui_react"`. The runner's `App::save` calls it (eframe calls it on `auto_save_interval` and at exit).
-- That key, and the root egui id `"egui_react_root"` that scopes the egui memory saved beside it, keep the name they had before the crates were renamed to `egui-reactor`, so state already saved on the live site still loads ([adr/app/0003](adr/app/0003-storage-keys-keep-the-old-name.md)).
+- That key keeps the name it had before the crates were renamed to `egui-reactor`, so state already saved on the live site still loads ([adr/app/0003](adr/app/0003-storage-keys-keep-the-old-name.md)). The root egui id `"egui_react_root"` keeps its name for the same reason, but the egui memory under it (scroll offsets and the like) is keyed by source position and resets whenever those lines move, so it is only stable until the next edit.
 
 ### `use_reducer` details
 
