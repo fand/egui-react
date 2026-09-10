@@ -1,0 +1,40 @@
+[package]
+name = "egui-reactor"
+description = "React-like views, components and hooks for egui"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "egui_reactor"
+path = "src/lib.rs"
+
+[dependencies]
+egui.workspace = true
+taffy.workspace = true
+elsa.workspace = true
+log.workspace = true
+egui-reactor-macros.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+typed-builder.workspace = true
+
+# The executor `use_future` / `spawn` run a future on: a thread with
+# `pollster::block_on` on native, the browser's own loop on wasm.
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+pollster.workspace = true
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen-futures.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true
+# The tests lay text out and compare galleys, so they need fonts. The library
+# does not: egui is taken without its default features workspace-wide, so that
+# `egui-reactor-app` can offer dropping egui's embedded fonts. A dev-dependency
+# turns them on for the tests of this crate alone.
+egui = { workspace = true, features = ["default_fonts"] }
+serde.workspace = true
+trybuild.workspace = true

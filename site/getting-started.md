@@ -33,17 +33,17 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-egui-react = { git = "https://github.com/fand/egui-react" }
-egui-react-elements = { git = "https://github.com/fand/egui-react" }
-egui-react-app = { git = "https://github.com/fand/egui-react" }
+egui-reactor = { git = "https://github.com/fand/egui-react" }
+egui-reactor-elements = { git = "https://github.com/fand/egui-react" }
+egui-reactor-app = { git = "https://github.com/fand/egui-react" }
 egui = "0.36.1"
 eframe = "0.36.1"
 ```
 
-- `egui-react` is the core: `Cx`, hooks, `rsx!`, the layout engine.
-- `egui-react-elements` is what you write inside `rsx!`: `<View>`, `<Text>`,
+- `egui-reactor` is the core: `Cx`, hooks, `rsx!`, the layout engine.
+- `egui-reactor-elements` is what you write inside `rsx!`: `<View>`, `<Text>`,
   `<Button>` and the rest.
-- `egui-react-app` opens a window or takes over a canvas.
+- `egui-reactor-app` opens a window or takes over a canvas.
 - `egui` and `eframe` are needed because your code names their types.
 
 ## The counter
@@ -53,8 +53,8 @@ This is `examples/counter` from the repository.
 ### The component
 
 ```rust
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 
 #[component]
 pub fn App(cx: &mut Cx) {
@@ -91,13 +91,13 @@ button now, and if it was clicked, run this closure now".
 ### The runner
 
 ```rust
-use egui_react::prelude::*;
-use egui_react_app::{Options, run};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{Options, run};
 
 fn main() -> eframe::Result {
     run(
         Options {
-            title: String::from("egui-react: counter"),
+            title: String::from("egui-reactor: counter"),
             ..Default::default()
         },
         |_cx| rsx! { <App/> },
@@ -118,7 +118,7 @@ cargo run
 ## Run it in a browser
 
 Put an `index.html` next to `Cargo.toml`. The canvas id must match
-`Options::canvas_id`, which defaults to `egui_react_canvas`.
+`Options::canvas_id`, which defaults to `egui_reactor_canvas`.
 
 ```html
 <!DOCTYPE html>
@@ -144,7 +144,7 @@ Put an `index.html` next to `Cargo.toml`. The canvas id must match
     </style>
   </head>
   <body>
-    <canvas id="egui_react_canvas"></canvas>
+    <canvas id="egui_reactor_canvas"></canvas>
   </body>
 </html>
 ```
@@ -160,7 +160,7 @@ optimisation. See [Web and native](/guide/web-and-native).
 
 ## Cargo features
 
-`egui-react-app` has two.
+`egui-reactor-app` has two.
 
 - **`default_fonts`** (on) keeps egui's four built-in fonts, about 1.4 MB.
   Turn it off to save the bytes, but then you must bundle a font of your own

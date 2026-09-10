@@ -30,7 +30,7 @@ Four ways down to plain egui: a closure, a leaf, a painter, and a nested Cx.
 
 </template>
 
-egui-react wraps a useful subset of egui, not all of it, and it never has to.
+egui-reactor wraps a useful subset of egui, not all of it, and it never has to.
 Everything is `&mut egui::Ui` in the end, so anything egui can do is one call
 away. The four sections are the four routes: `{view(|cx| ..)}` for ordinary
 code in the middle of a tree, `cx.leaf(&style, |ui| ..)` to draw egui where you
@@ -50,7 +50,7 @@ because that is what "fill" means with nothing to measure. And the sparkline is
 a plain function taking `&mut egui::Ui` — it knows nothing about this library,
 which is exactly the point.
 
-None of this is a workaround. The elements in `egui-react-elements` are written
+None of this is a workaround. The elements in `egui-reactor-elements` are written
 with the same calls; there is no private door.
 [Escape hatches](/guide/escape-hatches) walks through the same four with more
 prose.

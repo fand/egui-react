@@ -1,6 +1,6 @@
 [package]
 name = "list-10k"
-description = "egui-react example: list-10k"
+description = "egui-reactor example: list-10k"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -23,9 +23,9 @@ path = "src/plain_main.rs"
 [dependencies]
 eframe.workspace = true
 egui.workspace = true
-egui-react.workspace = true
-egui-react-app.workspace = true
-egui-react-elements.workspace = true
+egui-reactor.workspace = true
+egui-reactor-app.workspace = true
+egui-reactor-elements.workspace = true
 example-meta.workspace = true
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

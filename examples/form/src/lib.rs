@@ -7,8 +7,8 @@
 //! compile. So `on_change` carries whatever the widget can hand over — the new
 //! `bool`, the new index — and the log is somewhere else entirely.
 
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 use example_meta::Meta;
 use serde::{Deserialize, Serialize};
 

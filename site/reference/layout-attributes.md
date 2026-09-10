@@ -7,7 +7,7 @@ title: Layout attributes
 Every element takes a `style` prop of type `ItemStyle`, and `rsx!` fills it
 from the attributes below. `<View>` additionally takes the container
 attributes, which describe how its *children* are placed. All of it lives in
-`egui_react::layout` and is re-exported from the prelude.
+`egui_reactor::layout` and is re-exported from the prelude.
 
 ```rust
 <View direction="column" gap={8} p={12} bg={egui::Color32::from_gray(30)} radius={8.0}>

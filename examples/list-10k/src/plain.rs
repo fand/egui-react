@@ -6,7 +6,7 @@
 //! immediate-mode answer to a long list, and it is why the frame time here does
 //! not move when the count goes from a hundred to a hundred thousand.
 //!
-//! `<VirtualList>` wraps this exact call, so the egui-react version does the
+//! `<VirtualList>` wraps this exact call, so the egui-reactor version does the
 //! same thing. At ten thousand rows: 0.14 ms a frame through `<VirtualList>`,
 //! 0.12 ms here (docs/tasks/list-perf/measurements.md); drawing every row instead
 //! would be about 22 ms. What is left between the first two is the layout of

@@ -1,8 +1,8 @@
 //! Runs the gallery; the page itself is in `lib.rs`.
 
-use egui_react::prelude::*;
-use egui_react_app::a11y::WebA11y;
-use egui_react_app::{Options, run};
+use egui_reactor::prelude::*;
+use egui_reactor_app::a11y::WebA11y;
+use egui_reactor_app::{Options, run};
 use gallery::{App, initial_example};
 
 fn main() -> eframe::Result {
@@ -12,7 +12,7 @@ fn main() -> eframe::Result {
     let canvas_id = Options::default().canvas_id;
     run(
         Options {
-            title: String::from("egui-react: gallery"),
+            title: String::from("egui-reactor: gallery"),
             setup: Some(Box::new(move |cc| {
                 // What the two wgpu examples need before anything is drawn: the
                 // shader example's pipeline, and the buffer and layouts the patch

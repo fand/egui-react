@@ -12,14 +12,14 @@
 //! widget on it.
 //!
 //! Every helper is generic over the harness state, so the same script runs
-//! against the egui-react version and the plain egui one (B-7).
+//! against the egui-reactor version and the plain egui one (B-7).
 
 use board::App;
 use board::plain::{self, PlainState};
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT as _, Queryable as _};
-use egui_react::prelude::*;
-use egui_react_app::{root_id, root_style};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{root_id, root_style};
 
 /// Wide enough for three columns of cards, tall enough that no column scrolls:
 /// a `ScrollArea` culls what it does not draw, and a culled widget is not in
@@ -42,7 +42,7 @@ fn react<'a>() -> Harness<'a, Store> {
     react_from("{}")
 }
 
-/// A egui-react harness that starts from saved storage, as a restart would.
+/// A egui-reactor harness that starts from saved storage, as a restart would.
 fn react_from<'a>(json: &str) -> Harness<'a, Store> {
     let mut store = Store::new();
     store.load_persisted(json);

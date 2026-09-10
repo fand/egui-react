@@ -1,6 +1,6 @@
 [package]
 name = "gallery"
-description = "egui-react example gallery: every example, its code and a tag filter"
+description = "egui-reactor example gallery: every example, its code and a tag filter"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -24,7 +24,7 @@ name = "embed"
 path = "src/embed.rs"
 
 [features]
-# Pixel snapshot tests: the egui-react and plain egui versions of an example
+# Pixel snapshot tests: the egui-reactor and plain egui versions of an example
 # rendered at the same size and compared with the same image. Needs a GPU (or a
 # software Vulkan driver), so it is off by default.
 snapshot = ["egui_kittest/snapshot", "egui_kittest/wgpu"]
@@ -32,9 +32,9 @@ snapshot = ["egui_kittest/snapshot", "egui_kittest/wgpu"]
 [dependencies]
 eframe.workspace = true
 egui.workspace = true
-egui-react.workspace = true
-egui-react-app.workspace = true
-egui-react-elements.workspace = true
+egui-reactor.workspace = true
+egui-reactor-app.workspace = true
+egui-reactor-elements.workspace = true
 example-meta.workspace = true
 
 board = { path = "../board" }

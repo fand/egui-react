@@ -19,14 +19,14 @@ impl eframe::App for PlainApp {
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
     eframe::run_native(
-        "egui-react: list-10k (plain egui)",
+        "egui-reactor: list-10k (plain egui)",
         eframe::NativeOptions::default(),
         Box::new(|_cc| Ok(Box::<PlainApp>::default())),
     )
 }
 
 /// The same plain list on the web, for a like-for-like measurement against the
-/// egui-react binary (`docs/tasks/list-perf/measurements.md`). Build it with
+/// egui-reactor binary (`docs/tasks/list-perf/measurements.md`). Build it with
 /// `trunk build --release index-plain.html` from this directory.
 #[cfg(target_arch = "wasm32")]
 fn main() {
@@ -46,9 +46,9 @@ fn main() {
 
     let canvas = web_sys::window()
         .and_then(|window| window.document())
-        .and_then(|document| document.get_element_by_id("egui_react_canvas"))
+        .and_then(|document| document.get_element_by_id("egui_reactor_canvas"))
         .and_then(|element| element.dyn_into::<web_sys::HtmlCanvasElement>().ok())
-        .expect("no <canvas id=\"egui_react_canvas\"> in the document");
+        .expect("no <canvas id=\"egui_reactor_canvas\"> in the document");
     wasm_bindgen_futures::spawn_local(async move {
         eframe::WebRunner::new()
             .start(

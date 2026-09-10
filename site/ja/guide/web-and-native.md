@@ -4,7 +4,7 @@ title: Web とネイティブ
 
 # Web とネイティブ
 
-`run` を 1 回呼べば、ネイティブではウィンドウが開き、ブラウザでは`<canvas>` を乗っ取ります。ランナーは `egui-react-app` で、eframe を知っている唯一のクレートです。
+`run` を 1 回呼べば、ネイティブではウィンドウが開き、ブラウザでは`<canvas>` を乗っ取ります。ランナーは `egui-reactor-app` で、eframe を知っている唯一のクレートです。
 
 ## `run(Options, root)`
 
@@ -12,7 +12,7 @@ title: Web とネイティブ
 fn main() -> eframe::Result {
     run(
         Options {
-            title: String::from("egui-react: counter"),
+            title: String::from("egui-reactor: counter"),
             ..Default::default()
         },
         |_cx| rsx! { <App/> },
@@ -31,7 +31,7 @@ fn main() -> eframe::Result {
 | `title` | ネイティブのウィンドウタイトル。wasm では無視される |
 | `max_passes` | 1 フレームで egui が走らせてよいパス数。既定は 3。ノードが増えたり消えたり動いたりすると、レイアウトがもう 1 パス要求する |
 | `persist` | `use_persisted` が eframe のストレージを読み書きするかどうか |
-| `canvas_id` | 取り付ける `<canvas>`。wasm のみ。既定は `"egui_react_canvas"` |
+| `canvas_id` | 取り付ける `<canvas>`。wasm のみ。既定は `"egui_reactor_canvas"` |
 | `native` | `eframe::NativeOptions`。ネイティブのみ |
 | `setup` | eframe がウィンドウと描画バックエンドを用意した直後に 1 回だけ呼ばれる |
 
@@ -71,7 +71,7 @@ Options {
 
 ```html
 <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" />
-<canvas id="egui_react_canvas"></canvas>
+<canvas id="egui_reactor_canvas"></canvas>
 ```
 
 それに、canvas をページいっぱいに広げる CSS も要ります。あとは `trunk serve`、デプロイ用の `dist/` が欲しければ `trunk build --release` です。
@@ -84,11 +84,11 @@ egui のアプリは数 MB の wasm になります。`data-wasm-opt="z"` は外
 
 ### Web でのアクセシビリティ
 
-egui は毎フレーム AccessKit の木を作ります。ネイティブでは eframe がそれを OS に渡すので、スクリーンリーダーが動きます。Web では eframe がそれを捨てます。`egui-react-app` には `a11y::WebA11y` が入っています。木を canvas の上の隠しDOM 要素に写すプラグインです。
+egui は毎フレーム AccessKit の木を作ります。ネイティブでは eframe がそれを OS に渡すので、スクリーンリーダーが動きます。Web では eframe がそれを捨てます。`egui-reactor-app` には `a11y::WebA11y` が入っています。木を canvas の上の隠しDOM 要素に写すプラグインです。
 
 ```rust
 setup: Some(Box::new(move |cc| {
-    cc.egui_ctx.add_plugin(egui_react_app::a11y::WebA11y::new("egui_react_canvas"));
+    cc.egui_ctx.add_plugin(egui_reactor_app::a11y::WebA11y::new("egui_reactor_canvas"));
 })),
 ```
 

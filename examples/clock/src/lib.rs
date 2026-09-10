@@ -16,8 +16,8 @@
 
 use std::time::Duration;
 
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 use example_meta::Meta;
 
 pub const META: Meta = Meta {

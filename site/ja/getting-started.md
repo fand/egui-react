@@ -32,16 +32,16 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-egui-react = { git = "https://github.com/fand/egui-react" }
-egui-react-elements = { git = "https://github.com/fand/egui-react" }
-egui-react-app = { git = "https://github.com/fand/egui-react" }
+egui-reactor = { git = "https://github.com/fand/egui-react" }
+egui-reactor-elements = { git = "https://github.com/fand/egui-react" }
+egui-reactor-app = { git = "https://github.com/fand/egui-react" }
 egui = "0.36.1"
 eframe = "0.36.1"
 ```
 
-- `egui-react` が中核です。`Cx`、フック、`rsx!`、レイアウトエンジン。
-- `egui-react-elements` は `rsx!` の中に書くもの。`<View>`、`<Text>`、`<Button>` などです。
-- `egui-react-app` がウィンドウを開くか、canvas を乗っ取ります。
+- `egui-reactor` が中核です。`Cx`、フック、`rsx!`、レイアウトエンジン。
+- `egui-reactor-elements` は `rsx!` の中に書くもの。`<View>`、`<Text>`、`<Button>` などです。
+- `egui-reactor-app` がウィンドウを開くか、canvas を乗っ取ります。
 - `egui` と `eframe` は、自分のコードがその型を書くので必要です。
 
 ## カウンタ
@@ -51,8 +51,8 @@ eframe = "0.36.1"
 ### コンポーネント
 
 ```rust
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 
 #[component]
 pub fn App(cx: &mut Cx) {
@@ -84,13 +84,13 @@ pub fn App(cx: &mut Cx) {
 ### ランナー
 
 ```rust
-use egui_react::prelude::*;
-use egui_react_app::{Options, run};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{Options, run};
 
 fn main() -> eframe::Result {
     run(
         Options {
-            title: String::from("egui-react: counter"),
+            title: String::from("egui-reactor: counter"),
             ..Default::default()
         },
         |_cx| rsx! { <App/> },
@@ -108,7 +108,7 @@ cargo run
 
 ## ブラウザで動かす
 
-`Cargo.toml` の隣に `index.html` を置きます。canvas の id は`Options::canvas_id` と一致させます。既定値は `egui_react_canvas` です。
+`Cargo.toml` の隣に `index.html` を置きます。canvas の id は`Options::canvas_id` と一致させます。既定値は `egui_reactor_canvas` です。
 
 ```html
 <!DOCTYPE html>
@@ -134,7 +134,7 @@ cargo run
     </style>
   </head>
   <body>
-    <canvas id="egui_react_canvas"></canvas>
+    <canvas id="egui_reactor_canvas"></canvas>
   </body>
 </html>
 ```
@@ -149,7 +149,7 @@ trunk serve
 
 ## Cargo フィーチャ
 
-`egui-react-app` には 2 つあります。
+`egui-reactor-app` には 2 つあります。
 
 - **`default_fonts`**（既定でオン）は egui 組み込みの 4 フォント、約 1.4 MB を残します。切ればその分を削れますが、代わりに自分でフォントを同梱し、最初のフレームより前に適用する必要があります。さもないと何も描かれません。
 - **`woff2`**（既定でオフ）は HTTP で取得した WOFF / WOFF2 フォントをデコードします。無いときは、その取得が panic ではなく失敗として扱われます。

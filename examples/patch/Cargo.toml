@@ -1,6 +1,6 @@
 [package]
 name = "patch"
-description = "egui-react example: a node editor that generates the shader it previews"
+description = "egui-reactor example: a node editor that generates the shader it previews"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -24,9 +24,9 @@ wgpu.workspace = true
 naga.workspace = true
 bytemuck.workspace = true
 log.workspace = true
-egui-react.workspace = true
-egui-react-app.workspace = true
-egui-react-elements.workspace = true
+egui-reactor.workspace = true
+egui-reactor-app.workspace = true
+egui-reactor-elements.workspace = true
 example-meta.workspace = true
 serde.workspace = true
 serde_json.workspace = true

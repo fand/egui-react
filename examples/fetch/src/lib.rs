@@ -9,8 +9,8 @@
 //! The same code runs natively (`ehttp` uses ureq on a thread of its own) and
 //! in a browser (`ehttp` uses the fetch API on the browser's event loop).
 
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 use example_meta::Meta;
 use serde::Deserialize;
 
@@ -125,7 +125,7 @@ pub fn App(cx: &mut Cx) {
 
 /// One city button: on when it is the one being shown.
 ///
-/// `egui-react-elements` has no toggle, so this is the escape hatch one leaf
+/// `egui-reactor-elements` has no toggle, so this is the escape hatch one leaf
 /// deep — the same shape every component in these examples has: take a
 /// `style`, draw one thing, report the click.
 #[component]

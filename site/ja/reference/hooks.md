@@ -4,7 +4,7 @@ title: フック
 
 # フック
 
-このページのものはすべて `egui_react::prelude` から export されています。
+このページのものはすべて `egui_reactor::prelude` から export されています。
 
 **deps は `Hash` で比べます。** `use_memo`、`use_effect`、`use_future` はどれも`deps` を取り、そのハッシュが変わると走り直します。`PartialEq` ではなくハッシュにしているおかげで、deps を借用できます。`(&str, &[T])` は正しい depsのタプルです。ハッシュの衝突は、egui 自身の id と同じ程度に無視できます。`()` を deps にすると「マウント時に 1 回」の意味になります。
 

@@ -10,8 +10,8 @@
 //! engine, and the paint half (`bg`, `border`, `radius`, `shadow`,
 //! `custom_shadow`, `opacity`) is painted by it on the node's own box.
 
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 use example_meta::Meta;
 
 pub const META: Meta = Meta {

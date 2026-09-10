@@ -87,7 +87,7 @@ pub fn ui(ui: &mut egui::Ui, _state: &mut PlainState) {
     });
 }
 
-/// One labelled section: `<Section>` in the egui-react version.
+/// One labelled section: `<Section>` in the egui-reactor version.
 fn section(ui: &mut egui::Ui, title: &str, body: impl FnOnce(&mut egui::Ui)) {
     ui.label(egui::RichText::new(title).strong());
     ui.add_space(4.0);

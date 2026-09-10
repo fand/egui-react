@@ -3,8 +3,8 @@
 use custom_hook::App;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
-use egui_react::prelude::*;
-use egui_react_app::{root_id, root_style};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{root_id, root_style};
 
 fn harness<'a>() -> Harness<'a, Store> {
     Harness::builder()

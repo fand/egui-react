@@ -3,8 +3,8 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
-use egui_react::prelude::*;
-use egui_react_app::{root_id, root_style};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{root_id, root_style};
 use todo::App;
 use todo::plain::{self, PlainState};
 
@@ -128,7 +128,7 @@ fn drive<S>(harness: &mut Harness<'_, S>) {
 }
 
 #[test]
-fn the_egui_react_version_manages_the_list() {
+fn the_egui_reactor_version_manages_the_list() {
     let mut harness = react();
     harness.run();
     drive(&mut harness);

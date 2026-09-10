@@ -16,8 +16,8 @@
 //! row is measured in `scenarios.rs`, which builds that list itself.)
 
 use egui_kittest::Harness;
-use egui_react::prelude::*;
-use egui_react_app::{root_id, root_style};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{root_id, root_style};
 use list_10k::App;
 use list_10k::plain::{self, PlainState};
 

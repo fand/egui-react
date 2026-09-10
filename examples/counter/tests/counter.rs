@@ -3,12 +3,12 @@
 use counter::App;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
-use egui_react::prelude::*;
-use egui_react_app::{root_id, root_style};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{root_id, root_style};
 
 const SIZE: egui::Vec2 = egui::vec2(400.0, 300.0);
 
-/// The egui-react version under the runner's frame.
+/// The egui-reactor version under the runner's frame.
 fn react<'a>() -> Harness<'a, Store> {
     Harness::builder().with_size(SIZE).build_ui_state(
         |ui, store: &mut Store| {
@@ -41,7 +41,7 @@ fn drive<S>(harness: &mut Harness<'_, S>) {
 }
 
 #[test]
-fn the_egui_react_version_counts() {
+fn the_egui_reactor_version_counts() {
     let mut harness = react();
     harness.run();
     drive(&mut harness);

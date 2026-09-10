@@ -5,7 +5,7 @@
 // On a wide window the content area is two columns the height of the window.
 // The left one has the title, the summary, the example running in an iframe
 // and, under it, the page's notes; the right one is the code, with the tabs
-// that pick the egui-react or the plain egui version. Each column scrolls on
+// that pick the egui-reactor or the plain egui version. Each column scrolls on
 // its own. A narrow window has room for one pane, so the tabs grow a third
 // entry, `example`, and pick which pane is up; the example stays mounted
 // under the code, the way the gallery keeps it running behind the code pane.
@@ -32,7 +32,7 @@ const props = defineProps({
   name: { type: String, required: true },
   /** Whether this example has a plain egui version to switch to. */
   hasPlain: { type: Boolean, default: false },
-  /** Lines of the egui-react version, as the tab label reports them. */
+  /** Lines of the egui-reactor version, as the tab label reports them. */
   reactLines: { type: Number, default: 0 },
   /** Lines of the plain egui version. */
   plainLines: { type: Number, default: 0 }
@@ -40,7 +40,7 @@ const props = defineProps({
 
 /// Which tab is selected: `example`, `react` or `plain`. A wide window shows
 /// the example whatever the tab says and has no `example` tab; there
-/// `example` and `react` both mean the egui-react code.
+/// `example` and `react` both mean the egui-reactor code.
 const pane = ref('example')
 
 /// The plain version is showing, in the code and in the iframe. An example
@@ -66,13 +66,13 @@ const t = computed(() =>
   lang.value === 'ja'
     ? {
         example: 'サンプル',
-        react: (lines) => `egui-react · ${lines} 行`,
+        react: (lines) => `egui-reactor · ${lines} 行`,
         plain: (lines) => `素の egui · ${lines} 行`,
         running: (name) => `実行中のサンプル: ${name}`
       }
     : {
         example: 'example',
-        react: (lines) => `egui-react · ${lines} lines`,
+        react: (lines) => `egui-reactor · ${lines} lines`,
         plain: (lines) => `plain egui · ${lines} lines`,
         running: (name) => `running example: ${name}`
       }

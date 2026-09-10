@@ -18,8 +18,8 @@
 //! value={handle}>` element is not possible today — a component's props type
 //! may not name the store's lifetime (ARCHITECTURE 6).
 
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 use example_meta::Meta;
 
 pub const META: Meta = Meta {

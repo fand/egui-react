@@ -25,9 +25,9 @@ use std::time::Duration;
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
 use egui_kittest::wgpu::{WgpuTestRenderer, create_render_state, default_wgpu_setup};
-use egui_react::prelude::*;
-use egui_react_app::{root_id, root_style};
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_app::{root_id, root_style};
+use egui_reactor_elements::prelude::*;
 use gallery::{EXAMPLES, Running};
 
 /// The picture's size in points. 16:10, like the cards.

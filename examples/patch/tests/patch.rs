@@ -19,8 +19,8 @@ use std::time::Duration;
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT as _, Queryable as _};
-use egui_react::prelude::*;
-use egui_react_app::{root_id, root_style};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{root_id, root_style};
 use patch::App;
 
 /// Wide enough for the preset and the node the menu drops beside it, tall

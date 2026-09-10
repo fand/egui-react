@@ -4,7 +4,7 @@ title: Elements
 
 # Elements
 
-Everything on this page comes from `egui_react_elements::prelude`, which also
+Everything on this page comes from `egui_reactor_elements::prelude`, which also
 exports the generated event enums — you need `ButtonEvent` in scope wherever
 you write `<Button on_click=../>`.
 
@@ -417,5 +417,5 @@ DOM mirror described in [Web and native](/guide/web-and-native).
 ## More
 
 The elements list with the reasoning behind each wrapper is in
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#elements-list-egui-react-elements)
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#elements-list-egui-reactor-elements)
 section 6.

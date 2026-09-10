@@ -16,15 +16,15 @@
 //!   widget holds the only `&mut` to the text, so the clock is updated through
 //!   a message rather than a second borrow.
 //! - A font with Japanese in it. egui's own fonts have no CJK glyphs, so a
-//!   note in Japanese would be boxes; `egui_react_app::fonts::Fonts` puts a
+//!   note in Japanese would be boxes; `egui_reactor_app::fonts::Fonts` puts a
 //!   subset of Noto Sans JP in front of egui's font (the `font` example is
 //!   the long version of this).
 //!
 //! No `Panel`, so the gallery can run it in a column of its own.
 
-use egui_react::prelude::*;
-use egui_react_app::fonts::{FontSource, Fonts, Generic};
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_app::fonts::{FontSource, Fonts, Generic};
+use egui_reactor_elements::prelude::*;
 use example_meta::Meta;
 
 pub mod notes;
@@ -237,7 +237,7 @@ fn Sidebar(
             <ScrollArea grow={1.0}>
                 <View direction="column" w="100%">
                     for note in notes.iter() {
-                        // A selectable row: `egui-react-elements` has no toggle
+                        // A selectable row: `egui-reactor-elements` has no toggle
                         // element, so this is the escape hatch, one leaf deep.
                         {view(|cx| {
                             let picked = cx.leaf(&ItemStyle::default().w("100%").my(ROW_PAD), |ui| {

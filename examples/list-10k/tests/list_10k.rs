@@ -2,8 +2,8 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
-use egui_react::prelude::*;
-use egui_react_app::{root_id, root_style};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{root_id, root_style};
 use list_10k::App;
 use list_10k::plain::{self, PlainState};
 
@@ -48,7 +48,7 @@ fn filter_to_alpha<S>(harness: &mut Harness<'_, S>) {
 }
 
 #[test]
-fn the_filter_narrows_the_egui_react_list() {
+fn the_filter_narrows_the_egui_reactor_list() {
     let mut harness = react();
     harness.run();
     assert!(harness.query_by_label("showing 100").is_some());
@@ -67,7 +67,7 @@ fn the_filter_narrows_the_plain_egui_list_the_same() {
     assert!(harness.query_by_label("showing 13").is_some());
 }
 
-/// Removing a row takes one off the count. Only the egui-react version is
+/// Removing a row takes one off the count. Only the egui-reactor version is
 /// driven here: the plain version's "x" is the same three lines, and its rows
 /// are virtualised, so which one is on screen depends on the scroll offset.
 #[test]

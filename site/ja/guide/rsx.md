@@ -22,8 +22,8 @@ rsx! {
 いつもの import:
 
 ```rust
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 ```
 
 ## テキストと式

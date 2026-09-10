@@ -32,13 +32,13 @@ Plan phase 8 (release preparation) separately after PR4. Web accessibility (`doc
 
 ### Phase 0: Workspace setup
 
-- Create `egui-react` / `egui-react-macros` / `egui-react-elements` / `egui-react-app` and `examples/` in a Cargo workspace.
+- Create `egui-reactor` / `egui-reactor-macros` / `egui-reactor-elements` / `egui-reactor-app` and `examples/` in a Cargo workspace.
 - Pin egui 0.36, rstml 0.13, and egui_taffy 0.14.
 - Set up `rust-toolchain.toml`, CI, LICENSE, and a README skeleton.
 
 ### Phase 1: Spike
 
-- Implement minimal `Store` / `Cx` / `State` / `use_state` / `use_effect` / `hook_scope` / sweep functionality in the `egui-react` core.
+- Implement minimal `Store` / `Cx` / `State` / `use_state` / `use_effect` / `hook_scope` / sweep functionality in the `egui-reactor` core.
 - Add handwritten expansions of Counter and Dialog (with two callback props) to examples, without macros.
 - Capture each validation item from ARCHITECTURE.md section 10 as an egui_kittest test.
 - Completion criteria: all validation tests pass. If any item fails, revise the design and update ARCHITECTURE.md.
@@ -64,7 +64,7 @@ Plan phase 8 (release preparation) separately after PR4. Web accessibility (`doc
 
 ### Phase 5: Runner and examples
 
-- `egui-react-app::run`. Set `Options::max_passes = 2`. `use_persisted`.
+- `egui-reactor-app::run`. Set `Options::max_passes = 2`. `use_persisted`.
 - Run native builds and wasm builds via trunk in CI.
 - Examples: counter, todo (`use_reducer`), layout demo.
 
@@ -78,7 +78,7 @@ Plan phase 8 (release preparation) separately after PR4. Web accessibility (`doc
 - Split existing examples into lib + bin and publish a gallery (one wasm binary) on GitHub Pages where all examples can be tried in the browser.
 - Show each example alongside its implementation in the gallery, with a toggle to compare it with the plain egui version.
 - Add examples: form, theme, clock, custom-hook, escape-hatch, list-10k, shell, showcase.
-- Add the `wgpu` feature and `Options.setup` to `egui-react-app`, the `<Canvas>` element, and a shader example.
+- Add the `wgpu` feature and `Options.setup` to `egui-reactor-app`, the `<Canvas>` element, and a shader example.
 
 ### Phase 6.6: Complex UI examples
 
@@ -92,7 +92,7 @@ Combine them into one PR. Finish board first, then start patch once its custom h
 ### Phase 7: Mobile
 
 - Android: build examples with eframe.
-- iOS: implement an `egui-winit` + `egui-wgpu` runner in `egui-react-app` and build with cargo-mobile2.
+- iOS: implement an `egui-winit` + `egui-wgpu` runner in `egui-reactor-app` and build with cargo-mobile2.
 - Adjust touch / IME / safe area handling.
 
 ### Phase 8: Release preparation

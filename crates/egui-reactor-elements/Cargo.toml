@@ -1,0 +1,32 @@
+[package]
+name = "egui-reactor-elements"
+description = "Widgets, containers and flex/grid layout elements for egui-reactor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "egui_reactor_elements"
+path = "src/lib.rs"
+
+[features]
+# Pixel snapshot tests. Needs a GPU (or a software Vulkan driver), so it is off
+# by default and run as its own CI step.
+snapshot = ["egui_kittest/snapshot", "egui_kittest/wgpu"]
+
+[dependencies]
+egui.workspace = true
+egui-reactor.workspace = true
+# `<Text font="..">` with a name nothing registered warns once instead of
+# reaching egui, which would panic.
+log.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true
+# The tests query widgets by their label and lay text out, so they need fonts.
+# The library does not: egui is taken without its default features
+# workspace-wide, so that `egui-reactor-app` can offer dropping egui's embedded
+# fonts. A dev-dependency turns them on for the tests of this crate alone.
+egui = { workspace = true, features = ["default_fonts"] }

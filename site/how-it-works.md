@@ -65,9 +65,9 @@ app never idles.** Widgets that must write every frame, like `TextEdit`, take
 Drawing still costs. Cache expensive values with `use_memo` and use
 `<VirtualList>` for long lists, as you would in plain egui.
 
-## React vs egui-react
+## React vs egui-reactor
 
-| React | egui-react |
+| React | egui-reactor |
 |---|---|
 | Virtual DOM, reconciler | Direct expansion, nothing retained |
 | `memo()`, `useCallback` | Not needed. Use `use_memo` for expensive values |
@@ -81,7 +81,7 @@ Drawing still costs. Cache expensive values with `use_memo` and use
 
 ## When to use it
 
-Use egui-react when the UI has structure: forms, panels, lists with their own
+Use egui-reactor when the UI has structure: forms, panels, lists with their own
 state, layouts that reflow. [board](/examples/board), [form](/examples/form)
 and [todo](/examples/todo) show the same app both ways, with line counts on
 the tabs.

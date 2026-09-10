@@ -4,9 +4,9 @@ title: Escape hatches
 
 # Escape hatches
 
-egui-react wraps a subset of egui, and that is fine. Everything ends in
+egui-reactor wraps a subset of egui, and that is fine. Everything ends in
 `&mut egui::Ui`, so anything egui can do is one call away. The elements in
-`egui-react-elements` are written with these same calls.
+`egui-reactor-elements` are written with these same calls.
 
 | You want | Use |
 |---|---|

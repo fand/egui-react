@@ -22,8 +22,8 @@
 
 use std::collections::BTreeSet;
 
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 use example_meta::Meta;
 
 pub mod plain;
@@ -143,7 +143,7 @@ pub fn Compare(cx: &mut Cx) {
         <View direction="column" grow={1.0}>
             <View direction="row" gap={8} align="center" pl={12} pt={12}>
                 <Checkbox bind={plain.bind()} label="plain egui"/>
-                <Text>{if show_plain { "plain.rs: egui by hand" } else { "lib.rs: egui-react" }}</Text>
+                <Text>{if show_plain { "plain.rs: egui by hand" } else { "lib.rs: egui-reactor" }}</Text>
             </View>
             if show_plain {
                 <PlainApp/>
