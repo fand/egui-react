@@ -93,3 +93,4 @@ Where a decision was made before this directory existed and no date was recorded
 
 - [0001: The site is a VitePress documentation site with one embed wasm](app/0001-site-is-vitepress-with-one-embed-wasm.md)
 - [0002: The embed follows the page's theme through the hash](app/0002-embed-follows-the-page-theme.md)
+- [0003: Persisted-state keys keep the pre-rename name](app/0003-storage-keys-keep-the-old-name.md)

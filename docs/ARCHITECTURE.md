@@ -233,7 +233,8 @@ The second is "passing to the same element both a value prop that borrows state 
 - The slot Id is `Id::new(("egui_reactor_persisted", key))`, not the scope, and does not depend on the call site. Adding lines never makes saved data unreadable; in exchange, using the same key in two places shares the same single value, and visiting it twice in one pass is recorded as a collision as usual.
 - `Store` holds a `HashMap` of "key -> JSON string". `load_persisted(&mut self, json)` loads it wholesale, and `save_persisted(&self) -> String` serializes the live slots, overwrites the map, and then turns the whole thing into JSON. Unreadable JSON is ignored with `log::warn!`, and the value falls back to `init`.
 - `Slot` holds `persist: Option<(key, fn(&dyn Any) -> Option<String>)>`. When the sweep drops a slot with persist, it serializes it into the map first. Even after unmount it remains for the next launch.
-- The save format is JSON, written to eframe `Storage` under the single key `"egui_reactor"`. The runner's `App::save` calls it (eframe calls it on `auto_save_interval` and at exit).
+- The save format is JSON, written to eframe `Storage` under the single key `"egui_react"`. The runner's `App::save` calls it (eframe calls it on `auto_save_interval` and at exit).
+- That key, and the root egui id `"egui_react_root"` that scopes the egui memory saved beside it, keep the name they had before the crates were renamed to `egui-reactor`, so state already saved on the live site still loads ([adr/app/0003](adr/app/0003-storage-keys-keep-the-old-name.md)).
 
 ### `use_reducer` details
 
@@ -480,7 +481,7 @@ What `egui_reactor_app::run(Options, root)` does in one frame is the following.
 3. Create the root `Cx`, and `show` the `View` returned by `root(cx)` inside `cx.root_container(..)` (`direction: column`, `w` is `100%`, `min_h` is `100%`, `reserve_available_space`). Nested containers reserve only width, so only the root also takes height. This id and style are public as `egui_reactor_app::root_id()` / `root_style()`, so tests and custom runners can reproduce the same frame.
 4. `store.end_pass()`.
 
-`Options` has `title` / `max_passes` (default 3, set explicitly with `ctx.options_mut`. See 5.3) / `persist` / `canvas_id` (wasm) / `native` (native only) / `setup`. `setup: Option<Box<dyn FnOnce(&eframe::CreationContext)>>` is a hole called exactly once right after eframe has set up the window and render backend; it runs at the top of `ReactApp::new`. This is where you create wgpu pipelines and put them in `renderer.write().callback_resources` of `cc.wgpu_render_state` (the same shape as `custom3d_wgpu` in the official egui demo). Handing out `RenderState` through hooks or context is not adopted. The line drawn is: wgpu types never appear anywhere in the hook API, and apps that do not use wgpu never see it. It exists on both native and wasm. `App::save` writes `store.save_persisted()` to the `"egui_reactor"` key in `Storage`, and `load_persisted` reads from `CreationContext::storage`. On wasm, `cfg(target_arch = "wasm32")` puts `WebRunner` on `wasm_bindgen_futures::spawn_local`, and the canvas is looked up by `canvas_id`.
+`Options` has `title` / `max_passes` (default 3, set explicitly with `ctx.options_mut`. See 5.3) / `persist` / `canvas_id` (wasm) / `native` (native only) / `setup`. `setup: Option<Box<dyn FnOnce(&eframe::CreationContext)>>` is a hole called exactly once right after eframe has set up the window and render backend; it runs at the top of `ReactApp::new`. This is where you create wgpu pipelines and put them in `renderer.write().callback_resources` of `cc.wgpu_render_state` (the same shape as `custom3d_wgpu` in the official egui demo). Handing out `RenderState` through hooks or context is not adopted. The line drawn is: wgpu types never appear anywhere in the hook API, and apps that do not use wgpu never see it. It exists on both native and wasm. `App::save` writes `store.save_persisted()` to the `"egui_react"` key in `Storage`, and `load_persisted` reads from `CreationContext::storage`. On wasm, `cfg(target_arch = "wasm32")` puts `WebRunner` on `wasm_bindgen_futures::spawn_local`, and the canvas is looked up by `canvas_id`.
 
 `root` is called every pass, and the `View` it returns cannot borrow anything created inside `root` (an `rsx!` that borrows a hook guard would return a value that borrows a local). Put hooks in components and write the root as `|_cx| rsx!{ <App/> }`.
 
@@ -569,6 +570,7 @@ Decisions are recorded in [docs/adr/](adr/), one file per decision, grouped by d
 **app**
 
 - [0001: The site is a VitePress documentation site with one embed wasm](adr/app/0001-site-is-vitepress-with-one-embed-wasm.md)
+- [0003: Persisted-state keys keep the pre-rename name](adr/app/0003-storage-keys-keep-the-old-name.md)
 
 ## 12. Website
 
