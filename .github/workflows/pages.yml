@@ -1,6 +1,6 @@
 name: Pages
 
-# Publishes the documentation site to https://fand.github.io/egui-react/:
+# Publishes the documentation site to https://fand.github.io/egui-reactor/:
 # the VitePress pages, the `embed` wasm every example page runs in an iframe,
 # and `cargo doc`. `site/build.sh` is what assembles the three; this workflow
 # only installs the toolchains it needs and uploads what it produced.
@@ -71,7 +71,7 @@ jobs:
       # its `base` and trunk as the `--public-url` of the embed, so every
       # generated URL carries the prefix.
       - name: Build the site
-        run: SITE_BASE=/egui-react/ bash site/build.sh
+        run: SITE_BASE=/egui-reactor/ bash site/build.sh
 
       - uses: actions/upload-pages-artifact@v3
         with:

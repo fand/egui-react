@@ -75,7 +75,7 @@ cargo run -p board --bin board-plain    # the plain egui version
 trunk serve --config examples/board/Trunk.toml
 ```
 
-The source is [`examples/board/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/board/src/lib.rs)
-and [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/board/src/plain.rs).
+The source is [`examples/board/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/board/src/lib.rs)
+and [`plain.rs`](https://github.com/fand/egui-reactor/blob/main/examples/board/src/plain.rs).
 
 </ExamplePage>

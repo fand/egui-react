@@ -16,7 +16,7 @@ hero:
       link: /ja/examples/
     - theme: alt
       text: GitHub
-      link: https://github.com/fand/egui-react
+      link: https://github.com/fand/egui-reactor
 ---
 
 <script setup>

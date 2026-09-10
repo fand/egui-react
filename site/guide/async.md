@@ -100,5 +100,5 @@ HTTP. Do CPU-heavy work on a thread you start inside the future.
 
 [fetch](/examples/fetch) is this page in one screen. [patch](/examples/patch)
 uses `<Suspense>` around shader compilation. The mechanism is in
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#58-suspense)
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#58-suspense)
 sections 4 and 5.8.

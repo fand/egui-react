@@ -99,4 +99,4 @@ Fonts::new().stack(
 
 ## 動かして見る
 
-[font](/ja/examples/font) には 4 つのチェーン、3 つのソース、項目ごとのレポート、`swap` と `block` の切り替えが入っています。リゾルバの説明は[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#8-platforms)の 8 章、決定の記録は[docs/adr/fonts/](https://github.com/fand/egui-react/tree/main/docs/adr/fonts)にあります（どちらも英語）。
+[font](/ja/examples/font) には 4 つのチェーン、3 つのソース、項目ごとのレポート、`swap` と `block` の切り替えが入っています。リゾルバの説明は[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#8-platforms)の 8 章、決定の記録は[docs/adr/fonts/](https://github.com/fand/egui-reactor/tree/main/docs/adr/fonts)にあります（どちらも英語）。

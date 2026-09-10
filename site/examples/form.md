@@ -64,7 +64,7 @@ cargo run -p form --bin form-plain    # the plain egui version
 trunk serve --config examples/form/Trunk.toml
 ```
 
-The source is [`examples/form/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/form/src/lib.rs)
-and [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/form/src/plain.rs).
+The source is [`examples/form/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/form/src/lib.rs)
+and [`plain.rs`](https://github.com/fand/egui-reactor/blob/main/examples/form/src/plain.rs).
 
 </ExamplePage>

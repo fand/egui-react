@@ -71,4 +71,4 @@ UI に構造があるときに使ってください。フォーム、パネル�
 
 ## もっと読む
 
-いちばん小さいサンプルは [counter](/ja/examples/counter) です。[notes](/ja/examples/notes) はライブラリのほとんどを一度に使います。ランタイムの詳細は[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md)の 2 章と 5 章にあります（英語）。
+いちばん小さいサンプルは [counter](/ja/examples/counter) です。[notes](/ja/examples/notes) はライブラリのほとんどを一度に使います。ランタイムの詳細は[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md)の 2 章と 5 章にあります（英語）。

@@ -61,7 +61,7 @@ pub const EXAMPLES: &[Meta] = &[
 ];
 
 /// Where the source links point.
-const REPO: &str = "https://github.com/fand/egui-react/blob/main/examples";
+const REPO: &str = "https://github.com/fand/egui-reactor/blob/main/examples";
 
 /// Below this window width the gallery is one pane and a menu rather than
 /// three columns.

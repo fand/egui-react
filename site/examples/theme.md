@@ -61,6 +61,6 @@ cargo run -p theme
 trunk serve --config examples/theme/Trunk.toml
 ```
 
-The source is [`examples/theme/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/theme/src/lib.rs).
+The source is [`examples/theme/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/theme/src/lib.rs).
 
 </ExamplePage>

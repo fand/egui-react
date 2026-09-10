@@ -137,5 +137,5 @@ and `Suspense` use it. You only need it when wrapping such a container.
 [theme](/examples/theme) is a provider component. [notes](/examples/notes)
 puts components, events and a reducer together. The generated code is
 described in
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#33-components)
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#33-components)
 sections 3.3 and 3.6.

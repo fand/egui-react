@@ -51,6 +51,6 @@ cargo run -p list-10k --bin list-10k-plain    # 素の egui 版
 trunk serve --config examples/list-10k/Trunk.toml
 ```
 
-ソースは [`examples/list-10k/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/list-10k/src/lib.rs)と [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/list-10k/src/plain.rs) です。
+ソースは [`examples/list-10k/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/list-10k/src/lib.rs)と [`plain.rs`](https://github.com/fand/egui-reactor/blob/main/examples/list-10k/src/plain.rs) です。
 
 </ExamplePage>

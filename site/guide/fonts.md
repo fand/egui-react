@@ -130,6 +130,6 @@ wanted.
 
 [font](/examples/font) has all four chains, the three sources, the per-entry
 report, and the `swap` versus `block` switch. The resolver is in
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#8-platforms)
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#8-platforms)
 section 8, and the decisions in
-[docs/adr/fonts/](https://github.com/fand/egui-react/tree/main/docs/adr/fonts).
+[docs/adr/fonts/](https://github.com/fand/egui-reactor/tree/main/docs/adr/fonts).

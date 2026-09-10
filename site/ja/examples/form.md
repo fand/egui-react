@@ -51,6 +51,6 @@ cargo run -p form --bin form-plain    # 素の egui 版
 trunk serve --config examples/form/Trunk.toml
 ```
 
-ソースは [`examples/form/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/form/src/lib.rs)と [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/form/src/plain.rs) です。
+ソースは [`examples/form/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/form/src/lib.rs)と [`plain.rs`](https://github.com/fand/egui-reactor/blob/main/examples/form/src/plain.rs) です。
 
 </ExamplePage>

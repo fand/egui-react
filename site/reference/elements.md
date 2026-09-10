@@ -417,5 +417,5 @@ DOM mirror described in [Web and native](/guide/web-and-native).
 ## More
 
 The elements list with the reasoning behind each wrapper is in
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#elements-list-egui-reactor-elements)
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#elements-list-egui-reactor-elements)
 section 6.

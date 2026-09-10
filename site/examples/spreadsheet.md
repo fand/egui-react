@@ -63,6 +63,6 @@ cargo run -p spreadsheet
 trunk serve --config examples/spreadsheet/Trunk.toml
 ```
 
-The source is [`examples/spreadsheet/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/spreadsheet/src/lib.rs).
+The source is [`examples/spreadsheet/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/spreadsheet/src/lib.rs).
 
 </ExamplePage>

@@ -105,4 +105,4 @@ fn Chip(cx: &mut Cx, #[prop(default)] style: ItemStyle, label: &str) {
 
 ## もっと知る
 
-属性の完全な一覧、taffy への対応づけ、`<VirtualList>` の行の中で各属性がどうなるかは[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#layout-attributes)の 6 章にあります（英語）。
+属性の完全な一覧、taffy への対応づけ、`<VirtualList>` の行の中で各属性がどうなるかは[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#layout-attributes)の 6 章にあります（英語）。

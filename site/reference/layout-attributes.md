@@ -129,5 +129,5 @@ hatches take.
 
 The full attribute list, the taffy mapping, and what happens to each attribute
 inside a `<VirtualList>` row are in
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#layout-attributes)
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#layout-attributes)
 section 6.

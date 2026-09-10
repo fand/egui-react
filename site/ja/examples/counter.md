@@ -41,6 +41,6 @@ cargo run -p counter
 trunk serve --config examples/counter/Trunk.toml
 ```
 
-ソースは [`examples/counter/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/counter/src/lib.rs) です。
+ソースは [`examples/counter/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/counter/src/lib.rs) です。
 
 </ExamplePage>

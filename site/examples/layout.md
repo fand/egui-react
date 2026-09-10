@@ -66,7 +66,7 @@ cargo run -p layout --bin layout-plain    # the plain egui version
 trunk serve --config examples/layout/Trunk.toml
 ```
 
-The source is [`examples/layout/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/layout/src/lib.rs)
-and [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/layout/src/plain.rs).
+The source is [`examples/layout/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/layout/src/lib.rs)
+and [`plain.rs`](https://github.com/fand/egui-reactor/blob/main/examples/layout/src/plain.rs).
 
 </ExamplePage>

@@ -73,6 +73,6 @@ cargo run -p patch
 trunk serve --config examples/patch/Trunk.toml
 ```
 
-The source is [`examples/patch/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/patch/src/lib.rs).
+The source is [`examples/patch/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/patch/src/lib.rs).
 
 </ExamplePage>

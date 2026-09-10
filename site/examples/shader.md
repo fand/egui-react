@@ -59,8 +59,8 @@ cargo run -p shader
 trunk serve --config examples/shader/Trunk.toml
 ```
 
-The source is [`examples/shader/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/shader/src/lib.rs);
-the pipeline is in [`src/gpu.rs`](https://github.com/fand/egui-react/blob/main/examples/shader/src/gpu.rs)
-and the shader in [`src/shader.wgsl`](https://github.com/fand/egui-react/blob/main/examples/shader/src/shader.wgsl).
+The source is [`examples/shader/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/shader/src/lib.rs);
+the pipeline is in [`src/gpu.rs`](https://github.com/fand/egui-reactor/blob/main/examples/shader/src/gpu.rs)
+and the shader in [`src/shader.wgsl`](https://github.com/fand/egui-reactor/blob/main/examples/shader/src/shader.wgsl).
 
 </ExamplePage>

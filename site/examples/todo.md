@@ -68,7 +68,7 @@ cargo run -p todo --bin todo-plain    # the plain egui version
 trunk serve --config examples/todo/Trunk.toml
 ```
 
-The source is [`examples/todo/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/todo/src/lib.rs)
-and [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/todo/src/plain.rs).
+The source is [`examples/todo/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/todo/src/lib.rs)
+and [`plain.rs`](https://github.com/fand/egui-reactor/blob/main/examples/todo/src/plain.rs).
 
 </ExamplePage>

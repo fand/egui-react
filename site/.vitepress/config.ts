@@ -5,7 +5,7 @@ import { defineConfig } from 'vitepress'
 import { exampleSourcePlugin } from '../lib/example-source.js'
 import { EXAMPLE_ORDER } from '../lib/examples-order.js'
 
-// GitHub Pages serves the site under `/egui-react/`, the Cloudflare preview
+// GitHub Pages serves the site under `/egui-reactor/`, the Cloudflare preview
 // under `/`; `site/build.sh` passes whichever applies. A trailing slash is
 // what VitePress and `withBase` expect.
 const base = process.env.SITE_BASE ?? '/'
@@ -23,7 +23,7 @@ const pages = new Set(
 )
 const known = EXAMPLE_ORDER.filter((name) => pages.has(name))
 
-/// `https://fand.github.io/egui-react/#counter` was the gallery; it is now an
+/// `https://fand.github.io/egui-reactor/#counter` was the gallery; it is now an
 /// example page. Inline in `head` so it runs before the router hydrates and the
 /// reader never sees the home page flash by.
 const redirect = `
@@ -191,7 +191,7 @@ export default defineConfig({
         nav: nav('/ja', JA),
         sidebar: sidebar('/ja', JA),
         editLink: {
-          pattern: 'https://github.com/fand/egui-react/edit/main/site/:path',
+          pattern: 'https://github.com/fand/egui-reactor/edit/main/site/:path',
           text: 'このページを GitHub で編集する'
         },
         outline: { label: '目次' },
@@ -263,9 +263,9 @@ export default defineConfig({
         }
       }
     },
-    socialLinks: [{ icon: 'github', link: 'https://github.com/fand/egui-react' }],
+    socialLinks: [{ icon: 'github', link: 'https://github.com/fand/egui-reactor' }],
     editLink: {
-      pattern: 'https://github.com/fand/egui-react/edit/main/site/:path',
+      pattern: 'https://github.com/fand/egui-reactor/edit/main/site/:path',
       text: 'Edit this page on GitHub'
     },
     footer: {

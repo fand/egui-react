@@ -43,6 +43,6 @@ cargo run -p clock
 trunk serve --config examples/clock/Trunk.toml
 ```
 
-ソースは [`examples/clock/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/clock/src/lib.rs) です。
+ソースは [`examples/clock/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/clock/src/lib.rs) です。
 
 </ExamplePage>

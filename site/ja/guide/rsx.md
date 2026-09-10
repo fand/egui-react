@@ -135,4 +135,4 @@ rsx! {
 
 ## 動かして見る
 
-[layout](/ja/examples/layout) と [styles](/ja/examples/styles) は属性を 1 つずつ見せます。[notes](/ja/examples/notes) は文法をひととおり使います。マクロの規則は[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#32-view-and-rsx)の 3.2 節にあります（英語）。
+[layout](/ja/examples/layout) と [styles](/ja/examples/styles) は属性を 1 つずつ見せます。[notes](/ja/examples/notes) は文法をひととおり使います。マクロの規則は[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#32-view-and-rsx)の 3.2 節にあります（英語）。

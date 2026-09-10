@@ -68,6 +68,6 @@ downloads it the first time trunk builds. Natively the same relative URL has no
 server to point at, so that entry is reported as failed and the chain draws with
 the subset — the report shows that too.
 
-The source is [`examples/font/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/font/src/lib.rs).
+The source is [`examples/font/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/font/src/lib.rs).
 
 </ExamplePage>

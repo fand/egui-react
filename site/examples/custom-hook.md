@@ -58,7 +58,7 @@ cargo run -p custom-hook
 trunk serve --config examples/custom-hook/Trunk.toml
 ```
 
-The source is [`examples/custom-hook/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/custom-hook/src/lib.rs);
-the hooks themselves are in [`src/hooks.rs`](https://github.com/fand/egui-react/blob/main/examples/custom-hook/src/hooks.rs).
+The source is [`examples/custom-hook/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/custom-hook/src/lib.rs);
+the hooks themselves are in [`src/hooks.rs`](https://github.com/fand/egui-reactor/blob/main/examples/custom-hook/src/hooks.rs).
 
 </ExamplePage>

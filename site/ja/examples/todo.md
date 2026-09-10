@@ -53,6 +53,6 @@ cargo run -p todo --bin todo-plain    # 素の egui 版
 trunk serve --config examples/todo/Trunk.toml
 ```
 
-ソースは [`examples/todo/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/todo/src/lib.rs)と [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/todo/src/plain.rs) です。
+ソースは [`examples/todo/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/todo/src/lib.rs)と [`plain.rs`](https://github.com/fand/egui-reactor/blob/main/examples/todo/src/plain.rs) です。
 
 </ExamplePage>

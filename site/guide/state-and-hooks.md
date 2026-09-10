@@ -174,5 +174,5 @@ are in the [Hooks reference](/reference/hooks).
 `bind`, [todo](/examples/todo) for `use_reducer` and `use_persisted`,
 [theme](/examples/theme) for context, [custom-hook](/examples/custom-hook)
 for `#[hook]`. The store and repaint policy are in
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#5-runtime)
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#5-runtime)
 section 5.

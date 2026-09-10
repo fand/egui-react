@@ -5,7 +5,7 @@ title: Architecture
 # Architecture
 
 <script setup>
-// `withBase`, because the site is served from `/egui-react/` on GitHub Pages
+// `withBase`, because the site is served from `/egui-reactor/` on GitHub Pages
 // and from `/` on the preview; `/api/` is cargo doc's output, not a page of
 // this site, so it is a plain link and not a router route.
 import { withBase } from 'vitepress'
@@ -17,7 +17,7 @@ says where they are.
 
 ## `docs/ARCHITECTURE.md`
 
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md)
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md)
 is the deep reference: what is true about the implementation right now. Goals
 and non-goals, `Cx` and the `View` trait, what `#[component]` and `rsx!`
 generate, the hook list with its exact semantics, the runtime (store, sweep,
@@ -31,7 +31,7 @@ something, it links the section there rather than repeating it.
 
 ## `docs/adr/`
 
-[docs/adr/](https://github.com/fand/egui-react/tree/main/docs/adr) is the
+[docs/adr/](https://github.com/fand/egui-reactor/tree/main/docs/adr) is the
 decision log: one file per design decision, grouped by domain — `core`,
 `runtime`, `layout`, `elements`, `fonts`, `a11y`, `app`. Each records when the
 decision was made, what was decided, what was turned down and why, and what it
@@ -64,5 +64,5 @@ pieces fit together.
 
 ## The repository
 
-[github.com/fand/egui-react](https://github.com/fand/egui-react). Issues and
+[github.com/fand/egui-reactor](https://github.com/fand/egui-reactor). Issues and
 pull requests welcome; the tests to run before opening one are in the README.

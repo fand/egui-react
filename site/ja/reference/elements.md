@@ -363,4 +363,4 @@ prop の名前は `on_paint` ではなく `paint` です。`rsx!` は `on_` で�
 
 ## もっと知る
 
-要素の一覧と、それぞれのラッパーを作った理由は[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#elements-list-egui-reactor-elements)の 6 章にあります（英語）。
+要素の一覧と、それぞれのラッパーを作った理由は[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#elements-list-egui-reactor-elements)の 6 章にあります（英語）。
