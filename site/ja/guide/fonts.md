@@ -8,12 +8,12 @@ title: フォント
 
 egui はテキストを自分で描きます。素材は `Context::set_fonts` に渡されたフォントのバイト列だけです。ブラウザのフォントも OS のフォントマッチングも使いません。egui 組み込みの 4 フォントには CJK のグリフが無いので、素の egui アプリではどのプラットフォームでも日本語が豆腐になります。
 
-`egui_react_app::fonts` はこれを、名前付きソースの CSS 風フォールバックチェーンで解決します。チェーンは `fontdb` を通して egui のフォントファミリに解決されます。
+`egui_reactor_app::fonts` はこれを、名前付きソースの CSS 風フォールバックチェーンで解決します。チェーンは `fontdb` を通して egui のフォントファミリに解決されます。
 
 ## チェーン
 
 ```rust
-use egui_react_app::fonts::{FontSource, Fonts, Generic};
+use egui_reactor_app::fonts::{FontSource, Fonts, Generic};
 
 const SUBSET: &[u8] = include_bytes!("../fonts/NotoSansJP-Subset.ttf");
 
@@ -74,7 +74,7 @@ rsx! {
 
 ## どのチェーンの後ろにもいるフォールバック
 
-egui 組み込みの 4 フォント（約 1.4 MB）は、すべての総称ファミリの後ろと、すべてのチェーンの末尾に控えています。これは `egui-react-app` の`default_fonts` フィーチャの下にあり、既定でオンです。切っても panic はしませんが、何にも解決できなかったチェーンはグリフを描きません。切るアプリは、どのスタックにも `Bundled` か `System` のフェイスを与えるか、`Fonts::pending()` が false になるまでテキストの無い画面を描く必要があります。
+egui 組み込みの 4 フォント（約 1.4 MB）は、すべての総称ファミリの後ろと、すべてのチェーンの末尾に控えています。これは `egui-reactor-app` の`default_fonts` フィーチャの下にあり、既定でオンです。切っても panic はしませんが、何にも解決できなかったチェーンはグリフを描きません。切るアプリは、どのスタックにも `Bundled` か `System` のフェイスを与えるか、`Fonts::pending()` が false になるまでテキストの無い画面を描く必要があります。
 
 ## Web フォント: 大きさと待ち時間
 

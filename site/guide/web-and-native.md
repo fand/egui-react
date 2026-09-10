@@ -5,7 +5,7 @@ title: Web and native
 # Web and native
 
 One `run` call opens a window natively and takes over a `<canvas>` in the
-browser. The runner is `egui-react-app`, the only crate that knows about
+browser. The runner is `egui-reactor-app`, the only crate that knows about
 eframe.
 
 ## `run(Options, root)`
@@ -14,7 +14,7 @@ eframe.
 fn main() -> eframe::Result {
     run(
         Options {
-            title: String::from("egui-react: counter"),
+            title: String::from("egui-reactor: counter"),
             ..Default::default()
         },
         |_cx| rsx! { <App/> },
@@ -37,7 +37,7 @@ Put hooks in a component and keep the root as `|_cx| rsx! { <App/> }`.
 | `title` | Native window title. Ignored on wasm |
 | `max_passes` | Passes egui may run per frame, 3 by default. The layout asks for another pass when a node is added, removed or moved |
 | `persist` | Whether `use_persisted` reads and writes eframe's storage |
-| `canvas_id` | The `<canvas>` to attach to. wasm only. `"egui_react_canvas"` by default |
+| `canvas_id` | The `<canvas>` to attach to. wasm only. `"egui_reactor_canvas"` by default |
 | `native` | `eframe::NativeOptions`. Native only |
 | `setup` | Called once, as soon as eframe has a window and a render backend |
 
@@ -81,7 +81,7 @@ You need an `index.html` with a canvas whose id matches `canvas_id`:
 
 ```html
 <link data-trunk rel="rust" href="Cargo.toml" data-wasm-opt="z" />
-<canvas id="egui_react_canvas"></canvas>
+<canvas id="egui_reactor_canvas"></canvas>
 ```
 
 plus CSS to make the canvas fill the page. Then `trunk serve`, or
@@ -98,13 +98,13 @@ An egui app is a few megabytes of wasm. Keep `data-wasm-opt="z"`, build with
 ### Accessibility on the web
 
 egui builds an AccessKit tree every frame. Natively, eframe hands it to the
-OS and screen readers work. On the web, eframe drops it. `egui-react-app`
+OS and screen readers work. On the web, eframe drops it. `egui-reactor-app`
 ships `a11y::WebA11y`, a plugin that mirrors the tree into hidden DOM
 elements over the canvas:
 
 ```rust
 setup: Some(Box::new(move |cc| {
-    cc.egui_ctx.add_plugin(egui_react_app::a11y::WebA11y::new("egui_react_canvas"));
+    cc.egui_ctx.add_plugin(egui_reactor_app::a11y::WebA11y::new("egui_reactor_canvas"));
 })),
 ```
 

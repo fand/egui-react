@@ -4,7 +4,7 @@ title: Hooks
 
 # Hooks
 
-Everything on this page is exported from `egui_react::prelude`.
+Everything on this page is exported from `egui_reactor::prelude`.
 
 **Deps are compared by `Hash`.** `use_memo`, `use_effect` and `use_future` all
 take a `deps` argument and re-run when its hash changes. Hashing rather than

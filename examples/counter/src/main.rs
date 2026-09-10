@@ -1,13 +1,13 @@
 //! Runs the `counter` example on its own; the app itself is in `lib.rs`.
 
 use counter::App;
-use egui_react::prelude::*;
-use egui_react_app::{Options, run};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{Options, run};
 
 fn main() -> eframe::Result {
     run(
         Options {
-            title: String::from("egui-react: counter"),
+            title: String::from("egui-reactor: counter"),
             ..Default::default()
         },
         // The root closure gets a `Cx` it rarely needs: hooks belong in

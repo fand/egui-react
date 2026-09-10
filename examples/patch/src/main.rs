@@ -1,13 +1,13 @@
 //! Runs the `patch` example on its own; the app itself is in `lib.rs`.
 
-use egui_react::prelude::*;
-use egui_react_app::{Options, run};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{Options, run};
 use patch::{App, gpu};
 
 fn main() -> eframe::Result {
     run(
         Options {
-            title: String::from("egui-react: patch"),
+            title: String::from("egui-reactor: patch"),
             // The buffer and the layouts, once. The pipeline cannot be built
             // here: which shader to compile is a question about a patch that
             // has not been loaded yet, so `gpu::prepare` builds it the first

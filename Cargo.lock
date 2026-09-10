@@ -575,9 +575,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
  "serde",
@@ -736,9 +736,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
  "web-time",
@@ -845,9 +845,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
 ]
@@ -904,9 +904,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
 ]
@@ -1094,11 +1094,11 @@ dependencies = [
 ]
 
 [[package]]
-name = "egui-react"
+name = "egui-reactor"
 version = "0.1.0"
 dependencies = [
  "egui",
- "egui-react-macros",
+ "egui-reactor-macros",
  "egui_kittest",
  "elsa",
  "log",
@@ -1112,14 +1112,14 @@ dependencies = [
 ]
 
 [[package]]
-name = "egui-react-app"
+name = "egui-reactor-app"
 version = "0.1.0"
 dependencies = [
  "accesskit-web",
  "eframe",
  "egui",
- "egui-react",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-elements",
  "egui_kittest",
  "ehttp",
  "env_logger",
@@ -1137,17 +1137,17 @@ dependencies = [
 ]
 
 [[package]]
-name = "egui-react-elements"
+name = "egui-reactor-elements"
 version = "0.1.0"
 dependencies = [
  "egui",
- "egui-react",
+ "egui-reactor",
  "egui_kittest",
  "log",
 ]
 
 [[package]]
-name = "egui-react-macros"
+name = "egui-reactor-macros"
 version = "0.1.0"
 dependencies = [
  "proc-macro2",
@@ -1395,9 +1395,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
 ]
@@ -1468,9 +1468,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "ehttp",
  "example-meta",
  "serde",
@@ -1506,9 +1506,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
 ]
@@ -1578,9 +1578,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
  "serde",
@@ -1661,9 +1661,9 @@ dependencies = [
  "custom-hook",
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui-wgpu",
  "egui_kittest",
  "escape-hatch",
@@ -2276,9 +2276,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
 ]
@@ -2347,9 +2347,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
  "wasm-bindgen-futures",
@@ -2527,9 +2527,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
  "serde",
@@ -2989,9 +2989,9 @@ dependencies = [
  "bytemuck",
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui-wgpu",
  "egui_kittest",
  "example-meta",
@@ -3665,9 +3665,9 @@ dependencies = [
  "bytemuck",
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui-wgpu",
  "egui_kittest",
  "example-meta",
@@ -3841,9 +3841,9 @@ dependencies = [
  "board",
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
  "log",
@@ -3875,9 +3875,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
 ]
@@ -3979,9 +3979,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
 ]
@@ -4096,9 +4096,9 @@ version = "0.1.0"
 dependencies = [
  "eframe",
  "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
+ "egui-reactor",
+ "egui-reactor-app",
+ "egui-reactor-elements",
  "egui_kittest",
  "example-meta",
  "serde",

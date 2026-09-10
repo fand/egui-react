@@ -23,7 +23,7 @@ impl eframe::App for PlainApp {
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
     eframe::run_native(
-        "egui-react: form (plain egui)",
+        "egui-reactor: form (plain egui)",
         eframe::NativeOptions::default(),
         Box::new(|cc| {
             let state = cc
@@ -35,7 +35,7 @@ fn main() -> eframe::Result {
     )
 }
 
-/// The plain versions are native only. `trunk` builds the egui-react binaries,
+/// The plain versions are native only. `trunk` builds the egui-reactor binaries,
 /// and `cargo check --target wasm32` builds every binary in the workspace.
 #[cfg(target_arch = "wasm32")]
 fn main() {}

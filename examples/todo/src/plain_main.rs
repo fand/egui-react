@@ -1,6 +1,6 @@
 //! Runs the plain egui todo list on its own, next to `cargo run -p todo`.
 //!
-//! `save` and `load` are written out here. The egui-react version gets the
+//! `save` and `load` are written out here. The egui-reactor version gets the
 //! same thing from `use_persisted("todo/todos", ..)`.
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -26,7 +26,7 @@ impl eframe::App for PlainApp {
 #[cfg(not(target_arch = "wasm32"))]
 fn main() -> eframe::Result {
     eframe::run_native(
-        "egui-react: todo (plain egui)",
+        "egui-reactor: todo (plain egui)",
         eframe::NativeOptions::default(),
         Box::new(|cc| {
             let state = cc
@@ -38,7 +38,7 @@ fn main() -> eframe::Result {
     )
 }
 
-/// The plain versions are native only. `trunk` builds the egui-react binaries,
+/// The plain versions are native only. `trunk` builds the egui-reactor binaries,
 /// and `cargo check --target wasm32` builds every binary in the workspace.
 #[cfg(target_arch = "wasm32")]
 fn main() {}

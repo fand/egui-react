@@ -12,8 +12,8 @@ The task definition and the 1.5x criterion are in [task.md](task.md).
 - About 80% is egui_taffy creating one egui `Ui` per taffy node and a second
   one per leaf: 9 `Ui`s per row against 4 in Plain. That is its design, not a
   bug, and its backgrounds, interactive containers and sticky scrolling rely on
-  it. egui-react uses none of those.
-- egui_taffy is called only from `crates/egui-react/src/cx.rs`. `layout.rs`
+  it. egui-reactor uses none of those.
+- egui_taffy is called only from `crates/egui-reactor/src/cx.rs`. `layout.rs`
   uses taffy types only. So the replacement is one module plus the `Surface`
   half of `Cx`.
 
@@ -22,10 +22,10 @@ the existing tests and snapshots unchanged.
 
 ## 1. Shape of the new layer
 
-New module `crates/egui-react/src/engine.rs` (private; `Cx` is the only user).
+New module `crates/egui-reactor/src/engine.rs` (private; `Cx` is the only user).
 Dependency `taffy` directly, same version and features egui_taffy 0.14 uses
 (taffy 0.9: `block_layout`, `content_size`, `flexbox`, `grid`). The
-`egui_react::taffy` re-export stays, pointing at the direct dependency.
+`egui_reactor::taffy` re-export stays, pointing at the direct dependency.
 
 ### 1.1 Data
 
@@ -86,7 +86,7 @@ root_ui: &mut Ui, prefix: egui::Id }`.
   VirtualList). Same reuse rule as egui_taffy: existing key reuses the node,
   style set only if it changed, child order checked, tail removed on mismatch.
 - **Containers (`Cx::container` in tree mode)** add a node and recurse. No
-  `Ui`, no widget registration, no response. egui-react draws no background
+  `Ui`, no widget registration, no response. egui-reactor draws no background
   on a `<View>`, so nothing is lost.
 - **Leaves (`Cx::leaf`)** create exactly one child `Ui`:
   `root_ui.new_child(UiBuilder::new().max_rect(rect).id_salt(scope_id.with(child_index)))`.
@@ -133,15 +133,15 @@ path. They need a `Ui` anyway.
 
 | File | Change |
 |---|---|
-| `crates/egui-react/Cargo.toml`, workspace `Cargo.toml` | drop `egui_taffy`, add `taffy`; remove `[patch.crates-io]` |
-| `crates/egui-react/src/engine.rs` | new: `Tree`, frame protocol, measure, B + C rules, sweep |
-| `crates/egui-react/src/store.rs` | tree map, `tree(id)` accessor, sweep in `end_pass` |
-| `crates/egui-react/src/cx.rs` | `Surface::Taffy(&mut Tui)` becomes `Surface::Tree(TreeCx)`; `leaf`, `leaf_fill`, `container`, `scope`, `ui`, `ctx`, `with_layout_id` reimplemented; new `text` |
-| `crates/egui-react/src/lib.rs` | `pub use taffy;` from the direct dependency |
-| `crates/egui-react-elements/src/view.rs` | `<Text>` uses `cx.text` (D2) |
-| `crates/egui-react-elements/src/virtual_list.rs` | drop the per-row `push_id` once leaf salts come from the scope (D1) |
-| `crates/egui-react/tests/multi_pass.rs` | rewrite: it drives egui_taffy directly today |
-| `crates/egui-react/tests/engine_*.rs` | port the fork's `tests/discard.rs` and `tests/layout_first.rs` |
+| `crates/egui-reactor/Cargo.toml`, workspace `Cargo.toml` | drop `egui_taffy`, add `taffy`; remove `[patch.crates-io]` |
+| `crates/egui-reactor/src/engine.rs` | new: `Tree`, frame protocol, measure, B + C rules, sweep |
+| `crates/egui-reactor/src/store.rs` | tree map, `tree(id)` accessor, sweep in `end_pass` |
+| `crates/egui-reactor/src/cx.rs` | `Surface::Taffy(&mut Tui)` becomes `Surface::Tree(TreeCx)`; `leaf`, `leaf_fill`, `container`, `scope`, `ui`, `ctx`, `with_layout_id` reimplemented; new `text` |
+| `crates/egui-reactor/src/lib.rs` | `pub use taffy;` from the direct dependency |
+| `crates/egui-reactor-elements/src/view.rs` | `<Text>` uses `cx.text` (D2) |
+| `crates/egui-reactor-elements/src/virtual_list.rs` | drop the per-row `push_id` once leaf salts come from the scope (D1) |
+| `crates/egui-reactor/tests/multi_pass.rs` | rewrite: it drives egui_taffy directly today |
+| `crates/egui-reactor/tests/engine_*.rs` | port the fork's `tests/discard.rs` and `tests/layout_first.rs` |
 | `docs/ARCHITECTURE.md` 5.3, 6, 7, 11 | passes, engine, crate deps, decision log entry |
 | `README.md` | the egui_taffy sentence |
 

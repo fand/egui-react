@@ -8,7 +8,7 @@ followed by a measurement, and one decision at the end.
 
 | Step | Where | What | Gate to continue |
 |---|---|---|---|
-| A | egui-react | Key VirtualList row trees by slot, not row index | Scroll passes/frame drop from 2.00; no new node per scrolled row |
+| A | egui-reactor | Key VirtualList row trees by slot, not row index | Scroll passes/frame drop from 2.00; no new node per scrolled row |
 | B | egui_taffy fork | Skip `request_discard` when layout output is unchanged | Scroll and Filter reach 1 pass/frame |
 | C | egui_taffy fork | Compute layout before drawing when only the root size changed | Resize drops from 2.98 passes/frame |
 | D | decision | Keep egui_taffy (upstream PR) or replace it with an own thin layer over taffy | See section 5 |
@@ -28,7 +28,7 @@ Run from the repository root, release only:
 PERF_CSV="$PWD/docs/tasks/list-perf/samples-<step>.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 cargo test --release -p list-10k --test list_10k
-cargo test -p egui-react --test multi_pass
+cargo test -p egui-reactor --test multi_pass
 ```
 
 - Add one row per scenario to a new "After <step>" table in measurements.md:
@@ -109,7 +109,7 @@ Only the taffy tree id and the taffy node ids become positional.
 
 ### 2.4 Tests
 
-- `crates/egui-react-elements` test: scroll a VirtualList with a
+- `crates/egui-reactor-elements` test: scroll a VirtualList with a
   `use_state` counter per row; click row 5, scroll away and back, the count
   is still on row 5. This pins "hooks keyed by row, not by slot".
 - Same test asserts the number of `TaffyState` entries in egui memory does
@@ -172,7 +172,7 @@ unchanged (already 1 pass). Resize is still 3.
 - Fork unit test: build a row-shaped tree, change a leaf's measured width
   within the slack, recompute, assert no discard was requested.
 - Fork unit test: change a leaf so the layout does move, assert a discard.
-- egui-react `multi_pass` test still sees a second pass for the case it
+- egui-reactor `multi_pass` test still sees a second pass for the case it
   covers (a new tree).
 
 ## 4. Step C: egui_taffy fork, layout-first on root size change
@@ -218,7 +218,7 @@ stable trees. Expected 2.98 to about 1.0 to 1.3 passes/frame.
 
 - Fork unit test: tree from frame N, resize the root in frame N+1, assert
   children were drawn with the new layout in the first pass.
-- egui-react: a resize snapshot pair (before / after a width change) matches
+- egui-reactor: a resize snapshot pair (before / after a width change) matches
   the current output pixel for pixel. If the first-pass drawing is now correct,
   the final frame is the same as before.
 
@@ -243,7 +243,7 @@ ARCHITECTURE.md 5.3 with the new pass rules.
   (state lookup in egui memory, per-node `Style` compare, `id_to_node_id`
   retain sweep) and closing it needs changes upstream would not take.
 
-What a replacement is: egui_taffy is used only from `crates/egui-react/src/cx.rs`
+What a replacement is: egui_taffy is used only from `crates/egui-reactor/src/cx.rs`
 (`tui`, `.id().style().add()`, `.ui()`, `.ui_manual()`,
 `with_auto_id_prefix`, `egui_ui_mut`, `reserve_available_*`) and
 `layout.rs` uses the `taffy` types only. So "drop egui_taffy" means
@@ -254,7 +254,7 @@ rewriting the `Surface::Taffy` half of `cx.rs` on top of `taffy` directly:
 - node reuse by id, as egui_taffy does, plus B and C built in;
 - leaf measurement as today (draw, report `min_size`), with a later option
   to pre-measure `<Text>` through `ui.fonts()`;
-- no egui_taffy containers, backgrounds, or sticky scrolling; egui-react does
+- no egui_taffy containers, backgrounds, or sticky scrolling; egui-reactor does
   not use them.
 
 Estimate: about the size of `cx.rs` today, plus tests. This is a separate
@@ -286,7 +286,7 @@ thin own layer over taffy, so it needs a rewrite either way.
 cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
-cargo check --target wasm32-unknown-unknown -p egui-react -p egui-react-elements
+cargo check --target wasm32-unknown-unknown -p egui-reactor -p egui-reactor-elements
 ```
 
 Snapshot tests: run with `--features snapshot` in gallery; a diff means stop

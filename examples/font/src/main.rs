@@ -1,7 +1,7 @@
 //! Runs the `font` example on its own; the app itself is in `lib.rs`.
 
-use egui_react::prelude::*;
-use egui_react_app::{Options, run};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{Options, run};
 use font::{App, fonts};
 
 fn main() -> eframe::Result {
@@ -11,7 +11,7 @@ fn main() -> eframe::Result {
     let fonts = fonts();
     run(
         Options {
-            title: String::from("egui-react: font"),
+            title: String::from("egui-reactor: font"),
             setup: Some(Box::new(move |cc| fonts.apply(&cc.egui_ctx))),
             ..Default::default()
         },

@@ -34,7 +34,7 @@ The shape in one sentence: **a `fontdb::Database` is the single place font bytes
 - Builds everywhere. `#![cfg_attr(not(feature = "std"), no_std)]`; dependencies are `log`, `slotmap`, `tinyvec`, optional `memmap2`, and `fontconfig-parser` only on Linux. Name tables are parsed by a vendored minimal ttf-parser. For wasm: `default-features = false, features = ["std"]` (no `fs`, no `memmap`). No C libraries on any target, so CI needs no new packages.
 - `Source::File(path)` is read on each `with_face_data`; `SharedFile` (memmap) and `Binary` give a slice. epaint needs owned bytes, so the resolver copies once per face it registers, never for faces it only looked at.
 
-**font-kit, why not.** Same API shape (`SystemSource::select_best_match(&[FamilyName], &Properties)`, `Handle::{Path, Memory}`), but: `SystemSource` is `cfg`'d out on wasm32 and `freetype-sys` is a hard dependency there, so the crate does not build for the web target and the wasm path would have needed a second implementation; on Linux it links `libfreetype` and `libfontconfig` (CI apt line, and every Linux user building an egui-react app needs the `-dev` packages); last release 2025-05. Decided against on 2026-09-07.
+**font-kit, why not.** Same API shape (`SystemSource::select_best_match(&[FamilyName], &Properties)`, `Handle::{Path, Memory}`), but: `SystemSource` is `cfg`'d out on wasm32 and `freetype-sys` is a hard dependency there, so the crate does not build for the web target and the wasm path would have needed a second implementation; on Linux it links `libfreetype` and `libfontconfig` (CI apt line, and every Linux user building an egui-reactor app needs the `-dev` packages); last release 2025-05. Decided against on 2026-09-07.
 
 ### 1.3 The three wasm sources
 
@@ -50,14 +50,14 @@ The shape in one sentence: **a `fontdb::Database` is the single place font bytes
 
 - Chromium only (Chrome / Edge 103 and later). Firefox and Safari have not shipped it and have no positive signal. The example must feature-detect (`"queryLocalFonts" in window`) and say so.
 - Secure context, and the first `query()` shows a permission prompt (`local-fonts` permission). Chromium requires **transient user activation**, so the call has to be made from a click handler, not from `setup`. `navigator.permissions.query({ name: "local-fonts" })` can be used to show state without prompting.
-- web-sys **has** `FontData` (feature `"FontData"`; `postscript_name()`, `full_name()`, `family()`, `style()`, `blob() -> Promise<Blob>`) but the `Navigator` binding has **no `fonts` getter** and there is no `FontManager` type (checked in upstream `gen_Navigator.rs` and the feature list). Found in step 5: in the locked web-sys 0.3.104 the whole `FontData` type is behind `--cfg=web_sys_unstable_apis`, a rustc flag every user of egui-react-app would then have to set, so the binding is not used either. `window.queryLocalFonts()`, each face's `family` / `postscriptName` and `blob()` are all reached with `js_sys::Reflect::get` + `js_sys::Function::call0`; only `Blob::array_buffer` and the `Permissions` API come from web-sys.
+- web-sys **has** `FontData` (feature `"FontData"`; `postscript_name()`, `full_name()`, `family()`, `style()`, `blob() -> Promise<Blob>`) but the `Navigator` binding has **no `fonts` getter** and there is no `FontManager` type (checked in upstream `gen_Navigator.rs` and the feature list). Found in step 5: in the locked web-sys 0.3.104 the whole `FontData` type is behind `--cfg=web_sys_unstable_apis`, a rustc flag every user of egui-reactor-app would then have to set, so the binding is not used either. `window.queryLocalFonts()`, each face's `family` / `postscriptName` and `blob()` are all reached with `js_sys::Reflect::get` + `js_sys::Function::call0`; only `Blob::array_buffer` and the `Permissions` API come from web-sys.
 - `blob()` returns the **whole font file**, which for a `.ttc` is the whole collection (Hiragino Sans is about 20 faces in one file). Loading the blob into fontdb gives one `ID` per face with its `post_script_name`, so the face the browser named is found by comparing `postscriptName`; nothing needs to be parsed by hand. Sizes are large (Hiragino Sans `.ttc` is several tens of MB); the design reads a blob only for a family the app asked for, never for everything the query returned.
 - Matching: `query()` returns every face on the machine; we filter by `family()` against the `System(name)` entries the app listed, take one face per family for the blob (the file contains the rest), and let fontdb's `query` pick the face afterwards, exactly as on native.
 
-### 1.4 Where it plugs into egui-react
+### 1.4 Where it plugs into egui-reactor
 
 - `Options::setup: Option<Box<dyn FnOnce(&eframe::CreationContext)>>` runs first in `ReactApp::new`, before the store is created, on native and wasm. That is the place the app builds its `Fonts` and applies it (`cc.egui_ctx`). The a11y module set the precedent for "runner-level feature with a wasm-only inside": `WebA11y` is one type on every target, with the DOM part under `#[cfg(target_arch = "wasm32")]`. `fonts` follows the same shape.
-- `egui-react-elements` depends only on `egui` and `egui-react`; `egui-react-app` depends on elements only as a dev-dependency. So the `<Text font>` prop cannot ask the runner anything. It asks the `Context` instead (1.1).
+- `egui-reactor-elements` depends only on `egui` and `egui-reactor`; `egui-reactor-app` depends on elements only as a dev-dependency. So the `<Text font>` prop cannot ask the runner anything. It asks the `Context` instead (1.1).
 - `Cx::text(style, WidgetText, wrap, selectable)` takes a `WidgetText`; the prop is applied in `<Text>` before that call, no core change.
 - Async: sources that arrive later run on the browser's event loop or a thread (native, as `ehttp` already does). They need a `Context` clone to call `set_fonts` and `request_repaint`, which `CreationContext::egui_ctx` gives. The resolver's shared state is `Arc<Mutex<Inner>>` (`fontdb::Database` is `Send + Sync`), since the native fetch completes on another thread.
 
@@ -66,7 +66,7 @@ The shape in one sentence: **a `fontdb::Database` is the single place font bytes
 ### 2.1 Model
 
 ```rust
-// egui_react_app::fonts
+// egui_reactor_app::fonts
 pub enum FontSource {
     /// Bytes compiled into the binary. Loaded into the database on `apply`;
     /// the chain entry is "the best face among the ones this blob had".
@@ -172,14 +172,14 @@ Applied as `RichText::family` on the text: `WidgetText::Text(s)` becomes `RichTe
 ### 2.4 Crate and feature layout
 
 ```
-crates/egui-react-app/
+crates/egui-reactor-app/
   Cargo.toml        fontdb (native: default features; wasm: default-features = false, features = ["std"]),
                     skrifa = "0.44", ehttp; feature woff2 = ["dep:wuff"]; wasm: js-sys + web-sys features
   src/fonts/mod.rs      model, builder, `css` parser, `apply`, report
   src/fonts/resolve.rs  the six steps of 2.2 over a `&fontdb::Database` (pure, unit-testable)
   src/fonts/url.rs      ehttp fetch, format sniffing, optional WOFF2 decode
   src/fonts/local.rs    cfg(wasm32): Local Font Access
-crates/egui-react-elements/src/view.rs   `font` prop on Text (+ `log` dependency)
+crates/egui-reactor-elements/src/view.rs   `font` prop on Text (+ `log` dependency)
 examples/font/        lib.rs (App + META), main.rs, Trunk.toml, index.html, fonts/ (one small OFL font + license), tests/
 ```
 
@@ -192,13 +192,13 @@ Each step ends with the listed checks green: `cargo fmt --all --check`, `cargo c
 - `fonts/mod.rs` and `fonts/resolve.rs` with the types in 2.1 and the algorithm in 2.2. `Url` sources resolve to `Pending` and start nothing yet.
 - Unit tests on `resolve` with a `Database` built in the test from `epaint_default_fonts` bytes (dev-dependency; `HACK_REGULAR` and `UBUNTU_LIGHT` stand in for "a font the app bundled" and "a font installed on the device"): chain order is preserved; a missing `System` name is `Missing` and skipped; the tail is egui's list; `default_proportional` rewrites `Proportional`; duplicates collapse to one key and one `Arc<FontData>`; a re-`apply` with nothing changed produces equal definitions; invalid bytes are `Invalid`, never a panic; `Generic(Monospace)` puts `Hack` in even when the database has no monospace face.
 - Native test: `load_system_fonts` then `[System("This Font Does Not Exist"), Generic(SansSerif)]`; the first is `Missing`; the second is `Loaded` **or** the database is empty, in which case the test prints that and passes (a runner with no fonts is not a failure of this code). `fonts-dejavu-core` is on `ubuntu-latest` today.
-- kittest in `egui-react-app/tests/fonts.rs`: apply a `Fonts` with `Bundled(HACK_REGULAR)` as stack `"code"`, run a frame, assert `ctx.fonts(|f| f.definitions().families[&Name("code")])` starts with Hack's key and that the family draws with Hack. Found while writing it: `FontsView::has_glyphs` cannot be the check, because epaint answers "no" for any character owned by the face that also supplies the replacement glyph, and Hack has U+FFFD, so `has_glyphs("hello")` is false for every Hack-first family, egui's own `Monospace` included. The test compares `glyph_width('W')` between the stack, `Monospace` and `Proportional` instead.
+- kittest in `egui-reactor-app/tests/fonts.rs`: apply a `Fonts` with `Bundled(HACK_REGULAR)` as stack `"code"`, run a frame, assert `ctx.fonts(|f| f.definitions().families[&Name("code")])` starts with Hack's key and that the family draws with Hack. Found while writing it: `FontsView::has_glyphs` cannot be the check, because epaint answers "no" for any character owned by the face that also supplies the replacement glyph, and Hack has U+FFFD, so `has_glyphs("hello")` is false for every Hack-first family, egui's own `Monospace` included. The test compares `glyph_width('W')` between the stack, `Monospace` and `Proportional` instead.
 - `cargo check --target wasm32-unknown-unknown` with fontdb's wasm feature set.
 
 ### Step 2: `<Text font>`
 
 - The prop and resolution in 2.3. `log` added to elements.
-- kittests in `egui-react-elements/tests`: `font="monospace"` changes the galley's font (compare `galley.job.sections[0].format.font_id.family` against a plain `<Text>`); `font="nope"` draws, does not panic, and the family on the galley is the default; the warning fires once for two `<Text font="nope">` (assert on the `ctx.data` set).
+- kittests in `egui-reactor-elements/tests`: `font="monospace"` changes the galley's font (compare `galley.job.sections[0].format.font_id.family` against a plain `<Text>`); `font="nope"` draws, does not panic, and the family on the galley is the default; the warning fires once for two `<Text font="nope">` (assert on the `ctx.data` set).
 
 ### Step 3: measurements and the emoji decision
 
@@ -233,7 +233,7 @@ As built (2026-09-07), where it departs from the above:
 - The `Fonts` is a `LazyLock` static (`font::fonts()`), applied from `setup` in `main.rs` and once more from a `use_effect` on `App`'s first frame, because the gallery runs `App` in its own runner with no per-example `setup`. The second `apply` is a no-op when the first happened (the definitions are equal). On the frame that applies, the names are not registered yet, so the samples use `"proportional"` for that one frame rather than trigger `<Text font>`'s warning.
 - Natively the `Url` entry is `Failed` (a relative URL has no base for ureq), not read from the example directory; the report shows it, which is the honest answer for a source that is about HTTP. The web font is the static `NotoSansJP-Regular.otf` from notofonts/noto-cjk (`Sans/SubsetOTF/JP`, 4.5 MB, downloaded by `fonts/fetch-web-font.sh` from the trunk `pre_build` hooks of the example and of the gallery, gitignored). The variable `NotoSansJP[wght].ttf` from google/fonts was tried first and rejected: its default instance is Thin (`fvar` default `wght` 100) and epaint draws a variable font's default instance, so the `web` stack came out visibly lighter than the other two.
 - `system` also names `"Noto Sans JP"`, which matches the bundled subset already in the database, by design of `System` (any face the database has).
-- The Local Font Access click uses `egui_react::spawn` (`spawn_local` on wasm, a thread on native) and reports back through a `Dispatch`, so the example has no `cfg` block, only a `cfg!` for the button's note.
+- The Local Font Access click uses `egui_reactor::spawn` (`spawn_local` on wasm, a thread on native) and reports back through a `Dispatch`, so the example has no `cfg` block, only a `cfg!` for the button's note.
 - One kittest, not several: the static is per process and `apply` calls `set_fonts` only when the definitions changed, so a second `Context` in the same process would not receive them. It also asserts `has_glyphs("日本語")` on the `bundled` family, which works here because the subset has neither U+FFFD nor `◻` and the replacement glyph therefore comes from a later face (see the step 1 note on `has_glyphs`).
 - The Chromium round trip (permission prompt, `system` resolved from the grant) was not run in this environment; it is described in the module doc and remains a manual check.
 
@@ -246,7 +246,7 @@ As built (2026-09-07), where it departs from the above:
 ## 4. API in one screen (what the app writes)
 
 ```rust
-use egui_react_app::fonts::{Fonts, FontSource, Generic};
+use egui_reactor_app::fonts::{Fonts, FontSource, Generic};
 
 fn main() -> eframe::Result {
     let fonts = Fonts::new()
@@ -262,7 +262,7 @@ fn main() -> eframe::Result {
         .default_monospace("code");
 
     let setup_fonts = fonts.clone();
-    egui_react_app::run(
+    egui_reactor_app::run(
         Options {
             setup: Some(Box::new(move |cc| setup_fonts.apply(&cc.egui_ctx))),
             ..Default::default()
@@ -285,10 +285,10 @@ rsx! {
 - **Font size on wasm.** A CJK font is 5 to 10 MB. The `Url` source with same-origin hosting keeps it out of the wasm; the docs recommend subsetting for `Bundled`. Nothing in the code prevents an app from bundling 10 MB; that is the app's call.
 - **`set_fonts` cost.** Each arriving font rebuilds the atlas and every galley once. Two or three arrivals at startup are fine; a chain of ten URLs would flicker ten times. The `Url` source could batch: wait for all URLs in a chain before the first re-apply. Not built until someone needs it; noted in the module docs.
 - **`load_system_fonts` time.** fontdb reads name tables of every installed font on the first `apply`; on a machine with thousands of fonts this is a few hundred milliseconds inside `setup`, before the first frame. Acceptable; if it shows, the load moves to a thread and the first `apply` runs without system fonts, re-applying when the scan lands (the same path a URL completion takes).
-- **`<Text font>` lookup per pass.** Not measured; the list-10k re-run was skipped in step 3. The check is one `BTreeMap::contains_key` under the fonts lock per `<Text font>` per pass, a handful of string compares against the few registered families and far below the galley it precedes, and a per-pass cache would need invalidating whenever a source arrives and `set_fonts` swaps the definitions. The reasoning is in the comment on `font_family` in `egui-react-elements/src/view.rs`; if a profile ever shows it, the per-pass cache is the fallback.
+- **`<Text font>` lookup per pass.** Not measured; the list-10k re-run was skipped in step 3. The check is one `BTreeMap::contains_key` under the fonts lock per `<Text font>` per pass, a handful of string compares against the few registered families and far below the galley it precedes, and a per-pass cache would need invalidating whenever a source arrives and `set_fonts` swaps the definitions. The reasoning is in the comment on `font_family` in `egui-reactor-elements/src/view.rs`; if a profile ever shows it, the per-pass cache is the fallback.
 - **Local Font Access blobs are whole files.** A user with Hiragino installed grants access and the app pulls a 40 MB `.ttc` into wasm memory. Acceptable once; the database keeps it for the session and never re-reads. The docs say to list the specific families wanted, never all.
-- **Found on the first web run (2026-09-07), both fixed.** (1) Every label that did not change its text came out as fragments of other glyphs once the web font arrived. The engine caches a `<Text>`'s galley across frames keyed by wrap width and pixels per point; a galley carries texture coordinates into the atlas of the `Fonts` that laid it out, and `set_fonts` builds a new `Fonts` with a new atlas, so the cached galley painted the wrong pixels (Japanese looked right only because those texts had changed family and been laid out again). `Store::note_fonts` now fingerprints the definitions once per pass from the root `Cx`, publishes a generation in egui's data, and the galley cache key carries it (`crates/egui-react/tests/fonts_change.rs`). This affected any app calling `set_fonts` after the first frame, not only this module. (2) The compiled-in subset and the full font fetched over HTTP both declare `NotoSansJP-Regular`, and the resolver keyed faces by PostScript name and index, so the web font was never registered and the `web` stack drew the subset. Faces that share a name but not their bytes now get `~2`, `~3`, .. keys; the same bytes reached twice still share one copy.
-- **Found on the second web run (2026-09-08), both fixed.** (1) "Use my fonts" was disabled in Chrome: the feature test and the query looked for `navigator.fonts`, the 2020 draft of the API, while what shipped in Chrome 103 is `window.queryLocalFonts()`; the plan had carried the draft name through. Verified in a headless Chromium 141 in the sandbox: `"fonts" in navigator` is `false` on a secure origin, `window.queryLocalFonts` is a function, and with the `local-fonts` permission granted it lists the machine's faces. `local.rs` now tests for and calls `queryLocalFonts` on `window`. (2) The gallery's source pane came out as glyph fragments after the web font arrived: the same stale-galley bug as in the engine, in the gallery's own per-line galley cache (`code_lines`), whose key carried the atlas *size*, which a rebuilt atlas can share. The key now carries `egui_react::fonts_generation(ctx)`, a public reading of the generation the store publishes each pass; any code that keeps an `Arc<Galley>` across frames outside the engine needs it.
+- **Found on the first web run (2026-09-07), both fixed.** (1) Every label that did not change its text came out as fragments of other glyphs once the web font arrived. The engine caches a `<Text>`'s galley across frames keyed by wrap width and pixels per point; a galley carries texture coordinates into the atlas of the `Fonts` that laid it out, and `set_fonts` builds a new `Fonts` with a new atlas, so the cached galley painted the wrong pixels (Japanese looked right only because those texts had changed family and been laid out again). `Store::note_fonts` now fingerprints the definitions once per pass from the root `Cx`, publishes a generation in egui's data, and the galley cache key carries it (`crates/egui-reactor/tests/fonts_change.rs`). This affected any app calling `set_fonts` after the first frame, not only this module. (2) The compiled-in subset and the full font fetched over HTTP both declare `NotoSansJP-Regular`, and the resolver keyed faces by PostScript name and index, so the web font was never registered and the `web` stack drew the subset. Faces that share a name but not their bytes now get `~2`, `~3`, .. keys; the same bytes reached twice still share one copy.
+- **Found on the second web run (2026-09-08), both fixed.** (1) "Use my fonts" was disabled in Chrome: the feature test and the query looked for `navigator.fonts`, the 2020 draft of the API, while what shipped in Chrome 103 is `window.queryLocalFonts()`; the plan had carried the draft name through. Verified in a headless Chromium 141 in the sandbox: `"fonts" in navigator` is `false` on a secure origin, `window.queryLocalFonts` is a function, and with the `local-fonts` permission granted it lists the machine's faces. `local.rs` now tests for and calls `queryLocalFonts` on `window`. (2) The gallery's source pane came out as glyph fragments after the web font arrived: the same stale-galley bug as in the engine, in the gallery's own per-line galley cache (`code_lines`), whose key carried the atlas *size*, which a rebuilt atlas can share. The key now carries `egui_reactor::fonts_generation(ctx)`, a public reading of the generation the store publishes each pass; any code that keeps an `Arc<Galley>` across frames outside the engine needs it.
 - **Superseded (2026-09-08).** The generation was a guess at when egui rebuilds its `Fonts` (it also does so on a `TextOptions` change, which is what a dark / light switch is, and when the atlas is over 80% full), and egui has no API that says so. The engine now keeps a galley only within the pass that laid it out and goes through epaint's `GalleyCache`, which is rebuilt with the atlas, across passes; `fonts_generation` is gone, and the gallery's code pane caches its `LayoutJob`s instead. Rule for anything outside the engine: keep the `LayoutJob`, not the `Arc<Galley>`, and call `fonts.layout_job` each frame.
 - **Family names are exact.** fontdb compares the name-table string byte for byte. `"Hiragino Sans"` and `"ヒラギノ角ゴシック"` both match because both are in the table; `"hiragino sans"` does not. The report shows the family a face declared, which is how a user finds the right spelling.
 

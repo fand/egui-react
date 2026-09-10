@@ -2,7 +2,7 @@
 #
 # Build the whole published site into `site/.vitepress/dist`.
 #
-# Called by .github/workflows/pages.yml (SITE_BASE=/egui-react/), by
+# Called by .github/workflows/pages.yml (SITE_BASE=/egui-reactor/), by
 # .github/workflows/preview-cloudflare-pages.yml (SITE_BASE=/), and by anyone
 # who wants to see locally what will be deployed. It is the one place the
 # assembly lives, so the two deploys cannot drift apart.
@@ -63,10 +63,10 @@ cp -R "$ROOT/examples/gallery/dist-embed/." "$DIST/embed/"
 
 step "4/4 cargo doc: the four public crates -> ${SITE_BASE}api/"
 cargo doc --no-deps \
-  -p egui-react \
-  -p egui-react-elements \
-  -p egui-react-app \
-  -p egui-react-macros
+  -p egui-reactor \
+  -p egui-reactor-elements \
+  -p egui-reactor-app \
+  -p egui-reactor-macros
 rm -rf "$DIST/api"
 mkdir -p "$DIST/api"
 cp -R "$ROOT/target/doc/." "$DIST/api/"
@@ -80,12 +80,12 @@ if [ ! -f "$DIST/api/index.html" ]; then
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <title>egui-react API documentation</title>
-    <meta http-equiv="refresh" content="0; url=egui_react/index.html" />
-    <link rel="canonical" href="egui_react/index.html" />
+    <title>egui-reactor API documentation</title>
+    <meta http-equiv="refresh" content="0; url=egui_reactor/index.html" />
+    <link rel="canonical" href="egui_reactor/index.html" />
   </head>
   <body>
-    <p><a href="egui_react/index.html">egui-react API documentation</a></p>
+    <p><a href="egui_reactor/index.html">egui-reactor API documentation</a></p>
   </body>
 </html>
 HTML

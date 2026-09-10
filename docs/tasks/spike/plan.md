@@ -1,7 +1,7 @@
 # Plan: spike
 
-> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
-> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-reactor's
+> own layout engine over taffy (`crates/egui-reactor/src/engine.rs`, ARCHITECTURE
 > section 6), which ports its measure function and node rules, so the layout
 > behaviour described here still holds unless ARCHITECTURE says otherwise.
 
@@ -15,10 +15,10 @@ rust-toolchain.toml             channel = stable (at or above egui_taffy's MSRV)
 LICENSE-MIT / LICENSE-APACHE
 README.md                       one-paragraph description and a link to ARCHITECTURE.md
 .github/workflows/ci.yml
-crates/egui-react/              core (the substance of this PR)
-crates/egui-react-macros/       proc-macro crate. lib.rs is empty
-crates/egui-react-elements/     empty
-crates/egui-react-app/          empty
+crates/egui-reactor/              core (the substance of this PR)
+crates/egui-reactor-macros/       proc-macro crate. lib.rs is empty
+crates/egui-reactor-elements/     empty
+crates/egui-reactor-app/          empty
 examples/spike/                 eframe binary. Shows Counter and Dialog
 ```
 
@@ -37,11 +37,11 @@ CI (`ci.yml`, ubuntu-latest):
 1. `cargo fmt --all --check`
 2. `cargo clippy --workspace --all-targets -- -D warnings`
 3. `cargo test --workspace`
-4. `cargo check -p egui-react --target wasm32-unknown-unknown`
+4. `cargo check -p egui-reactor --target wasm32-unknown-unknown`
 
 egui_kittest does not enable the `wgpu` / `snapshot` features (run headless).
 
-## 2. core implementation (`crates/egui-react/src/`)
+## 2. core implementation (`crates/egui-reactor/src/`)
 
 ### 2.1 `store.rs`
 
@@ -149,7 +149,7 @@ The two blanket impls of `Handler` are very likely to conflict under coherence. 
 
 Re-export the above. Put a `prelude` module.
 
-## 3. Hand-written expanded code (`crates/egui-react/tests/common/`)
+## 3. Hand-written expanded code (`crates/egui-reactor/tests/common/`)
 
 Write the code the macros should generate by hand, in the following shape. Both tests and examples use it, so put it in `tests/common/mod.rs` and `examples/spike/src/components.rs` (duplication is allowed. It goes away when macros arrive).
 
@@ -205,7 +205,7 @@ pub fn use_counter<'s>(cx: &mut Cx<'s, '_>) -> State<'s, i32> {
 }
 ```
 
-## 4. Tests (`crates/egui-react/tests/`)
+## 4. Tests (`crates/egui-reactor/tests/`)
 
 Write each test in the form `egui_kittest::Harness::new_ui_state(|ui, store: &mut Store| { .. }, Store::new())`. Inside the closure: `store.begin_pass(ui.ctx())` -> draw the component with `Cx::new(&*store, ui, Id::new("root"))` -> call `store.end_pass()` after the guards drop. Bundle this sequence into `run_app(ui, store, |cx| ..)` in `tests/common/run.rs`.
 
@@ -256,7 +256,7 @@ Differences between this document's sketch and the actual implementation. Those 
 - **2.2** `Cx::scope`'s `source` is `impl Hash + Debug`, not `impl Hash`. `Ui::push_id` in egui 0.36 requires `AsIdSalt = Hash + Debug`. `rsx!`'s `key={..}` will also need `Debug`.
 - **2.3** `State` holds `inner: Option<RefMut<'s, T>>`. A type that implements `Drop` cannot move a field out, so `into_handle` sets `inner = None` to release the borrow before creating the `Handle`. `ctx` is `&'s egui::Context`, not owned (`Store` holds one clone, and both `State` and `Handle` borrow it). At `Store::new()` it temporarily holds `Context::default()`, replaced on the first `begin_pass`.
 - **2.4** The blanket impls of `IntoCleanup` for `()` and `FnOnce()` conflict with E0119. Distinguish them with marker types (`NoCleanup` / `FnCleanup`) as `IntoCleanup<Marker>`. The call side does not change.
-- **2.6** `Handler` was solved the same way, and the `call0` / `call1` split became unnecessary. The final form is `Handler<A, Marker>`, with impls `(Arity0, R)` for `F: FnOnce() -> R` and `(Arity1, R)` for `F: FnOnce(A) -> R`. Without `R` in the marker, bodies that return non-`()` error. The test `fused_events::handler_call_shapes` pins down that inference is unambiguous in every shape (no argument type annotation, payload dropped, borrowed payload, `fn` item). The macro emits `::egui_react::Handler::call(closure, a)` fully qualified.
+- **2.6** `Handler` was solved the same way, and the `call0` / `call1` split became unnecessary. The final form is `Handler<A, Marker>`, with impls `(Arity0, R)` for `F: FnOnce() -> R` and `(Arity1, R)` for `F: FnOnce(A) -> R`. Without `R` in the marker, bodies that return non-`()` error. The test `fused_events::handler_call_shapes` pins down that inference is unambiguous in every shape (no argument type annotation, payload dropped, borrowed payload, `fn` item). The macro emits `::egui_reactor::Handler::call(closure, a)` fully qualified.
 - **2.6** `Emitter` cannot be built with one lifetime (`RefCell<T>` is invariant, and the borrow of the local `RefCell` is shorter than the props lifetime). The final form is `EventSink<'e, E> = RefCell<&'e mut (dyn FnMut(E) + 'e)>` and `Emitter<'a, 'e, E> { sink: &'a EventSink<'e, E> }`.
 - **3** The handler's `(|| ..)()` expansion triggers clippy's `redundant_closure_call`. Tests use a file-level `allow`. `rsx!` must attach `#[allow(clippy::redundant_closure_call)]` to its expansion.
 - **4 test 9** Writing state every pass requests a repaint every pass, and `Harness::run` panics with `ExceededMaxSteps`. Tests that write every frame use `harness.step()`.
@@ -270,6 +270,6 @@ Differences between this document's sketch and the actual implementation. Those 
 - **4 test 5** The egui_taffy version (b) also produced a discard, so it was not deleted. It also asserts that a steady frame is 1 pass, showing that the extra pass is requested by taffy.
 - **7** Counting passes by the root closure's call count is wrong. kittest's `Node::click()` queues 2 events, press and release, and `Harness::step()` runs 1 frame per event, so one `step()` runs 2 frames. Use `egui::Context::current_pass_index()` (starts at 0 within a frame).
 - **Note on 5.3** If an effect is placed before a handler and its deps depend on the state that handler changes, deps have changed in pass 2, so the effect runs. The invariant of one run per deps change holds (test `effect_deps_changed_during_pass_one_rerun_in_pass_two`).
-- **8** `self.store.begin_pass(ui.ctx())` -> `Cx::new(&self.store, ..)` -> `self.store.end_pass()` inside `eframe::App::ui` passes as-is under NLL. `egui-react-app::run` can use this shape.
+- **8** `self.store.begin_pass(ui.ctx())` -> `Cx::new(&self.store, ..)` -> `self.store.end_pass()` inside `eframe::App::ui` passes as-is under NLL. `egui-reactor-app::run` can use this shape.
 - **Note for Phase 4** egui_taffy's `tui.ui(..)` / `tui.label(..)` are methods of the `TuiBuilderLogic` trait, and need `use egui_taffy::TuiBuilderLogic as _;`.
-- **8 / note for Phase 5** The root `Ui` that eframe's `App::ui` passes has no margin and no background. In light mode, the light theme's dark gray text is drawn on eframe's default black clear color and cannot be seen. examples/spike wraps it in `egui::CentralPanel::default().show(ui, ..)`. `egui-react-app::run` must also wrap in CentralPanel (or `Frame::central_panel`).
+- **8 / note for Phase 5** The root `Ui` that eframe's `App::ui` passes has no margin and no background. In light mode, the light theme's dark gray text is drawn on eframe's default black clear color and cannot be seen. examples/spike wraps it in `egui::CentralPanel::default().show(ui, ..)`. `egui-reactor-app::run` must also wrap in CentralPanel (or `Frame::central_panel`).

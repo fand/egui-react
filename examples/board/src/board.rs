@@ -1,6 +1,6 @@
 //! The board: columns, cards, the messages that change them, and the reducer.
 //!
-//! Nothing here knows about egui or about egui-react, and both versions of the
+//! Nothing here knows about egui or about egui-reactor, and both versions of the
 //! example use every line of it. That is deliberate: the two UIs in the gallery
 //! then differ only in how they *hold* their state, which is the one thing this
 //! example is about.

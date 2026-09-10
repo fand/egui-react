@@ -1,7 +1,7 @@
 {
-  "name": "egui-react-site",
+  "name": "egui-reactor-site",
   "version": "0.0.0",
-  "description": "The egui-react documentation site",
+  "description": "The egui-reactor documentation site",
   "private": true,
   "type": "module",
   "license": "MIT OR Apache-2.0",

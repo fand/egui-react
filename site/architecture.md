@@ -5,7 +5,7 @@ title: Architecture
 # Architecture
 
 <script setup>
-// `withBase`, because the site is served from `/egui-react/` on GitHub Pages
+// `withBase`, because the site is served from `/egui-reactor/` on GitHub Pages
 // and from `/` on the preview; `/api/` is cargo doc's output, not a page of
 // this site, so it is a plain link and not a router route.
 import { withBase } from 'vitepress'
@@ -56,8 +56,8 @@ been edited since.
 ## API documentation
 
 <a :href="withBase('/api/')" target="_blank" rel="noreferrer">/api/</a> is `cargo doc` for
-the four public crates: `egui-react`, `egui-react-elements`,
-`egui-react-app` and `egui-react-macros`. It is generated into this site by the
+the four public crates: `egui-reactor`, `egui-reactor-elements`,
+`egui-reactor-app` and `egui-reactor-macros`. It is generated into this site by the
 same build, so it always matches the commit the site was built from. It is the
 right place for exact signatures; this site is the right place for how the
 pieces fit together.

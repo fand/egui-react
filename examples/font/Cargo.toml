@@ -1,6 +1,6 @@
 [package]
 name = "font"
-description = "egui-react example: font"
+description = "egui-reactor example: font"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -19,9 +19,9 @@ path = "src/main.rs"
 [dependencies]
 eframe.workspace = true
 egui.workspace = true
-egui-react.workspace = true
-egui-react-app.workspace = true
-egui-react-elements.workspace = true
+egui-reactor.workspace = true
+egui-reactor-app.workspace = true
+egui-reactor-elements.workspace = true
 example-meta.workspace = true
 
 [dev-dependencies]

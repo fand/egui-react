@@ -1,7 +1,7 @@
 # Plan: canvas
 
-> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
-> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-reactor's
+> own layout engine over taffy (`crates/egui-reactor/src/engine.rs`, ARCHITECTURE
 > section 6), which ports its measure function and node rules, so the layout
 > behaviour described here still holds unless ARCHITECTURE says otherwise.
 
@@ -9,7 +9,7 @@ The task definition is in [task.md](task.md). The design rationale is in [docs/A
 
 ## 0. Overview
 
-One PR. We touch `egui-react-elements` (`Canvas`), `examples/shader`, `examples/gallery` (registration and `setup`), `examples/escape-hatch` (replacing the painter section, optional), README, and ARCHITECTURE. `egui-react-app` is done (`Options.setup`). Core is unchanged.
+One PR. We touch `egui-reactor-elements` (`Canvas`), `examples/shader`, `examples/gallery` (registration and `setup`), `examples/escape-hatch` (replacing the painter section, optional), README, and ARCHITECTURE. `egui-reactor-app` is done (`Options.setup`). Core is unchanged.
 
 Correction to an assumption: eframe 0.36 defaults to wgpu (glow is opt-in), and the WebGL fallback comes in via `egui-wgpu/default`. We do not add a feature to pick the backend.
 
@@ -28,7 +28,7 @@ pub struct Options {
 
 Called at the top of `ReactApp::new`. Same shape as the official egui demo (`custom3d_wgpu`). The idea of handing out `RenderState` via `use_context` is not taken; it gains little for the effort of making a slot. No wgpu types show up in hooks or context.
 
-### 3.3 The `<Canvas>` element (`egui-react-elements`)
+### 3.3 The `<Canvas>` element (`egui-reactor-elements`)
 
 ```rust
 #[component]
@@ -91,7 +91,7 @@ fn App(cx: &mut Cx) {
 - The point of the demo is that `state` flows straight into the uniforms. `Slider`'s `bind` -> `speed` -> uniform.
 - `ShaderResources` is stored by type in `callback_resources` (a `TypeMap`). Living next to other examples in the gallery does not clash as long as the types differ.
 - Multiple passes: egui throws away the shapes of a discarded pass. The callback never runs twice.
-- The gallery turns on `egui-react-app/wgpu` and calls `shader::gpu::setup(cc)` in `setup`.
+- The gallery turns on `egui-reactor-app/wgpu` and calls `shader::gpu::setup(cc)` in `setup`.
 - No raw egui version (the wgpu part would be the same code, so there would be no difference).
 
 ### 3.5 Tests
@@ -114,9 +114,9 @@ fn App(cx: &mut Cx) {
 
 ### Step 1: `Canvas`
 
-**The closure prop is named `paint`, not `on_paint`.** `rsx!` treats any attribute whose name starts with `on_` as an event handler and looks for the `<ElementName>Event` variant (`on_paint` -> `CanvasEvent::Paint`) (attribute dispatch in `crates/egui-react-macros/src/rsx/mod.rs`). So a plain prop starting with `on_` cannot be written from rsx!. The ways out are "change core" or "change the name"; since core stays unchanged, we took the latter. It matches the naming of `VirtualList`'s `render`, and keeps the reading "`on_*` = event, everything else = prop". The shader example code in 3.4 also becomes `paint={..}`.
+**The closure prop is named `paint`, not `on_paint`.** `rsx!` treats any attribute whose name starts with `on_` as an event handler and looks for the `<ElementName>Event` variant (`on_paint` -> `CanvasEvent::Paint`) (attribute dispatch in `crates/egui-reactor-macros/src/rsx/mod.rs`). So a plain prop starting with `on_` cannot be written from rsx!. The ways out are "change core" or "change the name"; since core stays unchanged, we took the latter. It matches the naming of `VirtualList`'s `render`, and keeps the reading "`on_*` = event, everything else = prop". The shader example code in 3.4 also becomes `paint={..}`.
 
-`#[prop(default = egui::Sense::hover())]` worked (the "if it does not work, use `Option<egui::Sense>`" in task.md was not needed). Events fire from `Response`: `on_drag(drag_delta())` when `dragged()`, and `on_hover(pos)` when `hover_pos()` is present. kittest has 4 tests in `crates/egui-react-elements/tests/canvas.rs` (rect matching `w`/`h`, all remaining space with `grow`, drag delta, hover position). Event handlers cannot be written with `move` (the fused closure is `FnMut`, so the test's `Rc` is captured by borrow).
+`#[prop(default = egui::Sense::hover())]` worked (the "if it does not work, use `Option<egui::Sense>`" in task.md was not needed). Events fire from `Response`: `on_drag(drag_delta())` when `dragged()`, and `on_hover(pos)` when `hover_pos()` is present. kittest has 4 tests in `crates/egui-reactor-elements/tests/canvas.rs` (rect matching `w`/`h`, all remaining space with `grow`, drag delta, hover position). Event handlers cannot be written with `move` (the fused closure is `FnMut`, so the test's `Rc` is captured by borrow).
 
 ### Step 2: `examples/shader`
 
@@ -138,11 +138,11 @@ fn App(cx: &mut Cx) {
 
 **The assumption in 3.1 was wrong. "eframe stays on default (glow)" does not hold for eframe 0.36.** The `default` feature of eframe 0.36.1 is `["accesskit", "default_fonts", "links", "wayland", "web_screen_reader", "wgpu", "winit/default", "x11"]`, and **`glow` is not in it**. `Renderer::Glow` does not even exist without the `glow` feature, and `Renderer::default()` returns `Wgpu`. In other words, **this repo has been drawing with wgpu from the start**. The opposite of 0.35 and earlier; now glow is the opt-in one.
 
-So **we do not add a `wgpu` feature**. We once added `wgpu = ["eframe/wgpu"]`, but with today's eframe it is a feature that changes nothing and is only API noise. The question in section 5, "make wgpu the only backend?", was in effect decided by eframe first. People who want to run on glow set `eframe/glow` explicitly, and that is not this crate's job. The rationale is kept in a comment in `crates/egui-react-app/Cargo.toml` and in ARCHITECTURE section 8.
+So **we do not add a `wgpu` feature**. We once added `wgpu = ["eframe/wgpu"]`, but with today's eframe it is a feature that changes nothing and is only API noise. The question in section 5, "make wgpu the only backend?", was in effect decided by eframe first. People who want to run on glow set `eframe/glow` explicitly, and that is not this crate's job. The rationale is kept in a comment in `crates/egui-reactor-app/Cargo.toml` and in ARCHITECTURE section 8.
 
 **The WebGL fallback is also in without doing anything.** `eframe/wgpu` -> `egui-wgpu/default` -> `wgpu/webgl`. The "turn on the `webgl` feature of `wgpu` for wasm" in 3.1 was not needed. `[workspace.dependencies]` only pins `wgpu = "30.0"` (the version eframe 0.36.1 uses), so that the shader example links against the same wgpu when it builds its pipeline.
 
 **`Options.setup`** was added as in 3.2. The type is `Option<Setup>`, with `pub type Setup = Box<dyn FnOnce(&eframe::CreationContext<'_>)>` (clippy's `type_complexity` rejects the raw type, so it got an alias. It also reads better as an API). `ReactApp::new` does `take()` and calls it at the top. A paint callback may be added on the first frame, so it runs before the store is created. The `options` argument of `ReactApp::new` changed from `&Options` to `&mut Options`, and both the native and wasm startup closures hold `options` by move and `take` it (each closure is only called once).
 
-- One test in `#[cfg(test)] mod tests` in `crates/egui-react-app/src/lib.rs`: the default of `setup` is `None`. kittest cannot run eframe, so confirming that wgpu really draws is left to a visual check (`RUST_LOG=eframe=info`).
+- One test in `#[cfg(test)] mod tests` in `crates/egui-reactor-app/src/lib.rs`: the default of `setup` is `None`. kittest cannot run eframe, so confirming that wgpu really draws is left to a visual check (`RUST_LOG=eframe=info`).
 - Updated ARCHITECTURE section 7 (the `Options` list and `setup`) and section 8 (backend and WebGL fallback).

@@ -65,7 +65,7 @@ printf '%s\n' \
   'フォントのフォールバックチェーン' \
   '吾輩は猫である。名前はまだ無い。' \
   '東京都渋谷区、2026年9月7日' \
-  'egui-react で CSS の font-family のように書ける' > samples.txt
+  'egui-reactor で CSS の font-family のように書ける' > samples.txt
 # kanji-list.txt: one line with the 505 kanji listed at the bottom of this file.
 
 # 3. Subset. Output stays TTF (no --flavor); hinting and vertical metrics are kept.

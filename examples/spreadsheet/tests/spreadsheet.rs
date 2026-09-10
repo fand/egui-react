@@ -28,8 +28,8 @@
 
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT as _, Queryable as _};
-use egui_react::prelude::*;
-use egui_react_app::{root_id, root_style};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{root_id, root_style};
 use spreadsheet::{App, ROW_H};
 
 /// Wide enough for the row gutter and eight columns, tall enough for a bit
@@ -174,7 +174,7 @@ fn enabled(harness: &Harness<'static, Store>, label: &str) -> bool {
 /// Wheel events rather than `Node::scroll_down`, so the distance is a number
 /// this file picks; `TouchPhase::Start` turns off egui's smoothing, so one call
 /// moves exactly this far. Copied from
-/// `crates/egui-react-elements/tests/virtual_list.rs`, with the pointer put
+/// `crates/egui-reactor-elements/tests/virtual_list.rs`, with the pointer put
 /// inside the body first.
 fn scroll(harness: &mut Harness<'static, Store>, points: f32) {
     {

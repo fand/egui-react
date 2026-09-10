@@ -5,8 +5,8 @@
 //! and `grow` are invisible. The colours are egui's own, so both versions of
 //! the example and both themes draw the same picture ([`look`]).
 
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 use example_meta::Meta;
 
 pub mod plain;

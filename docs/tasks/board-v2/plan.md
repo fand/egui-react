@@ -1,7 +1,7 @@
 # Plan: board rework (v2)
 
-> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
-> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-reactor's
+> own layout engine over taffy (`crates/egui-reactor/src/engine.rs`, ARCHITECTURE
 > section 6), which ports its measure function and node rules, so the layout
 > behaviour described here still holds unless ARCHITECTURE says otherwise.
 
@@ -9,7 +9,7 @@ The task definition is in [task.md](task.md). The original design is in [board/p
 
 ## 0. Overview
 
-- Touches `examples/board/` (`board.rs` / `lib.rs` / `hooks.rs` / `look.rs` / `plain.rs` / `tests/board.rs`), `examples/gallery/tests/a11y.rs`, docs, and the README table. core and `egui-react-elements` are unchanged. If something is missing, write it in section 9 and work around it.
+- Touches `examples/board/` (`board.rs` / `lib.rs` / `hooks.rs` / `look.rs` / `plain.rs` / `tests/board.rs`), `examples/gallery/tests/a11y.rs`, docs, and the README table. core and `egui-reactor-elements` are unchanged. If something is missing, write it in section 9 and work around it.
 - The react version and the plain version behave the same and are driven by the same tests (v1's B-7 method). **Fix both in the same commit.**
 - Keep the example's claim (a card's local state follows the card). body and `expanded` go away, so the state that follows the card becomes the two: **`editing` and `draft`**. So **dragging while editing** is a must (section 3).
 - Match the existing style (comments and docs in English).

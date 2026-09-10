@@ -1,9 +1,9 @@
 //! Matched CPU benchmark: real React Row/VirtualList, shared controls and input.
 //! Run: cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 //! No GPU, window scheduling, or AccessKit. See docs/tasks/list-perf/measurements.md.
-use egui_react::prelude::*;
-use egui_react_app::{root_id, root_style};
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_app::{root_id, root_style};
+use egui_reactor_elements::prelude::*;
 use list_10k::{INDEX_W, ROW_GAP, ROW_H, Row, RowEvent};
 use std::{
     cell::RefCell,

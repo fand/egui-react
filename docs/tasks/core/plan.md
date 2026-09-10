@@ -1,7 +1,7 @@
 # Plan: core
 
-> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
-> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-reactor's
+> own layout engine over taffy (`crates/egui-reactor/src/engine.rs`, ARCHITECTURE
 > section 6), which ports its measure function and node rules, so the layout
 > behaviour described here still holds unless ARCHITECTURE says otherwise.
 
@@ -13,27 +13,27 @@ Work through the 4 phases in order. Each phase closes with "implement, test, upd
 
 | Phase | Main targets | Crates touched |
 |---|---|---|
-| 2 | `View`, the rest of the hooks, the deferred queue, the layout context in `Cx`, the collision overlay | `egui-react` |
-| 3 | `#[component]` / `#[hook]` / `rsx!`, trybuild, replacing spike with the macro versions | `egui-react-macros`, `egui-react` (re-exports and tests) |
-| 4 | `View` / `Text`, widgets, containers, snapshots | `egui-react-elements` |
-| 5 | `run`, `use_persisted`, wasm, examples, CI | `egui-react-app`, `examples/*`, `egui-react` (persist) |
+| 2 | `View`, the rest of the hooks, the deferred queue, the layout context in `Cx`, the collision overlay | `egui-reactor` |
+| 3 | `#[component]` / `#[hook]` / `rsx!`, trybuild, replacing spike with the macro versions | `egui-reactor-macros`, `egui-reactor` (re-exports and tests) |
+| 4 | `View` / `Text`, widgets, containers, snapshots | `egui-reactor-elements` |
+| 5 | `run`, `use_persisted`, wasm, examples, CI | `egui-reactor-app`, `examples/*`, `egui-reactor` (persist) |
 
 Dependencies to add (pin them in `[workspace.dependencies]`).
 
 | crate | Purpose | Where |
 |---|---|---|
-| egui_taffy 0.14 (promote from dev to normal dependency) | `Tui` mode of `Cx` | egui-react |
-| serde / serde_json | `use_persisted` | egui-react |
-| typed-builder | Props builder | egui-react (re-exported under `__private`) |
-| syn 2 (`full`, `extra-traits`) / quote / proc-macro2 | macros | egui-react-macros |
-| trybuild | pin compile errors | egui-react (dev) |
-| egui_kittest `snapshot` + `wgpu` | snapshots | egui-react-elements (dev, behind feature `snapshot`) |
-| eframe `persistence` feature | `Storage` | egui-react-app |
-| wasm-bindgen-futures / web-sys (`Document`, `HtmlCanvasElement`) | wasm runner | egui-react-app (`cfg(target_arch = "wasm32")`) |
+| egui_taffy 0.14 (promote from dev to normal dependency) | `Tui` mode of `Cx` | egui-reactor |
+| serde / serde_json | `use_persisted` | egui-reactor |
+| typed-builder | Props builder | egui-reactor (re-exported under `__private`) |
+| syn 2 (`full`, `extra-traits`) / quote / proc-macro2 | macros | egui-reactor-macros |
+| trybuild | pin compile errors | egui-reactor (dev) |
+| egui_kittest `snapshot` + `wgpu` | snapshots | egui-reactor-elements (dev, behind feature `snapshot`) |
+| eframe `persistence` feature | `Storage` | egui-reactor-app |
+| wasm-bindgen-futures / web-sys (`Document`, `HtmlCanvasElement`) | wasm runner | egui-reactor-app (`cfg(target_arch = "wasm32")`) |
 
-`egui-react` has `egui-react-macros` as a normal dependency and re-exports `rsx!` / `component` / `hook`. Users only `use` `egui_react::prelude::*`. The trybuild tests for the macros live in `tests/ui/` on the `egui-react` side (this avoids a dev-dependency cycle from the proc-macro crate to the facade).
+`egui-reactor` has `egui-reactor-macros` as a normal dependency and re-exports `rsx!` / `component` / `hook`. Users only `use` `egui_reactor::prelude::*`. The trybuild tests for the macros live in `tests/ui/` on the `egui-reactor` side (this avoids a dev-dependency cycle from the proc-macro crate to the facade).
 
-## 1. Phase 2: core hooks (`crates/egui-react/src/`)
+## 1. Phase 2: core hooks (`crates/egui-reactor/src/`)
 
 ### 1.1 `view.rs`
 
@@ -54,7 +54,7 @@ pub fn view<F: FnOnce(&mut Cx<'_, '_>)>(f: F) -> impl View { f }
 
 The blanket impl for `IntoIterator<Item = V>` in ARCHITECTURE.md 3.2 conflicts under coherence with the `FnOnce` blanket impl and with `Option<V>` (confirmed with rustc). Replace it with separate impls for `Option` / `Vec` / arrays. Loops inside `rsx!` can be written with `for`, so there is no practical difference. Update ARCHITECTURE.md 3.2.
 
-Passing `{ |cx| .. }` straight to an `impl View` argument sometimes fails to infer the closure's argument type, so `rsx!` always emits `::egui_react::view(|cx| { .. })`. Point users to `view(|cx| ..)` for the escape hatch too.
+Passing `{ |cx| .. }` straight to an `impl View` argument sometimes fails to infer the closure's argument type, so `rsx!` always emits `::egui_reactor::view(|cx| { .. })`. Point users to `view(|cx| ..)` for the escape hatch too.
 
 ### 1.2 `use_memo`
 
@@ -109,7 +109,7 @@ Because the closure is `'static`, using a loop variable needs `move`: `todos.upd
 
 ### 1.6 Collision overlay
 
-Add `warn_on_collision: bool` (default `cfg!(debug_assertions)`) and `set_warn_on_collision` to `Store`. At the end of `end_pass`, if enabled and `collisions` is not empty, draw red text with `Frame::popup` in `egui::Area::new(Id::new("egui_react_collision_warning")).order(Order::Debug).anchor(Align2::LEFT_TOP, (8.0, 8.0))`. The text is `egui-react: hook id collision at {file}:{line}:{column}. Wrap custom hooks in #[hook], or add key= inside loops.`, with the same location collapsed to 1 line per pass. `end_pass` is called inside the runner's `App::ui`, so it can draw on that frame's `Context`.
+Add `warn_on_collision: bool` (default `cfg!(debug_assertions)`) and `set_warn_on_collision` to `Store`. At the end of `end_pass`, if enabled and `collisions` is not empty, draw red text with `Frame::popup` in `egui::Area::new(Id::new("egui_reactor_collision_warning")).order(Order::Debug).anchor(Align2::LEFT_TOP, (8.0, 8.0))`. The text is `egui-reactor: hook id collision at {file}:{line}:{column}. Wrap custom hooks in #[hook], or add key= inside loops.`, with the same location collapsed to 1 line per pass. `end_pass` is called inside the runner's `App::ui`, so it can draw on that frame's `Context`.
 
 ### 1.7 Layout context in `Cx`
 
@@ -170,7 +170,7 @@ impl ContainerStyle { pub fn merge(&self, item: &ItemStyle) -> taffy::Style; }
 
 The shape of kittest's `Harness::new_ui_state` and `run_app` is the same as in spike. `run_app` in `tests/common/mod.rs` keeps using `Cx::new`.
 
-## 2. Phase 3: macros (`crates/egui-react-macros/src/`)
+## 2. Phase 3: macros (`crates/egui-reactor-macros/src/`)
 
 ### 2.1 `#[component]` (`component.rs`)
 
@@ -192,8 +192,8 @@ Generated output.
 
 ```rust
 pub enum NameEvent { X(A), .. }                                  // only when there is at least one #[event]
-#[derive(::egui_react::__private::TypedBuilder)]
-#[builder(crate_module_path = ::egui_react::__private::typed_builder)]
+#[derive(::egui_reactor::__private::TypedBuilder)]
+#[builder(crate_module_path = ::egui_reactor::__private::typed_builder)]
 pub struct NameProps<'e, C: View, ..generics> {
     pub x: T,
     #[builder(default)] pub y: Option<U>,
@@ -205,11 +205,11 @@ pub fn Name<'e, C: View, ..>(cx: &mut Cx<'_, '_>, props: NameProps<'e, C, ..>) {
     let NameProps { x, y, events, children } = props;
     let mut __noop = |_: NameEvent| {};
     let __events: &mut dyn FnMut(NameEvent) = match events { Some(e) => e, None => &mut __noop };   // the match arms shorten the lifetime
-    let __sink = ::egui_react::EventSink::new(__events);
-    let on_x = ::egui_react::Emitter::new(&__sink, NameEvent::X);
-    { /* body. The tail expression is rewritten to ::egui_react::View::show(tail, cx) */ }
+    let __sink = ::egui_reactor::EventSink::new(__events);
+    let on_x = ::egui_reactor::Emitter::new(&__sink, NameEvent::X);
+    { /* body. The tail expression is rewritten to ::egui_reactor::View::show(tail, cx) */ }
 }
-impl<'e, C: View, ..> ::egui_react::__private::Props for NameProps<'e, C, ..> {   // for props_builder in 2.3
+impl<'e, C: View, ..> ::egui_reactor::__private::Props for NameProps<'e, C, ..> {   // for props_builder in 2.3
     type Builder = NamePropsBuilder<'e, C, ..>;
     fn builder() -> Self::Builder { Self::builder() }
 }
@@ -240,7 +240,7 @@ Node kinds and how they are handled.
 | `<Name attrs>children</Name>` / `<Name attrs/>` | Component call. `Name` is a Rust path (`elements::Button` is fine too) |
 | `"literal"` | String literal. `show` it as a `View` |
 | Unquoted text | Error: `text must be a string literal: "..."` |
-| `{expr}` | `::egui_react::View::show(expr, cx);` |
+| `{expr}` | `::egui_reactor::View::show(expr, cx);` |
 | `<> .. </>` | Expand the children in order |
 | `<!-- -->` | Ignored |
 | `if` / `for` / `match` | Emit the Rust control flow as-is and expand the body |
@@ -250,43 +250,43 @@ Node kinds and how they are handled.
 | Shape | Handling |
 |---|---|
 | `key={expr}` | Mixed into the scope Id. At most 1 per element |
-| `on_x={expr}` | An arm of the fused closure: `NameEvent::X(a) => ::egui_react::Handler::call(expr, a)` |
+| `on_x={expr}` | An arm of the fused closure: `NameEvent::X(a) => ::egui_reactor::Handler::call(expr, a)` |
 | `events={expr}` | Pass `expr` to `events` instead of the fused closure. Error if used together with `on_*` |
-| Layout attributes (`w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl`) | Collected into one call: `.style(::egui_react::layout::ItemStyle::default().w(..).grow(..))`. Not called if there are none |
+| Layout attributes (`w h min_w min_h max_w max_h grow shrink basis align_self m mx my mt mr mb ml p px py pt pr pb pl`) | Collected into one call: `.style(::egui_reactor::layout::ItemStyle::default().w(..).grow(..))`. Not called if there are none |
 | Other `name={expr}` / `name="lit"` / `name` (bool true) | The builder setter `.name(expr)` |
 
 `on_x` to `X`: strip `on_` and PascalCase the rest (`on_ok` to `Ok`, `on_value_change` to `ValueChange`). Duplicate attribute names are an error.
 
 #### Expansion
 
-The whole `rsx!{ nodes }` becomes `::egui_react::view(|cx| { stmts })` (not `move`). One element becomes the following statement.
+The whole `rsx!{ nodes }` becomes `::egui_reactor::view(|cx| { stmts })` (not `move`). One element becomes the following statement.
 
 ```rust
 cx.scope((line!(), column!(), 3usize, key), |cx| {          // line!/column! are emitted with the element's span. 3 is the element's sequence number inside the rsx!
-    Name(cx, ::egui_react::props_builder(&Name)
+    Name(cx, ::egui_reactor::props_builder(&Name)
         .x(expr)
-        .style(::egui_react::layout::ItemStyle::default().grow(1.0))
+        .style(::egui_reactor::layout::ItemStyle::default().grow(1.0))
         .events(&mut |__ev| {
             #[allow(unreachable_patterns)]
             match __ev {
-                NameEvent::Ok(a) => ::egui_react::Handler::call(|| *open = false, a),
-                NameEvent::Cancel(a) => ::egui_react::Handler::call(|| *open = false, a),
+                NameEvent::Ok(a) => ::egui_reactor::Handler::call(|| *open = false, a),
+                NameEvent::Cancel(a) => ::egui_reactor::Handler::call(|| *open = false, a),
                 _ => {}
             }
         })
-        .children(::egui_react::view(|cx| { .. }))
+        .children(::egui_reactor::view(|cx| { .. }))
         .build());
 });
 ```
 
 - Without `key`, it is `(line!(), column!(), n)`. If `line!()` / `column!()` do not return the element's position (they return the macro call site), embed `Span::line()` / `Span::column()` (stable in 1.88) on the macro side. Either is fine as long as each element gets a unique value.
-- `children`: always call `.children(..)`. If the child is "one string literal" or "one `{expr}`", pass that expression as-is (this works for both `Button`'s `children: impl Into<WidgetText>` and `View`'s `children: impl View`). For multiple children or element children, use `::egui_react::view(|cx| { .. })`. With no children, pass `()`. `<View/>` compiles because `()` is a `View`; `<Button/>` fails because `()` is not `Into<WidgetText>`. The generic `C` is never left unspecified, so `children: impl View` does not need `#[builder(default)]`.
+- `children`: always call `.children(..)`. If the child is "one string literal" or "one `{expr}`", pass that expression as-is (this works for both `Button`'s `children: impl Into<WidgetText>` and `View`'s `children: impl View`). For multiple children or element children, use `::egui_reactor::view(|cx| { .. })`. With no children, pass `()`. `<View/>` compiles because `()` is a `View`; `<Button/>` fails because `()` is not `Into<WidgetText>`. The generic `C` is never left unspecified, so `children: impl View` does not need `#[builder(default)]`.
 - `props_builder`: `pub fn props_builder<P: Props, F: for<'a, 's, 'u> Fn(&'a mut Cx<'s, 'u>, P)>(_: &F) -> P::Builder { P::builder() }`. A function item's type cannot be named, so `P` is inferred from the `Fn` bound. `#[component]` implements the `Props` trait for `NameProps` and ties it to `NamePropsBuilder` through the associated type. With this, `use components::Name;` alone is enough to write `<Name/>`.
 - `.style(..)` fails with "no method named `style`" on components without a `style` prop. A user component that wants layout attributes declares `style: ItemStyle` and passes it to its children.
 - Handlers are called as `Handler::call(closure, a)`, so the `redundant_closure_call` from spike's `(|| ..)()` no longer appears. Do not add `#[allow(clippy::redundant_closure_call)]` to the expansion (there is no reason to anymore. Update ARCHITECTURE.md 3.2).
 - If `on_*` is passed to a component without `#[event]`, the fused closure fails to compile because there is no `.events(..)` method. A wrong variant name fails because `NameEvent::Foo` does not exist. Pin both messages with trybuild.
 
-### 2.4 trybuild (`crates/egui-react/tests/ui/`)
+### 2.4 trybuild (`crates/egui-reactor/tests/ui/`)
 
 `tests/compile_fail.rs` runs `trybuild::TestCases::new().compile_fail("tests/ui/*.rs")` and `pass("tests/ui/pass/*.rs")`.
 
@@ -320,7 +320,7 @@ Turn the hand-written `counter` / `dialog` / `use_counter` in `tests/common/mod.
 | 3-6 | `rsx_scope.rs` | Two `<Counter/>`s in the same `rsx!` are independent, `for` with and without `key` (without, `collisions()` is non-empty), removing an element with `if` unmounts it |
 | 3-7 | `compile_fail.rs` | trybuild |
 
-## 3. Phase 4: elements (`crates/egui-react-elements/src/`)
+## 3. Phase 4: elements (`crates/egui-reactor-elements/src/`)
 
 Write every element with `#[component]` and take `style: ItemStyle` with `#[prop(default)]`. Widgets call egui inside `cx.leaf(&style, |ui| ..)`. Containers (the egui-native ones) act as a leaf in Taffy mode, and their children draw in Ui mode.
 
@@ -379,24 +379,24 @@ All of them rebuild `Cx::new(store, ui, scope)` before drawing `children` (the s
 | 4-4 | `snapshots.rs` (feature `snapshot`) | `harness.snapshot("..")` for each section of the `layout` example and for `Text` wrap. Use the per-OS default for `SnapshotOptions::threshold` |
 | 4-5 | `multi_pass.rs` (core side, replaced) | Rewrite spike's taffy test with `<View>` + `<Button>` + `<Text>` and keep checking that the handler fires exactly once in the 2nd pass |
 
-For snapshots in CI, see 4.5. Commit the images to `crates/egui-react-elements/tests/snapshots/`.
+For snapshots in CI, see 4.5. Commit the images to `crates/egui-reactor-elements/tests/snapshots/`.
 
 ## 4. Phase 5: runner and examples
 
-### 4.1 `egui-react-app::run`
+### 4.1 `egui-reactor-app::run`
 
 ```rust
 pub struct Options {
     pub title: String,
     pub max_passes: usize,               // default 3 (see section 8)
     pub persist: bool,                   // default true. Uses eframe's Storage
-    pub canvas_id: String,               // wasm. Default "egui_react_canvas"
+    pub canvas_id: String,               // wasm. Default "egui_reactor_canvas"
     pub native: eframe::NativeOptions,
 }   // impl Default
 pub fn run<V: View>(options: Options, root: impl FnMut(&mut Cx<'_, '_>) -> V + 'static) -> eframe::Result;
 ```
 
-- native: `eframe::run_native`. In `App::ui`, inside `CentralPanel::default().show(ui, ..)`, do `store.begin_pass`, then `cx.container(root_id, column + reserve_available_space, |cx| root(cx).show(cx))`, then `store.end_pass`. In `App::save`, write `store.save_persisted()` with `storage.set_string("egui_react", ..)`. `load_persisted` from the `storage` of `CreationContext`.
+- native: `eframe::run_native`. In `App::ui`, inside `CentralPanel::default().show(ui, ..)`, do `store.begin_pass`, then `cx.container(root_id, column + reserve_available_space, |cx| root(cx).show(cx))`, then `store.end_pass`. In `App::save`, write `store.save_persisted()` with `storage.set_string("egui_reactor", ..)`. `load_persisted` from the `storage` of `CreationContext`.
 - wasm: under `cfg(target_arch = "wasm32")`, `wasm_bindgen_futures::spawn_local(eframe::WebRunner::new().start(canvas, WebOptions::default(), Box::new(..)))`. The canvas is `web_sys::window().document().get_element_by_id(canvas_id)`. `run` returns `Ok(())`.
 - `root` is called every frame. Using hooks inside `root` and returning an `rsx!` that borrows that state gives a "cannot return value borrowing a local" error. Write in the doc comment and README that the root should be `|cx| rsx!{ <App/> }` and hooks go in components. The tail of a `#[component]` body avoids the same problem through the rewrite in 2.1.
 - Set `Options::max_passes` with `ctx.options_mut`.
@@ -408,7 +408,7 @@ pub fn run<V: View>(options: Options, root: impl FnMut(&mut Cx<'_, '_>) -> V + '
 pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<'s, '_>, key: &str, init: impl FnOnce() -> T) -> State<'s, T>;
 ```
 
-- The Id is `Id::new(("egui_react_persisted", key))`. It does not depend on the scope.
+- The Id is `Id::new(("egui_reactor_persisted", key))`. It does not depend on the scope.
 - `Store` holds `persisted: RefCell<HashMap<String, String>>` (key to JSON string). `load_persisted(&mut self, json: &str)` loads everything at once; `save_persisted(&self) -> String` serializes the live slots, overwrites the map, then turns the whole map into JSON.
 - Add `persist: Option<(String, fn(&dyn Any) -> Option<String>)>` to `Slot`. On the first visit, deserialize if the key is in the map; on failure or absence, use `init`.
 - When sweep drops a slot with persist, serialize it into the map first (unmounted state also survives the next start).
@@ -416,7 +416,7 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(cx: &mut Cx<
 
 ### 4.3 examples
 
-Each example is a single `src/main.rs` plus `index.html` / `Trunk.toml`. `main` is shared by native / wasm: `egui_react_app::run(Options { title, ..Default::default() }, |cx| rsx!{ <App/> })`.
+Each example is a single `src/main.rs` plus `index.html` / `Trunk.toml`. `main` is shared by native / wasm: `egui_reactor_app::run(Options { title, ..Default::default() }, |cx| rsx!{ <App/> })`.
 
 | example | Content |
 |---|---|
@@ -434,7 +434,7 @@ In the "Usage" section, write the full counter code, `cargo run -p counter`, and
 
 Steps to add to `ci.yml`.
 
-1. `cargo check --workspace --target wasm32-unknown-unknown` (widen from `-p egui-react` to `--workspace`. The examples must compile for wasm too)
+1. `cargo check --workspace --target wasm32-unknown-unknown` (widen from `-p egui-reactor` to `--workspace`. The examples must compile for wasm too)
 2. trunk: install `trunk` with `jetli/trunk-action@v0.5`, then `trunk build --release examples/counter/index.html`
 3. Do not run snapshots in CI. The committed images were made with the macOS renderer and do not match Linux's software renderer. Write how to run them locally in the README Testing section
 
@@ -443,7 +443,7 @@ Keep the existing `Swatinem/rust-cache` key.
 ## 5. Steps
 
 1. Phase 2: `view.rs`, then `layout.rs`, then `Surface` in `Cx` (fix spike's tests and examples to follow `cx.ui()`), then `use_memo`, then `dispatch.rs` / `use_reducer`, then the deferred queue, then the overlay. Tests 2-1 to 2-7. Update ARCHITECTURE.md 3.1 / 3.2 / 3.7 / 4 / 5.5 / 6. Commit.
-2. Phase 3: add the `egui-react-macros` dependencies, then `#[hook]`, then `#[component]`, then `rsx!` (parsing, then attributes, then expansion, then control flow). Add `__private` (typed_builder, the `Component` / `Props` traits, `props_builder`) and re-exports to `egui-react`. Replace `tests/common` with the macro version and make spike's tests pass. Tests 3-2 to 3-7. Update ARCHITECTURE.md 3.2 / 3.3 / 3.6. Commit.
+2. Phase 3: add the `egui-reactor-macros` dependencies, then `#[hook]`, then `#[component]`, then `rsx!` (parsing, then attributes, then expansion, then control flow). Add `__private` (typed_builder, the `Component` / `Props` traits, `props_builder`) and re-exports to `egui-reactor`. Replace `tests/common` with the macro version and make spike's tests pass. Tests 3-2 to 3-7. Update ARCHITECTURE.md 3.2 / 3.3 / 3.6. Commit.
 3. Phase 4: `View` / `Text`, then widgets, then containers. Tests 4-1 to 4-3, replace `multi_pass` (4-5). Write the snapshots (4-4) behind the feature, generate the images locally, and commit them. Update ARCHITECTURE.md 6. Commit.
 4. Phase 5: `use_persisted` (core), then `run` (native), then the 3 examples, then the wasm runner, then `index.html` / `Trunk.toml`, then README, then CI. Delete `examples/spike`. Check the 3 `cargo run`s and `trunk serve` by eye. Commit.
 5. Confirm every CI step is green. If the snapshot step is flaky, remove it as described in 4.5.
@@ -458,7 +458,7 @@ Keep the existing `Swatinem/rust-cache` key.
 - **Size of a `View` directly under Ui mode** (1.7). If `reserve_available_width()` breaks when placed inside a `Window`, add a `fill: bool` prop to `View` to switch.
 - **`cx.ui()` under `Surface::Taffy`**. If drawing on `egui_ui_mut()` looks clearly broken in tests, make Taffy-mode `ui()` warn once with `log::warn!` instead of panicking, rather than inserting `leaf(default)` automatically.
 - **Snapshots in CI** (4.5).
-- **wasm `cargo check --workspace`**. If check fails because of `egui-react-app`'s wasm dependencies, review `eframe`'s `wasm-bindgen` features. Until the examples pass on their own, narrowing to `-p egui-react -p egui-react-elements -p egui-react-app` is fine.
+- **wasm `cargo check --workspace`**. If check fails because of `egui-reactor-app`'s wasm dependencies, review `eframe`'s `wasm-bindgen` features. Until the examples pass on their own, narrowing to `-p egui-reactor -p egui-reactor-elements -p egui-reactor-app` is fine.
 
 ## 7. Changes to apply to ARCHITECTURE.md (known at the start)
 
@@ -470,7 +470,7 @@ Keep the existing `Swatinem/rust-cache` key.
 - 4: `use_reducer` messages are applied on the next visit. `use_persisted` is identified by key only and stored as JSON under one key in eframe `Storage`.
 - 5.5: The deferred queue is applied before sweep and does not include `Dispatch`.
 - 6: The list of layout attributes, `Length` units, `View`'s props, and that egui-native containers become leaves in Taffy mode.
-- 7: `egui-react` depends on `egui_taffy`. The `run(Options, |cx| rsx!{ <App/> })` form.
+- 7: `egui-reactor` depends on `egui_taffy`. The `run(Options, |cx| rsx!{ <App/> })` form.
 
 ## 8. Differences found during implementation
 
@@ -478,7 +478,7 @@ Keep the existing `Swatinem/rust-cache` key.
 
 - **1.1** `impl View for &str` / `String` / `Option` / `Vec` / arrays and the `FnOnce` blanket impl did not conflict under coherence; they coexist as-is. Type inference for `view(|cx| ..)` also passes without annotations (test `view::every_view_impl_draws`).
 - **1.2** `push_get` on `elsa::FrozenVec<Box<dyn Any>>` simply returns `&'s dyn Any`, so `&'s T` worked without falling back to the section 6 alternative (the `Memo` guard). Added `memo_last` / `memo_push` / `prune_memo` to `Slot`; `prune_memo` is called on live slots inside sweep (not as a separate loop in `end_pass`). The deps hash is shared with `use_effect` as `hooks::deps_hash`.
-- **1.3** The slot value is not a `(S, Arc<Mutex<Vec<M>>>)` tuple. It is split into a state slot (plain `S`) and a queue slot (`id.with("__egui_react_reducer_queue")`, `Arc<Mutex<Vec<M>>>`). With a tuple, `State` / `update_later` could not downcast from `Box<dyn Any>` to `S`, and `State` would need a projection function over the slot value. Both slots are visited in the same pass, so sweep behaves the same.
+- **1.3** The slot value is not a `(S, Arc<Mutex<Vec<M>>>)` tuple. It is split into a state slot (plain `S`) and a queue slot (`id.with("__egui_reactor_reducer_queue")`, `Arc<Mutex<Vec<M>>>`). With a tuple, `State` / `update_later` could not downcast from `Box<dyn Any>` to `S`, and `State` would need a projection function over the slot value. Both slots are visited in the same pass, so sweep behaves the same.
 - **1.4** `update_later` exists on both `State` and `Handle`, but the implementation is a single `queue_update` in `state.rs`. `State` and `Handle` now hold `store: &'s Store` instead of `ctx: &'s egui::Context` (`ctx` comes from `store.ctx()`), so the signatures of `State::new` / `Handle::new` became `(store, slot, location)` / `(store, slot)`.
 - **1.4** The deferred queue is applied before sweep, so within the public API the "slot already gone" path is never reached (slots unmounted in that pass are still alive). The branch that silently drops when `slot_by_id` is `None` is defensive; the test `deferred::update_later_on_a_slot_that_unmounts_in_the_same_pass_is_dropped` only checks that `update_later` on state unmounted in the same pass does not panic.
 - **1.6** The overlay text drops duplicates per `Collision::location` with a `BTreeSet`. kittest can read it with `query_by_label_contains`.
@@ -487,13 +487,13 @@ Keep the existing `Swatinem/rust-cache` key.
 - **1.8** Equal-width columns use `taffy::style_helpers::evenly_sized_tracks(cols)`. It is equivalent to the plan's `vec![fr(1.0); cols]`, but in taffy 0.9 it is a one-element `Vec` of `repeat(cols, 1fr)`.
 - **1.8** `Length::Percent` holds a fraction from 0.0 to 1.0 to match taffy. `"50%"` becomes `Percent(0.5)`.
 - **1.9** Added `tests/layout.rs`, which is not in the plan's table (parsing of `Length` and the layout enums, precedence of the `m` / `p` shorthands, how `to_taffy` / `merge` map). The 2-7 check "`cx.scope` separates Ids in Taffy mode too" is split into 2 tests, one for the hooks side (`use_state`) and one for the egui side (`ui.collapsing`).
-- **Other** Split `Store::end_pass` into 3: `run_deferred`, `sweep`, `show_collision_overlay`. `egui-react` re-exports `egui_taffy::taffy` as `egui_react::taffy`.
+- **Other** Split `Store::end_pass` into 3: `run_deferred`, `sweep`, `show_collision_overlay`. `egui-reactor` re-exports `egui_taffy::taffy` as `egui_reactor::taffy`.
 
 ### Phase 3 (step 2)
 
 - **Dependency table in 0** `syn` is **3.0**, not 2. rstml 0.13 depends on syn 3, and `Node` / `KeyedAttribute` embed syn 3 types, so there is no choice. Features: `full` / `extra-traits` (needed to derive `Debug` for `Node<C>`) / `visit` / `visit-mut` / `parsing` / `printing` / `proc-macro`. `typed-builder` is 0.23, `trybuild` is 1.0.
-- **2.1** `#[builder(crate_module_path = ::egui_react::__private::typed_builder)]` worked as-is through the re-export. The section 6 alternative "generate our own builder" is not needed.
-- **2.3** Inference of `props_builder(&Name)` also passed for props with `'e` + generic `C`. The section 6 alternative "generate a braced struct with the same name as the function" is not needed. The `Props` trait and `props_builder` live in `egui_react::__private`, and only `props_builder` is also re-exported at the crate root.
+- **2.1** `#[builder(crate_module_path = ::egui_reactor::__private::typed_builder)]` worked as-is through the re-export. The section 6 alternative "generate our own builder" is not needed.
+- **2.3** Inference of `props_builder(&Name)` also passed for props with `'e` + generic `C`. The section 6 alternative "generate a braced struct with the same name as the function" is not needed. The `Props` trait and `props_builder` live in `egui_reactor::__private`, and only `props_builder` is also re-exported at the crate root.
 - **2.1** `#[event]` arguments do not become Props fields (they only become `Emitter`s). The event enum carries only the generics the payload types actually use (`#[event] on_rename: &str` gives `NameEvent<'e>`), because unused parameters cannot be declared on the enum.
 - **2.1** The `events` field is `#[builder(default, setter(strip_option))]`. Making the user pass `Option<&mut dyn FnMut(E)>` to the setter is clumsy, so `rsx!` can write `.events(&mut |ev| ..)`. The `events=` escape hatch is also wrapped as `&mut (expr)`.
 - **2.1** The tail rewrite covers not only `Stmt::Expr(_, None)` but also `Stmt::Macro` (no semicolon). When `rsx! { .. }` is the last thing in the body, syn parses it as a statement macro.
@@ -517,23 +517,23 @@ Keep the existing `Swatinem/rust-cache` key.
 
 #### Implementation
 
-- **3.1** `Gap` (`From<f32>` / `From<i32>` / `From<(f32, f32)>`) lives in `egui_react::layout`. It belongs next to `ContainerStyle::gap`, and the `ContainerStyle::gap()` setter now takes `impl Into<Gap>`. Added `col_span` / `row_span` to `ItemStyle` and to the `rsx!` layout attribute list.
+- **3.1** `Gap` (`From<f32>` / `From<i32>` / `From<(f32, f32)>`) lives in `egui_reactor::layout`. It belongs next to `ContainerStyle::gap`, and the `ContainerStyle::gap()` setter now takes `impl Into<Gap>`. Added `col_span` / `row_span` to `ItemStyle` and to the `rsx!` layout attribute list.
 - **3.1** `View`'s `align_content` is `Option<Justify>` (the Phase 2 type). `display` / `direction` / `justify` / `align` / `gap` / `side` are `#[prop(default, into)]` and take string literals directly.
 - **3.2** `ComboBox`'s `options` is `&[S]` with a generic `S: AsRef<str>`, not `&[impl AsRef<str>]`, because `#[component]` only desugars top-level `impl Trait` in argument types.
 - **3.2 / 5.6** Passing `bind` as `&mut *state` sets dirty every frame through `DerefMut`, and the app never goes idle (kittest fails with `ExceededMaxSteps`). Added `State::bind(&mut self) -> &mut T` to core. It only lends `&mut T` without setting dirty; the value only changes on input, so egui issues the repaint. Added to ARCHITECTURE.md 5.6.
-- **3.3** egui 0.36 has no `SidePanel` / `TopBottomPanel`; they are merged into `Panel::left/right/top/bottom`. The elements follow: one `Panel` (`side="left"|"right"|"top"|"bottom"`) + `CentralPanel`. The `Side` enum lives in `egui-react-elements`.
+- **3.3** egui 0.36 has no `SidePanel` / `TopBottomPanel`; they are merged into `Panel::left/right/top/bottom`. The elements follow: one `Panel` (`side="left"|"right"|"top"|"bottom"`) + `CentralPanel`. The `Side` enum lives in `egui-reactor-elements`.
 - **3.3** `Grid` row breaks are not a `<Row/>` element but a function `row()` that returns `impl View`, written as `{row()}`. `rsx!` creates a child `Ui` per element through `cx.scope` and `Ui::push_id`, so `ui.end_row()` inside `<Row/>` never reaches the grid's `Ui`. `{expr}` nodes are not scoped, so it does reach.
 - **3.3** For the same reason, `<Panel>` and `<CentralPanel>` placed as sibling elements do not dock (each cuts its area out of its own child `Ui`, and the parent's cursor moves below). The test `containers::panels_dock_when_they_share_one_ui` pins that they line up as expected when drawn on the same `Ui` with no scope in between. Panels are meant to be used at the runner's root. Stated in ARCHITECTURE.md 6.
 - **3.4 test 4-3** `grow` and `justify="space-between"` distribute leftover space, so there is no visible difference unless `<View>` has `w` (the Ui-mode `container` reserves the parent's width with `reserve_available_width()`, but the taffy node's own `size.width` stays `auto`). The tests use `w={300.0}`.
-- **3.4 test 4-5** Core's `multi_pass.rs` stays as-is, and a `<View>` + `<Button>` + `<Text>` version was added as `egui-react-elements/tests/multi_pass.rs` (core does not depend on elements). taffy recomputes when "a node's content changed within the same pass", so the `<Text>` whose width changes must come **after** the handler.
+- **3.4 test 4-5** Core's `multi_pass.rs` stays as-is, and a `<View>` + `<Button>` + `<Text>` version was added as `egui-reactor-elements/tests/multi_pass.rs` (core does not depend on elements). taffy recomputes when "a node's content changed within the same pass", so the `<Text>` whose width changes must come **after** the handler.
 - **3.4 test 4-4** Snapshots are behind feature `snapshot` (`egui_kittest/snapshot` + `egui_kittest/wgpu`). wgpu worked on this machine, so 5 PNGs were generated and committed (`row` / `column_justify` / `grid` / `text_wrap` / `widgets`).
-- **Other** The `View` element (a function, value namespace) and the `View` trait (type namespace) can coexist, so glob importing both `egui_react::prelude` and `egui_react_elements::prelude` does not clash.
+- **Other** The `View` element (a function, value namespace) and the `View` trait (type namespace) can coexist, so glob importing both `egui_reactor::prelude` and `egui_reactor_elements::prelude` does not clash.
 
 ### Phase 5 (step 4)
 
 #### Changes made on the coordinator's instructions
 
-- Added **`#[component(shares_ui)]`**. `Props` got `const SHARES_UI: bool` (default `false`), and `rsx!` routes element calls through `::egui_react::__private::enter_scope(cx, source, props, Name)`. `enter_scope` picks `cx.scope` or the new `cx.scope_sharing_ui` (which only deepens the hook scope) based on `P::SHARES_UI`. `Panel` / `CentralPanel` / `Row` use this, so `<Panel side="left"/>` + `<CentralPanel/>` placed as siblings dock (test `containers::panels_written_as_siblings_dock`).
+- Added **`#[component(shares_ui)]`**. `Props` got `const SHARES_UI: bool` (default `false`), and `rsx!` routes element calls through `::egui_reactor::__private::enter_scope(cx, source, props, Name)`. `enter_scope` picks `cx.scope` or the new `cx.scope_sharing_ui` (which only deepens the hook scope) based on `P::SHARES_UI`. `Panel` / `CentralPanel` / `Row` use this, so `<Panel side="left"/>` + `<CentralPanel/>` placed as siblings dock (test `containers::panels_written_as_siblings_dock`).
 - The type argument `P` of `enter_scope` is decided by **the props value itself**, not by inference from an `Fn` bound like `props_builder`. Writing `&Name` twice in the same expression creates 2 independent inference variables, which is ambiguous for generic components. Since the props are built as an argument of `enter_scope`, the temporary of the fused closure `&mut |ev| ..` lives until the end of the statement.
 - Removed `row()` and replaced it with `#[component(shares_ui)] Row { children }`. You can write `<Grid cols={2}><Row><A/><B/></Row></Grid>`.
 - This change altered 3 trybuild `.stderr` files (the error span now points at the whole `rsx!`). Regenerated and committed.
@@ -554,7 +554,7 @@ Keep the existing `Swatinem/rust-cache` key.
 ### Bugs found by manual checks (step 5)
 
 - **3.3 `ScrollArea`** Only the first section was visible in `examples/layout`. The cause was `cx.leaf`. A finite egui_taffy leaf reports "the size of what it drew" as both its min and max size, but `ScrollArea` fills the rect it is given and returns that size, so it got stuck at the first frame's rect and `grow` had no effect. Added `Cx::leaf_fill`. It is a leaf that does not report a content size (`min_size = 0`, `infinite = true`) and leaves sizing to taffy; `ScrollArea` uses it. A `ScrollArea` inside a `<View>` is sized by `grow` / `h` / the remaining space. Added to the table in ARCHITECTURE.md 3.1 and to section 6.
-- **4.1 `max_passes`** After resizing the window, the `<View>` inside a `ScrollArea` kept its old width. The inner `<View>` is a separate egui_taffy tree; it learns the width the outer one settled on in the 2nd pass and calls `request_discard` at the end of the 2nd pass, so a 3rd pass is needed. egui silently drops a discard beyond the limit and does not repaint, so the layout stays broken until the next input. The runner's `max_passes` default is now 3, and after `end_pass`, if "a discard was requested but rejected", it calls `request_repaint` so the next frame converges. The test is `egui-react-elements/tests/scroll_fill.rs`. Updated ARCHITECTURE.md 5.3 and 7.
+- **4.1 `max_passes`** After resizing the window, the `<View>` inside a `ScrollArea` kept its old width. The inner `<View>` is a separate egui_taffy tree; it learns the width the outer one settled on in the 2nd pass and calls `request_discard` at the end of the 2nd pass, so a 3rd pass is needed. egui silently drops a discard beyond the limit and does not repaint, so the layout stays broken until the next input. The runner's `max_passes` default is now 3, and after `end_pass`, if "a discard was requested but rejected", it calls `request_repaint` so the next frame converges. The test is `egui-reactor-elements/tests/scroll_fill.rs`. Updated ARCHITECTURE.md 5.3 and 7.
 
 ### Carried over to later PRs
 
@@ -570,8 +570,8 @@ Keep the existing `Swatinem/rust-cache` key.
 |---|---|
 | 2 (core hooks) | The `View` trait and `view()`, `layout` (`Length` / `ItemStyle` / `ContainerStyle` / `From<&str>` for each enum), `Surface` (Ui / Taffy) in `Cx` with `ui()` / `leaf` / `container` / `defer`, `use_memo` (`&'s T`), `dispatch.rs` and `use_reducer`, the deferred queue (`defer` / `update_later`), the Id collision overlay. Tests 2-1 to 2-7 + `layout.rs`. |
 | 3 (macros) | `#[hook]`, `#[component]` (Props struct + typed-builder, event enum, `Emitter`, tail rewrite to `View::show`), `rsx!` (rstml + custom nodes for `if` / `for` / `match`, attribute routing, fused event closure), `__private` (`Props` / `props_builder`), 9 trybuild cases. Spike's 10 tests pass with the macro versions. |
-| 4 (elements) | `egui-react-elements`: `View` / `Text`, 8 widgets, 10 containers, `prelude`. Tests 4-1 to 4-5 and 5 snapshots. `#[component(shares_ui)]` (added in Phase 5) draws `Panel` / `CentralPanel` / `Row` on the parent's `Ui`. |
-| 5 (runner) | `use_persisted` and persistence in `Store`, `egui-react-app::run(Options, root)` (native / wasm), examples `counter` / `todo` / `layout` (`index.html` + `Trunk.toml`), README Usage and Testing, CI workspace-wide wasm check and trunk build. Deleted `examples/spike`. |
+| 4 (elements) | `egui-reactor-elements`: `View` / `Text`, 8 widgets, 10 containers, `prelude`. Tests 4-1 to 4-5 and 5 snapshots. `#[component(shares_ui)]` (added in Phase 5) draws `Panel` / `CentralPanel` / `Row` on the parent's `Ui`. |
+| 5 (runner) | `use_persisted` and persistence in `Store`, `egui-reactor-app::run(Options, root)` (native / wasm), examples `counter` / `todo` / `layout` (`index.html` + `Trunk.toml`), README Usage and Testing, CI workspace-wide wasm check and trunk build. Deleted `examples/spike`. |
 
 ### Changes to ARCHITECTURE.md
 
@@ -585,7 +585,7 @@ Keep the existing `Swatinem/rust-cache` key.
 - **5.4 / 5.5** End-of-pass order is "deferred queue, then sweep, then overlay". `Dispatch` does not go into the deferred queue.
 - **5.6** `State::bind()` does not set dirty (so bind-style widgets do not request a repaint every frame).
 - **6** Behavior of `leaf` / `container`, the layout attribute list (`Length` units, `ItemStyle` / `ContainerStyle`, `From<&str>` for the enums, merging `style=` with the shorthand attributes), the element table, that egui-native containers become leaves in Taffy mode, and why panels and `Row` are `shares_ui`.
-- **7** `egui-react` depends on `egui_taffy` / `typed-builder` / `serde`. The flow of one frame in `run(Options, |_cx| rsx!{ <App/> })` and the contents of `Options`.
+- **7** `egui-reactor` depends on `egui_taffy` / `typed-builder` / `serde`. The flow of one frame in `run(Options, |_cx| rsx!{ <App/> })` and the contents of `Options`.
 
 ### Dropped
 

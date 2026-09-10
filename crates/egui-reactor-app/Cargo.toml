@@ -1,0 +1,93 @@
+[package]
+name = "egui-reactor-app"
+description = "Runner for egui-reactor apps: native and wasm"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "egui_reactor_app"
+path = "src/lib.rs"
+
+[features]
+# WOFF and WOFF2 fonts for `fonts::FontSource::Url`. Off by default: the
+# Brotli tables add to the wasm, and a font hosted next to `index.html` is a
+# TTF. Without it a `.woff2` response is reported as `Failed`, never a panic.
+woff2 = ["dep:wuff"]
+
+# The four fonts epaint compiles in (Ubuntu-Light, Hack, NotoEmoji-Regular,
+# emoji-icon-font: 1.4 MB together). On by default; take this crate with
+# `default-features = false` to leave them out of the build.
+#
+# Without them nothing panics, but nothing is drawn either: `fonts::Fonts` has
+# no built-in face to put behind a chain, so a family with nothing loaded lays
+# text out with zero glyphs. An app that turns this off has to give every stack
+# a `Bundled` (or, on native, `System`) face and apply it before the first
+# frame, or draw a text-free loading screen while `Fonts::pending()` is true.
+default_fonts = ["egui/default_fonts", "eframe/default_fonts"]
+default = ["default_fonts"]
+
+# eframe 0.36's own default features include `wgpu` and not `glow`, so this
+# renders with wgpu already; glow is the opt-in one now. There is no feature
+# here to choose between them, because there is nothing to choose.
+#
+# The WebGL fallback comes for free with it: `eframe/wgpu` pulls
+# `egui-wgpu/default`, whose defaults include `wgpu/webgl`, so a browser
+# without WebGPU still gets a canvas. No direct `wgpu` dependency is needed.
+[dependencies]
+eframe = { workspace = true, features = ["persistence"] }
+egui.workspace = true
+log.workspace = true
+egui-reactor.workspace = true
+# The `Url` font source: native via ureq on a thread, wasm via `fetch`, one
+# callback either way, so the source needs no executor.
+ehttp.workspace = true
+skrifa.workspace = true
+wuff = { workspace = true, optional = true }
+
+[dev-dependencies]
+egui_kittest.workspace = true
+egui-reactor-elements.workspace = true
+epaint_default_fonts.workspace = true
+# The Local Font Access entry points are `async` on every target; the native
+# stubs are tested by blocking on them.
+pollster.workspace = true
+
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# `run` installs it when nothing else has: `RUST_LOG=egui_reactor=debug` then
+# prints every layout discard with what caused it.
+env_logger.workspace = true
+# Never called from here. eframe is taken without its default features (to keep
+# egui's embedded fonts optional), and one of those defaults was `winit/default`
+# — which no feature list of ours can name. Depending on winit directly restores
+# it, because Cargo unifies features across the graph.
+winit.workspace = true
+# The installed fonts: `load_system_fonts` reads the OS font directories, and
+# on Linux fontconfig's `<alias>` entries for the generic families.
+fontdb = { workspace = true, features = ["fs", "memmap", "fontconfig"] }
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+# wasm cannot read files, so only the in-memory database: no `fs`, no `memmap`.
+fontdb = { workspace = true, features = ["std"] }
+# The DOM mirror of the AccessKit tree. wasm only: on every other target
+# `a11y::WebA11y` is an empty plugin. `accesskit` itself comes from
+# `egui::accesskit`, so the `TreeUpdate` types cannot drift apart.
+accesskit-web.workspace = true
+js-sys.workspace = true
+wasm-bindgen.workspace = true
+wasm-bindgen-futures.workspace = true
+web-sys = { workspace = true, features = [
+    "Blob",
+    "Document",
+    "DomRect",
+    "Element",
+    "HtmlCanvasElement",
+    "Location",
+    "Navigator",
+    "PermissionState",
+    "PermissionStatus",
+    "Permissions",
+    "Window",
+] }

@@ -170,7 +170,7 @@ noise: 1.95 idle and 3.13 scrolling, against 1.81 and 2.95 in the baseline.
 What did change is not in this table: `<VirtualList>` no longer opens a taffy
 tree per scrolled row, so egui memory stops growing with the scroll distance
 (`egui_memory_does_not_grow_with_scroll_distance` in
-`crates/egui-react-elements/tests/virtual_list.rs`: 85 entries against 771 for
+`crates/egui-reactor-elements/tests/virtual_list.rs`: 85 entries against 771 for
 the same scroll before the change).
 
 **The gate in section 0 of the plan is not met.** "Scroll passes/frame drop
@@ -393,7 +393,7 @@ overhead), which is what decision D in the plan weighs.
 Date: 2026-09-06. Instruments Time Profiler via `xctrace`, release build with
 line tables, one scenario and one mode per process (40,000 Virtual frames,
 7,524 samples). Samples are charged to the nearest enclosing egui_taffy /
-egui-react / egui / epaint frame. Temporary ablation modes were added to the
+egui-reactor / egui / epaint frame. Temporary ablation modes were added to the
 benchmark and reverted; nothing here is committed code. Isolated runs are
 faster than the mixed benchmark (Virtual 0.187 / Plain 0.099 ms here vs
 0.241 / 0.123 published) with the same 1.9x ratio.
@@ -409,7 +409,7 @@ faster than the mixed benchmark (Virtual 0.187 / Plain 0.099 ms here vs
 |---|---:|---:|---:|
 | (1) egui_taffy per tree: `TuiInitializer::show`, `Tui::create`, `recalculate` | 8.3 | 1.0 | 0 |
 | (2) egui_taffy per node: `add_container_dyn`, `add_child_dyn`, `add_child_node`, and the egui `Ui` work they induce | 71.9 | 68.9 | 0 |
-| (3) egui-react: `Cx::scope` 28.2, `ItemStyle::to_taffy` 2.1, `View`/`leaf`/`container` ~4, `Store` 0.05 | 38.3 | 11.3 | 0 |
+| (3) egui-reactor: `Cx::scope` 28.2, `ItemStyle::to_taffy` 2.1, `View`/`leaf`/`container` ~4, `Store` 0.05 | 38.3 | 11.3 | 0 |
 | (4) drawing the rows themselves: galleys, tessellation, scroll area | 69.7 | 67.6 | 63.3 |
 | egui's own row layout, paid by Plain only (`horizontal`, `with_layout`, `push_id`) | 0 | 0 | 33.0 |
 | Total | 188.1 | 148.9 | 96.7 |
@@ -448,7 +448,7 @@ Steps B and C stand on their own and should go upstream either way.
 Date: 2026-09-06. Same machine and conditions as above: native macOS arm64,
 Rust 1.95.0, release profile, egui 0.36.1, taffy 0.9.2 as a direct dependency
 with the features egui_taffy 0.14.0 used. egui_taffy and the
-`[patch.crates-io]` line are gone; `crates/egui-react/src/engine.rs` is the
+`[patch.crates-io]` line are gone; `crates/egui-reactor/src/engine.rs` is the
 replacement. Code state: step D1 uncommitted on top of `84ddeff`. Samples in
 [samples-d1.csv](samples-d1.csv). One recorded run.
 
@@ -645,7 +645,7 @@ For that to be safe the text has to be painted where the node ends up, not where
 it was last frame, so `<Text>` claims its shape in the painter in draw order and
 fills it in after the layout is computed. A tree of `<View>` and `<Text>` alone
 is then right on its first frame and costs one pass
-(`crates/egui-react/tests/engine_text.rs`). A tree with any other widget in it
+(`crates/egui-reactor/tests/engine_text.rs`). A tree with any other widget in it
 still costs two, as before: that widget has to draw to be measured. This is why
 the twelve Resize frames are unchanged — a new `<VirtualList>` slot draws a
 `<Button>`.
@@ -843,7 +843,7 @@ plus `ROW_GAP` 2) and the rows landed 18 apart:
 
 Two points per row, so the 21st visible row was drawn 40 points above where the
 scroll area had put it, and the gap showed up as blank space at the bottom of
-the viewport. `crates/egui-react-elements/tests/virtual_list.rs` now holds both
+the viewport. `crates/egui-reactor-elements/tests/virtual_list.rs` now holds both
 halves of this: rows at exactly `row_h` pitch over 20 scrolled frames with no
 discard requested, and a row that draws twice as tall still moving the list on
 by `row_h`.
@@ -857,7 +857,7 @@ uncommitted on top of `b0f2ba1`. Samples in [samples-e1.csv](samples-e1.csv).
 What changed. A `<VirtualList>` row no longer holds a taffy tree. Its nodes are
 a `Vec` rebuilt in draw order every frame, its styles are the `ItemStyle` and
 `ContainerStyle` the elements already carry, and its boxes are solved by
-`crates/egui-react/src/engine/lite.rs`, a single-line flexbox solver ported
+`crates/egui-reactor/src/engine/lite.rs`, a single-line flexbox solver ported
 from taffy 0.9 for the subset those two structs can express. A row using
 anything outside the subset (`wrap`, `align_content`, grid, block, `baseline`,
 `col_span` / `row_span`, an `auto` margin) falls back to the taffy path, row by
@@ -958,7 +958,7 @@ measuring the same gap.
 |---|---:|---:|---:|---:|
 | lite solver (`LiteTree::compute` and everything under it) | 13.48 | 0 | +13.48 | +364 ns |
 | lite tree building (`LiteCx::container` / `leaf` / `text`, `lite::show`) | 8.42 | 0 | +8.42 | +227 ns |
-| egui-react component layer (`Cx::scope`, `rsx!`, `<Row>`, `<Text>`, `Store`) | 7.57 | 0 | +7.57 | +205 ns |
+| egui-reactor component layer (`Cx::scope`, `rsx!`, `<Row>`, `<Text>`, `Store`) | 7.57 | 0 | +7.57 | +205 ns |
 | taffy engine (the app root tree and the `<VirtualList>` leaf, not the rows) | 4.87 | 0 | +4.87 | +132 ns |
 | text layout (galleys, `GalleyCache`, harfrust) | 19.72 | 15.72 | +3.99 | +108 ns |
 | egui widgets and `Ui` (`create_widget`, `get_response`, `Ui::new_child`) | 67.97 | 64.78 | +3.18 | +86 ns |
@@ -1040,7 +1040,7 @@ galley on the node instead of a `Label` in a `Ui`; D2b text selection back on
 that `<Text>`, which costs nothing measurable; E a fixed root rect for
 `<VirtualList>` rows, which cost nothing and saved nothing but put the rows at
 the pitch `show_rows` reserved; E1 lays those rows out with a flex solver of
-egui-react's own instead of a taffy tree. D2, D2b and E differ by less than one
+egui-reactor's own instead of a taffy tree. D2, D2b and E differ by less than one
 run of noise, so those three columns are repeat measurements of D2 as much as
 steps of their own; E1 is the first move since D2 that is larger than the
 noise on every scenario.
@@ -1102,9 +1102,9 @@ Each mode was measured alone in the foreground tab, twice. The plain list is
 
 | Mode | Repaint median ms | Repaint p95 | Scroll median ms | Scroll p95 | PERF WARNING |
 |---|---:|---:|---:|---:|---:|
-| egui-react `<VirtualList>`, 10,000 rows | 1.00 / 1.02 | 1.23 / 1.39 | 0.98 / 0.99 | 1.25 / 1.30 | 0 |
+| egui-reactor `<VirtualList>`, 10,000 rows | 1.00 / 1.02 | 1.23 / 1.39 | 0.98 / 0.99 | 1.25 / 1.30 | 0 |
 | plain egui `show_rows`, 10,000 rows | 0.80 / 0.80 | 0.98 / 1.04 | 0.79 / 0.81 | 0.97 / 1.06 | 0 |
-| egui-react `<ScrollArea>` + `for`, 10,000 rows | 66.8 | 69.8 | 67.5 | 68.8 | 0 |
+| egui-reactor `<ScrollArea>` + `for`, 10,000 rows | 66.8 | 69.8 | 67.5 | 68.8 | 0 |
 
 VirtualList / plain: 1.24x on repaint, 1.23x on scroll. Both are well inside
 8.3 ms. No `PERF WARNING` was logged over about 1,500 scrolled frames in any
@@ -1132,7 +1132,7 @@ benchmark scrolled exactly one row per frame and never saw it. Trees now
 survive 120 passes without being drawn (`Store::sweep_trees`).
 
 Test: `fractional_scrolling_asks_for_no_second_pass` in
-`crates/egui-react-elements/tests/virtual_list.rs` (14 discards in 40 frames
+`crates/egui-reactor-elements/tests/virtual_list.rs` (14 discards in 40 frames
 before, 0 after; the first appearance of a slot still costs one).
 
 | Scenario | Virtual ms | Plain ms | Ratio | Passes/frame | Discard frames |
@@ -1160,7 +1160,7 @@ still compared field by field. The root's `content_size` is no longer
 compared either: `show` reads it after the comparison to reserve the tree's
 space, so it is never a frame behind.
 
-Test: `crates/egui-react-elements/tests/text_width.rs`. A label alternating
+Test: `crates/egui-reactor-elements/tests/text_width.rs`. A label alternating
 between `iii` and `WWWWWWWWWW` over 10 frames asked for 9 discards before on
 the taffy path and 9 in a `<VirtualList>` row; 0 after on both. The guard,
 the same label with a `<Button>` after it, still asks for 9. (Two numbers
@@ -1169,11 +1169,11 @@ width, which is also why "16.7 ms (60 fps)" and "8.3 ms (120 fps)" are the
 same width and the fixture's frame readout is stable most of the time.)
 
 The reason handed to `request_discard` now names the node, e.g.
-`egui-react: layout changed: the text "last frame 9.8 ms…" moved [[12.0 12.0] -
+`egui-reactor: layout changed: the text "last frame 9.8 ms…" moved [[12.0 12.0] -
 [119.0 27.0]] -> [[12.0 12.0] - [231.0 27.0]]`; egui shows it in the PERF
-WARNING overlay and the engine logs it at `debug`, and `egui-react-app::run`
+WARNING overlay and the engine logs it at `debug`, and `egui-reactor-app::run`
 installs `env_logger` / `WebLogger` so the log reaches a terminal or the
-browser console. `RUST_LOG=egui_react=debug cargo run --release -p list-10k`
+browser console. `RUST_LOG=egui_reactor=debug cargo run --release -p list-10k`
 is the way to find the cause of any warning that remains on a real device.
 
 Native benchmark, same fixture as before (`samples-g.csv`):

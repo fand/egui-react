@@ -8,7 +8,7 @@
 //! The hash is `#<name>` or `#<name>/plain` (`#todo`, `#counter/plain`). An
 //! unknown or missing name falls back to the first example, and a `plain`
 //! request for an example that has no plain version falls back to the
-//! egui-react one — the same rule the gallery follows for its own toggle.
+//! egui-reactor one — the same rule the gallery follows for its own toggle.
 //!
 //! `?theme=dark` or `?theme=light` after the name is the page's appearance
 //! (`#board?theme=dark`): the page around the iframe has a switch of its own
@@ -16,10 +16,10 @@
 //! system, as it does anywhere else. The page changes only the hash when the
 //! switch is flipped, so the example keeps running and picks it up here.
 
-use egui_react::prelude::*;
-use egui_react_app::a11y::WebA11y;
-use egui_react_app::{Options, run};
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_app::a11y::WebA11y;
+use egui_reactor_app::{Options, run};
+use egui_reactor_elements::prelude::*;
 use gallery::{EXAMPLES, Running, find};
 
 /// How much larger the embed draws than egui's default: the page's 16px body
@@ -30,7 +30,7 @@ fn main() -> eframe::Result {
     let canvas_id = Options::default().canvas_id;
     run(
         Options {
-            title: String::from("egui-react: example"),
+            title: String::from("egui-reactor: example"),
             setup: Some(Box::new(move |cc| {
                 // What the two wgpu examples need before anything is drawn: the
                 // shader example's pipeline, and the buffer and layouts the

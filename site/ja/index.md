@@ -2,7 +2,7 @@
 layout: home
 
 hero:
-  name: egui-react
+  name: egui-reactor
   image:
     src: /atomic-ferris.svg
     alt: atomic ferris

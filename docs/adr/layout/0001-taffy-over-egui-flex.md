@@ -16,7 +16,7 @@ Layout runs on taffy, reached through a layout engine of our own. `<View>` is a 
 
 ## Consequences
 
-`egui-react` depends on taffy 0.9 directly, with the feature set egui_taffy 0.14 pulled in kept as it was so layouts come out the same. taffy is pure Rust and builds on wasm as-is. The layout attributes (`ItemStyle`, `ContainerStyle`) are a thin CSS-spelled surface over `taffy::Style`. The engine itself came later; see [0002](0002-own-engine-over-taffy.md).
+`egui-reactor` depends on taffy 0.9 directly, with the feature set egui_taffy 0.14 pulled in kept as it was so layouts come out the same. taffy is pure Rust and builds on wasm as-is. The layout attributes (`ItemStyle`, `ContainerStyle`) are a thin CSS-spelled surface over `taffy::Style`. The engine itself came later; see [0002](0002-own-engine-over-taffy.md).
 
 ## Links
 

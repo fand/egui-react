@@ -55,7 +55,7 @@ Direct egui row layout is not the intended production solution.
 ## Causes (from the egui_taffy 0.14 source; superseded, kept as context)
 
 Written before any measurement, against a dependency that is gone: egui_taffy
-was replaced by `crates/egui-react/src/engine/` in step D. Read with
+was replaced by `crates/egui-reactor/src/engine/` in step D. Read with
 measurements.md next to it. Where each item stands: (1) and (2) were real and
 are fixed (steps B, C and A; the created / removed / moved rule is now in
 ARCHITECTURE 5.3); (3) was the largest cost and was the reason for step D,

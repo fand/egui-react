@@ -1,13 +1,13 @@
 //! Runs the `spreadsheet` example on its own; the app itself is in `lib.rs`.
 
-use egui_react::prelude::*;
-use egui_react_app::{Options, run};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{Options, run};
 use spreadsheet::App;
 
 fn main() -> eframe::Result {
     run(
         Options {
-            title: String::from("egui-react: spreadsheet"),
+            title: String::from("egui-reactor: spreadsheet"),
             // A grid of eight columns and twenty rows wants more than
             // eframe's default 640.
             #[cfg(not(target_arch = "wasm32"))]

@@ -5,7 +5,7 @@ title: アーキテクチャ
 # アーキテクチャ
 
 <script setup>
-// `withBase` を使うのは、このサイトが GitHub Pages では `/egui-react/`、
+// `withBase` を使うのは、このサイトが GitHub Pages では `/egui-reactor/`、
 // プレビューでは `/` から配信されるため。`/api/` は cargo doc の出力で、
 // このサイトのページではないので、ルータのルートではなく素のリンクにする。
 import { withBase } from 'vitepress'
@@ -33,7 +33,7 @@ import { withBase } from 'vitepress'
 
 ## API ドキュメント
 
-<a :href="withBase('/api/')" target="_blank" rel="noreferrer">/api/</a> は公開している 4 クレート ― `egui-react`、`egui-react-elements`、`egui-react-app`、`egui-react-macros` ― の `cargo doc` です。このサイトと同じビルドで生成されるので、つねにサイトをビルドしたコミットと一致します。正確なシグネチャを見るならそちら、部品どうしの噛み合い方を知るならこのサイトです。
+<a :href="withBase('/api/')" target="_blank" rel="noreferrer">/api/</a> は公開している 4 クレート ― `egui-reactor`、`egui-reactor-elements`、`egui-reactor-app`、`egui-reactor-macros` ― の `cargo doc` です。このサイトと同じビルドで生成されるので、つねにサイトをビルドしたコミットと一致します。正確なシグネチャを見るならそちら、部品どうしの噛み合い方を知るならこのサイトです。
 
 ## リポジトリ
 

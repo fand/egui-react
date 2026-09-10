@@ -47,9 +47,9 @@ egui はスクロール位置や開閉フラグを `Context::Memory` に持ち�
 
 描画そのものにはコストがあります。重い値は `use_memo` でキャッシュし、長いリストには `<VirtualList>` を使ってください。素の egui でするのと同じです。
 
-## React と egui-react
+## React と egui-reactor
 
-| React | egui-react |
+| React | egui-reactor |
 |---|---|
 | 仮想 DOM、リコンサイラ | その場で展開、何も保持しない |
 | `memo()`、`useCallback` | 不要。重い値には `use_memo` |

@@ -59,14 +59,14 @@ any app can use.
 
 ### In scope
 
-- `<Overlay>` (`egui-react-elements`): an `egui::Area` as an element. Where
+- `<Overlay>` (`egui-reactor-elements`): an `egui::Area` as an element. Where
   it sits (`anchor` + `offset`, or `pos`), which layer (`order`), whether it
   may leave the window (`constrain`), whether it stays on top (`top`), and a
   `fill`. With `w` / `h` the children get a tree of their own that fills the
   sheet, rooted the way the runner roots the app; without, they size the
   sheet, as in `<Window>`. The sheet swallows the presses that would reach
   what is under it.
-- `use_animate` (`egui-react`): `ctx.animate_bool_with_time_and_easing`
+- `use_animate` (`egui-reactor`): `ctx.animate_bool_with_time_and_easing`
   behind a hook keyed by the call site, so a component gets "0 when off, 1
   when on, in between on the way" without touching the `Context`.
 - `<Frame shadow>` and `<Button padding corner_radius>`: the two props the
@@ -93,11 +93,11 @@ any app can use.
 
 ## Deliverables
 
-- `crates/egui-react-elements/src/containers.rs`: `Overlay`, `Frame::shadow`;
+- `crates/egui-reactor-elements/src/containers.rs`: `Overlay`, `Frame::shadow`;
   `widgets.rs`: `Button::padding` / `corner_radius`.
   `tests/overlay.rs` with kittest.
-- `crates/egui-react/src/hooks.rs`: `use_animate`. `tests/animate.rs`.
-- `crates/egui-react/src/engine/mod.rs`: hidden subtrees. A test next to
+- `crates/egui-reactor/src/hooks.rs`: `use_animate`. `tests/animate.rs`.
+- `crates/egui-reactor/src/engine/mod.rs`: hidden subtrees. A test next to
   `tests/lite_parity.rs`, so both paths agree on what "hidden" means.
 - `examples/gallery/src/lib.rs` without the hatches.
 - ARCHITECTURE sections 4 and 6.

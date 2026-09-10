@@ -12,8 +12,8 @@
 //! that slides down over the whole window from the button in the header.
 
 mod highlight;
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 use example_meta::Meta;
 
 use board::App as BoardApp;
@@ -106,7 +106,7 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
     // without tripping over a live borrow.
     let active: Vec<&'static str> = tags.to_vec();
     let current: &'static Meta = find(*selected).unwrap_or(&EXAMPLES[0]);
-    // An example with no plain version is always shown as egui-react, whatever
+    // An example with no plain version is always shown as egui-reactor, whatever
     // the toggle was left on.
     let showing_plain = *plain && current.plain.is_some();
     let shown: Vec<&'static Meta> = EXAMPLES
@@ -168,7 +168,7 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
                     selected={current.name}
                     on_select={|name: &'static str| {
                         *selected = name;
-                        // A new example starts on its egui-react version.
+                        // A new example starts on its egui-reactor version.
                         *plain = false;
                         // Picked, so the menu has done its job.
                         *menu_open = false;
@@ -189,7 +189,7 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
                         selected={current.name}
                         on_select={|name: &'static str| {
                             *selected = name;
-                            // A new example starts on its egui-react version.
+                            // A new example starts on its egui-reactor version.
                             *plain = false;
                         }}
                         on_tag={|tag: &'static str| toggle(&mut tags, tag)}
@@ -242,7 +242,7 @@ pub fn App(cx: &mut Cx, #[prop(default = EXAMPLES[0].name)] start: &'static str)
 fn Header(cx: &mut Cx, compact: bool, #[event] on_menu: ()) {
     rsx! {
         <View direction="row" align="center" gap={8} w="100%">
-            <Text strong size={20.0} grow={1.0}>"egui-react"</Text>
+            <Text strong size={20.0} grow={1.0}>"egui-reactor"</Text>
             if compact {
                 <Button label="menu" on_click={|| on_menu.emit(())}>"☰"</Button>
             }
@@ -330,7 +330,7 @@ fn Menu(
                 // The same header, with the button that closes the menu where
                 // the one that opened it was.
                 <View direction="row" align="center" gap={8} w="100%">
-                    <Text strong size={20.0} grow={1.0}>"egui-react"</Text>
+                    <Text strong size={20.0} grow={1.0}>"egui-reactor"</Text>
                     <Button label="close menu" on_click={|| on_close.emit(())}>"×"</Button>
                 </View>
                 <List
@@ -404,7 +404,7 @@ fn List(
 
 /// A small button, optionally showing whether it is on.
 ///
-/// The escape hatch, because `egui-react-elements` has no toggle element and a
+/// The escape hatch, because `egui-reactor-elements` has no toggle element and a
 /// tag wants to look pressed while it is filtering. `egui::SelectableLabel` has
 /// no `wrap_mode` builder, so the mode goes on the leaf's `Ui`: a taffy leaf is
 /// measured from its first draw, which happens in a zero-width `Ui`, and a
@@ -452,7 +452,7 @@ pub fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "list-10k" => { <ListPlain/> }
                 "layout" => { <LayoutPlain/> }
                 // Never reached: `plain` is only true for an example that
-                // has a plain version. The egui-react counter stands in.
+                // has a plain version. The egui-reactor counter stands in.
                 _ => { <CounterApp/> }
             }
         } else {
@@ -485,7 +485,7 @@ pub fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
 /// A plain egui example: one `use_state` for its whole state, drawn into a
 /// leaf that taffy sizes.
 ///
-/// This is what running a non-egui-react UI inside a egui-react tree looks
+/// This is what running a non-egui-reactor UI inside a egui-reactor tree looks
 /// like: the state is a hook, the drawing is a closure over `&mut egui::Ui`.
 ///
 /// `bind()` rather than `&mut *state`, for the same reason a bound `TextEdit`
@@ -567,7 +567,7 @@ pub fn Code(
             if meta.plain.is_some() {
                 <View direction="row" gap={4} align="center" w="100%">
                     <Chip
-                        label="egui-react"
+                        label="egui-reactor"
                         active={!plain}
                         on_click={|| on_pick.emit(false)}
                     />

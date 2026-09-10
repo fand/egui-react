@@ -8,7 +8,7 @@ Date: 2026-09-09 · Status: accepted
 
 ## Decision
 
-The published site is a VitePress site in `site/`, and it absorbs the gallery's three columns: the example list becomes the sidebar, the code pane becomes the page body (with an egui-react / plain egui tab where a plain version exists), and the running example becomes an iframe. Behind that iframe is **one** wasm — a second `embed` bin in the gallery crate that draws a single example full-bleed, picked by `location.hash` (`/embed/#todo`, `/embed/#counter/plain`). `site/build.sh` assembles the three parts into one directory: VitePress into `dist/`, the embed into `dist/embed/`, `cargo doc --no-deps` into `dist/api/`. The example sources stay the single source of truth: pages include them from `examples/*/src/` at build time.
+The published site is a VitePress site in `site/`, and it absorbs the gallery's three columns: the example list becomes the sidebar, the code pane becomes the page body (with an egui-reactor / plain egui tab where a plain version exists), and the running example becomes an iframe. Behind that iframe is **one** wasm — a second `embed` bin in the gallery crate that draws a single example full-bleed, picked by `location.hash` (`/embed/#todo`, `/embed/#counter/plain`). `site/build.sh` assembles the three parts into one directory: VitePress into `dist/`, the embed into `dist/embed/`, `cargo doc --no-deps` into `dist/api/`. The example sources stay the single source of truth: pages include them from `examples/*/src/` at build time.
 
 ## Rejected
 

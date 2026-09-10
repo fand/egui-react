@@ -35,8 +35,8 @@
 //! asks for the next frame every frame, and `pause` simply stops asking, which
 //! also freezes `time` at the value the last frame saw.
 
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 use example_meta::Meta;
 
 pub mod gpu;

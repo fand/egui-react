@@ -10,13 +10,13 @@ Numbering is per domain, from `0001`, in the order the decisions were made.
 
 | Domain | What it covers |
 |---|---|
-| `core` | `egui-react`: `Cx`, `View`, `rsx!`, hooks, state handles, event props |
+| `core` | `egui-reactor`: `Cx`, `View`, `rsx!`, hooks, state handles, event props |
 | `runtime` | The store, the pass, the sweep, multi-pass, async, `<Suspense>` |
 | `layout` | The layout engine over taffy, the lite path, layout attributes |
-| `elements` | `egui-react-elements`: the wrappers for egui widgets and containers |
-| `fonts` | `egui_react_app::fonts`, and what text rendering forced on the engine |
+| `elements` | `egui-reactor-elements`: the wrappers for egui widgets and containers |
+| `fonts` | `egui_reactor_app::fonts`, and what text rendering forced on the engine |
 | `a11y` | Accessibility: accesskit on native, the gap on web |
-| `app` | `egui-react-app`: the runner, `Options`, platforms, packaging |
+| `app` | `egui-reactor-app`: the runner, `Options`, platforms, packaging |
 
 ## File format
 

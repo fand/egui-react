@@ -4,7 +4,7 @@ title: 要素
 
 # 要素
 
-このページのものはすべて `egui_react_elements::prelude` から来ます。生成されたイベント enum も、そこから export されています。`<Button on_click=../>` を書く場所には `ButtonEvent` がスコープに要ります。
+このページのものはすべて `egui_reactor_elements::prelude` から来ます。生成されたイベント enum も、そこから export されています。`<Button on_click=../>` を書く場所には `ButtonEvent` がスコープに要ります。
 
 どの要素も `style` prop を取ります（レイアウト上のボックスを持たない`<Window>` と `<Row>` は例外です）。`rsx!` は[レイアウト属性](/ja/reference/layout-attributes) に並べたレイアウトと描画の属性からそれを埋めます。下の表では繰り返しません。
 
@@ -363,4 +363,4 @@ prop の名前は `on_paint` ではなく `paint` です。`rsx!` は `on_` で�
 
 ## もっと知る
 
-要素の一覧と、それぞれのラッパーを作った理由は[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#elements-list-egui-react-elements)の 6 章にあります（英語）。
+要素の一覧と、それぞれのラッパーを作った理由は[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#elements-list-egui-reactor-elements)の 6 章にあります（英語）。

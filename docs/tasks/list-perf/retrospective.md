@@ -73,7 +73,7 @@ taffy, with a single-line flex solver for list rows.
 - **Verify on a real trackpad.** Everything after F was checked with synthetic
   input (kittest and Chrome wheel events). If a PERF WARNING still appears
   while scrolling natively, the overlay now names the node; run with
-  `RUST_LOG=egui_react=debug` to log each discard with old and new rect.
+  `RUST_LOG=egui_reactor=debug` to log each discard with old and new rect.
 - **Gallery source panel** costs 10 to 11 ms per frame regardless of the
   example shown: it draws the whole highlighted file every frame. Needs a
   row-virtualised source view. Also seen: the panel overlaps the example

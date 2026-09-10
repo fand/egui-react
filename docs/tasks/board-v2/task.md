@@ -14,7 +14,7 @@ Rework the [board](../board/task.md) example per the request: simpler, and close
 
 ## Out of scope
 
-- Changes to core / `egui-react-elements` (if needed, record in plan.md section 9 and do a separate PR).
+- Changes to core / `egui-reactor-elements` (if needed, record in plan.md section 9 and do a separate PR).
 - Animation, multiple boards, label editing UI.
 
 ## Done when

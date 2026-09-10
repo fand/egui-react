@@ -1,7 +1,7 @@
 # Task: core (PR2 = Phase 2 + 3 + 4 + 5)
 
-> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
-> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-reactor's
+> own layout engine over taffy (`crates/egui-reactor/src/engine.rs`, ARCHITECTURE
 > section 6), which ports its measure function and node rules, so the layout
 > behaviour described here still holds unless ARCHITECTURE says otherwise.
 
@@ -26,12 +26,12 @@ Replace all of spike's hand-written expansions with the macro versions. Spike's 
   - `rsx!`: parse with rstml. Elements, embedded expressions, string literals, `if` / `else` / `for` / `match`, `key`, fusing `on_*`, the `events=` escape hatch, extracting common layout attributes.
   - Pin compile error messages with trybuild.
 - Phase 4 (elements and layout)
-  - `egui-react-elements`: implement `<View>` / `<Text>` on egui_taffy and convert layout attributes to taffy style.
+  - `egui-reactor-elements`: implement `<View>` / `<Text>` on egui_taffy and convert layout attributes to taffy style.
   - Widgets: `Button` / `Label` / `TextEdit` (`bind`) / `Checkbox` / `Slider` / `ComboBox` / `Image` / `Separator`.
   - Containers: `ScrollArea` / `Collapsing` / `Frame` / `Window` / `SidePanel` / `TopBottomPanel` / `CentralPanel`. egui-native `Vertical` / `Horizontal` / `Grid`.
   - kittest interaction tests and layout snapshot tests.
 - Phase 5 (runner and examples)
-  - `egui-react-app::run(Options, |cx| rsx!{..})`. One function covers both native and wasm. Set `Options::max_passes` explicitly (default 3; see plan.md section 8 for why).
+  - `egui-reactor-app::run(Options, |cx| rsx!{..})`. One function covers both native and wasm. Set `Options::max_passes` explicitly (default 3; see plan.md section 8 for why).
   - `use_persisted` (saved to eframe's `Storage`).
   - examples: `counter`, `todo` (`use_reducer`), `layout`. Delete `examples/spike`.
   - Add wasm `cargo check --workspace` and a trunk build to CI.
@@ -48,11 +48,11 @@ Replace all of spike's hand-written expansions with the macro versions. Spike's 
 
 ## Deliverables
 
-- `crates/egui-react`: `view.rs` (`View`), additions to `hooks.rs`, `dispatch.rs`, `layout.rs` (`ItemStyle` / `ContainerStyle` / `Length`), `Cx` extensions, the deferred queue and persistence in `Store`, the collision overlay.
-- `crates/egui-react-macros`: `component.rs` / `hook.rs` / `rsx/` (parser, custom nodes, expansion).
-- `crates/egui-react/tests/ui/` (trybuild) and new tests in `crates/egui-react/tests/`. Replace spike's tests and `tests/common` with the macro versions.
-- `crates/egui-react-elements`: each element plus `tests/` and snapshot images.
-- `crates/egui-react-app`: `run` / `Options`, the eframe `App` impl, the wasm runner.
+- `crates/egui-reactor`: `view.rs` (`View`), additions to `hooks.rs`, `dispatch.rs`, `layout.rs` (`ItemStyle` / `ContainerStyle` / `Length`), `Cx` extensions, the deferred queue and persistence in `Store`, the collision overlay.
+- `crates/egui-reactor-macros`: `component.rs` / `hook.rs` / `rsx/` (parser, custom nodes, expansion).
+- `crates/egui-reactor/tests/ui/` (trybuild) and new tests in `crates/egui-reactor/tests/`. Replace spike's tests and `tests/common` with the macro versions.
+- `crates/egui-reactor-elements`: each element plus `tests/` and snapshot images.
+- `crates/egui-reactor-app`: `run` / `Options`, the eframe `App` impl, the wasm runner.
 - `examples/counter` / `examples/todo` / `examples/layout` (each with `index.html` and `Trunk.toml`).
 - Update `.github/workflows/ci.yml`.
 - Update `docs/ARCHITECTURE.md` (changes known at the start are in [plan.md](plan.md) section 7; add changes found during implementation as they come up).
@@ -70,12 +70,12 @@ Replace all of spike's hand-written expansions with the macro versions. Spike's 
 ## Decisions (assumptions at the start)
 
 - The 4 phases go in 1 PR, but split commits by phase (at least 4), and CI must be green at the end of each phase. Do not stack commits that are broken across phases.
-- `egui-react` (core) depends on `egui_taffy`. Since `Cx` holds the layout context, core has to know about `Tui`. The wasm `cargo check` must keep passing.
-- Use the `typed-builder` crate for the Props builder, re-exported from `egui-react` under `__private` (`#[builder(crate_module_path = ..)]`). Switch to our own generator only if it does not work through the re-export.
-- The `#[component]` Props struct is named `<Name>Props`. `rsx!` gets the builder from the function type with `::egui_react::props_builder(&Name)` (the user only needs to `use` `Name`). If inference fails with props that have lifetimes, switch to the fallback in [plan.md](plan.md) section 6.
-- Snapshot tests need egui_kittest's `snapshot` + `wgpu` features. Put them behind the `snapshot` cargo feature of `egui-react-elements`. The committed images were made with the macOS renderer and do not match Linux's software renderer, so do not run them in CI; run them locally only. Describe how in the README Testing section.
+- `egui-reactor` (core) depends on `egui_taffy`. Since `Cx` holds the layout context, core has to know about `Tui`. The wasm `cargo check` must keep passing.
+- Use the `typed-builder` crate for the Props builder, re-exported from `egui-reactor` under `__private` (`#[builder(crate_module_path = ..)]`). Switch to our own generator only if it does not work through the re-export.
+- The `#[component]` Props struct is named `<Name>Props`. `rsx!` gets the builder from the function type with `::egui_reactor::props_builder(&Name)` (the user only needs to `use` `Name`). If inference fails with props that have lifetimes, switch to the fallback in [plan.md](plan.md) section 6.
+- Snapshot tests need egui_kittest's `snapshot` + `wgpu` features. Put them behind the `snapshot` cargo feature of `egui-reactor-elements`. The committed images were made with the macOS renderer and do not match Linux's software renderer, so do not run them in CI; run them locally only. Describe how in the README Testing section.
 - egui 0.36's default for `Options::max_passes` is 2. The runner sets 3 explicitly (nested egui_taffy trees need one more pass; plan.md section 8).
 - Closures passed to `update_later` / `defer` are `'static` (they need `move`). They go into a queue that lives until the end of the pass. To borrow, use `Dispatch` or clone the value.
 - `use_reducer` messages are applied "the next time the hook is visited", not "at the end of the pass" (see plan.md 1.3 for why).
-- The Id for `use_persisted` is derived from the string key only, not from the scope. Using the same key in 2 places shares the same state. The storage format is JSON, written to eframe's `Storage` under the single key `"egui_react"`.
+- The Id for `use_persisted` is derived from the string key only, not from the scope. Using the same key in 2 places shares the same state. The storage format is JSON, written to eframe's `Storage` under the single key `"egui_reactor"`.
 - New dependencies: `syn` 2 / `quote` / `proc-macro2` / `typed-builder` / `trybuild` / `serde` / `serde_json` / `wasm-bindgen-futures` / `web-sys`. Pin the latest versions at start time in `[workspace.dependencies]`.

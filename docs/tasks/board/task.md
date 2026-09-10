@@ -13,7 +13,7 @@ The subject is a Trello-style kanban board. Put a plain egui version of the same
 
 The second half of the same PR ([patch](../patch/task.md)) reuses the DnD custom hook this example builds, as-is. **Finish board first, then start patch.** The split is: board is "the place to prove each benefit one at a time", patch is "the place to show it holds up on a large screen".
 
-Do not touch core (`egui-react`, `egui-react-macros`). Keep additions to `egui-react-elements` to the bare minimum (decide per [plan.md](plan.md) section 4).
+Do not touch core (`egui-reactor`, `egui-reactor-macros`). Keep additions to `egui-reactor-elements` to the bare minimum (decide per [plan.md](plan.md) section 4).
 
 ## Scope
 
@@ -37,7 +37,7 @@ Do not touch core (`egui-react`, `egui-react-macros`). Keep additions to `egui-r
 
 ### Out of scope
 
-- Changes to core (`egui-react` / `egui-react-macros`). If a need comes up, write it in plan.md section 8 and handle it in a separate PR.
+- Changes to core (`egui-reactor` / `egui-reactor-macros`). If a need comes up, write it in plan.md section 8 and handle it in a separate PR.
 - DnD animation (ghost interpolation, reorder easing). Positions may swap at once.
 - Multiple boards, label editing UI, due dates, attachments, assignees, search highlighting.
 - Server sync, real data, file I/O. Only one `use_persisted` key.
@@ -48,7 +48,7 @@ Do not touch core (`egui-react`, `egui-react-macros`). Keep additions to `egui-r
 - `examples/board/` (`src/lib.rs` / `src/board.rs` / `src/hooks.rs` / `src/plain.rs` / `src/main.rs` / `src/plain_main.rs` / `Trunk.toml` / `index.html` / `tests/board.rs`).
 - Registration in `examples/gallery` (two places: `EXAMPLES` and `match name`), and the gallery snapshot.
 - One row in the README examples table.
-- If needed, a minimal addition to `crates/egui-react-elements` and an update to `docs/ARCHITECTURE.md` section 6.
+- If needed, a minimal addition to `crates/egui-reactor-elements` and an update to `docs/ARCHITECTURE.md` section 6.
 - plan.md section 8 (differences found during implementation, and homework for the library side).
 
 ## Done when
@@ -56,7 +56,7 @@ Do not touch core (`egui-react`, `egui-react-macros`). Keep additions to `egui-r
 - kittest is green. The two highlights are (plan.md section 6 B-2 / B-3):
   - Move a card being edited to another column. Its draft and expanded state follow the card.
   - Reorder within a column. State does not get swapped with the neighbor card.
-- Run the same operations on the egui-react version and the plain egui version and get the same result (same method as `todo` / `form`). The gallery snapshot matches with one image.
+- Run the same operations on the egui-reactor version and the plain egui version and get the same result (same method as `todo` / `form`). The gallery snapshot matches with one image.
 - `cargo run -p board` and `cargo run -p board --bin board-plain` work. `trunk serve` also works in the browser (checked by eye).
 - `board` appears in the gallery, `#board` links to it directly, and you can switch to the plain egui version.
 - `cargo fmt --check` / `cargo clippy --workspace --all-targets -- -D warnings` / `cargo test --workspace` / `cargo check --workspace --target wasm32-unknown-unknown` / the trunk loop are green in CI.

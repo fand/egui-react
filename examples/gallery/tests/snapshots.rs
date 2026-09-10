@@ -14,15 +14,15 @@
 //! ```
 //!
 //! Regenerate the images with `UPDATE_SNAPSHOTS=1` and commit them. Generate a
-//! shared image from the egui-react side first (`--features snapshot
-//! egui_react`), or the two tests in a pair race to write the same file.
+//! shared image from the egui-reactor side first (`--features snapshot
+//! egui_reactor`), or the two tests in a pair race to write the same file.
 
 #![cfg(feature = "snapshot")]
 
 use egui_kittest::kittest::Queryable as _;
 use egui_kittest::{Harness, SnapshotOptions};
-use egui_react::prelude::*;
-use egui_react_app::{root_id, root_style};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{root_id, root_style};
 
 fn harness<'a, S: 'a>(
     size: egui::Vec2,
@@ -35,7 +35,7 @@ fn harness<'a, S: 'a>(
         .build_ui_state(app, state)
 }
 
-/// A egui-react view inside the runner's own root container, so the comparison
+/// A egui-reactor view inside the runner's own root container, so the comparison
 /// measures the examples and not the harness.
 fn react<'a>(size: egui::Vec2, view: impl Fn(&mut Cx<'_, '_>) + 'a) -> Harness<'a, Store> {
     harness(size, Store::new(), move |ui, store: &mut Store| {
@@ -126,7 +126,7 @@ macro_rules! same {
             use ::$name::plain;
 
             #[test]
-            fn egui_react() {
+            fn egui_reactor() {
                 let mut harness = react($size, |cx| rsx! { <ExampleApp/> }.show(cx));
                 harness.run();
                 $drive(&mut harness);
@@ -136,7 +136,7 @@ macro_rules! same {
             #[test]
             fn plain_egui() {
                 let mut harness = harness($size, plain::PlainState::default(), |ui, state| {
-                    // The egui-react root reserves the whole area and the panel
+                    // The egui-reactor root reserves the whole area and the panel
                     // behind it paints that far. Claim the same space, so the
                     // two images differ in their content rather than in how
                     // much background got painted.
@@ -185,7 +185,7 @@ macro_rules! single {
             use ::$name::App as ExampleApp;
 
             #[test]
-            fn egui_react() {
+            fn egui_reactor() {
                 let mut harness = react($size, |cx| rsx! { <ExampleApp/> }.show(cx));
                 harness.run();
                 $drive(&mut harness);
@@ -221,7 +221,7 @@ mod clock {
     use ::clock::App as ExampleApp;
 
     #[test]
-    fn egui_react() {
+    fn egui_reactor() {
         let mut harness = react(egui::vec2(420.0, 520.0), |cx| {
             rsx! { <ExampleApp now={12 * 3600 + 34 * 60 + 56}/> }.show(cx)
         });
@@ -249,7 +249,7 @@ mod list_10k {
     const COUNT: usize = 100;
 
     #[test]
-    fn egui_react() {
+    fn egui_reactor() {
         let mut harness = react(SIZE, |cx| {
             rsx! { <ExampleApp initial_count={COUNT}/> }.show(cx)
         });
@@ -275,7 +275,7 @@ same!(layout, egui::vec2(520.0, 900.0), 2500, as_it_opens);
 single!(styles, egui::vec2(560.0, 2900.0));
 
 /// The board, in two images rather than one, for the same reason as
-/// [`list_10k`]: the egui-react columns are taffy nodes with a `gap`, and the
+/// [`list_10k`]: the egui-reactor columns are taffy nodes with a `gap`, and the
 /// plain ones come from `ui.columns` and `ui.horizontal`, so the two agree on
 /// what they draw and disagree by a point or two on where. Closing that would
 /// mean writing `plain.rs` to reproduce taffy's arithmetic rather than to be
@@ -292,7 +292,7 @@ mod board {
     const SIZE: egui::Vec2 = egui::vec2(900.0, 560.0);
 
     #[test]
-    fn egui_react() {
+    fn egui_reactor() {
         let mut harness = react(SIZE, |cx| rsx! { <ExampleApp/> }.show(cx));
         harness.run();
         harness.snapshot("board_react");

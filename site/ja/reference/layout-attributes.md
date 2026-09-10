@@ -4,7 +4,7 @@ title: レイアウト属性
 
 # レイアウト属性
 
-どの要素も `ItemStyle` 型の `style` prop を取り、`rsx!` が下の属性からそれを埋めます。`<View>` はさらにコンテナ属性を取ります。こちらは **子** をどう配置するかを決めます。すべて `egui_react::layout` にあり、prelude から再 export されています。
+どの要素も `ItemStyle` 型の `style` prop を取り、`rsx!` が下の属性からそれを埋めます。`<View>` はさらにコンテナ属性を取ります。こちらは **子** をどう配置するかを決めます。すべて `egui_reactor::layout` にあり、prelude から再 export されています。
 
 ```rust
 <View direction="column" gap={8} p={12} bg={egui::Color32::from_gray(30)} radius={8.0}>

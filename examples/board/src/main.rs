@@ -1,13 +1,13 @@
 //! Runs the `board` example on its own; the app itself is in `lib.rs`.
 
 use board::App;
-use egui_react::prelude::*;
-use egui_react_app::{Options, run};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{Options, run};
 
 fn main() -> eframe::Result {
     run(
         Options {
-            title: String::from("egui-react: board"),
+            title: String::from("egui-reactor: board"),
             ..Default::default()
         },
         |_cx| rsx! { <App/> },

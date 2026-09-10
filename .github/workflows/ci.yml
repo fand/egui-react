@@ -87,11 +87,11 @@ jobs:
 
       - name: cargo test
         run: cargo test --workspace
-      # Without egui's embedded fonts (`egui-react-app` taken with
+      # Without egui's embedded fonts (`egui-reactor-app` taken with
       # `default-features = false`): the resolver must not hand epaint a key
       # with no bytes behind it.
       - name: cargo test (no default fonts)
-        run: cargo test -p egui-react-app --no-default-features
+        run: cargo test -p egui-reactor-app --no-default-features
 
   wasm:
     name: wasm / trunk / site
@@ -170,7 +170,7 @@ jobs:
           npm --prefix site ci
           cd site && npx vitepress build
 
-# The pixel snapshot tests (`cargo test -p egui-react-elements --features
+# The pixel snapshot tests (`cargo test -p egui-reactor-elements --features
 # snapshot` and `cargo test -p gallery --features snapshot`) are deliberately
 # not run here: the committed images are rendered on macOS and would not match
 # this runner's software renderer. See the README.

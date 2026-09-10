@@ -4,13 +4,13 @@
 use egui::accesskit::Role;
 use egui_kittest::Harness;
 use egui_kittest::kittest::{NodeT as _, Queryable as _};
-use egui_react::prelude::*;
-use egui_react_app::{root_id, root_style};
+use egui_reactor::prelude::*;
+use egui_reactor_app::{root_id, root_style};
 use gallery::{App, COMPACT_WIDTH, shown_source};
 
 /// The runner's frame, minus eframe: one pass inside the real root container,
 /// so the gallery's three columns are sized the way they are under
-/// `egui_react_app::run`.
+/// `egui_reactor_app::run`.
 fn run_app(ui: &mut egui::Ui, store: &mut Store) {
     store.begin_pass(ui.ctx());
     {
@@ -159,8 +159,8 @@ fn every_column_stays_inside_the_window() {
     );
 }
 
-/// The egui-react / plain egui toggle: only where there is a plain version,
-/// and back to egui-react when another example is picked.
+/// The egui-reactor / plain egui toggle: only where there is a plain version,
+/// and back to egui-reactor when another example is picked.
 #[test]
 fn the_toggle_follows_the_example() {
     let mut harness = harness();
@@ -172,21 +172,21 @@ fn the_toggle_follows_the_example() {
     harness.run();
     harness.run();
 
-    // form has one, so both buttons are there and egui-react is the one on.
-    assert!(toggled(&harness, "egui-react"));
+    // form has one, so both buttons are there and egui-reactor is the one on.
+    assert!(toggled(&harness, "egui-reactor"));
     assert!(!toggled(&harness, "plain egui"));
 
     harness.get_by_label("plain egui").click();
     harness.run();
     harness.run();
     assert!(toggled(&harness, "plain egui"));
-    assert!(!toggled(&harness, "egui-react"));
+    assert!(!toggled(&harness, "egui-reactor"));
 
-    // Picking another example starts it on its own egui-react version.
+    // Picking another example starts it on its own egui-reactor version.
     harness.get_by_label("todo").click();
     harness.run();
     harness.run();
-    assert!(toggled(&harness, "egui-react"));
+    assert!(toggled(&harness, "egui-reactor"));
 
     // An example with no plain version shows no toggle at all. `fetch` is the
     // one, but selecting it here would send a real request, so this checks the
@@ -197,7 +197,7 @@ fn the_toggle_follows_the_example() {
 /// Whether the version chip with this label is the one on.
 ///
 /// The chips, not any node with the label: the page header is titled
-/// `egui-react` too, and a heading has no toggled state.
+/// `egui-reactor` too, and a heading has no toggled state.
 fn toggled(harness: &Harness<'_, Store>, label: &str) -> bool {
     let chip = harness
         .get_all_by_label(label)

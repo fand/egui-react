@@ -252,7 +252,7 @@ kittest runs headless (no GPU). The wgpu callback put on `<Canvas>` is simply no
 
 ## 8. Differences found during implementation
 
-Neither core (`egui-react` / `egui-react-macros`) nor `egui-react-elements` was touched. Below is "what could not be written / how we worked around it / what we would add". Where this overlaps with board section 8, the overlap itself is the information, so it is stated explicitly.
+Neither core (`egui-reactor` / `egui-reactor-macros`) nor `egui-reactor-elements` was touched. Below is "what could not be written / how we worked around it / what we would add". Where this overlaps with board section 8, the overlap itself is the information, so it is stated explicitly.
 
 ### 8.1 The escape hatch was enough for absolute positioning. `ItemStyle` needs no `position`
 

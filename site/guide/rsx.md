@@ -25,8 +25,8 @@ scope. There are no HTML tags. Paths work too: `<elements::Separator vertical/>`
 The usual imports:
 
 ```rust
-use egui_react::prelude::*;
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_elements::prelude::*;
 ```
 
 ## Text and expressions

@@ -8,7 +8,7 @@ The fused event closure calls a user's handler from inside a `match` arm. That h
 
 ## Decision
 
-`Handler<A, Marker>` has two blanket impls, one for `FnOnce() -> R` and one for `FnOnce(A) -> R`. They conflict under coherence, so they are separated by the marker type argument `(Arity0, R)` / `(Arity1, R)`. The macro always emits the one form `::egui_react::Handler::call(closure, a)`.
+`Handler<A, Marker>` has two blanket impls, one for `FnOnce() -> R` and one for `FnOnce(A) -> R`. They conflict under coherence, so they are separated by the marker type argument `(Arity0, R)` / `(Arity1, R)`. The macro always emits the one form `::egui_reactor::Handler::call(closure, a)`.
 
 ## Rejected
 

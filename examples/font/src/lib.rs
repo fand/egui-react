@@ -4,7 +4,7 @@
 //! egui draws text from font bytes it was handed. The browser's fonts and the
 //! OS's font matching are never involved, and egui's own four fonts have no
 //! CJK glyphs, so Japanese draws as boxes in a plain egui app.
-//! `egui_react_app::fonts::Fonts` is the answer: named chains of sources,
+//! `egui_reactor_app::fonts::Fonts` is the answer: named chains of sources,
 //! resolved through one `fontdb` database into egui's per-glyph fallback
 //! lists, and picked per `<Text>` with the `font` prop.
 //!
@@ -68,9 +68,9 @@
 
 use std::sync::LazyLock;
 
-use egui_react::prelude::*;
-use egui_react_app::fonts::{FontSource, Fonts, Generic, Outcome};
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_app::fonts::{FontSource, Fonts, Generic, Outcome};
+use egui_reactor_elements::prelude::*;
 use example_meta::Meta;
 
 pub const META: Meta = Meta {
@@ -155,7 +155,7 @@ pub const SAMPLES: [&str; 5] = [
     "フォントのフォールバックチェーン",
     "吾輩は猫である。名前はまだ無い。",
     "東京都渋谷区、2026年9月7日",
-    "egui-react で CSS の font-family のように書ける",
+    "egui-reactor で CSS の font-family のように書ける",
 ];
 
 /// The one `Fonts` of the process. `Fonts` is a handle (a clone shares the

@@ -5,7 +5,7 @@ import { defineConfig } from 'vitepress'
 import { exampleSourcePlugin } from '../lib/example-source.js'
 import { EXAMPLE_ORDER } from '../lib/examples-order.js'
 
-// GitHub Pages serves the site under `/egui-react/`, the Cloudflare preview
+// GitHub Pages serves the site under `/egui-reactor/`, the Cloudflare preview
 // under `/`; `site/build.sh` passes whichever applies. A trailing slash is
 // what VitePress and `withBase` expect.
 const base = process.env.SITE_BASE ?? '/'
@@ -157,7 +157,7 @@ function sidebar(prefix: string, t: typeof EN) {
 }
 
 export default defineConfig({
-  title: 'egui-react',
+  title: 'egui-reactor',
   description:
     'Write egui applications the way you write React: an rsx! macro, function components and hooks.',
   base,
@@ -205,7 +205,7 @@ export default defineConfig({
         langMenuLabel: '言語を変更する',
         footer: {
           message: 'MIT または Apache-2.0 ライセンスで公開しています。',
-          copyright: 'egui-react'
+          copyright: 'egui-reactor'
         }
       }
     }
@@ -270,7 +270,7 @@ export default defineConfig({
     },
     footer: {
       message: 'Released under the MIT or Apache-2.0 license.',
-      copyright: 'egui-react'
+      copyright: 'egui-reactor'
     }
   }
 })

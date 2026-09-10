@@ -16,7 +16,7 @@ A galley holds texture coordinates into the atlas of the epaint `Fonts` that lai
 
 ## Consequences
 
-Each case egui rebuilds its `Fonts` for needs its own detection, and there were three by the end. The generation was also published as a public `egui_react::fonts_generation(ctx)`, because the gallery's code pane kept galleys across frames too and had the same bug.
+Each case egui rebuilds its `Fonts` for needs its own detection, and there were three by the end. The generation was also published as a public `egui_reactor::fonts_generation(ctx)`, because the gallery's code pane kept galleys across frames too and had the same bug.
 
 ## Links
 

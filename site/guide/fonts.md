@@ -11,13 +11,13 @@ browser's fonts and the OS font matching are never used. egui's four built-in
 fonts have no CJK glyphs, so Japanese draws as boxes in a plain egui app, on
 every platform.
 
-`egui_react_app::fonts` fixes this with CSS-like fallback chains of named
+`egui_reactor_app::fonts` fixes this with CSS-like fallback chains of named
 sources, resolved through `fontdb` into egui's font families.
 
 ## A chain
 
 ```rust
-use egui_react_app::fonts::{FontSource, Fonts, Generic};
+use egui_reactor_app::fonts::{FontSource, Fonts, Generic};
 
 const SUBSET: &[u8] = include_bytes!("../fonts/NotoSansJP-Subset.ttf");
 
@@ -91,7 +91,7 @@ Only `<Text>` has this prop. A `<Button>` or `<Checkbox>` label uses
 
 egui's four built-in fonts (about 1.4 MB) stand behind every generic and at
 the tail of every chain. They are behind the `default_fonts` feature of
-`egui-react-app`, on by default. Turn it off and nothing panics, but a chain
+`egui-reactor-app`, on by default. Turn it off and nothing panics, but a chain
 that resolves to nothing draws no glyphs. An app that turns it off must give
 every stack a `Bundled` or `System` face, or draw a text-free screen until
 `Fonts::pending()` goes false.

@@ -1,0 +1,19 @@
+[package]
+name = "egui-reactor-macros"
+description = "Procedural macros for egui-reactor (rsx!, #[component], #[hook])"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[lib]
+name = "egui_reactor_macros"
+path = "src/lib.rs"
+proc-macro = true
+
+[dependencies]
+proc-macro2.workspace = true
+quote.workspace = true
+rstml.workspace = true
+syn.workspace = true

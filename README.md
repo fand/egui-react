@@ -1,6 +1,6 @@
-# egui-react
+# egui-reactor
 
-egui-react is a Rust library for writing [egui](https://github.com/emilk/egui) applications the way you write React: a JSX-like `rsx!` macro, function components with `#[component]`, and hooks such as `use_state` and `use_effect`. Because egui is immediate mode there is no retained tree and no reconciler, so event handlers run where they are written and can borrow local state with `&mut` — none of the `'static` closures, `Rc<RefCell<_>>` or `.clone()` ceremony that retained-mode Rust UI frameworks require. Flexbox and Grid layout are first-class: `<View>` is a node in a small layout engine of our own, written over [taffy](https://github.com/DioxusLabs/taffy).
+egui-reactor is a Rust library for writing [egui](https://github.com/emilk/egui) applications the way you write React: a JSX-like `rsx!` macro, function components with `#[component]`, and hooks such as `use_state` and `use_effect`. Because egui is immediate mode there is no retained tree and no reconciler, so event handlers run where they are written and can borrow local state with `&mut` — none of the `'static` closures, `Rc<RefCell<_>>` or `.clone()` ceremony that retained-mode Rust UI frameworks require. Flexbox and Grid layout are first-class: `<View>` is a node in a small layout engine of our own, written over [taffy](https://github.com/DioxusLabs/taffy).
 
 The documentation — a guide, a reference and every example running in the browser next to its source — is at [fand.github.io/egui-react](https://fand.github.io/egui-react/).
 
@@ -9,9 +9,9 @@ The current design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); design de
 ## Usage
 
 ```rust
-use egui_react::prelude::*;
-use egui_react_app::{Options, run};
-use egui_react_elements::prelude::*;
+use egui_reactor::prelude::*;
+use egui_reactor_app::{Options, run};
+use egui_reactor_elements::prelude::*;
 
 #[component]
 pub fn App(cx: &mut Cx) {
@@ -32,7 +32,7 @@ pub fn App(cx: &mut Cx) {
 fn main() -> eframe::Result {
     run(
         Options {
-            title: String::from("egui-react: counter"),
+            title: String::from("egui-reactor: counter"),
             ..Default::default()
         },
         // Hooks belong in components, so that a view can borrow their guards;
@@ -89,7 +89,7 @@ cargo run -p gallery todo
 trunk serve --config examples/gallery/Trunk.toml
 ```
 
-A font an app bundles with `include_bytes!` goes into the wasm (`examples/font` ships a 433 KB subset of Noto Sans JP for that reason and its `fonts/README.md` says how it was cut); the full 4.5 MB font the same example fetches at run time is not committed, a pre-build hook in its `Trunk.toml` (and the gallery's) downloads it the first time trunk builds. egui's own four fonts (Ubuntu-Light, Hack and two emoji fonts, 1.4 MB) are behind `egui-react-app`'s `default_fonts` feature, on by default; take the crate with `default-features = false` to leave them out, and then hand `Fonts` a bundled face before the first frame, because a chain with nothing loaded draws no glyphs at all.
+A font an app bundles with `include_bytes!` goes into the wasm (`examples/font` ships a 433 KB subset of Noto Sans JP for that reason and its `fonts/README.md` says how it was cut); the full 4.5 MB font the same example fetches at run time is not committed, a pre-build hook in its `Trunk.toml` (and the gallery's) downloads it the first time trunk builds. egui's own four fonts (Ubuntu-Light, Hack and two emoji fonts, 1.4 MB) are behind `egui-reactor-app`'s `default_fonts` feature, on by default; take the crate with `default-features = false` to leave them out, and then hand `Fonts` a bundled face before the first frame, because a chain with nothing loaded draws no glyphs at all.
 
 ## Testing
 
@@ -103,8 +103,8 @@ cargo check --workspace --target wasm32-unknown-unknown
 Pixel snapshot tests live behind a cargo feature because they need a GPU, and the committed images were rendered on macOS, so they will not match another platform's renderer. They do not run in CI, so regenerate them by hand after any change that alters what they draw.
 
 ```sh
-cargo test -p egui-react-elements --features snapshot
-# Each example drawn twice, egui-react and plain egui, compared with one image:
+cargo test -p egui-reactor-elements --features snapshot
+# Each example drawn twice, egui-reactor and plain egui, compared with one image:
 # if both render the same picture, the only difference is the code.
 cargo test -p gallery --features snapshot
 ```
@@ -112,10 +112,10 @@ cargo test -p gallery --features snapshot
 After an intentional visual change, regenerate on the platform the images came from:
 
 ```sh
-UPDATE_SNAPSHOTS=1 cargo test -p egui-react-elements --features snapshot
-# The gallery's pairs share one file, so write it from the egui-react side
+UPDATE_SNAPSHOTS=1 cargo test -p egui-reactor-elements --features snapshot
+# The gallery's pairs share one file, so write it from the egui-reactor side
 # first and then let the plain egui side check itself against it.
-UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_react
+UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_reactor
 cargo test -p gallery --features snapshot
 ```
 

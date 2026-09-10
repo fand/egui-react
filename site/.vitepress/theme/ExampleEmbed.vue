@@ -23,7 +23,7 @@ const props = defineProps({
   name: { type: String, required: true },
   /** Whether this example has a plain egui version to switch to. */
   hasPlain: { type: Boolean, default: false },
-  /** Lines of the egui-react version, as the tab label reports them. */
+  /** Lines of the egui-reactor version, as the tab label reports them. */
   reactLines: { type: Number, default: 0 },
   /** Lines of the plain egui version. */
   plainLines: { type: Number, default: 0 }
@@ -54,7 +54,7 @@ const src = computed(() => `${embed}#${which.value}?theme=${isDark.value ? 'dark
         :aria-pressed="!plain"
         @click="plain = false"
       >
-        egui-react · {{ reactLines }} lines
+        egui-reactor · {{ reactLines }} lines
       </button>
       <button
         type="button"
