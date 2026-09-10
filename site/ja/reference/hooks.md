@@ -217,4 +217,4 @@ pub fn use_previous<T: Clone + PartialEq + 'static>(cx: &mut Cx, value: T) -> Op
 
 ## もっと知る
 
-意味論の全体 ― id の作り方、衝突の検出、掃除がすること、順序の保証 ― は[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#4-hooks-list)の 4 章にあります（英語）。
+意味論の全体 ― id の作り方、衝突の検出、掃除がすること、順序の保証 ― は[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#4-hooks-list)の 4 章にあります（英語）。

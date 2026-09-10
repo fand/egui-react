@@ -98,4 +98,4 @@ wasm 以外のターゲットでは中身が空なので、条件を付けずに
 
 ## 動かして見る
 
-どのサンプルページも同じ wasm ビルドで、どれを描くかは URL で伝えています。wgpu の道筋は [shader](/ja/examples/shader)、HTTP でのフォント取得は[font](/ja/examples/font) です。ランナーとプラットフォームの話は[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#7-crate-layout)の 7 章と 8 章にあります（英語）。
+どのサンプルページも同じ wasm ビルドで、どれを描くかは URL で伝えています。wgpu の道筋は [shader](/ja/examples/shader)、HTTP でのフォント取得は[font](/ja/examples/font) です。ランナーとプラットフォームの話は[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#7-crate-layout)の 7 章と 8 章にあります（英語）。

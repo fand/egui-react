@@ -116,4 +116,4 @@ if showing {
 
 ## 動かして見る
 
-[layout](/ja/examples/layout) は flex と grid の属性を全部たどります。[styles](/ja/examples/styles) は描画側で同じことをします。[board](/ja/examples/board) はそれらで組んだ実際の画面です。エンジンの説明は[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#6-layout)の 6 章にあります（英語）。
+[layout](/ja/examples/layout) は flex と grid の属性を全部たどります。[styles](/ja/examples/styles) は描画側で同じことをします。[board](/ja/examples/board) はそれらで組んだ実際の画面です。エンジンの説明は[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#6-layout)の 6 章にあります（英語）。

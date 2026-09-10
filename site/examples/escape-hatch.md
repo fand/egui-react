@@ -62,6 +62,6 @@ cargo run -p escape-hatch
 trunk serve --config examples/escape-hatch/Trunk.toml
 ```
 
-The source is [`examples/escape-hatch/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/escape-hatch/src/lib.rs).
+The source is [`examples/escape-hatch/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/escape-hatch/src/lib.rs).
 
 </ExamplePage>

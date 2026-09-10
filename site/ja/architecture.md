@@ -5,7 +5,7 @@ title: アーキテクチャ
 # アーキテクチャ
 
 <script setup>
-// `withBase` を使うのは、このサイトが GitHub Pages では `/egui-react/`、
+// `withBase` を使うのは、このサイトが GitHub Pages では `/egui-reactor/`、
 // プレビューでは `/` から配信されるため。`/api/` は cargo doc の出力で、
 // このサイトのページではないので、ルータのルートではなく素のリンクにする。
 import { withBase } from 'vitepress'
@@ -15,13 +15,13 @@ import { withBase } from 'vitepress'
 
 ## `docs/ARCHITECTURE.md`
 
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md)が深いほうのリファレンスで、実装について「いま何が本当か」を書いています。目標と非目標、`Cx` と `View` トレイト、`#[component]` と `rsx!` が生成するもの、フック一覧とその正確な意味、ランタイム（ストア、掃除、マルチパス、再描画の方針、`<Suspense>`）、taffy の上のレイアウトエンジンとリストの行のための軽量パス、要素一覧、クレート構成、プラットフォームの注意、テスト戦略。
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md)が深いほうのリファレンスで、実装について「いま何が本当か」を書いています。目標と非目標、`Cx` と `View` トレイト、`#[component]` と `rsx!` が生成するもの、フック一覧とその正確な意味、ランタイム（ストア、掃除、マルチパス、再描画の方針、`<Suspense>`）、taffy の上のレイアウトエンジンとリストの行のための軽量パス、要素一覧、クレート構成、プラットフォームの注意、テスト戦略。
 
 このサイトのガイドはアプリを作る人に向けて書いてあります。ARCHITECTURE はライブラリを変える人に向けたものです。ガイドのページが何かを要約するときは、繰り返さずに向こうの節へリンクします。
 
 ## `docs/adr/`
 
-[docs/adr/](https://github.com/fand/egui-react/tree/main/docs/adr) は決定の記録です。設計上の決定 1 つにつき 1 ファイルで、ドメインごとに分けてあります。`core`、`runtime`、`layout`、`elements`、`fonts`、`a11y`、`app`。それぞれに、いつ決めたか、何を決めたか、何を退けたか、その理由、そして何を代償にしたかが書いてあります。
+[docs/adr/](https://github.com/fand/egui-reactor/tree/main/docs/adr) は決定の記録です。設計上の決定 1 つにつき 1 ファイルで、ドメインごとに分けてあります。`core`、`runtime`、`layout`、`elements`、`fonts`、`a11y`、`app`。それぞれに、いつ決めたか、何を決めたか、何を退けたか、その理由、そして何を代償にしたかが書いてあります。
 
 規律はわざと狭くしてあります。この記録を読む価値のあるものにしているのが、それです。
 
@@ -37,4 +37,4 @@ import { withBase } from 'vitepress'
 
 ## リポジトリ
 
-[github.com/fand/egui-react](https://github.com/fand/egui-react)。Issue もプルリクエストも歓迎します。出す前に走らせるテストは README にあります。
+[github.com/fand/egui-reactor](https://github.com/fand/egui-reactor)。Issue もプルリクエストも歓迎します。出す前に走らせるテストは README にあります。

@@ -274,5 +274,5 @@ a `Dispatch`.
 
 The semantics in full — id derivation, collision detection, what the sweep
 does, the exact ordering guarantees — are in
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#4-hooks-list)
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#4-hooks-list)
 section 4.

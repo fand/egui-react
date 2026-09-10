@@ -45,6 +45,6 @@ trunk serve --config examples/font/Trunk.toml
 
 Web フォントはコミットしていません。このサンプルの `Trunk.toml` にあるビルド前フックが、trunk の初回ビルド時にダウンロードします。ネイティブでは同じ相対 URL に指す先のサーバが無いので、その項目は失敗として報告され、チェーンはサブセットで描きます。レポートにはそれも出ます。
 
-ソースは [`examples/font/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/font/src/lib.rs) です。
+ソースは [`examples/font/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/font/src/lib.rs) です。
 
 </ExamplePage>

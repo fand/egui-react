@@ -85,4 +85,4 @@ future の実行中に deps が変わっても、古い future は止まりま�
 
 ## 動かして見る
 
-[fetch](/ja/examples/fetch) はこのページを 1 画面にしたものです。[patch](/ja/examples/patch) はシェーダのコンパイルを `<Suspense>` で包みます。仕組みは[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#58-suspense)の 4 章と 5.8 節にあります（英語）。
+[fetch](/ja/examples/fetch) はこのページを 1 画面にしたものです。[patch](/ja/examples/patch) はシェーダのコンパイルを `<Suspense>` で包みます。仕組みは[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#58-suspense)の 4 章と 5.8 節にあります（英語）。

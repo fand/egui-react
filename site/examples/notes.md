@@ -67,6 +67,6 @@ cargo run -p notes
 trunk serve --config examples/notes/Trunk.toml
 ```
 
-The source is [`examples/notes/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/notes/src/lib.rs).
+The source is [`examples/notes/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/notes/src/lib.rs).
 
 </ExamplePage>

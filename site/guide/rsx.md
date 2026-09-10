@@ -155,5 +155,5 @@ Hooks work in there, since it is the same `Cx`. Draw through `cx.leaf`, not
 [layout](/examples/layout) and [styles](/examples/styles) show one attribute
 at a time. [notes](/examples/notes) uses the whole syntax. The macro's rules
 are in
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#32-view-and-rsx)
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#32-view-and-rsx)
 section 3.2.

@@ -114,4 +114,4 @@ use crate::components::{Dialog, DialogEvent};
 
 ## 動かして見る
 
-[form](/ja/examples/form) は束縛できるウィジェット全部に対する props とイベントです。[theme](/ja/examples/theme) はプロバイダのコンポーネント、[notes](/ja/examples/notes) はコンポーネント・イベント・reducer をまとめて使います。生成されるコードの説明は[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#33-components)の 3.3 節と 3.6 節にあります（英語）。
+[form](/ja/examples/form) は束縛できるウィジェット全部に対する props とイベントです。[theme](/ja/examples/theme) はプロバイダのコンポーネント、[notes](/ja/examples/notes) はコンポーネント・イベント・reducer をまとめて使います。生成されるコードの説明は[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#33-components)の 3.3 節と 3.6 節にあります（英語）。

@@ -32,9 +32,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-egui-reactor = { git = "https://github.com/fand/egui-react" }
-egui-reactor-elements = { git = "https://github.com/fand/egui-react" }
-egui-reactor-app = { git = "https://github.com/fand/egui-react" }
+egui-reactor = { git = "https://github.com/fand/egui-reactor" }
+egui-reactor-elements = { git = "https://github.com/fand/egui-reactor" }
+egui-reactor-app = { git = "https://github.com/fand/egui-reactor" }
 egui = "0.36.1"
 eframe = "0.36.1"
 ```

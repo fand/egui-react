@@ -53,6 +53,6 @@ cargo run -p board --bin board-plain    # 素の egui 版
 trunk serve --config examples/board/Trunk.toml
 ```
 
-ソースは [`examples/board/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/board/src/lib.rs)と [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/board/src/plain.rs) です。
+ソースは [`examples/board/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/board/src/lib.rs)と [`plain.rs`](https://github.com/fand/egui-reactor/blob/main/examples/board/src/plain.rs) です。
 
 </ExamplePage>

@@ -43,6 +43,6 @@ cargo run -p styles
 trunk serve --config examples/styles/Trunk.toml
 ```
 
-ソースは [`examples/styles/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/styles/src/lib.rs) です。
+ソースは [`examples/styles/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/styles/src/lib.rs) です。
 
 </ExamplePage>

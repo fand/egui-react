@@ -146,4 +146,4 @@ for (i, todo) in todos.iter().enumerate() {
 
 ## 動かして見る
 
-ガードは [counter](/ja/examples/counter)、`bind` は [form](/ja/examples/form)、`use_reducer` と `use_persisted` は [todo](/ja/examples/todo)、コンテキストは[theme](/ja/examples/theme)、`#[hook]` は[custom-hook](/ja/examples/custom-hook) を見てください。ストアと再描画の方針は[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#5-runtime)の 5 章にあります（英語）。
+ガードは [counter](/ja/examples/counter)、`bind` は [form](/ja/examples/form)、`use_reducer` と `use_persisted` は [todo](/ja/examples/todo)、コンテキストは[theme](/ja/examples/theme)、`#[hook]` は[custom-hook](/ja/examples/custom-hook) を見てください。ストアと再描画の方針は[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#5-runtime)の 5 章にあります（英語）。

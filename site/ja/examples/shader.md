@@ -43,6 +43,6 @@ cargo run -p shader
 trunk serve --config examples/shader/Trunk.toml
 ```
 
-ソースは [`examples/shader/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/shader/src/lib.rs)、パイプラインは [`src/gpu.rs`](https://github.com/fand/egui-react/blob/main/examples/shader/src/gpu.rs)、シェーダは [`src/shader.wgsl`](https://github.com/fand/egui-react/blob/main/examples/shader/src/shader.wgsl) にあります。
+ソースは [`examples/shader/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/shader/src/lib.rs)、パイプラインは [`src/gpu.rs`](https://github.com/fand/egui-reactor/blob/main/examples/shader/src/gpu.rs)、シェーダは [`src/shader.wgsl`](https://github.com/fand/egui-reactor/blob/main/examples/shader/src/shader.wgsl) にあります。
 
 </ExamplePage>

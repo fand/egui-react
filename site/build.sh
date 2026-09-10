@@ -2,7 +2,7 @@
 #
 # Build the whole published site into `site/.vitepress/dist`.
 #
-# Called by .github/workflows/pages.yml (SITE_BASE=/egui-react/), by
+# Called by .github/workflows/pages.yml (SITE_BASE=/egui-reactor/), by
 # .github/workflows/preview-cloudflare-pages.yml (SITE_BASE=/), and by anyone
 # who wants to see locally what will be deployed. It is the one place the
 # assembly lives, so the two deploys cannot drift apart.

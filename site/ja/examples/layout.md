@@ -51,6 +51,6 @@ cargo run -p layout --bin layout-plain    # 素の egui 版
 trunk serve --config examples/layout/Trunk.toml
 ```
 
-ソースは [`examples/layout/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/layout/src/lib.rs)と [`plain.rs`](https://github.com/fand/egui-react/blob/main/examples/layout/src/plain.rs) です。
+ソースは [`examples/layout/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/layout/src/lib.rs)と [`plain.rs`](https://github.com/fand/egui-reactor/blob/main/examples/layout/src/plain.rs) です。
 
 </ExamplePage>

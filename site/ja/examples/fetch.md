@@ -43,6 +43,6 @@ cargo run -p fetch
 trunk serve --config examples/fetch/Trunk.toml
 ```
 
-ソースは [`examples/fetch/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/fetch/src/lib.rs) です。
+ソースは [`examples/fetch/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/fetch/src/lib.rs) です。
 
 </ExamplePage>

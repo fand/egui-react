@@ -98,5 +98,5 @@ a tree. See [Escape hatches](/guide/escape-hatches).
 [counter](/examples/counter) is the smallest example.
 [notes](/examples/notes) uses most of the library at once. The runtime
 details are in
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md)
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md)
 sections 2 and 5.

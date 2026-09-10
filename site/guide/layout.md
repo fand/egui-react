@@ -145,5 +145,5 @@ state. Use `if` when the state should go.
 [layout](/examples/layout) walks every flex and grid attribute.
 [styles](/examples/styles) does the same for paint. [board](/examples/board)
 is a real screen built from them. The engine is described in
-[docs/ARCHITECTURE.md](https://github.com/fand/egui-react/blob/main/docs/ARCHITECTURE.md#6-layout)
+[docs/ARCHITECTURE.md](https://github.com/fand/egui-reactor/blob/main/docs/ARCHITECTURE.md#6-layout)
 section 6.

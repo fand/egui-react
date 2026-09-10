@@ -61,14 +61,18 @@ pub fn Suspense(cx: &mut Cx, fallback: impl View, children: impl View) {
         }
         if store.end_suspense() == 0 {
             suspended.set(false);
-            store.ctx().request_discard("egui-reactor: suspense resolved");
+            store
+                .ctx()
+                .request_discard("egui-reactor: suspense resolved");
         }
     } else {
         store.begin_suspense();
         children.show(cx);
         if store.end_suspense() > 0 {
             suspended.set(true);
-            store.ctx().request_discard("egui-reactor: suspense pending");
+            store
+                .ctx()
+                .request_discard("egui-reactor: suspense pending");
         }
     }
 }

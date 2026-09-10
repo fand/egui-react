@@ -45,6 +45,6 @@ cargo run -p notes
 trunk serve --config examples/notes/Trunk.toml
 ```
 
-ソースは [`examples/notes/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/notes/src/lib.rs) です。
+ソースは [`examples/notes/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/notes/src/lib.rs) です。
 
 </ExamplePage>

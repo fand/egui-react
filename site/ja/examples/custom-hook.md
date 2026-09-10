@@ -43,6 +43,6 @@ cargo run -p custom-hook
 trunk serve --config examples/custom-hook/Trunk.toml
 ```
 
-ソースは [`examples/custom-hook/src/lib.rs`](https://github.com/fand/egui-react/blob/main/examples/custom-hook/src/lib.rs)、フック自体は [`src/hooks.rs`](https://github.com/fand/egui-react/blob/main/examples/custom-hook/src/hooks.rs) にあります。
+ソースは [`examples/custom-hook/src/lib.rs`](https://github.com/fand/egui-reactor/blob/main/examples/custom-hook/src/lib.rs)、フック自体は [`src/hooks.rs`](https://github.com/fand/egui-reactor/blob/main/examples/custom-hook/src/hooks.rs) にあります。
 
 </ExamplePage>
