@@ -156,6 +156,29 @@ function sidebar(prefix: string, t: typeof EN) {
   ]
 }
 
+/// `llms.txt` (https://llmstxt.org): the English sidebar as a Markdown list,
+/// so a model reading the site gets the same map a reader does and a new page
+/// needs no second edit. Written into `dist/` after the build; the Japanese
+/// pages are the same tree under `/ja/`, so they are named once, not listed.
+function llmsTxt(): string {
+  // The production site has a fixed home; the Cloudflare preview does not,
+  // and a base-relative path is still a valid link there.
+  const origin = base === '/egui-reactor/' ? 'https://fand.github.io' : ''
+  const url = (link: string) => `${origin}${base}${link.replace(/^\//, '')}.html`
+  const lines = [
+    '# egui-reactor',
+    '',
+    '> Write egui applications the way you write React: an rsx! macro, function components and hooks.',
+    '',
+    `Japanese translation of every page: ${url('/ja/index')}. Rust API docs (rustdoc): ${origin}${base}api/`
+  ]
+  for (const group of sidebar('', EN)) {
+    lines.push('', `## ${group.text}`, '')
+    for (const item of group.items) lines.push(`- [${item.text}](${url(item.link)})`)
+  }
+  return lines.join('\n') + '\n'
+}
+
 export default defineConfig({
   title: 'egui-reactor',
   description:
@@ -215,6 +238,9 @@ export default defineConfig({
   // no outline aside. Set here rather than in seventeen frontmatter blocks so
   // a new page gets it by being in the directory. The Examples index is an
   // ordinary page. `ja/` pages take the same treatment.
+  buildEnd(siteConfig) {
+    fs.writeFileSync(path.join(siteConfig.outDir, 'llms.txt'), llmsTxt())
+  },
   transformPageData(pageData) {
     const page = pageData.relativePath.replace(/^ja\//, '')
     if (page.startsWith('examples/') && page !== 'examples/index.md') {
