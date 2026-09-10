@@ -3,18 +3,18 @@ resolver = "3"
 members = ["crates/*", "examples/*"]
 
 [workspace.package]
-version = "0.1.0"
+version = "0.1.1"
 edition = "2024"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/fand/egui-reactor"
 rust-version = "1.95"
 
 [workspace.dependencies]
-egui-reactor = { path = "crates/egui-reactor", version = "0.1.0" }
-egui-reactor-macros = { path = "crates/egui-reactor-macros", version = "0.1.0" }
-egui-reactor-elements = { path = "crates/egui-reactor-elements", version = "0.1.0" }
-egui-reactor-app = { path = "crates/egui-reactor-app", version = "0.1.0" }
-example-meta = { path = "examples/meta", version = "0.1.0" }
+egui-reactor = { path = "crates/egui-reactor", version = "0.1.1" }
+egui-reactor-macros = { path = "crates/egui-reactor-macros", version = "0.1.1" }
+egui-reactor-elements = { path = "crates/egui-reactor-elements", version = "0.1.1" }
+egui-reactor-app = { path = "crates/egui-reactor-app", version = "0.1.1" }
+example-meta = { path = "examples/meta", version = "0.1.1" }
 
 # `default-features = false` drops egui's one default feature,
 # `default_fonts`: the four fonts epaint compiles in (Ubuntu-Light, Hack,
