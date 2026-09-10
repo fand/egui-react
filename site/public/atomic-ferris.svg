@@ -2,8 +2,8 @@
 <style>
   /* An electron on each orbit. `offset-path` walks the same curve the orbit
      is drawn with, so the two cannot drift apart; the ball is drawn at the
-     origin and put on the path by the offset. Declarative, because the file
-     is loaded through an `img` and a script would not run there. */
+     origin and put on the path by the offset. Declarative, so the file also
+     moves on its own; the home page inlines it and speeds it up on hover. */
   .electron {
     fill: #F74C00;
     offset-rotate: 0deg;
