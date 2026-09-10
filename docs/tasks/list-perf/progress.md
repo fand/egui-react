@@ -15,7 +15,7 @@ lessons and remaining work, short, in `retrospective.md`.
 | A | `798f327` | VirtualList row trees keyed by slot (`Cx::with_layout_id`) | No tree per scrolled row; egui memory stops growing. Passes unchanged |
 | B | `20a22c5` | egui_taffy fork: no discard when the layout did not move | Scroll and Filter 1 pass/frame |
 | C | `c1c417e` | egui_taffy fork: compute before drawing when only the root resized | Resize 2.98 to 1.02 passes/frame |
-| D1 | `5a9f04a` | Own engine over taffy (`crates/egui-reactor/src/engine/mod.rs`); egui_taffy and the `[patch]` removed. A node is a rect; one `Ui` per widget leaf | Idle 1.96x to 1.43x |
+| D1 | `5a9f04a` | Own engine over taffy (`crates/egui-react/src/engine/mod.rs`); egui_taffy and the `[patch]` removed. A node is a rect; one `Ui` per widget leaf | Idle 1.96x to 1.43x |
 | D2 | `bf8d2f2` | `<Text>` painted as a galley, no `Ui` (`Cx::text`) | Idle 1.32x |
 | D2b | `dfc5dfc` | Text selection restored through `LabelSelectionState`, `selectable` prop | No measurable cost |
 | E | `fcb8697` | VirtualList rows get a fixed root rect (`Cx::with_root_size`) | Row pitch bug fixed (rows were 18 pt apart under a 20 pt reservation). Scroll unchanged |
@@ -23,7 +23,7 @@ lessons and remaining work, short, in `retrospective.md`.
 | Web | `57d4f8b` | Chrome measurement; `list-10k-plain` builds for the web | 1.0 ms vs 0.8 ms per drawn frame, 0 PERF WARNING |
 | `43d1cc4` | | list-10k starts with virtualise on | Gallery snapshot updated |
 | F | `4be1a36` | Trees survive 120 passes without being drawn (`TREE_GRACE_PASSES`) | Real trackpad scrolling no longer discards every other frame; Resize back to 1.02 |
-| G | (this commit) | A `<Text>` counts as moved only when its paint anchor moves; a container only when its corner moves. Discard reasons name the node. `list-10k` gets a "plain egui" switch | A label that changes every frame (frame time, fps) no longer costs a pass on either path; the PERF WARNING overlay and `RUST_LOG=egui_reactor=debug` say which node asked for the pass |
+| G | (this commit) | A `<Text>` counts as moved only when its paint anchor moves; a container only when its corner moves. Discard reasons name the node. `list-10k` gets a "plain egui" switch | A label that changes every frame (frame time, fps) no longer costs a pass on either path; the PERF WARNING overlay and `RUST_LOG=egui_react=debug` say which node asked for the pass |
 
 ## Results
 
@@ -62,13 +62,13 @@ frame within 8.3 ms met. Plan E's own tighter 1.2x gate is missed on Scroll
   a `<Text>` on its paint anchor (top of the content rect and the `halign`
   edge, plus the width if it wraps), never on its size alone; a container on
   its location alone, the root included. Test:
-  `crates/egui-reactor-elements/tests/text_width.rs`.
-- The reason handed to `request_discard` names the cause: `egui-reactor: layout
+  `crates/egui-react-elements/tests/text_width.rs`.
+- The reason handed to `request_discard` names the cause: `egui-react: layout
   changed: the text "last frame 9.8 ms…" moved [..] -> [..]`, `a widget drew
   for the first time`, `a node was removed`. egui puts it in the PERF WARNING
-  overlay; the engine also logs it at `debug`. `egui-reactor-app::run` installs
+  overlay; the engine also logs it at `debug`. `egui-react-app::run` installs
   `env_logger` (native, when no logger is set) and eframe's `WebLogger`
-  (web), so `RUST_LOG=egui_reactor=debug cargo run -p list-10k` prints one line
+  (web), so `RUST_LOG=egui_react=debug cargo run -p list-10k` prints one line
   per discard.
 - `engine/lite.rs`: rows opened with `Cx::with_root_size` (VirtualList) use a
   single-line flexbox solver over a `Vec` of nodes rebuilt per frame; no
@@ -111,8 +111,8 @@ frame within 8.3 ms met. Plan E's own tighter 1.2x gate is missed on Scroll
   at the top swaps the whole list for `plain.rs`, so both versions can be
   compared in one window (each shows its own "last frame" readout). The
   gallery still mounts `<App>` and uses its own plain switch;
-  `list-10k-plain` remains for a build with no egui-reactor in it.
-- `egui-reactor-app::run` installs a logger when the app has none: `env_logger`
+  `list-10k-plain` remains for a build with no egui-react in it.
+- `egui-react-app::run` installs a logger when the app has none: `env_logger`
   on native (filter `error` unless `RUST_LOG` is set), `WebLogger` at `debug`
   on the web.
 
@@ -130,7 +130,7 @@ frame within 8.3 ms met. Plan E's own tighter 1.2x gate is missed on Scroll
 - Real trackpad scrolling after F and G was verified with synthetic events
   only; check on a device. If the PERF WARNING still shows while scrolling,
   its overlay now names the node that asked for the pass, and
-  `RUST_LOG=egui_reactor=debug cargo run -p list-10k` logs one line per
+  `RUST_LOG=egui_react=debug cargo run -p list-10k` logs one line per
   discard with the old and new rect. That is the "operation log" to read
   before profiling anything.
 - Upstream PRs for B and C from the fork: not filed.
@@ -142,14 +142,14 @@ frame within 8.3 ms met. Plan E's own tighter 1.2x gate is missed on Scroll
 From the repository root:
 
 ```sh
-RUST_LOG=egui_reactor=debug cargo run --release -p list-10k   # logs each discard
+RUST_LOG=egui_react=debug cargo run --release -p list-10k   # logs each discard
 PERF_CSV="$PWD/docs/tasks/list-perf/samples-<tag>.csv" \
   cargo test --release -p list-10k --test scenarios -- --ignored --nocapture
 cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 cargo check --workspace --target wasm32-unknown-unknown
 cargo test -p gallery --features snapshot
-cd examples/list-10k && trunk build --release            # egui-reactor list
+cd examples/list-10k && trunk build --release            # egui-react list
 cd examples/list-10k && trunk build --release index-plain.html   # plain list
 ```
 

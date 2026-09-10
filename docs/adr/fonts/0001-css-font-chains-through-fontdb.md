@@ -8,11 +8,11 @@ epaint rasterizes text itself from bytes handed to `Context::set_fonts`; the bro
 
 ## Decision
 
-`egui_reactor_app::fonts`: `Fonts` holds named `FontStack`s, a stack is a list of `FontSource::{Bundled, System, Url, Generic}`, and every source only puts bytes into one `fontdb::Database`. A chain is a fontdb query; the resolver turns the result into egui's `FontDefinitions`, whose per-family lists are already egui's per-glyph fallback. Built as one PR, not three.
+`egui_react_app::fonts`: `Fonts` holds named `FontStack`s, a stack is a list of `FontSource::{Bundled, System, Url, Generic}`, and every source only puts bytes into one `fontdb::Database`. A chain is a fontdb query; the resolver turns the result into egui's `FontDefinitions`, whose per-family lists are already egui's per-glyph fallback. Built as one PR, not three.
 
 ## Rejected
 
-- **font-kit.** `SystemSource` is `cfg`'d out on wasm32 and `freetype-sys` is a hard dependency there, so the crate does not build for the web target and the wasm path would have needed a second implementation. On Linux it links `libfreetype` and `libfontconfig`, so CI and every Linux user building an egui-reactor app need the `-dev` packages. Last release 2025-05. Nothing was lost by dropping it: fontdb's `find_best_match` is a port of font-kit's own CSS Fonts Level 3 algorithm, and its source cites it.
+- **font-kit.** `SystemSource` is `cfg`'d out on wasm32 and `freetype-sys` is a hard dependency there, so the crate does not build for the web target and the wasm path would have needed a second implementation. On Linux it links `libfreetype` and `libfontconfig`, so CI and every Linux user building an egui-react app need the `-dev` packages. Last release 2025-05. Nothing was lost by dropping it: fontdb's `find_best_match` is a port of font-kit's own CSS Fonts Level 3 algorithm, and its source cites it.
 
 ## Consequences
 

@@ -1,7 +1,7 @@
 # Plan: board
 
-> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-reactor's
-> own layout engine over taffy (`crates/egui-reactor/src/engine.rs`, ARCHITECTURE
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
+> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
 > section 6), which ports its measure function and node rules, so the layout
 > behaviour described here still holds unless ARCHITECTURE says otherwise.
 
@@ -11,7 +11,7 @@ The task definition is in [task.md](task.md). The design rationale is in [docs/A
 
 ## 0. Overview
 
-One PR. Touches `examples/board` (new), `examples/gallery` (registration), README, and if needed `crates/egui-reactor-elements` and ARCHITECTURE section 6. core is unchanged.
+One PR. Touches `examples/board` (new), `examples/gallery` (registration), README, and if needed `crates/egui-react-elements` and ARCHITECTURE section 6. core is unchanged.
 
 ```
 examples/board/src/
@@ -167,7 +167,7 @@ struct CardUi { editing: bool, draft_title: String, draft_body: String, expanded
 pub fn ui(ui: &mut egui::Ui, state: &mut PlainState);
 ```
 
-- Write it fairly. Key by `CardId`, not by index, and also write the line that **cleans `ui` when a card is gone** (without this line it leaks; that is what sweep takes care of in the egui-reactor version).
+- Write it fairly. Key by `CardId`, not by index, and also write the line that **cleans `ui` when a card is gone** (without this line it leaks; that is what sweep takes care of in the egui-react version).
 - Layout: `ui.columns(4, ..)` + `ScrollArea`, to get the same picture as the taffy version (same policy as the plain version of the `layout` example).
 - DnD and undo behave the same as the react version. The logic is shared via `board.rs`, so the only difference is "where the state lives". That is the showpiece of this example, so write "what is shared / what is not" in the header comment of `plain.rs`.
 - **Difference in implementation**: The draft for an in-progress column rename is `renaming: Option<(ColumnId, String)>` (only one column at a time). The react version uses `use_state` per `<Column>`, so two columns can be open at once. Holding one more map would match it, but that is one more thing to clean up for a feature nobody asked for, so it stays at one column, with the reason written in a comment in `plain.rs`. That "when the whole holds the parts' state, the caller is forced into choices like this" is itself the difference.
@@ -202,7 +202,7 @@ B-3 moves twice, dropping on the top half to go before and on the bottom half to
 
 ## 8. Differences found during implementation
 
-Neither core (`egui-reactor` / `egui-reactor-macros`) nor `egui-reactor-elements` was touched. Below is "what could not be written / how it was worked around / what to add if anything".
+Neither core (`egui-react` / `egui-react-macros`) nor `egui-react-elements` was touched. Below is "what could not be written / how it was worked around / what to add if anything".
 
 ### 8.1 State is attached to a position in the tree, not to identity (the very theme of this example)
 

@@ -2,9 +2,9 @@
 
 ## Goal
 
-Turn https://fand.github.io/egui-react/ from "the gallery wasm and nothing else" into a documentation site with a landing page. The site is a VitePress site: a home page in the TanStack style (name + tagline + a live counter next to its code), Getting Started, a guide, reference pages (hooks, elements, layout attributes), and one page per example. The current gallery's three-column UI is absorbed by the docs: the example list becomes the sidebar, the code pane becomes the page body (with an egui-reactor / plain egui tab where a plain version exists), and the running example becomes an embedded wasm that does nothing but run one example full-bleed.
+Turn https://fand.github.io/egui-react/ from "the gallery wasm and nothing else" into a documentation site with a landing page. The site is a VitePress site: a home page in the TanStack style (name + tagline + a live counter next to its code), Getting Started, a guide, reference pages (hooks, elements, layout attributes), and one page per example. The current gallery's three-column UI is absorbed by the docs: the example list becomes the sidebar, the code pane becomes the page body (with an egui-react / plain egui tab where a plain version exists), and the running example becomes an embedded wasm that does nothing but run one example full-bleed.
 
-Core (`egui-reactor`, `egui-reactor-macros`) is not touched, except for nothing at all: the only Rust changes are in `examples/gallery` (a second bin) and one-line source markers in the example crates.
+Core (`egui-react`, `egui-react-macros`) is not touched, except for nothing at all: the only Rust changes are in `examples/gallery` (a second bin) and one-line source markers in the example crates.
 
 ## Scope
 
@@ -14,7 +14,7 @@ One PR, everything below.
 
 - `site/`: the VitePress site. Home, Getting Started, guide (~9 pages), reference (hooks / elements / layout attributes), one page per example (17), an Architecture pointer page. English.
 - `examples/gallery`: a new `embed` bin + `embed.html` + `Trunk-embed.toml`. It reads `location.hash` (`#<name>` or `#<name>/plain`) and draws that example filling the canvas. The existing `gallery` bin, its tests and `cargo run -p gallery` stay as they are.
-- An `ExampleEmbed` Vue component: the iframe on `/embed/`, the egui-reactor / plain egui tabs with line counts, used by Home and the example pages.
+- An `ExampleEmbed` Vue component: the iframe on `/embed/`, the egui-react / plain egui tabs with line counts, used by Home and the example pages.
 - Deploy: `pages.yml` and `preview-cloudflare-pages.yml` build VitePress + the embed wasm + `cargo doc` into one dist. `ci.yml` builds all three without deploying.
 - Redirects: the old `/#counter` deep links land on `/examples/counter`. README links updated.
 - `docs/ARCHITECTURE.md`: a short Website section. `docs/adr/app/0001`: the decision (VitePress + one embed wasm, and what was rejected).

@@ -2,11 +2,11 @@
 
 ## Goal
 
-Show that **complex UI can be built as-is with egui-reactor**, using a TouchDesigner-style node editor. [board](../board/task.md) proved each property one at a time (local state, keys, custom components, custom hooks, context). The job here is to show those properties still hold on a screen the size of three panes + a node graph + a GPU preview.
+Show that **complex UI can be built as-is with egui-react**, using a TouchDesigner-style node editor. [board](../board/task.md) proved each property one at a time (local state, keys, custom components, custom hooks, context). The job here is to show those properties still hold on a screen the size of three panes + a node graph + a GPU preview.
 
 Building a full VJ app is not the goal. Nodes are limited to "a node where you can write a shader + five standard effects".
 
-The technical core is **graph -> WGSL generation -> one fragment shader**. There is no offscreen compositing pass, so the implementation is light, and it fits the claim egui-reactor makes.
+The technical core is **graph -> WGSL generation -> one fragment shader**. There is no offscreen compositing pass, so the implementation is light, and it fits the claim egui-react makes.
 
 - `use_memo` rebuilds the WGSL only when the graph shape changes, and the pipeline is rebuilt only when the WGSL changes.
 - Moving a slider does not regenerate the shader. The value just flows into a uniform.
@@ -14,7 +14,7 @@ The technical core is **graph -> WGSL generation -> one fragment shader**. There
 
 The `use_dnd` that board builds is reused for moving nodes and wiring ports. This is also why board comes first.
 
-Do not touch core (`egui-reactor`, `egui-reactor-macros`).
+Do not touch core (`egui-react`, `egui-react-macros`).
 
 ## Scope
 

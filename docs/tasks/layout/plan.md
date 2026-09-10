@@ -35,7 +35,7 @@ pub fn Overlay(
 )
 ```
 
-`Anchor` and `Order` are `str_enum!`s in `egui_reactor::layout`, next to
+`Anchor` and `Order` are `str_enum!`s in `egui_react::layout`, next to
 `Direction`, so `rsx!` takes the string spellings. `Order` maps onto
 `egui::Order`; `Anchor` onto `egui::Align2`.
 
@@ -51,8 +51,8 @@ against `cx.ctx()`, and takes no room from the parent. Inside `show`:
   size and takes the presses. Then a child `Ui` with `max_rect(sheet)` and
   `Cx::new(store, ui, scope)` + `root_container(scope.with("overlay"),
   root_style(), ..)`, so the children see a column that fills the sheet and
-  `grow` works in it. `root_style()` moves from `egui-reactor-app` to
-  `egui_reactor::layout` (or is rebuilt inline: column, `w 100% h 100%`) so the
+  `grow` works in it. `root_style()` moves from `egui-react-app` to
+  `egui_react::layout` (or is rebuilt inline: column, `w 100% h 100%`) so the
   elements crate does not depend on the app crate.
 - **Unsized**: `Cx::new(store, ui, scope)` and `children.show(cx)` in plain
   `Ui` mode, as `<Window>` does. The area is as big as what it draws.
@@ -71,7 +71,7 @@ its children through the ordinary sweep, since their scopes are not visited.
 The `Area`'s own state (`AreaState`) is egui's and stays; that is fine, it is
 only the last position and size.
 
-### Tests (`crates/egui-reactor-elements/tests/overlay.rs`)
+### Tests (`crates/egui-react-elements/tests/overlay.rs`)
 
 - Anchored: `<Overlay anchor="right-bottom" offset={(-16, -16)}><Button/>`
   in a 400x800 harness; the button's rect is inside the bottom-right quarter,
@@ -105,7 +105,7 @@ No `Store` slot means no sweep either: an animation of a component that
 stops being drawn stays in egui's memory at its last value, which is what
 `animate_bool` does for everyone. Documented, not fixed.
 
-Test (`crates/egui-reactor/tests/animate.rs`, kittest with `step_dt` 0.05):
+Test (`crates/egui-react/tests/animate.rs`, kittest with `step_dt` 0.05):
 the value is 0 on the first frame with `on = false`; after flipping, it is
 strictly increasing over the next `time / step_dt` steps and 1 after; with
 `time = 0` it is 1 on the frame after the flip.
@@ -168,7 +168,7 @@ path (`lite.rs`, `compute`) already short-circuits: `hide(node)` and
 
 `tests/lite_parity.rs` gets a case with a hidden `<View>` in a row: both
 paths give the row the same size and neither reports the hidden `<Text>`.
-A test in `crates/egui-reactor/tests/` (`hidden.rs`): a `use_state` counter
+A test in `crates/egui-react/tests/` (`hidden.rs`): a `use_state` counter
 inside a hidden `<View>` keeps its value after the view is hidden for a
 frame and shown again; `query_by_label` on the hidden text is `None`; the
 hidden view's siblings are laid out as if it were absent.
@@ -274,11 +274,11 @@ differs from sections 1-8, this section wins; each difference is called out.
 | Question | Decision | Why |
 |---|---|---|
 | `Anchor` spellings (8) | CSS-ish is the primary spelling (`"bottom-right"`, `"top"`, `"center"`); egui's `Align2` order is accepted too (`"right-bottom"`, `"center-top"`) | The rest of the props follow CSS. Aliases need a hand-written `parse`, so `Anchor` is not a `str_enum!` |
-| Where `Anchor` and `Order` live (1) | `crates/egui-reactor-elements/src/containers.rs`, next to `Side`, not `egui_reactor::layout` | They are egui container concepts, not layout attributes; `#[prop(into)]` only needs `From<&str>`, which `Side` already shows |
+| Where `Anchor` and `Order` live (1) | `crates/egui-react-elements/src/containers.rs`, next to `Side`, not `egui_react::layout` | They are egui container concepts, not layout attributes; `#[prop(into)]` only needs `From<&str>`, which `Side` already shows |
 | Default `fill` of a sized `<Overlay>` (8) | `visuals.panel_fill`; `fill={Color32::TRANSPARENT}` opts out. Unsized: nothing unless `fill` is given | A sheet is always painted; a corner button never is. The gallery then reads `cx.ctx()` for `content_rect()` only |
 | Percent `w` / `h` (8) | Of `ctx.content_rect()`. In sized mode an axis that is not given is the window's on that axis | A sheet is measured against the window. A content-sized floating thing is the unsized mode (put a `<View w=..>` inside) |
 | `pos` and `anchor` both given | `pos` wins; neither means egui's default (top-left, as `<Window>` without `default_pos`) | egui itself treats both as an error |
-| `root_style()` (1) | Moves to `egui_reactor::layout::root_style`; `egui_reactor_app::root_style` becomes a re-export | The elements crate cannot depend on the app crate, and the two must not drift |
+| `root_style()` (1) | Moves to `egui_react::layout::root_style`; `egui_react_app::root_style` becomes a re-export | The elements crate cannot depend on the app crate, and the two must not drift |
 | Hidden leaves and accesskit (4) | egui registers an accesskit node for every widget in an invisible `Ui` (the limit 5.8 already documents for `<Suspense>`), so a hidden leaf cannot keep its widgets out of the tree. Instead the leaf's `Ui` gets a node of its own, role `GenericContainer`, marked `hidden`, and every widget under it hangs from that node. `accesskit_consumer::common_filter` excludes a hidden node *with its subtree* — native adapters and `accesskit-web` (`crates/accesskit-web/src/filters.rs`) both use it — so assistive technology never sees them. A hidden `<Text>` registers nothing at all | kittest does not filter hidden nodes, so a test about a hidden *widget* checks the widget's accesskit parent `is_hidden()` and that a press does nothing; a test about a hidden `<Text>` checks `query_by_label` is `None` |
 | Trees under a hidden leaf (4) | A `<ScrollArea>` under a hidden `<View>` opens a tree of its own over an invisible `Ui`; that tree starts hidden too, through a counter in the `Store` that `Cx::leaf` holds while a hidden leaf runs. `Cx::is_hidden()` reads it on every surface | showcase's `"no notes"` sits in a `<ScrollArea>`; the gallery test asserts it is gone while the code is up |
 | The code pane (4, 5) | Only the example is kept mounted under `display="none"`; `<Code>` stays conditional | Its state is a galley cache that rebuilds in a few ms, and its `hyperlink_to` would stay in the tree kittest queries (`source on GitHub` is asserted absent) |
@@ -298,7 +298,7 @@ Two facts the tests rely on, from the egui 0.36.1 source:
 
 ### 9.1 Step 1: `use_animate`
 
-`crates/egui-reactor/src/hooks.rs`:
+`crates/egui-react/src/hooks.rs`:
 
 ```rust
 /// egui's `animate_bool_with_time_and_easing` behind a hook: 0 while `on` is
@@ -328,7 +328,7 @@ component's call site whichever one it called. Export from `lib.rs` (the
 `pub use hooks::{..}` at the top and the one in `prelude`); update the module
 doc line of `hooks.rs`.
 
-Test `crates/egui-reactor/tests/animate.rs` (`mod common; use common::run_app;`,
+Test `crates/egui-react/tests/animate.rs` (`mod common; use common::run_app;`,
 `Harness::builder().with_step_dt(0.05).build_ui_state(..)`, an
 `Rc<Cell<bool>>` for `on` and an `Rc<Cell<f32>>` the app writes the value to):
 
@@ -387,15 +387,15 @@ Tests, in the existing files:
 
 ### 9.3 Step 3: `root_style` into core
 
-`crates/egui-reactor/src/layout.rs` gets `pub fn root_style() -> taffy::Style`
-with the doc comment that is on `egui_reactor_app::root_style` today (the
-`min_h` history included). `crates/egui-reactor-app/src/lib.rs` keeps the name:
-`pub use egui_reactor::layout::root_style;` with a one-line doc pointing at the
-core one. `use egui_reactor::layout::{ContainerStyle, ItemStyle}` in the app
+`crates/egui-react/src/layout.rs` gets `pub fn root_style() -> taffy::Style`
+with the doc comment that is on `egui_react_app::root_style` today (the
+`min_h` history included). `crates/egui-react-app/src/lib.rs` keeps the name:
+`pub use egui_react::layout::root_style;` with a one-line doc pointing at the
+core one. `use egui_react::layout::{ContainerStyle, ItemStyle}` in the app
 crate becomes unused and goes. Everything that imports
-`egui_reactor_app::root_style` (the gallery, `examples/*/tests`,
-`crates/egui-reactor-app/tests/root_fill.rs`) keeps compiling; the three
-`fn root_style()` copies in `crates/egui-reactor/tests/engine_*.rs` are left
+`egui_react_app::root_style` (the gallery, `examples/*/tests`,
+`crates/egui-react-app/tests/root_fill.rs`) keeps compiling; the three
+`fn root_style()` copies in `crates/egui-react/tests/engine_*.rs` are left
 alone (they are the tests' own minimal styles).
 
 This is a commit of its own only if step 4 is not the same day; otherwise it
@@ -507,7 +507,7 @@ pub fn Overlay(
 }
 ```
 
-`use egui_reactor::layout::{ItemStyle, Length, root_style};` at the top of the
+`use egui_react::layout::{ItemStyle, Length, root_style};` at the top of the
 file. Like `<Window>`, no `cx.leaf`: an area takes no room from the parent,
 and in tree mode the component is ids only. Not drawing an `<Overlay>` (the
 `if open { .. }` pattern) unmounts its children through the ordinary sweep;
@@ -515,7 +515,7 @@ egui keeps the `AreaState` (last position and size), which is fine. Step 6
 adds `if cx.is_hidden() { return; }` at the top. Doc comment: the table in
 section 0 in prose, the two modes, and that presses on the sheet go nowhere.
 
-#### Tests: `crates/egui-reactor-elements/tests/overlay.rs`
+#### Tests: `crates/egui-react-elements/tests/overlay.rs`
 
 `mod common; use common::run_app;`, a `Harness::builder().with_size(vec2(400.0, 800.0))`
 harness; `Counter` as in `tests/containers.rs`. Every test does
@@ -556,7 +556,7 @@ harness; `Counter` as in `tests/containers.rs`. Every test does
   `<Overlay pos={egui::pos2(screen.left(), top)} constrain={false} top w="100%" h="100%">`
   and the column `p={8}` (was `sheet.shrink(8.0)`). No `fill`: the sized
   default is `panel_fill`.
-- `use egui_reactor_app::root_style;` goes. The doc comments of `PaneToggle`
+- `use egui_react_app::root_style;` goes. The doc comments of `PaneToggle`
   and `Menu` are rewritten: they name `egui::Area` today, and the done
   criterion is a `grep`, comments included.
 - The module doc (lines 1-13) stays true and stays.
@@ -658,7 +658,7 @@ not reach them; their children unmount as when `open` is false.
 
 #### Tests
 
-`crates/egui-reactor/tests/hidden.rs` (core APIs only: `cx.container`,
+`crates/egui-react/tests/hidden.rs` (core APIs only: `cx.container`,
 `cx.leaf`, `cx.text`, `use_state`, as `taffy_cx.rs` does; an
 `Rc<Cell<bool>>` `shown`). The tree: a row with `gap` 8 holding leaf `a`
 (a button), a container whose `display` is `"flex"` or `"none"` by `shown`,
@@ -675,7 +675,7 @@ leaf that opens a tree of its own (`Cx::new` over the leaf's `Ui`, then
 - `state_survives_a_hide_and_a_show`: shown, press `hidden +`, `count: 1`;
   hidden, run twice, `harness.state().len()` is what it was (one slot); press
   where `hidden +` reports itself (nothing happens); shown, run: `count: 1`.
-- `crates/egui-reactor/tests/lite_parity.rs`: a corpus case `hidden_in_row`,
+- `crates/egui-react/tests/lite_parity.rs`: a corpus case `hidden_in_row`,
   the same row shape (leaf, hidden container with a leaf and a text, leaf).
   The harness already draws it on both paths and compares every rect; hidden
   leaves report a zero rect at the row's corner and hidden texts

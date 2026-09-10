@@ -192,7 +192,7 @@ Both `Dispatch`es go down by context (`Actions` for the sheet, `Dispatch<UiMsg>`
 
 **The body** is one `<VirtualList rows={ROWS} row_h={ROW_H} row_w={total_w} horizontal on_scroll={..} grow={1.0} h={0.0}>`. `h={0.0}` with `grow` is the "take the rest, not everything" idiom from board 8.3 / patch 8.3 — but that is a *column* idiom, and the row this list sits in gives it `h="100%"` instead (section 8.11). `total_w` is the sum of `col_w`, and it goes to the list rather than to the row: the rows are drawn into the rects the list reserved, so the list is the only thing that can tell the scroll area how far sideways the sheet reaches (section 8). Each row is then `<View direction="row" w="100%" h={ROW_H}>` — `100%` of `row_w`, so the row reaches past the edge without a `w` or a `shrink={0}` of its own.
 
-**`on_scroll` on `<VirtualList>`** is the one addition to `egui-reactor-elements`. `ScrollAreaOutput::state.offset` is the offset egui used this frame; the element emits it after `show_rows` returns:
+**`on_scroll` on `<VirtualList>`** is the one addition to `egui-react-elements`. `ScrollAreaOutput::state.offset` is the offset egui used this frame; the element emits it after `show_rows` returns:
 
 ```rust
 #[event] on_scroll: egui::Vec2,
@@ -291,11 +291,11 @@ Same harness as `patch/tests/patch.rs` (`build_ui_state(run_app, Store::new())`,
 - **S-4 (the highlight)** Read `compiled N · evaluated M` from the status bar. Type a number into a literal cell: `compiled` unchanged, `evaluated` +1. Type a formula: both +1. Change the formula's text: both +1. Type a different number into the same literal cell: `compiled` unchanged again.
 - **S-5** Keys: Down from `A1` puts the cursor on `A2` (name box reads `A2`); Shift+Right makes `A2:B2`; Enter opens the editor on `A2`; typing then Enter commits and the cursor is on `A3`; Tab from the editor commits and moves right; Escape leaves the cell unchanged; F2 keeps the text; typing a character replaces it.
 - **S-6** Copy `C1` (`=A1*B1`) and paste on `C2`: `C2` reads `=A2*B2` (formula bar) and shows the product of row 2. Paste a 2×2 range; one undo removes all four.
-- **S-7 (the other highlight)** Scroll the body down by 40 rows with wheel events (copy `scroll` from `crates/egui-reactor-elements/tests/virtual_list.rs`: a `TouchPhase::Start` wheel event turns off smoothing so one call moves exactly `points`; point the pointer inside the body first). Click `A41`, type `abc` (no Enter): `get_by_label("edit A41")` exists. Scroll back to the top: `query_by_label("A41")` and `query_by_label("edit A41")` are both `None` (the row is unmounted). Scroll down again: the editor is open on `A41` with `abc` in it (read the formula bar, or the editor node's value). Enter commits, and `A41` shows `abc`. Row 41 rather than 5000 so the wheel distance stays small; the property is the same.
+- **S-7 (the other highlight)** Scroll the body down by 40 rows with wheel events (copy `scroll` from `crates/egui-react-elements/tests/virtual_list.rs`: a `TouchPhase::Start` wheel event turns off smoothing so one call moves exactly `points`; point the pointer inside the body first). Click `A41`, type `abc` (no Enter): `get_by_label("edit A41")` exists. Scroll back to the top: `query_by_label("A41")` and `query_by_label("edit A41")` are both `None` (the row is unmounted). Scroll down again: the editor is open on `A41` with `abc` in it (read the formula bar, or the editor node's value). Enter commits, and `A41` shows `abc`. Row 41 rather than 5000 so the wheel distance stays small; the property is the same.
 - **S-8** Undo after two edits restores one, then the other; redo replays; a new edit after undo drops the redo branch (`can_redo` false, via the redo button's `enabled`).
 - **S-9** After S-7's scrolling, `harness.state().collisions()` is empty (the row scope is the row index and the cell scope is the column; `cx.scope` is written by the list, but this is the first example with a thousand hooks in view).
 - **S-10** Dragging column `A`'s edge 40pt right makes `A` wider by 40 (compare `get_by_label("A2")` rect widths before and after) and `B2` moves right by 40; one undo puts it back.
-- **S-11** `on_scroll` is tested where it lives: one more test in `crates/egui-reactor-elements/tests/virtual_list.rs` builds a `<VirtualList on_scroll={..}>` that writes the offset into a `use_state`, scrolls with the file's own `scroll` helper, and asserts the reported `y` equals the points scrolled (and `x` after a horizontal wheel event on a `horizontal` list). The painted header labels are not in the accessibility tree and are not asserted from the app test.
+- **S-11** `on_scroll` is tested where it lives: one more test in `crates/egui-react-elements/tests/virtual_list.rs` builds a `<VirtualList on_scroll={..}>` that writes the offset into a `use_state`, scrolls with the file's own `scroll` helper, and asserts the reported `y` equals the points scrolled (and `x` after a horizontal wheel event on a `horizontal` list). The painted header labels are not in the accessibility tree and are not asserted from the app test.
 - Unit tests in `sheet.rs`: the rev table in section 1, one line per row; `Set` with the same text bumps nothing; `Set("")` removes the key.
 - Unit tests in `formula.rs` / `eval.rs`: section 2 and 3 lists.
 
@@ -312,7 +312,7 @@ The a11y test in the gallery: cells and the editor are named, the formula bar an
 
 ## 8. Differences found during implementation
 
-Neither core (`egui-reactor` / `egui-reactor-macros`) nor the gallery's own code was touched. `egui-reactor-elements` gained exactly what section 4.2 budgeted for and one repair next to it (8.1). Below is "what could not be written / how we worked around it / what we would add". Where this overlaps with board or patch section 8, the overlap itself is the information, so it is stated explicitly.
+Neither core (`egui-react` / `egui-react-macros`) nor the gallery's own code was touched. `egui-react-elements` gained exactly what section 4.2 budgeted for and one repair next to it (8.1). Below is "what could not be written / how we worked around it / what we would add". Where this overlaps with board or patch section 8, the overlap itself is the information, so it is stated explicitly.
 
 ### 8.1 `<VirtualList horizontal>` never scrolled sideways, and could not be made to from outside
 

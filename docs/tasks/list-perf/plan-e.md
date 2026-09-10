@@ -123,7 +123,7 @@ solver, and the parity corpus has a case for it
 instead is an `auto` margin, which absorbs free space and would need a second
 distribution step.
 
-The solver is one file, `crates/egui-reactor/src/engine/lite.rs`, with the flex
+The solver is one file, `crates/egui-react/src/engine/lite.rs`, with the flex
 algorithm spelled out in comments step by step (the CSS spec's 9.2 to 9.7 in
 order: basis, hypothetical size, free space, grow/shrink with min/max clamping
 and re-freezing, main positions with justify, cross size and align).
@@ -144,7 +144,7 @@ E1's solver is 0.36 µs a scrolled row.
 The lite path must produce the same rects taffy does for the subset. That is
 tested directly, not by snapshot alone:
 
-- `crates/egui-reactor/tests/lite_parity.rs`: a corpus of row trees (the
+- `crates/egui-react/tests/lite_parity.rs`: a corpus of row trees (the
   list-10k `Row`, rows with margins and padding, nested `<View>`s, percent
   widths, `justify` variants, `shrink` with a too-narrow container, a
   `display: none` child, min/max clamping) each drawn twice, once through

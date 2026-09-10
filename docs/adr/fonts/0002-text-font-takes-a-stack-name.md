@@ -4,7 +4,7 @@ Date: 2026-09-07 · Status: accepted
 
 ## Context
 
-Once an app can register named font stacks ([0001](0001-css-font-chains-through-fontdb.md)), a `<Text>` has to say which one to draw in. The registry lives in `egui-reactor-app`; `<Text>` lives in `egui-reactor-elements`, which knows nothing about it.
+Once an app can register named font stacks ([0001](0001-css-font-chains-through-fontdb.md)), a `<Text>` has to say which one to draw in. The registry lives in `egui-react-app`; `<Text>` lives in `egui-react-elements`, which knows nothing about it.
 
 ## Decision
 
@@ -20,7 +20,7 @@ A typo in a stack name is a runtime warning, not a compile error. The check is n
 
 ## Links
 
-- [ARCHITECTURE section 6, elements list](../../ARCHITECTURE.md#elements-list-egui-reactor-elements)
+- [ARCHITECTURE section 6, elements list](../../ARCHITECTURE.md#elements-list-egui-react-elements)
 - [ARCHITECTURE section 8, fonts](../../ARCHITECTURE.md#8-platforms)
 - `docs/tasks/font/plan.md` (2.3, section 5)
 - Commit `3bbc057`

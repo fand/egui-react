@@ -18,7 +18,7 @@ PR2 made `Dispatch` `Send + 'static`. This PR adds, on top of that, a path that 
   - The return value is `&'s Poll<T>`, same as `use_memo`. It lives alongside a `State` guard.
   - Do not start twice on the second pass of the same frame. Do not panic on a result that arrives after unmount.
   - When returning `Pending`, add 1 to the suspense counter in `Store` (the one of the nearest `<Suspense>`).
-- `egui_reactor::spawn(future)`: expose core's `task::spawn`. Combined with `Dispatch`, this lets you write "start imperatively and send the result" (mutation, optimistic update).
+- `egui_react::spawn(future)`: expose core's `task::spawn`. Combined with `Dispatch`, this lets you write "start imperatively and send the result" (mutation, optimistic update).
 - Keep the native / wasm run mechanism difference inside the `SpawnFuture<T>` trait (cfg-switched bound) and `task::spawn`.
 - A stack of suspense counters in `Store` (same shape as the `provide_context` stack).
 - `<Suspense fallback={..}>children</Suspense>` (elements, `suspense.rs`).
@@ -40,7 +40,7 @@ PR2 made `Dispatch` `Send + 'static`. This PR adds, on top of that, a path that 
 - `use_query` (keyed cache, sharing across components, stale-while-revalidate), `use_action` (imperative start + pending), `use_debounced`, `use_stream`. Next PR (async-2). Extracting the inside of `use_future` as `AsyncSlot` also happens then.
 - State representations other than `Poll` (an enum like `Loading` / `Error`). Errors are expressed as `T = Result<..>`.
 - Error boundary. Errors are values, so the child does `match`.
-- Stopping the children's `use_effect` while `Suspense` is suspended (React does not commit, so they do not run). In egui-reactor they run. Write this in the docs.
+- Stopping the children's `use_effect` while `Suspense` is suspended (React does not commit, so they do not run). In egui-react they run. Write this in the docs.
 - `SuspenseList`, `useTransition` equivalents.
 - A `Spinner` element. The fetch example calls `cx.ui().spinner()` in a closure.
 - Carry-overs from PR2 (`use_persisted_reducer`, wasm automated tests for `use_persisted`, the dirty flag for `App::save`). Separate PR.
@@ -48,9 +48,9 @@ PR2 made `Dispatch` `Send + 'static`. This PR adds, on top of that, a path that 
 
 ## Deliverables
 
-- `crates/egui-reactor/src/future.rs` (`use_future`, `SpawnFuture`, `spawn`), the suspense counter in `store.rs`, re-exports in `lib.rs` / `prelude` (`use_future`, `spawn`, `std::task::Poll`).
-- `crates/egui-reactor/tests/future.rs` (kittest).
-- `crates/egui-reactor-elements/src/suspense.rs` (`Suspense`) and its addition to `prelude`, `crates/egui-reactor-elements/tests/suspense.rs`.
+- `crates/egui-react/src/future.rs` (`use_future`, `SpawnFuture`, `spawn`), the suspense counter in `store.rs`, re-exports in `lib.rs` / `prelude` (`use_future`, `spawn`, `std::task::Poll`).
+- `crates/egui-react/tests/future.rs` (kittest).
+- `crates/egui-react-elements/src/suspense.rs` (`Suspense`) and its addition to `prelude`, `crates/egui-react-elements/tests/suspense.rs`.
 - `examples/fetch` (`Cargo.toml` / `src/main.rs` / `index.html` / `Trunk.toml`).
 - Add the trunk build of fetch to `.github/workflows/ci.yml`.
 - Update the examples sentence in README.

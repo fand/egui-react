@@ -40,7 +40,7 @@ is the gallery's floating button without a `<Frame>` around it, and
 
 ### In scope
 
-- `PaintStyle` (`egui-reactor`, `layout.rs` or a `paint.rs` next to it): `bg`
+- `PaintStyle` (`egui-react`, `layout.rs` or a `paint.rs` next to it): `bg`
   (`Color32`), `border` (`Stroke`), `radius` (`f32`, one value for now),
   `shadow` (`bool`, the theme's window shadow) and `custom_shadow`
   (`egui::Shadow`), `opacity` (`f32`, through `Ui::multiply_opacity`).
@@ -85,14 +85,14 @@ is the gallery's floating button without a `<Frame>` around it, and
 
 ## Deliverables
 
-- `crates/egui-reactor/src/layout.rs` (or `paint.rs`): `PaintStyle`,
+- `crates/egui-react/src/layout.rs` (or `paint.rs`): `PaintStyle`,
   exported from `lib.rs` and `prelude`.
-- `crates/egui-reactor/src/engine/mod.rs` and `engine/lite.rs`: paint on
+- `crates/egui-react/src/engine/mod.rs` and `engine/lite.rs`: paint on
   `container` and `leaf`; `Cx::leaf` / `leaf_fill` / `container` take the
   paint. A corpus case in `tests/lite_parity.rs` so both paths agree on the
   rects a painted node reports.
-- `crates/egui-reactor/tests/paint.rs`: kittest over the core APIs.
-- `crates/egui-reactor-elements`: every element takes `paint`; `Button`,
+- `crates/egui-react/tests/paint.rs`: kittest over the core APIs.
+- `crates/egui-react-elements`: every element takes `paint`; `Button`,
   `TextEdit`, `ComboBox` hand their box over; `Frame` re-documented;
   `Button::padding` / `corner_radius` and `Frame::inner_margin` /
   `fill` / `stroke` / `corner_radius` / `shadow` / `custom_shadow` removed.

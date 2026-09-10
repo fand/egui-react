@@ -1,7 +1,7 @@
 # spreadsheet: progress and handoff
 
 PR: https://github.com/fand/egui-react/pull/21, branch
-`claude/egui-reactor-demo-ideas-10bnna`, base `main`. Task in `task.md`, plan
+`claude/egui-react-demo-ideas-10bnna`, base `main`. Task in `task.md`, plan
 in `plan.md`; what could not be written as planned, and what the library
 should grow, in `plan.md` section 8 (8.1 to 8.13). The plan was carried out
 in five steps by a subagent, one step per commit, each reviewed and
@@ -107,7 +107,7 @@ From the repository root:
 
 ```sh
 cargo test -p spreadsheet                          # 68 unit + 10 scenarios
-cargo test -p egui-reactor-elements --test virtual_list
+cargo test -p egui-react-elements --test virtual_list
 cargo test -p gallery                              # a11y, gallery, bench (ignored)
 cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings

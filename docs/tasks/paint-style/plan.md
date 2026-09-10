@@ -18,10 +18,10 @@ slots claimed in draw order, exactly as `<Text>` is painted today.
 
 | Step | Where | What |
 |---|---|---|
-| 1 | `egui-reactor` | `PaintStyle`, `ItemStyle::paint`, `to_taffy` reserves the border, `rsx!` shorthands |
+| 1 | `egui-react` | `PaintStyle`, `ItemStyle::paint`, `to_taffy` reserves the border, `rsx!` shorthands |
 | 2 | `engine/mod.rs` | Paint slots on container / leaf / text, `paint_boxes`, opacity |
 | 3 | `engine/lite.rs` | Same, plus the border in the solver; parity corpus case |
-| 4 | `egui-reactor-elements` | `Button` / `TextEdit` / `ComboBox` hand their box over; `Frame` re-done; old props removed; tests |
+| 4 | `egui-react-elements` | `Button` / `TextEdit` / `ComboBox` hand their box over; `Frame` re-done; old props removed; tests |
 | 5 | `examples/` | No `<Frame>` inside a tree |
 | 6 | `docs/ARCHITECTURE.md` | Section 6, 5.3, the elements table |
 | 7 | verify | `cargo test --workspace`, clippy, wasm check, snapshots |
@@ -30,7 +30,7 @@ slots claimed in draw order, exactly as `<Text>` is painted today.
 
 ### 1.1 Where `PaintStyle` lives, and one struct or two
 
-`crates/egui-reactor/src/paint.rs`, a module next to `layout.rs`:
+`crates/egui-react/src/paint.rs`, a module next to `layout.rs`:
 
 ```rust
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -183,7 +183,7 @@ the background covers it.
 
 ## 2. Work steps
 
-### Step 1: `PaintStyle` and the shorthands (`egui-reactor`, `egui-reactor-macros`)
+### Step 1: `PaintStyle` and the shorthands (`egui-react`, `egui-react-macros`)
 
 - `src/paint.rs`: the struct, setters, `is_none`, and three shape helpers
   (`shadow_shape`, `bg_shape`, `border_shape`) used by both paths.
@@ -226,7 +226,7 @@ the background covers it.
   `border` 2, `p`, `radius` on the container and on one leaf, one text with
   `bg`, one hidden painted child. Rects must agree exactly.
 
-### Step 4: elements (`egui-reactor-elements`)
+### Step 4: elements (`egui-react-elements`)
 
 - `widgets.rs`: `Button` per 1.6 / 1.7 (`padding`, `corner_radius` removed),
   `TextEdit`, `ComboBox`. Module doc updated.
@@ -262,7 +262,7 @@ card use `egui::Frame::inner_margin(..)` on purpose and stay.
 
 - Section 6: a "Paint" block after the engine's five lines: `PaintStyle`
   inside `ItemStyle`, the paint order and the slots, the border reserve, why
-  nothing paints in `Ui` mode, opacity. "egui-reactor paints nothing on a
+  nothing paints in `Ui` mode, opacity. "egui-react paints nothing on a
   `<View>`" in the second bullet and in 5.3 becomes "paints only what
   `PaintStyle` says, after the layout".
 - Elements table: `Button` (`enabled` / `label`, `on_click`), `Frame` (no
@@ -278,7 +278,7 @@ cargo fmt --all --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo check --workspace --target wasm32-unknown-unknown
-cargo test -p egui-reactor-elements --features snapshot   # if a GPU is at hand
+cargo test -p egui-react-elements --features snapshot   # if a GPU is at hand
 cargo test -p gallery --features snapshot               # same
 grep -rn "inner_margin=\|padding=" examples/*/src        # prints nothing
 ```
@@ -313,7 +313,7 @@ Where the implementation departed from the plan above, and why.
   case, `lite_parity.rs` picks the marker-coloured `RectShape`s out of
   `FullOutput.shapes` and compares the two paths rect for rect, so a node's box
   is checked as well as the rects its children were given.
-- **`tests/paint.rs` in `egui-reactor` runs over `Context::run_ui`**, not a
+- **`tests/paint.rs` in `egui-react` runs over `Context::run_ui`**, not a
   kittest harness: what is under test is the list of shapes the frame came out
   with.
 - **The gallery's `board` snapshots were already missing** before this task

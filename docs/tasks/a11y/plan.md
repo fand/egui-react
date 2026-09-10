@@ -6,14 +6,14 @@ The research was done in 2026-09. Targets: egui / eframe 0.36.1, accesskit 0.24.
 
 ## 0. Overview
 
-**This does not finish in one PR. Split it into what goes into main and what lives on the `a11y-spike` branch.** This keeps the task.md decision "do not add a forked eframe as a dependency of egui-reactor main". The boundary is "can it be done with crates.io dependencies alone".
+**This does not finish in one PR. Split it into what goes into main and what lives on the `a11y-spike` branch.** This keeps the task.md decision "do not add a forked eframe as a dependency of egui-react main". The boundary is "can it be done with crates.io dependencies alone".
 
 **The split changed after work started.** At first we assumed everything from step 6 onward would go on `a11y-spike` as a whole. But 1.2 showed that "you do not need to fork eframe to receive a `TreeUpdate`" (option C in 2.2). **Steps 6 to 10 close with crates.io dependencies alone, so they go into main.** Only step 11 (F2) needs the fork, and only that stays in the spike.
 
 | | Where | What |
 |---|---|---|
-| PR #4 (done) | main | This document, one sentence each in ARCHITECTURE sections 1 / 8, one sentence in the README, label hardening in `egui-reactor-elements` (`alt` on `Image`, `label` on `Button`), a kittest that detects unnamed widgets |
-| PR #5 (the follow-up) | main | `accesskit-web` (adapter crate), `egui_reactor_app::a11y::WebA11y` (an egui plugin), enabling it in the gallery, DOM → `ActionRequest`, focus F1 |
+| PR #4 (done) | main | This document, one sentence each in ARCHITECTURE sections 1 / 8, one sentence in the README, label hardening in `egui-react-elements` (`alt` on `Image`, `label` on `Button`), a kittest that detects unnamed widgets |
+| PR #5 (the follow-up) | main | `accesskit-web` (adapter crate), `egui_react_app::a11y::WebA11y` (an egui plugin), enabling it in the gallery, DOM → `ActionRequest`, focus F1 |
 | Later | `a11y-spike` branch | Step 11 only: F2, relax `has_focus` in a forked eframe |
 | After that | Upstream | A web adapter PR to AccessKit, an issue for a hook in eframe / egui |
 
@@ -55,7 +55,7 @@ Note that `Cargo.lock` contains three consumer versions: 0.35 / 0.36 / 0.38 (kit
 
 Line 394 of `crates/eframe/src/web/app_runner.rs`, the destructuring pattern in `handle_platform_output`, has `accesskit_update: _, // not currently implemented` (locally at `~/.cargo/registry/.../eframe-0.36.1/src/web/app_runner.rs:394`). This part is as task.md says. But on investigation, **three of the surrounding assumptions were wrong.**
 
-**(a) `accesskit` is not an egui feature.** eframe's `accesskit` feature is only `["egui-winit/accesskit"]`, and it is native only. egui itself has `accesskit = "0.24.1"` as an **unconditional dependency**, and `Context::enable_accesskit()` / `disable_accesskit()` / `accesskit_node_builder()` can be called at any time (`egui-0.36.1/src/context.rs:3698`). **On wasm too, calling `ctx.enable_accesskit()` starts building the tree right away.** Nobody calls it, but the feature is alive. The app can be the caller: in `egui_reactor_app::Options::setup`, write `cc.egui_ctx.enable_accesskit()` from the `&CreationContext`.
+**(a) `accesskit` is not an egui feature.** eframe's `accesskit` feature is only `["egui-winit/accesskit"]`, and it is native only. egui itself has `accesskit = "0.24.1"` as an **unconditional dependency**, and `Context::enable_accesskit()` / `disable_accesskit()` / `accesskit_node_builder()` can be called at any time (`egui-0.36.1/src/context.rs:3698`). **On wasm too, calling `ctx.enable_accesskit()` starts building the tree right away.** Nobody calls it, but the feature is alive. The app can be the caller: in `egui_react_app::Options::setup`, write `cc.egui_ctx.enable_accesskit()` from the `&CreationContext`.
 
 **(b) egui 0.36 has a `Plugin` trait, and it can grab `FullOutput` from the side.** `egui::plugin::Plugin` (`egui-0.36.1/src/plugin.rs`) has the following.
 
@@ -77,7 +77,7 @@ So **there is no need to fork eframe to receive a `TreeUpdate`.** The reverse di
 Two caveats.
 
 - `Plugin` requires `Send + Sync`, but `web_sys::HtmlElement` and friends are `!Send`. **Keep the DOM-side state in a `thread_local!` registry, and have the plugin struct hold only an integer key** (wasm is single-threaded, so there is no need to write `unsafe impl Send` either).
-- `output_hook` is called **per pass**. egui redoes a pass that called `request_discard` (the `loop` at `context.rs:833`), and in egui-reactor taffy normally runs 2 passes (ARCHITECTURE 5.3). **Drop** the `TreeUpdate` of a pass where `output.platform_output.requested_discard()` is set. If you push the tree of a discarded pass to the DOM, coordinates from before layout settled flash for a moment.
+- `output_hook` is called **per pass**. egui redoes a pass that called `request_discard` (the `loop` at `context.rs:833`), and in egui-react taffy normally runs 2 passes (ARCHITECTURE 5.3). **Drop** the `TreeUpdate` of a pass where `output.platform_output.requested_discard()` is set. If you push the tree of a discarded pass to the DOM, coordinates from before layout settled flash for a moment.
 
 **(c) The "hidden DOM" on the web side that we can reuse is not the screen reader path but the text agent.** The `web_screen_reader` feature (on by default) is really just `speak(text)` in `web/screen_reader.rs`, which sends one line of `platform_output.events_description()` to `speechSynthesis`. No tree, no focus. Nothing to reuse.
 
@@ -249,24 +249,24 @@ There are three options.
 | B | Write our own web runner (`egui::Context` + `egui-wgpu` + all the input bridging by ourselves) | We would rewrite the text agent / IME / touch / resize / storage. eframe web is 15 files. **Not taken** |
 | C | **Pick it up with egui's `Plugin::output_hook`** (1.2 (b)) | Works with crates.io eframe / egui as-is. The same code runs on native and under kittest |
 
-**We take C.** As 1.2 found, this needs neither a fork nor our own runner. The prototype can start with 2 lines from `Options::setup` in `egui-reactor-app`.
+**We take C.** As 1.2 found, this needs neither a fork nor our own runner. The prototype can start with 2 lines from `Options::setup` in `egui-react-app`.
 
 ```rust
 // gallery/src/main.rs on the spike branch
 Options {
     setup: Some(Box::new(|cc| {
         cc.egui_ctx.enable_accesskit();
-        cc.egui_ctx.add_plugin(egui_reactor_app::a11y::WebA11y::new("egui_reactor_canvas"));
+        cc.egui_ctx.add_plugin(egui_react_app::a11y::WebA11y::new("egui_react_canvas"));
     })),
     ..Default::default()
 }
 ```
 
-`WebA11y` is thin glue on the `egui-reactor-app` side (`#[cfg(target_arch = "wasm32")]`). It holds `accesskit_web::Adapter` in a `thread_local!` and only wires up the two `Plugin` holes.
+`WebA11y` is thin glue on the `egui-react-app` side (`#[cfg(target_arch = "wasm32")]`). It holds `accesskit_web::Adapter` in a `thread_local!` and only wires up the two `Plugin` holes.
 
 ```rust
 impl egui::plugin::Plugin for WebA11y {
-    fn debug_name(&self) -> &'static str { "egui_reactor_web_a11y" }
+    fn debug_name(&self) -> &'static str { "egui_react_web_a11y" }
 
     fn output_hook(&mut self, _ctx: &egui::Context, output: &mut egui::FullOutput) {
         if output.platform_output.requested_discard() { return; }   // the discarded pass from 5.3
@@ -300,7 +300,7 @@ F1 / F2 from 1.3. Implementation order is F1 → measure → F2 if needed.
 
 `ctx.enable_accesskit()` builds an `accesskit::Node` for every widget every frame, so we do not keep it always on. Flutter web decides by "when the 1px `<button aria-label="Enable accessibility">` outside the window is clicked" (1.4).
 
-**The prototype keeps it always on.** The goal is to confirm "is it usable from assistive technology", and checking the enabling protocol at the same time would make it impossible to isolate causes. Leave the enabling design as a discussion point for going upstream. AccessKit's `ActivationHandler` (`request_initial_tree`) is already a hole of that shape, so align the adapter API with it (2.1). Adding `Options.a11y: bool` on the egui-reactor side can wait until the upstream shape is decided.
+**The prototype keeps it always on.** The goal is to confirm "is it usable from assistive technology", and checking the enabling protocol at the same time would make it impossible to isolate causes. Leave the enabling design as a discussion point for going upstream. AccessKit's `ActivationHandler` (`request_initial_tree`) is already a hole of that shape, so align the adapter API with it (2.1). Adding `Options.a11y: bool` on the egui-react side can wait until the upstream shape is decided.
 
 ### 2.5 Label hardening that goes into main
 
@@ -331,7 +331,7 @@ The sentences to add to ARCHITECTURE / README go like this.
 ### PR #4 (main, done)
 
 1. **Fix this document and task.md.** Reflect the existence of the `web-basics` branch found in 1.1 in the task.md background table ("none" → "no released version. There is one prototype branch"). Commit.
-2. **`alt` on `Image`, `label` on `Button`.** `crates/egui-reactor-elements/src/widgets.rs`. Two kittests in `tests/widgets.rs` (A-1, A-2). Commit.
+2. **`alt` on `Image`, `label` on `Button`.** `crates/egui-react-elements/src/widgets.rs`. Two kittests in `tests/widgets.rs` (A-1, A-2). Commit.
 3. **Fill in labels in examples.** The todo checkbox and `x` button, and go through the other examples to fix unnamed widgets. Retake snapshots if they run. Commit.
 4. **A kittest that finds unnamed nodes** (A-3). Draw every gallery example one by one, and check that focusable nodes have a non-empty name. Commit.
 5. **One sentence each in ARCHITECTURE sections 1 / 8 and the README.** In the README, add to the end of the gallery paragraph in the "Examples" section (`Every example but one runs in the browser ..`). Commit. PR.
@@ -342,7 +342,7 @@ As in section 0, this does not need a fork, so it goes into main.
 
 6. **Port the `accesskit_web` skeleton.** Put the 4 `web-basics` files in `crates/accesskit-web/` and fix them for accesskit 0.24.1 / consumer 0.38 (`name()` → `label()`, `is_focusable(&filter)`, `TreeId`). No coordinates or events yet. Only check that it builds.
 7. **Coordinates and host CSS** (2.1). Turn `bounding_box()` into `position: absolute` and overlay the canvas. Check by eye in DevTools that the rects sit on top of the widgets.
-8. **`egui_reactor_app::a11y::WebA11y` (plugin) and startup from `Options::setup`** (2.2). Build the gallery with trunk, and check by eye that the DOM updates every frame. Check that the condition that rejects discarded passes really works, using an example where taffy runs 2 passes (layout).
+8. **`egui_react_app::a11y::WebA11y` (plugin) and startup from `Options::setup`** (2.2). Build the gallery with trunk, and check by eye that the DOM updates every frame. Check that the condition that rejects discarded passes really works, using an example where taffy runs 2 passes (layout).
 9. **DOM → `ActionRequest`** (table in 2.1). Up to the point where click and Enter / Space increment the counter's `+`.
 10. **Focus F1** (2.3). The `aria-activedescendant` version. Try counter / todo / form with VoiceOver (macOS Safari / Chrome).
 
@@ -364,7 +364,7 @@ kittest walks the AccessKit tree as-is (`egui_kittest::Harness::root()` returns 
 
 | # | Where | What |
 |---|---|---|
-| A-1 | `crates/egui-reactor-elements/tests/widgets.rs` | `<Image alt="a cat"/>` can be found with `harness.get_by_label("a cat")`. Without `alt` it cannot |
+| A-1 | `crates/egui-react-elements/tests/widgets.rs` | `<Image alt="a cat"/>` can be found with `harness.get_by_label("a cat")`. Without `alt` it cannot |
 | A-2 | Same file | `<Button label="delete">"x"</Button>` can be found with `get_by_role_and_label(Role::Button, "delete")`. The look (the rect that `get_by_label("x")` finds) does not change |
 | A-3 | `examples/gallery/tests/` | Loop over `gallery::EXAMPLES`, draw `<App start={meta.name}/>`, walk the tree from the root, and check there is no node that is "focusable and `label()` is empty". If found, print the example name, role, and rect. **This is the regression guard for step 3** |
 
@@ -436,7 +436,7 @@ The `x` button (the other one in 2.5) was fixed with `label="remove"`. The raw e
 
 ### 6.4 `+` / `-` were left as-is
 
-The buttons in counter and custom-hook. The names are not empty (they are read as "plus" / "minus"), and the number is shown next to them, so the meaning comes through. Fixing them would make only one side diverge in the test that drives the raw egui version and the egui-reactor version with the same steps, so we judged the cost to be greater.
+The buttons in counter and custom-hook. The names are not empty (they are read as "plus" / "minus"), and the number is shown next to them, so the meaning comes through. Fixing them would make only one side diverge in the test that drives the raw egui version and the egui-react version with the same steps, so we judged the cost to be greater.
 
 ### 6.5 A-3 uses `run_steps(2)`, not `run`
 
@@ -522,4 +522,4 @@ So **the right answer for the DOM → egui direction of F1 is "do nothing"**; wr
 
 ### Step 12: no upstreaming
 
-Withdrawn by the decision on 2026-09-05. Not submitted to AccessKit (discussions#514) or eframe. `crates/accesskit-web` and `egui_reactor_app::a11y::WebA11y` are maintained as part of egui-reactor. If upstream ships an equivalent, we switch to it.
+Withdrawn by the decision on 2026-09-05. Not submitted to AccessKit (discussions#514) or eframe. `crates/accesskit-web` and `egui_react_app::a11y::WebA11y` are maintained as part of egui-react. If upstream ships an equivalent, we switch to it.

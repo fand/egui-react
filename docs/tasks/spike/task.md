@@ -1,7 +1,7 @@
 # Task: spike (PR1 = Phase 0 + 1)
 
-> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-reactor's
-> own layout engine over taffy (`crates/egui-reactor/src/engine.rs`, ARCHITECTURE
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
+> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
 > section 6), which ports its measure function and node rules, so the layout
 > behaviour described here still holds unless ARCHITECTURE says otherwise.
 
@@ -14,7 +14,7 @@ Confirm, with hand-written code and tests and no macros, that the design in [doc
 ### In scope
 
 - Cargo workspace (4 crates + examples), `rust-toolchain.toml`, CI, LICENSE, README skeleton.
-- Minimal `egui-reactor` core: `Store`, `Cx`, `State`, `Handle`, `use_state`, `use_handle`, `use_effect`, `hook_scope`, Id collision detection, sweep, repaint policy.
+- Minimal `egui-react` core: `Store`, `Cx`, `State`, `Handle`, `use_state`, `use_handle`, `use_effect`, `hook_scope`, Id collision detection, sweep, repaint policy.
 - Minimal `provide_context` / `use_context` (only what the verification items need).
 - Counter and Dialog, hand-written as the code the macros should generate (2 callback props, `Handler` trait, `Emitter`).
 - Pin down all verification items in ARCHITECTURE.md section 10 as egui_kittest tests.
@@ -22,7 +22,7 @@ Confirm, with hand-written code and tests and no macros, that the design in [doc
 
 ### Out of scope
 
-- `rsx!` / `#[component]` / `#[hook]` macros (Phase 3). `egui-reactor-macros` is only placed as an empty crate.
+- `rsx!` / `#[component]` / `#[hook]` macros (Phase 3). `egui-react-macros` is only placed as an empty crate.
 - `use_memo` / `use_reducer` / `Dispatch` / `defer` / `update_later` / `use_persisted` / `use_future` (Phase 2 and later).
 - elements (`View` / `Text` / widget wrappers) and layout attributes (Phase 4). egui_taffy is used only to verify multi-pass.
 - On-screen overlay for collision detection (Phase 2). In spike, we only record in the store and `log::warn!`.
@@ -30,15 +30,15 @@ Confirm, with hand-written code and tests and no macros, that the design in [doc
 
 ## Deliverables
 
-- `Cargo.toml` (workspace), `crates/egui-reactor`, `crates/egui-reactor-macros`, `crates/egui-reactor-elements`, `crates/egui-reactor-app`, `examples/spike`.
+- `Cargo.toml` (workspace), `crates/egui-react`, `crates/egui-react-macros`, `crates/egui-react-elements`, `crates/egui-react-app`, `examples/spike`.
 - `.github/workflows/ci.yml`.
-- kittest tests under `crates/egui-reactor/tests/` (one file per verification item).
+- kittest tests under `crates/egui-react/tests/` (one file per verification item).
 - Update to ARCHITECTURE.md (only if an assumption broke).
 
 ## Done criteria
 
 - All verification items in ARCHITECTURE.md section 10 are green as kittest tests. See the table in [plan.md](plan.md) for the mapping from item to test.
-- `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test --workspace`, `cargo check -p egui-reactor --target wasm32-unknown-unknown` pass in CI.
+- `cargo fmt --check`, `cargo clippy --all-targets -- -D warnings`, `cargo test --workspace`, `cargo check -p egui-react --target wasm32-unknown-unknown` pass in CI.
 - `cargo run -p spike` runs Counter and Dialog.
 - Design fixes found during verification are reflected in ARCHITECTURE.md. If there are none, write "no changes" in the PR body.
 

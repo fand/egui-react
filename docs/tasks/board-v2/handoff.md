@@ -51,7 +51,7 @@ cargo run -p board --bin board-plain
 cargo run -p patch
 cargo run -p gallery board
 trunk serve --config examples/patch/Trunk.toml
-UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_reactor
+UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_react
 cargo test -p gallery --features snapshot
 ```
 

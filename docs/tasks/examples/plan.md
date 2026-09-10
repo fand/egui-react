@@ -1,7 +1,7 @@
 # Plan: examples
 
-> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-reactor's
-> own layout engine over taffy (`crates/egui-reactor/src/engine.rs`, ARCHITECTURE
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
+> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
 > section 6), which ports its measure function and node rules, so the layout
 > behaviour described here still holds unless ARCHITECTURE says otherwise.
 
@@ -20,16 +20,16 @@ Split into 3 PRs. Stack them in order.
 |---|---|---|
 | A: gallery | Split examples into lib / bin, gallery, plain egui versions (counter / todo / layout), snapshot match tests, GitHub Pages | `examples/*`, `examples/gallery`, CI, README |
 | B: examples | form / theme / clock / custom-hook / escape-hatch / list-10k / shell / showcase | `examples/*`, registration in the gallery |
-| C: canvas | The `wgpu` feature and `Options.setup` on `egui-reactor-app`, the `<Canvas>` element, the shader example | `egui-reactor-app`, `egui-reactor-elements`, `examples/shader`, gallery |
+| C: canvas | The `wgpu` feature and `Options.setup` on `egui-react-app`, the `<Canvas>` element, the shader example | `egui-react-app`, `egui-react-elements`, `examples/shader`, gallery |
 
-Do not touch core (`egui-reactor`, macros). If it turns out to be needed, write it in section 7.
+Do not touch core (`egui-react`, macros). If it turns out to be needed, write it in section 7.
 
 Dependencies to add (pin them in `[workspace.dependencies]`).
 
 | crate | Purpose | Where |
 |---|---|---|
 | egui_extras (no features) | Code view in the gallery (`syntax_highlighting::code_view_ui`). Do not use `syntect`; it makes the wasm large. The built-in simple highlighter is enough | examples/gallery |
-| eframe `wgpu` feature | Paint callback | egui-reactor-app (behind feature `wgpu`) |
+| eframe `wgpu` feature | Paint callback | egui-react-app (behind feature `wgpu`) |
 | wgpu (through eframe, plus the `webgl` feature on web) | The shader example's pipeline | examples/shader |
 | bytemuck | `Pod` for the uniform | examples/shader |
 
@@ -78,7 +78,7 @@ The screen is three flex columns. No `Panel` (the gallery follows the same rule 
 +----------+----------------------+-------------------------+
 | list     | running example      | code                    |
 | (w=200)  | (grow)               | (w=480, ScrollArea)     |
-| filter   | <View key={name}     | [egui-reactor | plain]    |
+| filter   | <View key={name}     | [egui-react | plain]    |
 | by tag   |   grow={1.0}>        | N lines / M lines       |
 |          |   {App}              | link to GitHub          |
 +----------+----------------------+-------------------------+
@@ -95,7 +95,7 @@ The gallery's `Options.setup` is used in PR C to register the shader pipeline (3
 
 ### 1.3 Plain egui versions (`plain.rs`)
 
-Write the same look as the egui-reactor version in egui alone. Leave the places where the difference shows.
+Write the same look as the egui-react version in egui alone. Leave the places where the difference shows.
 
 | example | Difference visible in the plain egui version |
 |---|---|
@@ -103,7 +103,7 @@ Write the same look as the egui-reactor version in egui alone. Leave the places 
 | todo | How state is held (pass every field of a `struct` around as `&mut self`), deletion cannot happen inside the loop so the index is carried over, persistence is written by hand in `eframe::App::save` |
 | layout | Write `justify="space-between"` / `grow` / `wrap` / grid with `ui.horizontal` + `allocate_space` + manual math. This one becomes the longest |
 
-The shape is `pub struct PlainState` + `pub fn ui(ui: &mut egui::Ui, state: &mut PlainState)`. So it also runs standalone, add `[[bin]] counter-plain` and call it from a thin `main` that implements `eframe::App`. trunk builds only the egui-reactor version.
+The shape is `pub struct PlainState` + `pub fn ui(ui: &mut egui::Ui, state: &mut PlainState)`. So it also runs standalone, add `[[bin]] counter-plain` and call it from a thin `main` that implements `eframe::App`. trunk builds only the egui-react version.
 
 ### 1.4 Tests
 
@@ -113,7 +113,7 @@ Since examples become libs, kittest can live there. They run under `cargo test -
 |---|---|---|
 | A-1 | `examples/counter/tests/` | Pressing `+` increases the display by 1. The plain egui version gives the same result for the same action |
 | A-2 | `examples/todo/tests/` | Add / toggle / delete / clear done. Same for the plain egui version |
-| A-3 | `examples/gallery/tests/snapshots.rs` (feature `snapshot`) | Draw the egui-reactor version and the plain egui version of each example at the same size, and compare them under the **same snapshot name**. If both match one image, that backs the claim "same look, only the code differs" |
+| A-3 | `examples/gallery/tests/snapshots.rs` (feature `snapshot`) | Draw the egui-react version and the plain egui version of each example at the same size, and compare them under the **same snapshot name**. If both match one image, that backs the claim "same look, only the code differs" |
 | A-4 | `examples/gallery/tests/` | Choosing an example from the list shows its `App`. Tag filtering |
 
 Snapshots do not run in CI, same as the existing ones (add the gallery to the Testing section of the README).
@@ -121,7 +121,7 @@ Snapshots do not run in CI, same as the existing ones (add the gallery to the Te
 ### 1.5 CI and Pages
 
 - `ci.yml`: change the trunk build from the 2 steps for counter / fetch into a loop over `examples/*/Trunk.toml`. Includes the gallery.
-- `pages.yml` (new): on push to `main`, run `trunk build --release --public-url /egui-reactor/ --config examples/gallery/Trunk.toml`, then `actions/upload-pages-artifact` + `actions/deploy-pages`. The URL is `https://fand.github.io/egui-react/`.
+- `pages.yml` (new): on push to `main`, run `trunk build --release --public-url /egui-react/ --config examples/gallery/Trunk.toml`, then `actions/upload-pages-artifact` + `actions/deploy-pages`. The URL is `https://fand.github.io/egui-react/`.
 - In the repository settings, set the Pages source to GitHub Actions (by hand, once).
 
 ### 1.6 README
@@ -162,9 +162,9 @@ Put one kittest file in each example (1 to 3 main actions). Add form / list-10k,
 
 Draw a wgpu shader animation inside a component. Core stays unchanged. Three layers: runner, elements, example.
 
-### 3.1 The `wgpu` feature of `egui-reactor-app`
+### 3.1 The `wgpu` feature of `egui-react-app`
 
-- eframe stays at default (glow). Add feature `wgpu = ["eframe/wgpu"]` to `egui-reactor-app`.
+- eframe stays at default (glow). Add feature `wgpu = ["eframe/wgpu"]` to `egui-react-app`.
 - When the `wgpu` feature is on, `Options::default()` sets `native.renderer` to `eframe::Renderer::Wgpu`. glow stays (both get compiled. Features unify across the workspace, so with `--workspace` every example runs on wgpu. No harm).
 - wasm: turn on the `webgl` feature of `wgpu` for browsers without WebGPU. Check with `trunk build`.
 - The note "`wgpu` is left out on purpose" in `Cargo.toml` is about kittest and does not affect headless tests.
@@ -182,7 +182,7 @@ pub struct Options {
 
 Call it at the top of `ReactApp::new`. Same shape as the official egui demo (`custom3d_wgpu`). The idea of handing out `RenderState` via `use_context` is not taken: it gains little for the work of creating a slot. No wgpu types appear in hooks or context.
 
-### 3.3 The `<Canvas>` element (`egui-reactor-elements`)
+### 3.3 The `<Canvas>` element (`egui-react-elements`)
 
 ```rust
 #[component]
@@ -245,7 +245,7 @@ fn App(cx: &mut Cx) {
 - The point to show is that `state` flows straight into the uniform. `Slider`'s `bind` -> `speed` -> uniform.
 - `ShaderResources` is stored by type in `callback_resources` (`TypeMap`). Even when it lives next to other examples in the gallery, different types do not collide.
 - Multiple passes: egui discards the shapes of a dropped pass. The callback never runs twice.
-- The gallery turns on `egui-reactor-app/wgpu` and calls `shader::gpu::setup(cc)` in `setup`.
+- The gallery turns on `egui-react-app/wgpu` and calls `shader::gpu::setup(cc)` in `setup`.
 - No plain egui version (the wgpu part would be the same code, so there is no difference).
 
 ### 3.5 Tests
@@ -270,7 +270,7 @@ fn App(cx: &mut Cx) {
 
 ## 5. Points that may need a decision
 
-- **Snapshot match between the egui-reactor version and the plain egui version (A-3)**. Rounding in taffy and egui may shift by 1px. If it shifts, loosen the threshold (`SnapshotOptions::threshold`), or give up and use a different snapshot name and only "show them side by side". Try layout first.
+- **Snapshot match between the egui-react version and the plain egui version (A-3)**. Rounding in taffy and egui may shift by 1px. If it shifts, loosen the threshold (`SnapshotOptions::threshold`), or give up and use a different snapshot name and only "show them side by side". Try layout first.
 - **`impl FnOnce` props (3.3)**. If the typed-builder of `#[component]` fails inference on a closure prop, fall back to `&mut dyn FnMut(&mut egui::Ui, egui::Rect)`.
 - **Can `Panel` be embedded in the gallery (shell)?** `SidePanel::show_inside` cuts space out of the child `Ui`, so inside the gallery's center column the look might hold. Try it, and if it works put shell in the gallery too.
 - **Shader snapshot with kittest (C-3)**. If `WgpuTestRenderer`'s `RenderState` has no way to inject `callback_resources`, drop C-3 and check by eye only.
@@ -282,9 +282,9 @@ fn App(cx: &mut Cx) {
 ## 6. Changes to reflect in ARCHITECTURE.md
 
 - Section 6, element list: add `Canvas` to containers (`sense` / `on_paint`, `on_drag` / `on_hover`). "Does not depend on egui-wgpu. The caller adds the callback with `painter().add`".
-- Section 7, crate layout: the `wgpu` feature of `egui-reactor-app`, `Options.setup`. Examples are lib + bin and the gallery takes the lib as a dependency.
+- Section 7, crate layout: the `wgpu` feature of `egui-react-app`, `Options.setup`. Examples are lib + bin and the gallery takes the lib as a dependency.
 - Section 8, platforms: wgpu backend, WebGL fallback on web. The Pages URL.
-- Section 9, tests: kittest in examples. Snapshot match between the egui-reactor version and the plain egui version (the gallery's `snapshot` feature).
+- Section 9, tests: kittest in examples. Snapshot match between the egui-react version and the plain egui version (the gallery's `snapshot` feature).
 - Section 11, decision log: why the gallery is one wasm, why the plain egui version sits next to it, why `Options.setup` was chosen over `use_context`, why `Canvas` does not have egui-wgpu.
 
 ## 7. Differences found during implementation
@@ -300,11 +300,11 @@ fn App(cx: &mut Cx) {
 
 ### Step 2.5 (bug fixes)
 
-Two bugs outside core, found by looking at the gallery. They were not in the plan, so one commit is added. `crates/egui-reactor` (core) and the macros are unchanged.
+Two bugs outside core, found by looking at the gallery. They were not in the plan, so one commit is added. `crates/egui-react` (core) and the macros are unchanged.
 
-**Bug 1: text inside a taffy leaf stacks vertically one character at a time.** The `reset` button of `cargo run -p counter` came out 15x77 (one character wide). The cause is how egui_taffy measures: a leaf remembers only "the `ui.min_size()` from the last draw" (`ui_finite` puts the same value into `min_size` and `max_size`) and reports it to taffy as both min-content and max-content. The first draw happens in a `Ui` of width 0, so a wrapping widget reports one character's width there, and the node gets pinned at that width. Leaves with `grow` or `w` are fine because taffy decides their width, which is why only the gallery's list buttons (`grow={1.0}`) looked right. The fix is in `egui-reactor-elements`: set every leaf that holds text to `TextWrapMode::Extend` (which `Text` already did). `Button` / `Label` use the widget's `wrap_mode` builder; `Checkbox` / `Slider` / `ComboBox` / the `Collapsing` header use `style.wrap_mode` on the leaf's `Ui`. `Label` got a `wrap` attribute so you can go back to egui's default wrapping (same as `Text`). The test is `a_label_in_a_taffy_leaf_stays_on_one_line` in `crates/egui-reactor-elements/tests/widgets.rs`.
+**Bug 1: text inside a taffy leaf stacks vertically one character at a time.** The `reset` button of `cargo run -p counter` came out 15x77 (one character wide). The cause is how egui_taffy measures: a leaf remembers only "the `ui.min_size()` from the last draw" (`ui_finite` puts the same value into `min_size` and `max_size`) and reports it to taffy as both min-content and max-content. The first draw happens in a `Ui` of width 0, so a wrapping widget reports one character's width there, and the node gets pinned at that width. Leaves with `grow` or `w` are fine because taffy decides their width, which is why only the gallery's list buttons (`grow={1.0}`) looked right. The fix is in `egui-react-elements`: set every leaf that holds text to `TextWrapMode::Extend` (which `Text` already did). `Button` / `Label` use the widget's `wrap_mode` builder; `Checkbox` / `Slider` / `ComboBox` / the `Collapsing` header use `style.wrap_mode` on the leaf's `Ui`. `Label` got a `wrap` attribute so you can go back to egui's default wrapping (same as `Text`). The test is `a_label_in_a_taffy_leaf_stays_on_one_line` in `crates/egui-react-elements/tests/widgets.rs`.
 
-**Bug 2: the root container does not fill the window.** counter's `0` and buttons showed at the top left instead of the center (the same `App` embedded in the gallery shows in the center). `reserve_available_space()` only tells egui_taffy the available space and calls `ui.set_min_size`; the root node's own `size` stays `auto`, so taffy sizes that node to its content. `<View grow={1.0} justify="center">` then has no room to grow into and nothing to center against. The fix is in `egui-reactor-app`: put `w("100%")` / `min_h("100%")` into the root `ItemStyle` (only a minimum on the vertical axis, so content taller than the window can extend as is). While there, the root id and style were exposed as `root_id()` / `root_style()` so tests can rebuild the same frame (`crates/egui-reactor-app/tests/root_fill.rs`).
+**Bug 2: the root container does not fill the window.** counter's `0` and buttons showed at the top left instead of the center (the same `App` embedded in the gallery shows in the center). `reserve_available_space()` only tells egui_taffy the available space and calls `ui.set_min_size`; the root node's own `size` stays `auto`, so taffy sizes that node to its content. `<View grow={1.0} justify="center">` then has no room to grow into and nothing to center against. The fix is in `egui-react-app`: put `w("100%")` / `min_h("100%")` into the root `ItemStyle` (only a minimum on the vertical axis, so content taller than the window can extend as is). While there, the root id and style were exposed as `root_id()` / `root_style()` so tests can rebuild the same frame (`crates/egui-react-app/tests/root_fill.rs`).
 
 - The gallery's `Chip` stays. `Button` is fixed, but tags want to show a pressed state, elements has no toggle element, and `egui::SelectableLabel` has no `wrap_mode` builder. It serves as an example that hand-written leaves also need to set `style.wrap_mode`.
 - A toggle element in elements (`SelectableLabel` / `RadioButton`) is a future candidate.
@@ -315,10 +315,10 @@ A continuation of the same cause as bug 2. Choosing layout in the gallery pushed
 
 The cause is the other half of "the root node takes the size of its content". `min_w("100%")` only gives the root a lower bound; `size` stays `auto`, so if the content is wider than the window the root grows to match. No overflow means `flex-shrink` never gets a turn, so the middle column does not shrink even though it has `grow={1.0} min_w={0.0}`, and the row runs straight out of the window. It is not that `min_w` fails to reach taffy (`Length::Px(0.0)` -> `Dimension::length(0.0)`).
 
-The fix is to set the root's `w` to `100%` so the width is fixed (`egui-reactor-app`). The window width is fixed, so a fixed value is right; anything wider belongs in a horizontal `ScrollArea`. Vertical stays `min_h("100%")`. There was no need to add `overflow` to core (`layout.rs`).
+The fix is to set the root's `w` to `100%` so the width is fixed (`egui-react-app`). The window width is fixed, so a fixed value is right; anything wider belongs in a horizontal `ScrollArea`. Vertical stays `min_h("100%")`. There was no need to add `overflow` to core (`layout.rs`).
 
 - On the gallery side, the code column got `shrink={0.0}`. With only the width fixed, an example with large content like layout squeezes the code column down to its `min_w` of 360. With `shrink={0}` all overflow goes to the middle column (`min_w={0}`), and the column width does not move between examples.
-- The gallery tests were switched to `egui_reactor_app::root_id()` / `root_style()` so they use the same frame as the runner. With a hand-built frame the tests would miss exactly this bug.
+- The gallery tests were switched to `egui_react_app::root_id()` / `root_style()` so they use the same frame as the runner. With a hand-built frame the tests would miss exactly this bug.
 
 ### Step 3 (A-3)
 
@@ -326,7 +326,7 @@ The fix is to set the root's `w` to `100%` so the width is fixed (`egui-reactor-
 
 Line counts (`source.lines().count()`, the whole file including META and doc comments).
 
-| example | egui-reactor | plain egui |
+| example | egui-react | plain egui |
 |---|---|---|
 | counter | 32 | 84 |
 | todo | 143 | 143 |
@@ -346,23 +346,23 @@ todo comes out equal because `lib.rs` holds `META` (12 lines) and the reducer de
 
 Things fixed on the way here.
 
-1. **The painted background area** (40k to 110k px). In the plain egui harness, call `ui.set_min_size(ui.available_size())` so it takes as much room as the egui-reactor root.
-2. **`<TextEdit grow={1.0}>` does not fill its node** (todo, 773 px). taffy widens the node to 321pt, but `egui::TextEdit` draws at its own default `desired_width` (280pt), leaving a 40pt gap inside. Fixed `TextEdit` in `egui-reactor-elements`: when `desired_width` is not set and `cx.in_taffy()`, pass `ui.available_width()`. In Ui mode there is nothing to fill, so egui's default stays. The test is `a_growing_text_edit_fills_its_node` (a `w={400}` node gives 400pt). todo's difference went from 773 to 26 px.
+1. **The painted background area** (40k to 110k px). In the plain egui harness, call `ui.set_min_size(ui.available_size())` so it takes as much room as the egui-react root.
+2. **`<TextEdit grow={1.0}>` does not fill its node** (todo, 773 px). taffy widens the node to 321pt, but `egui::TextEdit` draws at its own default `desired_width` (280pt), leaving a 40pt gap inside. Fixed `TextEdit` in `egui-react-elements`: when `desired_width` is not set and `cx.in_taffy()`, pass `ui.available_width()`. In Ui mode there is nothing to fill, so egui's default stays. The test is `a_growing_text_edit_fills_its_node` (a `w={400}` node gives 400pt). todo's difference went from 773 to 26 px.
    - `Slider` and `ComboBox` have the same problem (both stay at 100pt in a 400pt node. `spacing.slider_width` / `spacing.combo_width` are the defaults). `Button` does not stretch either (28pt). Not fixed this time, only recorded. `Slider` has no width builder, so it would mean touching `ui.spacing_mut().slider_width`; `ComboBox` has `.width()`.
 3. **The plain egui `nested` came out as one row**. `ui.allocate_ui` inherits the parent's horizontal layout, so use `allocate_ui_with_layout(.., Layout::top_down(..))` per column and claim the width with `ui.set_min_width` (otherwise the allocation shrinks to the content width).
 4. **Made the `grow` math match flexbox**. At first the whole width was split 1:2, but `grow` distributes the *remainder*. Measure each column's content width and add the rest at 1:2. That brought the x of `right top` to 218.0 versus 217.9.
 5. **Vertical spacing in the justify section**. `gap={4}` + `mb={4}` on each row means "8 between rows, 4 after the last row". egui also adds item_spacing around `add_space`, so set `item_spacing.y = 0` and write 8 and 4 explicitly. Then the y of every section matched exactly.
 
-The 2 images in `crates/egui-reactor-elements/tests/snapshots/` were retaken. `row.png` had not been retaken after the wrap fix in step 2.5, and the **still-buggy picture** with `right` stacked one character per line was committed (snapshots sit behind a feature, so they did not run in that step). `widgets.png` changed by the amount the field widened from the `TextEdit` fix above. **Tests behind a feature must be run by hand on every change that touches what that feature covers.**
+The 2 images in `crates/egui-react-elements/tests/snapshots/` were retaken. `row.png` had not been retaken after the wrap fix in step 2.5, and the **still-buggy picture** with `right` stacked one character per line was committed (snapshots sit behind a feature, so they did not run in that step). `widgets.png` changed by the amount the field widened from the `TextEdit` fix above. **Tests behind a feature must be run by hand on every change that touches what that feature covers.**
 
-Generate snapshots by taking the egui-reactor side first (`UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_reactor`). Updating both same-named tests at once makes them fight over the same file.
+Generate snapshots by taking the egui-react side first (`UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_react`). Updating both same-named tests at once makes them fight over the same file.
 
 An empty list says nothing in the todo picture, so before taking it, drive both through the same steps (add `milk` / `eggs` and mark one done). `done (1)` is in the default collapsed state on both.
 
 **Other decisions.**
 
 - The gallery's plain egui version uses `use_state(cx, PlainState::default)` + `cx.leaf_fill(.., |ui| plain::ui(ui, state.bind()))`. With `&mut *state` it goes dirty every frame and keeps requesting repaints, and kittest's `run()` fails on `max_steps`. `bind()` is right here for the same reason it is right for bind widgets.
-- The toggle sits in the code column, with both line counts under it (`"32 lines"` and `"84 lines plain"`). Choosing an example again goes back to the egui-reactor version.
+- The toggle sits in the code column, with both line counts under it (`"32 lines"` and `"84 lines plain"`). Choosing an example again goes back to the egui-react version.
 - `PlainState` is a different type per example, so branch with `match` like `Running` (one macro generates all 3).
 - todo's persistence became `save()` / `load()` that build JSON with `serde_json`, and `plain_main.rs` touches eframe's `Storage`. This keeps `plain.rs` to egui + serde only.
 - The last section of the plain egui layout (`Grid` / `Vertical`) comes out about the same length on both sides. That is expected because both sides use egui's own containers, and it is shown honestly too.
@@ -372,12 +372,12 @@ An empty list says nothing in the todo picture, so before taking it, drive both 
 CI, Pages, README.
 
 - `ci.yml`: the 2 steps for counter / fetch became one loop, `for config in examples/*/Trunk.toml`. The glob matches 5 (counter / fetch / gallery / layout / todo). `examples/meta` has no Trunk.toml, so it is not included. Actions' `run:` uses `bash -e` by default, so a failure inside the loop stops right there (checked locally). The comment on why `--config` is passed and the fetch comment were gathered above the loop. The gallery was added to the snapshot comment at the end.
-- `pages.yml` (new): on push to `main` and `workflow_dispatch`. The build job runs `trunk build --release --public-url /egui-reactor/ --config examples/gallery/Trunk.toml`, hands `examples/gallery/dist` to `upload-pages-artifact@v3`, and the deploy job runs `deploy-pages@v4`. `pages: write` / `id-token: write` are set only on the deploy job; the top level is `contents: read`. `concurrency: pages` uses `cancel-in-progress: false` (what gets published should be a commit whose build ran to the end).
+- `pages.yml` (new): on push to `main` and `workflow_dispatch`. The build job runs `trunk build --release --public-url /egui-react/ --config examples/gallery/Trunk.toml`, hands `examples/gallery/dist` to `upload-pages-artifact@v3`, and the deploy job runs `deploy-pages@v4`. `pages: write` / `id-token: write` are set only on the deploy job; the top level is `contents: read`. `concurrency: pages` uses `cancel-in-progress: false` (what gets published should be a commit whose build ran to the end).
   - `dist = "dist"` is relative to Trunk.toml, so the output at `examples/gallery/dist` is correct. Checked locally.
-  - `--public-url` only rewrites the `<link href>` in the generated `index.html` to `/egui-reactor/gallery-….js`. The `#todo` direct link reads `location.hash` inside the wasm, so it has nothing to do with `--public-url`. Both checked locally.
+  - `--public-url` only rewrites the `<link href>` in the generated `index.html` to `/egui-react/gallery-….js`. The `#todo` direct link reads `location.hash` inside the wasm, so it has nothing to do with `--public-url`. Both checked locally.
   - The apt install of dependencies is the same as in ci.yml. A wasm-only build should not need it, but the deploy is not the place to find out.
   - **One manual step remains**: in the repository's Settings -> Pages -> Source, choose "GitHub Actions". This is also written in the comment at the top of pages.yml.
-- `README.md`: fixed "`examples/counter` verbatim" (the homework from step 1). Stated clearly that the snippet combines the component from lib.rs and the `run(..)` from main.rs, and copied the content from the current files. Turned the Examples section into a table (name / what / live / source / plain egui) linking to the gallery, and listed how to run: `cargo run -p <name>`, `--bin <name>-plain`, `trunk serve`, `cargo run -p gallery <name>`. Added `cargo test -p gallery --features snapshot` to the Testing section, with the step of taking the egui-reactor side first for same-name comparisons. Line counts are not in the README (as in step 3, todo is equal, which misleads without explanation).
+- `README.md`: fixed "`examples/counter` verbatim" (the homework from step 1). Stated clearly that the snippet combines the component from lib.rs and the `run(..)` from main.rs, and copied the content from the current files. Turned the Examples section into a table (name / what / live / source / plain egui) linking to the gallery, and listed how to run: `cargo run -p <name>`, `--bin <name>-plain`, `trunk serve`, `cargo run -p gallery <name>`. Added `cargo test -p gallery --features snapshot` to the Testing section, with the step of taking the egui-react side first for same-name comparisons. Line counts are not in the README (as in step 3, todo is equal, which misleads without explanation).
 - The screenshot is not inserted yet. A `<!-- TODO: gallery screenshot -->` marker is in place.
 
 ## 8. PR B record
@@ -388,9 +388,9 @@ A settings form. `Settings` (name / notify / autosave / volume / theme) lives in
 
 - **`on_change` cannot read the new value**. A `bind` element's widget holds the `&mut` of the state, so a handler on the same element cannot touch the same state (the rule in section 6). So the log can only hold what the widget passes as payload: `Checkbox` gives the new `bool`, `ComboBox` the new index, `TextEdit` and `Slider` give `()`, so they can only say "name edited" and "volume changed". This is a constraint and also an inconvenience, but it is where the meaning of `bind` shows plainly, so it is shown as is and noted in a comment.
 - **The width of `Slider` / `ComboBox` was not fixed**. The "stays at 100pt even in a grow node" from step 3 remains. But in a settings form it is normal for a widget to sit next to its label at a natural width, and a ComboBox stretched across the row would look odd. So form does not use `grow`; it gives the label column a width (90pt) to line things up. When an example that wants stretching comes along (list-10k or so), fix it then the same way as `TextEdit`.
-- **The snapshot matches exactly** (diff 0 px, allowance also 0). Unlike counter / todo / layout, not a single pixel differs. On the egui-reactor side it is the line where `<Field>` gives the label `w={90}`; on the plain egui side it is `egui::Grid::new(..).min_col_width(90)`. Both say "make a label column" in one line.
+- **The snapshot matches exactly** (diff 0 px, allowance also 0). Unlike counter / todo / layout, not a single pixel differs. On the egui-react side it is the line where `<Field>` gives the label `w={90}`; on the plain egui side it is `egui::Grid::new(..).min_col_width(90)`. Both say "make a label column" in one line.
   - At first it was off by 503 px. The plain egui side fixed the height with `ui.add_sized([200, interact_size.y], TextEdit)`; switching to `TextEdit::singleline(..).desired_width(200.0)` and letting egui choose the height brought it to 0.
-- Line counts are **egui-reactor 158 / plain egui 123, so egui-reactor is longer**. Two reasons, both worth showing honestly. (a) `Settings`, `THEMES`, and `META` live in `lib.rs`, and `plain.rs` gets them with `use crate::Settings`. `lib.rs` carries the weight of the shared types. (b) egui's `Grid` aligns the label column for you, so the egui-reactor side, which writes a `<Field>` component, has more to do. **Forms are an area where egui is already strong, and egui-reactor does not win here.** The differences are in how state is held (one struct passed around as `&mut`), the need to "collect the log before drawing the rows", and writing persistence by hand. Those are the same kind of difference as todo in 1.3.
+- Line counts are **egui-react 158 / plain egui 123, so egui-react is longer**. Two reasons, both worth showing honestly. (a) `Settings`, `THEMES`, and `META` live in `lib.rs`, and `plain.rs` gets them with `use crate::Settings`. `lib.rs` carries the weight of the shared types. (b) egui's `Grid` aligns the label column for you, so the egui-react side, which writes a `<Field>` component, has more to do. **Forms are an area where egui is already strong, and egui-react does not win here.** The differences are in how state is held (one struct passed around as `&mut`), the need to "collect the log before drawing the rows", and writing persistence by hand. Those are the same kind of difference as todo in 1.3.
 - In the gallery list it sits after counter / todo (before form / layout / fetch).
 
 ### Step 5-2: theme
@@ -460,16 +460,16 @@ Show the price of a long list honestly. Package `list-10k` / lib `list_10k`, wit
 
 **Measured numbers** (`cargo test --release -p list-10k --test bench -- --ignored --nocapture`. `Harness::step` for 20 frames, 600x800, no GPU, so "CPU side of one frame". M4 Max).
 
-| Rows | egui-reactor | plain egui (`show_rows`) |
+| Rows | egui-react | plain egui (`show_rows`) |
 |---|---|---|
 | 100 | 0.84 ms | 0.18 ms |
 | 1,000 | 5.03 ms | 0.14 ms |
 | 10,000 | 86.82 ms | 0.17 ms |
 
-egui-reactor draws every row. The `for` in `rsx!` is a real loop; one row is a `<View>` + 3 children, so 10k rows means 40k taffy nodes. The plain egui version uses `ScrollArea::show_rows` to draw only the roughly 15 visible rows and reserves height for the rest, so the frame time does not move when the row count grows 100x. **Plain egui wins this example.** The numbers are not in the README (they are here and in the example's module doc).
+egui-react draws every row. The `for` in `rsx!` is a real loop; one row is a `<View>` + 3 children, so 10k rows means 40k taffy nodes. The plain egui version uses `ScrollArea::show_rows` to draw only the roughly 15 visible rows and reserves height for the rest, so the frame time does not move when the row count grows 100x. **Plain egui wins this example.** The numbers are not in the README (they are here and in the example's module doc).
 
 - **No virtualization prop was added to `<ScrollArea>`**. It was a candidate in plan section 5, but `<ScrollArea>` takes its children as an opaque `impl View` closure, so the body of the `for` loop cannot be pulled out. To make `rows={(count, row_height)}` mean anything, a separate element is needed that takes "a closure that receives an index and returns a View" as a prop. -> **Step 5-8 added that element (`<VirtualList>`).** The "plain egui wins" conclusion of this section is updated there.
-- **The default row count**. `DEFAULT_COUNT = 10_000` (as the name says). But the gallery passes `initial_count={1_000}`. At 10k one frame is 85ms and the whole gallery drops to 12fps, which reads as "egui-reactor is slow". The slider reaches 10k, so anyone who wants to can push it. The plain egui version is also set to 1,000 in the gallery (it is virtualized so 10k is fine, but if the row count changed with the toggle there would be no comparison).
+- **The default row count**. `DEFAULT_COUNT = 10_000` (as the name says). But the gallery passes `initial_count={1_000}`. At 10k one frame is 85ms and the whole gallery drops to 12fps, which reads as "egui-react is slow". The slider reaches 10k, so anyone who wants to can push it. The plain egui version is also set to 1,000 in the gallery (it is virtualized so 10k is fine, but if the row count changed with the toggle there would be no comparison).
 - **Snapshots use different names** (`list_10k_react.png` / `list_10k_plain.png`). Under the same name they differ by 9,373 px. The content is the same list, but one draws every row and the other draws the visible 12 to 14 rows and reserves the rest, so a shift of about 3px inside a row repeats for every row. Closing the gap would mean writing the plain egui version to match taffy's math, which crosses the line in section 5. Unlike form / counter / todo / layout, the structure differs here.
 - **kittest: a button inside a `ScrollArea` cannot be pressed with `click()`**. The simulated pointer press is absorbed by the scroll area and does not reach the widget. `click_accesskit()` works. Hit this in the row deletion test.
 - The bench is an `#[ignore]` test (`tests/bench.rs`). It only means anything in release, and it is not an assertion.
@@ -477,14 +477,14 @@ egui-reactor draws every row. The `for` in `rsx!` is a real loop; one row is a `
 
 ### Step 5-7: shell (and a fix to the list-10k index column)
 
-**The list-10k fix.** The index column of the plain egui version took the width of its content, so the start of the name did not line up with the egui-reactor version. `INDEX_W` (64pt) is exported from the lib and both use it. The plain egui side uses `allocate_ui_with_layout` + `set_min_width` (`add_sized` centers, and without a minimum width it shrinks to the content). Snapshots retaken. Still under different names.
+**The list-10k fix.** The index column of the plain egui version took the width of its content, so the start of the name did not line up with the egui-react version. `INDEX_W` (64pt) is exported from the lib and both use it. The plain egui side uses `allocate_ui_with_layout` + `set_min_width` (`add_sized` centers, and without a minimum width it shrinks to the content). Snapshots retaken. Still under different names.
 
 **shell.** An IDE-like frame. Top / left / bottom `<Panel>`, the editor in `<CentralPanel>`, the inspector in a floating `<Window>`, the tree on the left is `<Collapsing>` + `selectable_label`.
 
 **Bug: `<Panel>` did not dock under the runner. Fixed in elements.**
 
 - Cause. `Panel` is `shares_ui`, but its body is `cx.leaf(&style, ..)`, so in taffy mode one node is created and the panel cuts space out of that. The runner always opens `root_container`, so 4 panels cut out 4 small nodes and all of them drew stacked at the same top left (measured: `save` / `files` / `log` all near (16,10)). The "panels are meant for the app root" of ARCHITECTURE section 6 did not hold under the runner.
-- Fix (`egui-reactor-elements`). **A panel cuts space out of "the nearest egui `Ui`", which is the `Ui` that started the current taffy tree.** In taffy mode it calls `show_inside` on `cx.ui()` instead of `cx.leaf`. Outside a tree (Ui mode) it works as before. `CentralPanel` is the same. Under the runner this `Ui` is the window, so "use at the root" holds automatically.
+- Fix (`egui-react-elements`). **A panel cuts space out of "the nearest egui `Ui`", which is the `Ui` that started the current taffy tree.** In taffy mode it calls `show_inside` on `cx.ui()` instead of `cx.leaf`. Outside a tree (Ui mode) it works as before. `CentralPanel` is the same. Under the runner this `Ui` is the window, so "use at the root" holds automatically.
 - As a result, a `<Panel>` written deep inside a `<View>` is not part of that row; it jumps to the window edge. That is what docking means, so the doc comment states "this is not a bug". The test is `a_panel_inside_a_view_docks_in_the_window` (a left panel inside `<View grow>` reaches the window's left edge and does not overlap the rest). The existing `panels_written_as_siblings_dock` still passes as is.
 - **It cannot go in the gallery** (this rule does not change that). Even placed in the gallery's center column, what the panel cuts from is the `Ui` that started the gallery's tree, which is the whole window. Tried at 1280x800: the gallery's own labels were painted over by `CentralPanel` and vanished. The "try it, and if it works put it in the gallery" of plan section 5 **did not work out**. It stays standalone.
 
@@ -502,9 +502,9 @@ egui-reactor draws every row. The `for` in `rsx!` is a real loop; one row is a `
 
 ### Step 5-8: `<VirtualList>` and the third list-10k
 
-It is true that `ScrollArea` + `for` draws every row, but ending with "so plain egui wins" is not right. **egui-reactor can virtualize too. It just cannot do it through `<ScrollArea>`.** An element was added, and list-10k was rebuilt around that comparison.
+It is true that `ScrollArea` + `for` draws every row, but ending with "so plain egui wins" is not right. **egui-react can virtualize too. It just cannot do it through `<ScrollArea>`.** An element was added, and list-10k was rebuilt around that comparison.
 
-**`crates/egui-reactor-elements/src/virtual_list.rs`**
+**`crates/egui-react-elements/src/virtual_list.rs`**
 
 ```rust
 #[component]
@@ -522,7 +522,7 @@ The body is exactly section 4 of escape-hatch: inside `cx.leaf_fill`, call `egui
 - **Closure props can be written. But state the bound explicitly** (the answer to the worry in 3.3). `render: impl FnMut(&mut Cx, usize)` does not compile. `#[component]`'s `ElideToPropLifetime` rewrites the prop's elided lifetimes to the props struct's, so an undeclared lifetime appears inside `impl Trait` and you get `use of undeclared lifetime name`. Write `impl for<'a, 's, 'u> FnMut(&'a mut Cx<'s, 'u>, usize)` yourself, and there is nothing to rewrite, so it compiles as is. No need to fall back to `&mut dyn FnMut`. This is a different problem from the `Handle` prop in 5-2; there the cause was the props type naming `'s`.
 - The constraint is "all rows have the same height". That is the condition under which `show_rows` can produce a range without measuring, and the element cannot check it, so the doc states it.
 - It is `leaf_fill`, so give it `grow` or `h` (the lesson from step 5-5).
-- Tests (`crates/egui-reactor-elements/tests/virtual_list.rs`): 10,000 rows in a 300pt harness put only about 15 rows in the tree, and `row 9999` does not exist. Scrolling removes the first row and brings in later rows.
+- Tests (`crates/egui-react-elements/tests/virtual_list.rs`): 10,000 rows in a 300pt harness put only about 15 rows in the tree, and `row 9999` does not exist. Scrolling removes the first row and brings in later rows.
 
 **The third list-10k.** A `Checkbox "virtualise"` switches between `<ScrollArea>` + `for` and `<VirtualList>`. A row is one `<Row>` component, and both paths draw the same thing. The default is off, so what the gallery shows first is still "the price of drawing everything".
 
@@ -532,7 +532,7 @@ The body is exactly section 4 of escape-hatch: inside `cx.leaf_fill`, call `egui
 | 1,000 | 5.06 ms | 0.28 ms | 0.13 ms |
 | 10,000 | 78.04 ms | 0.27 ms | 0.17 ms |
 
-`<VirtualList>` is flat in the row count. The gap to plain egui (0.27 versus 0.17) is the price of the taffy nodes for the roughly 15 rows on screen, which is the price of using egui-reactor itself, so it is shown as is. **The conclusion changed from "plain egui wins" to "writing 10k rows with `for` is expensive. There is a dedicated element for long lists".**
+`<VirtualList>` is flat in the row count. The gap to plain egui (0.27 versus 0.17) is the price of the taffy nodes for the roughly 15 rows on screen, which is the price of using egui-react itself, so it is shown as is. **The conclusion changed from "plain egui wins" to "writing 10k rows with `for` is expensive. There is a dedicated element for long lists".**
 
 - Tests: switching does not change filter and delete behavior, and both paths show the same thing in the first 10 rows.
 - Added `VirtualList` to the element table in ARCHITECTURE section 6, noting that `ScrollArea` draws everything and when to use which. The list-10k line in the README was replaced too.
@@ -561,11 +561,11 @@ A notes app. It combines what the other examples showed one at a time, in the sh
 
 **The assumption in 3.1 was wrong. "eframe stays at default (glow)" does not hold for eframe 0.36.** The `default` feature of eframe 0.36.1 is `["accesskit", "default_fonts", "links", "wayland", "web_screen_reader", "wgpu", "winit/default", "x11"]`, and **`glow` is not in it**. `Renderer::Glow` does not even exist without the `glow` feature, and `Renderer::default()` returns `Wgpu`. So **this repository has been drawing with wgpu from the start**. The reverse of 0.35 and earlier; now glow is the opt-in.
 
-So **no `wgpu` feature is added**. `wgpu = ["eframe/wgpu"]` was added once, but with today's eframe it is a feature that changes nothing and only adds noise to the API. The "should wgpu be the only backend" question of section 5 was settled by eframe first. Anyone who wants glow can set `eframe/glow` explicitly, and that is not this crate's job. The reasoning is kept in a comment in `crates/egui-reactor-app/Cargo.toml` and in ARCHITECTURE section 8.
+So **no `wgpu` feature is added**. `wgpu = ["eframe/wgpu"]` was added once, but with today's eframe it is a feature that changes nothing and only adds noise to the API. The "should wgpu be the only backend" question of section 5 was settled by eframe first. Anyone who wants glow can set `eframe/glow` explicitly, and that is not this crate's job. The reasoning is kept in a comment in `crates/egui-react-app/Cargo.toml` and in ARCHITECTURE section 8.
 
 **The WebGL fallback is also in without doing anything.** `eframe/wgpu` -> `egui-wgpu/default` -> `wgpu/webgl`. The "turn on the `webgl` feature of `wgpu` on wasm" in 3.1 was unnecessary. `[workspace.dependencies]` only pins `wgpu = "30.0"` (the version eframe 0.36.1 uses), so the shader example links to the same wgpu when it builds its pipeline.
 
 **`Options.setup`** was added as in 3.2. The type is `Option<Setup>`, `pub type Setup = Box<dyn FnOnce(&eframe::CreationContext<'_>)>` (clippy's `type_complexity` rejects the raw type, so it got an alias. It also reads better as an API). `ReactApp::new` calls `take()` on it at the top. A paint callback may be added in the first frame, so it runs before the store is created. The `options` argument of `ReactApp::new` changed from `&Options` to `&mut Options`, and both the native and wasm startup closures move `options` in and `take` it (each closure is called only once).
 
-- One test in `#[cfg(test)] mod tests` in `crates/egui-reactor-app/src/lib.rs`: the default of `setup` is `None`. kittest cannot run eframe, so confirming that it really draws with wgpu is left to a check by eye (`RUST_LOG=eframe=info`).
+- One test in `#[cfg(test)] mod tests` in `crates/egui-react-app/src/lib.rs`: the default of `setup` is `None`. kittest cannot run eframe, so confirming that it really draws with wgpu is left to a check by eye (`RUST_LOG=eframe=info`).
 - Updated ARCHITECTURE section 7 (the `Options` list and `setup`) and section 8 (backend and WebGL fallback).

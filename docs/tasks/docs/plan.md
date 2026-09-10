@@ -28,7 +28,7 @@ What was rejected, in one line each (the ADR carries the detail):
 
 ## 1. URL and directory layout
 
-Published URLs (GitHub Pages under `/egui-reactor/`, Cloudflare preview under `/`):
+Published URLs (GitHub Pages under `/egui-react/`, Cloudflare preview under `/`):
 
 | URL | What | Built by |
 |---|---|---|
@@ -64,7 +64,7 @@ examples/gallery/
   (it already has the `match` from name to `App`); `find` already is.
 - `embed.rs`: parse `location.hash` into `(name, plain)` — `#todo`,
   `#counter/plain`; unknown or missing falls back to `EXAMPLES[0]`, a `plain`
-  request for an example without one falls back to the egui-reactor version (the
+  request for an example without one falls back to the egui-react version (the
   gallery's own rule). The root closure re-reads the hash every pass and mounts
   `<Running>` under `key={name}` inside a `grow` column, so a hash change
   remounts cleanly. A `hashchange` listener (a `wasm_bindgen` closure leaked
@@ -108,7 +108,7 @@ page list honest.
 `ExampleEmbed.vue` (theme component):
 
 - Props: `name`, `hasPlain`, `reactLines`, `plainLines`.
-- Renders the tab row (labels `egui-reactor · N lines` / `plain egui · M lines`,
+- Renders the tab row (labels `egui-react · N lines` / `plain egui · M lines`,
   hidden when `hasPlain` is false), the iframe (`src` built with `withBase` on
   `/embed/`), and a default slot the page puts the code fences in; the tabs
   toggle a class that shows one fence and hides the other, and switch the
@@ -131,8 +131,8 @@ lifting and reshaping, not new material.
   wasm). From the README intro.
 - **Getting Started**: git dependency `Cargo.toml`, the counter walked through,
   `cargo run`, web with trunk (`index.html`, `canvas_id`), the `default_fonts`
-  and `woff2` features. From README and `egui-reactor-app`.
-- **Guide** — Thinking in egui-reactor (no reconciler, handlers borrow with
+  and `woff2` features. From README and `egui-react-app`.
+- **Guide** — Thinking in egui-react (no reconciler, handlers borrow with
   `&mut`, differences from React: no `memo`/`useCallback`, effects run in
   place, one-frame delay) · `rsx!` (elements, attributes, `{expr}`,
   `if`/`for`/`match`, `key`) · Components and events (`#[component]`, props,
@@ -166,11 +166,11 @@ call it. With `SITE_BASE` defaulting to `/`:
 1. `npm ci && npx vitepress build` (base from `SITE_BASE`) → `.vitepress/dist`.
 2. `trunk build --release --public-url ${SITE_BASE}embed/ --config
    examples/gallery/Trunk-embed.toml` → copied to `dist/embed/`.
-3. `cargo doc --no-deps -p egui-reactor -p egui-reactor-elements -p egui-reactor-app
-   -p egui-reactor-macros` → copied to `dist/api/`.
+3. `cargo doc --no-deps -p egui-react -p egui-react-elements -p egui-react-app
+   -p egui-react-macros` → copied to `dist/api/`.
 
 - `pages.yml`: add a Node setup step (`actions/setup-node`, npm cache), run
-  `SITE_BASE=/egui-reactor/ site/build.sh`, upload `site/.vitepress/dist`. The
+  `SITE_BASE=/egui-react/ site/build.sh`, upload `site/.vitepress/dist`. The
   system-deps and Rust steps stay (cargo doc and trunk want them).
 - `preview-cloudflare-pages.yml`: same with `SITE_BASE=/`, deploy the same dist.
 - `ci.yml` wasm job: the trunk loop's glob is `examples/*/Trunk.toml`, so add
@@ -236,7 +236,7 @@ Steps 1 to 4:
   `.vitepress/theme/custom.css` hides the version that is not selected.
 - **`/api/` needs an index of its own.** `cargo doc` writes one directory per
   crate and no root `index.html`, so `site/build.sh` writes a redirect to
-  `egui_reactor/index.html`.
+  `egui_react/index.html`.
 - **`Trunk-embed.toml`'s output needs its own ignore entry.** `.gitignore`'s
   `dist/` matches only directories named exactly `dist`, so `dist-embed/` was
   added.

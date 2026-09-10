@@ -17,7 +17,7 @@ The `cx` an element is drawn with is a fresh identifier with `Span::call_site()`
 
 ## Consequences
 
-- An element handed through a `macro_rules!` resolves `cx` to the closure it sits in. `crates/egui-reactor/tests/rsx_children.rs` keeps it that way.
+- An element handed through a `macro_rules!` resolves `cx` to the closure it sits in. `crates/egui-react/tests/rsx_children.rs` keeps it that way.
 - `cx` inside an `rsx!` still names the closure's parameter; a user's own `cx` is shadowed as before.
 
 ## Links

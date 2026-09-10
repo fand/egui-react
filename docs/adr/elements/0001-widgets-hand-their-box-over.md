@@ -27,5 +27,5 @@ When `bg` or `border` is given, the widget gives its resting box up: `Button::fr
 
 ## Links
 
-- [ARCHITECTURE section 6, elements list](../../ARCHITECTURE.md#elements-list-egui-reactor-elements)
+- [ARCHITECTURE section 6, elements list](../../ARCHITECTURE.md#elements-list-egui-react-elements)
 - `docs/tasks/paint-style/plan.md`, 1.6 and 1.7

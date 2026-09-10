@@ -1,7 +1,7 @@
 # Plan: async
 
-> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-reactor's
-> own layout engine over taffy (`crates/egui-reactor/src/engine.rs`, ARCHITECTURE
+> `egui_taffy` below is historical. It was replaced in 2026-09 by egui-react's
+> own layout engine over taffy (`crates/egui-react/src/engine.rs`, ARCHITECTURE
 > section 6), which ports its measure function and node rules, so the layout
 > behaviour described here still holds unless ARCHITECTURE says otherwise.
 
@@ -9,18 +9,18 @@ The task definition is in [task.md](task.md). The design rationale is in [docs/A
 
 ## 0. Overview
 
-One phase (Phase 6) in one PR. Split into at least 2 commits (`use_future` / `Suspense` + example). We touch `egui-reactor` (one hook, `spawn`, the counter in `Store`), `egui-reactor-elements` (`Suspense`), `examples/fetch`, CI, and docs. `Slot` / `Cx` / the macros / app are not touched (if that becomes necessary, write it in section 9).
+One phase (Phase 6) in one PR. Split into at least 2 commits (`use_future` / `Suspense` + example). We touch `egui-react` (one hook, `spawn`, the counter in `Store`), `egui-react-elements` (`Suspense`), `examples/fetch`, CI, and docs. `Slot` / `Cx` / the macros / app are not touched (if that becomes necessary, write it in section 9).
 
 Added dependencies (pinned in `[workspace.dependencies]`).
 
 | crate | Use | Where |
 |---|---|---|
-| pollster | native executor (`block_on`) | egui-reactor (`cfg(not(target_arch = "wasm32"))`) |
+| pollster | native executor (`block_on`) | egui-react (`cfg(not(target_arch = "wasm32"))`) |
 | ehttp 0.7 (feature `native-async`) | HTTP client for the fetch example (native = ureq, wasm = fetch API). `fetch_async` needs `native-async` on native | examples/fetch |
 
-`wasm-bindgen-futures` is already in the workspace; add it to the wasm dependencies of `egui-reactor`.
+`wasm-bindgen-futures` is already in the workspace; add it to the wasm dependencies of `egui-react`.
 
-## 1. `use_future` and `spawn` (`crates/egui-reactor/src/future.rs`)
+## 1. `use_future` and `spawn` (`crates/egui-react/src/future.rs`)
 
 ### 1.1 API
 
@@ -59,7 +59,7 @@ pub fn spawn(fut: impl SpawnFuture<()>)
 Two slots are used (same split as `use_reducer`).
 
 - **State slot** (`scope_id.with(location_key)`). The value is `()`. `deps_hash` holds the deps hash, and `Poll<T>` is pushed onto the `memo` `FrozenVec`. One `Pending` at start, then one `Ready(T)` when it arrives. The return value is the downcast of `memo_last()`.
-- **Inbox slot** (`id.with("__egui_reactor_future_inbox")`). The value is a struct holding `Arc<Mutex<Option<(u64, T)>>>` and the current generation `Cell<u64>`.
+- **Inbox slot** (`id.with("__egui_react_future_inbox")`). The value is a struct holding `Arc<Mutex<Option<(u64, T)>>>` and the current generation `Cell<u64>`.
 
 ```rust
 struct Inbox<T> {
@@ -87,10 +87,10 @@ mod task {
     #[cfg(not(target_arch = "wasm32"))]
     pub(crate) fn spawn(fut: impl Future<Output = ()> + Send + 'static) {
         if let Err(err) = std::thread::Builder::new()
-            .name("egui-reactor-future".into())
+            .name("egui-react-future".into())
             .spawn(move || pollster::block_on(fut))
         {
-            log::error!("egui-reactor: could not spawn a thread for use_future: {err}");
+            log::error!("egui-react: could not spawn a thread for use_future: {err}");
         }
     }
     #[cfg(target_arch = "wasm32")]
@@ -137,7 +137,7 @@ impl Store {
 
 `use_future` calls `note_pending()` right before returning if the value is `Pending` (step 4 in 1.3). The same applies right after starting and when it stays `Pending` after a receive.
 
-### 2.2 The element (`crates/egui-reactor-elements/src/suspense.rs`)
+### 2.2 The element (`crates/egui-react-elements/src/suspense.rs`)
 
 ```rust
 /// If even one `use_future` inside is Pending, draw fallback instead of children.
@@ -192,7 +192,7 @@ pub fn Suspense(cx: &mut Cx, fallback: impl View, children: impl View) {
 
 ## 3. Tests
 
-### 3.1 `crates/egui-reactor/tests/future.rs`
+### 3.1 `crates/egui-react/tests/future.rs`
 
 Use `run_app` from `tests/common`. To finish a future, the future does `recv()` on a `std::sync::mpsc` `Receiver` and the test side does `send` (the future is on its own thread, so blocking is fine). Completion happens on another thread, so write a helper `wait_for_repaint(&harness)` that waits with `sleep(10ms)` for up to 2 seconds until `ctx.has_requested_repaint()` is set.
 
@@ -208,9 +208,9 @@ Use `run_app` from `tests/common`. To finish a future, the future does `recv()` 
 | 6-8 | `spawn_with_dispatch_lands` | `spawn(async move { dispatch.send(Msg::Add(n)) })` reaches the reducer, and a repaint is requested |
 | 6-9 | `pending_is_counted_by_the_nearest_boundary` | Using `begin_suspense` / `end_suspense` directly, 2 Pending + 1 Ready returns 2. A Pending inside a nested inner boundary is not counted by the outer one |
 
-### 3.2 `crates/egui-reactor-elements/tests/suspense.rs`
+### 3.2 `crates/egui-react-elements/tests/suspense.rs`
 
-Use the runner in `egui-reactor-elements/tests/common`, with `max_passes` at 3.
+Use the runner in `egui-react-elements/tests/common`, with `max_passes` at 3.
 
 | # | Test | What it checks |
 |---|---|---|
@@ -283,7 +283,7 @@ fn Response(cx: &mut Cx, url: &str, attempt: u32) {
 - **Add "5.8 Suspense" to section 5** The content of 2.1 / 2.2 (the counter stack, initial suspended, the offscreen invisible `Ui`, why the same scope Id is used, the same-frame switch via `request_discard` and behavior when refused, the difference that `use_effect` runs, the mapping to React's throw).
 - **5.6** Already says "`use_future` completion calls `request_repaint`". No change (confirm the implementation matches).
 - **Element list in section 6** Add `Suspense` (`shares_ui`, `fallback: impl View`). Add `Suspense` to the paragraph "why panels and `Row` are `shares_ui`" (to inherit the surface).
-- **Section 7** `pollster` (native) and `wasm-bindgen-futures` (wasm) in the dependencies of `egui-reactor`. `fetch` in examples.
+- **Section 7** `pollster` (native) and `wasm-bindgen-futures` (wasm) in the dependencies of `egui-react`. `fetch` in examples.
 - **Section 8** Add one line: "The async run mechanism is kept inside core's `task::spawn`. iOS / Android use the same thread path as native".
 - **Section 11 (decision log)** Add 3 rows.
   - executor: adopt thread + `pollster`, reject requiring tokio. Reason: small dependencies, enough for futures that only wait. Apps that use tokio can use `Handle::current()` inside the future.
@@ -292,7 +292,7 @@ fn Response(cx: &mut Cx, url: &str, attempt: u32) {
 
 ## 7. Steps
 
-1. `future.rs` (`SpawnFuture` -> `task::spawn` / `spawn` -> `use_future`), the counter in `store.rs`, re-exports, `Cargo.toml`. Tests 6-1 to 6-9. Make `cargo check --target wasm32-unknown-unknown -p egui-reactor` pass. Update ARCHITECTURE.md 4 / 7 / 8 / 11. Commit.
+1. `future.rs` (`SpawnFuture` -> `task::spawn` / `spawn` -> `use_future`), the counter in `store.rs`, re-exports, `Cargo.toml`. Tests 6-1 to 6-9. Make `cargo check --target wasm32-unknown-unknown -p egui-react` pass. Update ARCHITECTURE.md 4 / 7 / 8 / 11. Commit.
 2. `suspense.rs` and `prelude`. Tests 6-10 to 6-16. Update ARCHITECTURE.md 5.8 / 6. Commit.
 3. `examples/fetch`. Visually check `cargo run -p fetch` and `trunk serve` (only the spinner while fetching, the UI stays responsive, it updates on its own after completion, changing the URL and pressing Enter refetches, the fetch button refetches the same URL). CI and README. Commit.
 4. Confirm all CI steps are green.
@@ -356,7 +356,7 @@ fn Response(cx: &mut Cx, url: &str, attempt: u32) {
 | Step | What was done |
 |---|---|
 | 1 (`use_future`) | `future.rs` (cfg switch of `SpawnFuture<T>`, `task::spawn`, `spawn`, `use_future`), the 3 suspense counter methods on `Store`, re-exports in `lib.rs` / `prelude` (including `Poll`), the `pollster` (native) / `wasm-bindgen-futures` (wasm) dependencies. Tests 6-1 to 6-9. |
-| 2 (`Suspense`) | `suspense.rs` in `egui-reactor-elements` (`#[component(shares_ui)]`, initial suspended, the offscreen invisible `Ui`, `begin_suspense` / `end_suspense`, the same-frame switch via `request_discard`) and its addition to `prelude`. Tests 6-10 to 6-16. |
+| 2 (`Suspense`) | `suspense.rs` in `egui-react-elements` (`#[component(shares_ui)]`, initial suspended, the offscreen invisible `Ui`, `begin_suspense` / `end_suspense`, the same-frame switch via `request_discard`) and its addition to `prelude`. Tests 6-10 to 6-16. |
 | 3 (example) | `examples/fetch` (`ehttp::fetch_async` + `<Suspense>` + refetch button, shared by native / wasm), `trunk build (fetch)` in CI, one sentence in README examples and Usage. |
 
 ### Changes to ARCHITECTURE.md
@@ -365,7 +365,7 @@ fn Response(cx: &mut Cx, url: &str, attempt: u32) {
 - **Added "`use_future` details" to section 4** The platform difference kept inside `SpawnFuture`, native thread + `pollster`, the two slots and the `Poll` pushed onto the `FrozenVec`, generation numbers and how stale results are dropped, why there is no receive right after start, handling after unmount, `note_pending`, how the child writes `let`-`else`.
 - **Added 5.8 Suspense** The counter stack, why it starts suspended, the offscreen invisible `Ui` (and the limit that accessibility nodes remain), why both paths use the same scope Id, the same-frame switch via `request_discard` and behavior when refused, `shares_ui`, the difference from React that `use_effect` runs.
 - **Section 6** Added a `Suspense` row to the element list and added `Suspense` to the `shares_ui` paragraph.
-- **Section 7** `pollster` (native) and `wasm-bindgen-futures` (wasm) in the dependencies of `egui-reactor`. `fetch` in examples.
+- **Section 7** `pollster` (native) and `wasm-bindgen-futures` (wasm) in the dependencies of `egui-react`. `fetch` in examples.
 - **Section 8** The async run mechanism is kept inside core's `task::spawn`, and iOS / Android use the same thread path as native.
 - **Section 11 (decision log)** 3 rows added. Executor (thread + `pollster` / requiring tokio rejected), result representation (`Poll<T>` / custom enum rejected), how Suspense works (offscreen + counter + `request_discard` / unwinding via panic rejected).
 
