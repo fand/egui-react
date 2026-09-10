@@ -2,12 +2,12 @@ name: Deploy PR Preview to Cloudflare Pages
 
 # Builds the documentation site — VitePress pages, the `embed` wasm and
 # `cargo doc`, all through `site/build.sh` — for every pull request and
-# publishes it as a branch deployment of the `egui-react` Cloudflare Pages
+# publishes it as a branch deployment of the `egui-reactor` Cloudflare Pages
 # project, then posts the preview URL as a sticky comment on the PR. The
 # production site stays on GitHub Pages (see pages.yml); this is preview only.
 #
 # Setup, once per repository:
-#   - Create a Cloudflare Pages project named `egui-react` (Direct Upload).
+#   - Create a Cloudflare Pages project named `egui-reactor` (Direct Upload).
 #   - Add the repository secrets CLOUDFLARE_API_TOKEN (Cloudflare Pages: Edit)
 #     and CLOUDFLARE_ACCOUNT_ID.
 
@@ -81,7 +81,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy site/.vitepress/dist --project-name=egui-react --branch=${{ github.head_ref }}
+          command: pages deploy site/.vitepress/dist --project-name=egui-reactor --branch=${{ github.head_ref }}
 
       - name: Comment preview URL on PR
         uses: marocchino/sticky-pull-request-comment@v3
