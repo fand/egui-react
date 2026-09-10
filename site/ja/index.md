@@ -6,7 +6,7 @@ hero:
   image:
     src: /atomic-ferris.svg
     alt: atomic ferris
-  tagline: React を書くように egui アプリを書く
+  tagline: Rust GUI アプリを React っぽく書く
   actions:
     - theme: brand
       text: はじめる

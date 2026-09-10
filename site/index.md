@@ -6,7 +6,7 @@ hero:
   image:
     src: /atomic-ferris.svg
     alt: atomic ferris
-  tagline: Write egui apps the way you write React
+  tagline: Write Rust GUI apps like React!
   actions:
     - theme: brand
       text: Get Started
