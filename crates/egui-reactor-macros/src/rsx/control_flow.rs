@@ -89,7 +89,9 @@ fn parse_children(
     while !content.is_empty() {
         let node = parser
             .parse_recoverable::<Node<ControlFlow>>(&content)
-            .ok_or_else(|| syn::Error::new(content.span(), "egui-reactor: expected an rsx! node"))?;
+            .ok_or_else(|| {
+                syn::Error::new(content.span(), "egui-reactor: expected an rsx! node")
+            })?;
         nodes.push(node);
     }
     Ok(nodes)

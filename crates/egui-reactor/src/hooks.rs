@@ -106,7 +106,9 @@ pub fn use_persisted<'s, T: Serialize + DeserializeOwned + 'static>(
                 .and_then(|json| match serde_json::from_str::<T>(&json) {
                     Ok(value) => Some(value),
                     Err(err) => {
-                        log::warn!("egui-reactor: persisted value {key:?} could not be read: {err}");
+                        log::warn!(
+                            "egui-reactor: persisted value {key:?} could not be read: {err}"
+                        );
                         None
                     }
                 });
