@@ -1,7 +1,7 @@
 //! A todo list: `use_reducer` for the messages, `use_persisted` for the data.
 //!
 //! Quit and restart it and the list is still there (native; the value is kept
-//! in eframe's storage under the `"egui_reactor"` key).
+//! in eframe's storage under the `"egui_react"` key).
 
 use egui_reactor::prelude::*;
 use egui_reactor_elements::prelude::*;
