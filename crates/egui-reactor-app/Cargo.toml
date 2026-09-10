@@ -71,10 +71,11 @@ fontdb = { workspace = true, features = ["fs", "memmap", "fontconfig"] }
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 # wasm cannot read files, so only the in-memory database: no `fs`, no `memmap`.
 fontdb = { workspace = true, features = ["std"] }
-# The DOM mirror of the AccessKit tree. wasm only: on every other target
-# `a11y::WebA11y` is an empty plugin. `accesskit` itself comes from
-# `egui::accesskit`, so the `TreeUpdate` types cannot drift apart.
-accesskit-web.workspace = true
+# The DOM mirror of the AccessKit tree (`accesskit_web`). wasm only: on every
+# other target `a11y::WebA11y` is an empty plugin. `accesskit` is the version
+# `egui::accesskit` re-exports, so the `TreeUpdate` types cannot drift apart.
+accesskit.workspace = true
+accesskit_consumer.workspace = true
 js-sys.workspace = true
 wasm-bindgen.workspace = true
 wasm-bindgen-futures.workspace = true
@@ -83,11 +84,22 @@ web-sys = { workspace = true, features = [
     "Document",
     "DomRect",
     "Element",
+    "Event",
+    "EventTarget",
     "HtmlCanvasElement",
+    "HtmlElement",
+    "HtmlInputElement",
+    "KeyboardEvent",
     "Location",
     "Navigator",
+    "Node",
     "PermissionState",
     "PermissionStatus",
     "Permissions",
     "Window",
 ] }
+
+# The DOM tests in `tests/a11y_mirror.rs` need a browser. `cargo test
+# --workspace` builds that file to nothing: it is `#![cfg(target_arch = "wasm32")]`.
+[target.'cfg(target_arch = "wasm32")'.dev-dependencies]
+wasm-bindgen-test.workspace = true

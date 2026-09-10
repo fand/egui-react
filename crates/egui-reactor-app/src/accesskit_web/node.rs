@@ -9,7 +9,7 @@ use core::fmt::Write as _;
 use wasm_bindgen::JsCast as _;
 use web_sys::{HtmlElement, HtmlInputElement};
 
-use crate::filters::filter;
+use super::filters::filter;
 
 /// Which DOM element stands for a node.
 ///

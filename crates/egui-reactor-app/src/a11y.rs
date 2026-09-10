@@ -118,7 +118,7 @@ impl egui::Plugin for WebA11y {
 
 #[cfg(target_arch = "wasm32")]
 mod web {
-    use accesskit_web::Adapter;
+    use crate::accesskit_web::Adapter;
     use egui::accesskit::{ActionHandler, ActionRequest, ActivationHandler, TreeUpdate};
     use std::cell::RefCell;
     use std::rc::Rc;

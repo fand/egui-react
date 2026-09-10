@@ -8,6 +8,8 @@
 use egui_reactor::{Cx, Store, View};
 
 pub mod a11y;
+#[cfg(target_arch = "wasm32")]
+pub mod accesskit_web;
 pub mod fonts;
 
 /// The eframe storage key everything `use_persisted` holds is written under.

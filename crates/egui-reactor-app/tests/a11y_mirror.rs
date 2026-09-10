@@ -11,7 +11,7 @@
 //! `cargo test --workspace` has nothing to run. To run them:
 //!
 //! ```sh
-//! wasm-pack test --headless --chrome crates/accesskit-web
+//! wasm-pack test --headless --chrome crates/egui-reactor-app --test a11y_mirror
 //! ```
 
 #![cfg(target_arch = "wasm32")]
@@ -19,7 +19,7 @@
 use accesskit::{
     Action, Node as AkNode, NodeId, Rect, Role, Toggled, Tree, TreeId, TreeUpdate, Uuid,
 };
-use accesskit_web::Adapter;
+use egui_reactor_app::accesskit_web::Adapter;
 use wasm_bindgen::JsCast as _;
 use wasm_bindgen_test::{wasm_bindgen_test, wasm_bindgen_test_configure};
 use web_sys::{Element, HtmlInputElement};

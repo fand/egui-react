@@ -14,9 +14,9 @@ use wasm_bindgen::JsCast as _;
 use wasm_bindgen::prelude::Closure;
 use web_sys::{Document, Element, Event, HtmlElement};
 
-use crate::action::{self, SharedActionHandler};
-use crate::node::ElementKind;
-use crate::{filters::filter, node::NodeWrapper};
+use super::action::{self, SharedActionHandler};
+use super::node::ElementKind;
+use super::{filters::filter, node::NodeWrapper};
 
 /// Where the mirror sits over the canvas, and at what scale.
 #[derive(Clone, Copy, Debug)]
