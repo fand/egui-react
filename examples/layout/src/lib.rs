@@ -1,4 +1,9 @@
 //! A tour of `<View>`'s flex and grid attributes.
+//!
+//! Every section is a box and every child is a filled chip, because the point
+//! of the tour is *where the boxes end up*: with nothing painted, `justify`
+//! and `grow` are invisible. The colours are egui's own, so both versions of
+//! the example and both themes draw the same picture ([`look`]).
 
 use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
@@ -23,9 +28,34 @@ pub const META: Meta = Meta {
     plain: Some(include_str!("plain.rs")),
 };
 
-/// One labelled section of the demo.
+/// The two fills the tour is drawn with, and the corner they share.
+///
+/// From egui's visuals, so the tour follows the theme, and in one place, so
+/// the plain egui version paints the same picture — the snapshot test compares
+/// the two pixel for pixel.
+pub struct Look {
+    /// The section's box: what the children are laid out inside.
+    pub box_fill: egui::Color32,
+    /// One child.
+    pub chip: egui::Color32,
+}
+
+/// The corner radius of both.
+pub const RADIUS: f32 = 4.0;
+
+pub fn look(ctx: &egui::Context) -> Look {
+    let visuals = &ctx.style_of(ctx.theme()).visuals;
+    Look {
+        box_fill: visuals.extreme_bg_color,
+        chip: visuals.widgets.inactive.bg_fill,
+    }
+}
+
+/// One labelled section of the demo: a title, and a box the children are laid
+/// out inside.
 #[component]
 fn Section(cx: &mut Cx, title: &str, children: impl View) {
+    let look = look(cx.ctx());
     rsx! {
         <View direction="column" gap={4} mb={12}>
             <Text strong>{title}</Text>
@@ -34,6 +64,8 @@ fn Section(cx: &mut Cx, title: &str, children: impl View) {
                 gap={4}
                 p={8}
                 w="100%"
+                bg={look.box_fill}
+                radius={RADIUS}
             >
                 {children}
             </View>
@@ -44,10 +76,11 @@ fn Section(cx: &mut Cx, title: &str, children: impl View) {
 /// A coloured box, so the layout is visible.
 #[component]
 fn Chip(cx: &mut Cx, #[prop(default)] style: ItemStyle, label: &str) {
+    let look = look(cx.ctx());
     rsx! {
         // The shorthand attributes chain onto whatever `style=` passed in, so a
         // wrapper can take its caller's layout and add to it.
-        <View style={style} p={6}>
+        <View style={style} p={6} bg={look.chip} radius={RADIUS}>
             <Text>{label}</Text>
         </View>
     }

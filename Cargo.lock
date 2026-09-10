@@ -1473,6 +1473,8 @@ dependencies = [
  "egui-react-elements",
  "ehttp",
  "example-meta",
+ "serde",
+ "serde_json",
 ]
 
 [[package]]
@@ -1662,21 +1664,24 @@ dependencies = [
  "egui-react",
  "egui-react-app",
  "egui-react-elements",
+ "egui-wgpu",
  "egui_kittest",
  "escape-hatch",
  "example-meta",
  "fetch",
  "font",
  "form",
+ "image",
  "layout",
  "list-10k",
+ "notes",
  "patch",
  "shader",
- "showcase",
  "spreadsheet",
  "styles",
  "theme",
  "todo",
+ "wasm-bindgen",
  "web-sys",
 ]
 
@@ -2515,6 +2520,20 @@ name = "nohash-hasher"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "2bf50223579dc7cdcfb3bfcacf7069ff68243f8c363f62ffa99cf000a6b9c451"
+
+[[package]]
+name = "notes"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui-react",
+ "egui-react-app",
+ "egui-react-elements",
+ "egui_kittest",
+ "example-meta",
+ "serde",
+]
 
 [[package]]
 name = "nu-ansi-term"
@@ -3657,37 +3676,10 @@ dependencies = [
 ]
 
 [[package]]
-name = "shell"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
- "egui_kittest",
- "example-meta",
-]
-
-[[package]]
 name = "shlex"
 version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f8fadd59c855ef2080decdef8ff161eb6661b86933c9d82e5ba29dc602a55aba"
-
-[[package]]
-name = "showcase"
-version = "0.1.0"
-dependencies = [
- "eframe",
- "egui",
- "egui-react",
- "egui-react-app",
- "egui-react-elements",
- "egui_kittest",
- "example-meta",
- "serde",
-]
 
 [[package]]
 name = "signal-hook-registry"

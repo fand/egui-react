@@ -1,9 +1,10 @@
 name: Deploy PR Preview to Cloudflare Pages
 
-# Builds the example gallery for every pull request and publishes it as a
-# branch deployment of the `egui-react` Cloudflare Pages project, then posts
-# the preview URL as a sticky comment on the PR. The production site stays on
-# GitHub Pages (see pages.yml); this is preview only.
+# Builds the documentation site — VitePress pages, the `embed` wasm and
+# `cargo doc`, all through `site/build.sh` — for every pull request and
+# publishes it as a branch deployment of the `egui-react` Cloudflare Pages
+# project, then posts the preview URL as a sticky comment on the PR. The
+# production site stays on GitHub Pages (see pages.yml); this is preview only.
 #
 # Setup, once per repository:
 #   - Create a Cloudflare Pages project named `egui-react` (Direct Upload).
@@ -28,15 +29,15 @@ permissions:
 
 jobs:
   deploy-preview:
-    name: trunk build (gallery) + deploy
+    name: build site + deploy
     # Fork PRs don't get secrets, so skip the deploy.
     if: github.event.pull_request.head.repo.full_name == github.repository
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # The same headers ci.yml / pages.yml install. A wasm-only build should
-      # not need them, but a deploy is a bad place to find out otherwise.
+      # The same headers ci.yml / pages.yml install. `cargo doc` builds for the
+      # host, so unlike a wasm-only build this really does need them.
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -57,15 +58,22 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      # build.sh calls `trunk` and does not install it.
       - uses: jetli/trunk-action@v0.5.1
         with:
           version: latest
 
-      # Unlike GitHub Pages, the preview is served from the domain root, so no
-      # `--public-url` here. `dist = "dist"` in Trunk.toml is relative to the
-      # config file.
-      - name: trunk build
-        run: trunk build --release --config examples/gallery/Trunk.toml
+      # Node lives only in site/; the cache key is that directory's lockfile.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      # Unlike GitHub Pages, the preview is served from the domain root, so the
+      # base is `/`.
+      - name: Build the site
+        run: SITE_BASE=/ bash site/build.sh
 
       - name: Deploy to Cloudflare Pages
         id: deploy
@@ -73,7 +81,7 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy examples/gallery/dist --project-name=egui-react --branch=${{ github.head_ref }}
+          command: pages deploy site/.vitepress/dist --project-name=egui-react --branch=${{ github.head_ref }}
 
       - name: Comment preview URL on PR
         uses: marocchino/sticky-pull-request-comment@v3

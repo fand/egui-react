@@ -2,9 +2,9 @@
 //! not do.
 //!
 //! P-5 is the one the example exists for. Everything is driven through the UI —
-//! the palette's buttons, a drag from one port circle to another, the slider in
-//! the inspector — and read back out of the `wgsl` tab, which shows exactly the
-//! text that was compiled. "The reducer bumped the right counter" is a unit
+//! the node menu, a drag from one port circle to another, the slider in the
+//! inspector — and read back out of the preview's accessibility description,
+//! which is exactly the text that was compiled. "The reducer bumped the right counter" is a unit
 //! test in `graph.rs`; the claim here is that the screen behaves accordingly.
 //!
 //! Headless, like every other example test. The preview's `<Canvas>` pushes an
@@ -23,12 +23,12 @@ use egui_react::prelude::*;
 use egui_react_app::{root_id, root_style};
 use patch::App;
 
-/// Wide enough for the three columns, tall enough for the whole preset.
+/// Wide enough for the preset and the node the menu drops beside it, tall
+/// enough for the whole preset above the bottom bar.
 ///
 /// The canvas clips its nodes, and a clipped port cannot be dragged, so this
-/// also has to leave room for the node the palette drops to the right of the
-/// preset.
-const SIZE: egui::Vec2 = egui::vec2(1320.0, 820.0);
+/// has to leave room for all of them.
+const SIZE: egui::Vec2 = egui::vec2(1320.0, 1000.0);
 
 /// The runner's frame, minus eframe.
 fn run_app(ui: &mut egui::Ui, store: &mut Store) {
@@ -75,26 +75,29 @@ fn wait_for(
     panic!("timed out waiting for {what}");
 }
 
-/// A harness with the preset loaded and the preview paused.
+/// A harness with the preset loaded and the clock paused.
 ///
-/// Pausing matters: a running preview asks for a repaint on every frame, which
-/// is what an animation is, and a test that waited for the app to go idle
-/// would wait forever.
+/// Pausing matters: a running clock writes the time on every frame, which is
+/// what an animation is, and a test that waited for the app to go idle would
+/// wait forever. The button says what pressing it does, so it reads "pause"
+/// while the clock runs and "play" once this has pressed it.
 fn loaded() -> Harness<'static, Store> {
     let mut harness = harness();
     wait_for(&mut harness, "the preset", |harness| {
-        harness.query_by_label("play").is_some()
+        harness.query_by_label("shader1").is_some()
     });
-    harness.get_by_label("play").click();
+    harness.get_by_label("pause").click();
     settle(&mut harness);
     harness
 }
 
-/// Add a node from the palette.
+/// Add a node from the `Add node` menu.
 ///
 /// By role as well as label: a node of that kind writes its kind in its own
-/// box, and that is a label too.
+/// box, and that is a label too. The menu closes on the click.
 fn add(harness: &mut Harness<'static, Store>, kind: &str) {
+    harness.get_by_label("Add node").click();
+    settle(harness);
     harness
         .get_by_role_and_label(egui::accesskit::Role::Button, kind)
         .click();
@@ -124,29 +127,19 @@ fn wire(harness: &mut Harness<'static, Store>, from: &str, to: &str) {
     settle(harness);
 }
 
-/// The program the `wgsl` tab is showing.
-///
-/// An egui `Label` keeps its text in the accessibility node's *value*, which is
-/// also how `kittest` matches one by label.
-fn wgsl(harness: &Harness<'static, Store>) -> String {
-    harness
-        .get_by_label_contains("fn fs_main")
-        .accesskit_node()
-        .value()
-        .expect("the wgsl tab shows the program")
-}
-
-/// Open the `wgsl` tab and read it, then leave the tab as it was found.
+/// The program on the GPU: the canvas draws the picture behind the patch and
+/// describes itself with the source it is drawn from.
 fn program(harness: &mut Harness<'static, Store>) -> String {
-    click(harness, "wgsl");
-    let source = wgsl(harness);
-    click(harness, "params");
-    source
+    harness
+        .get_by_label("preview")
+        .accesskit_node()
+        .description()
+        .expect("the canvas is described by the program it draws")
 }
 
-/// P-1: the palette adds a node, and the node is on the canvas.
+/// P-1: the menu adds a node, and the node is on the canvas.
 #[test]
-fn the_palette_adds_a_node() {
+fn the_menu_adds_a_node() {
     let mut harness = loaded();
 
     assert!(
@@ -167,17 +160,16 @@ fn the_palette_adds_a_node() {
         "on screen: {node:?}"
     );
 
-    // Clicking its title selects it, and the inspector follows.
+    // Its parameters are in its own box, named after it: eight nodes can
+    // each have a "hue".
+    assert!(
+        harness.query_by_label("hsv1 hue").is_some(),
+        "the node carries its own parameters"
+    );
+
+    // Clicking its title selects it, which is what the accent border shows.
     harness.get_by_label("hsv1").click();
     settle(&mut harness);
-    // By role as well as label: an `egui::Slider` is a slider *and* the drag
-    // value that shows its reading, and both carry the name.
-    assert!(
-        harness
-            .query_by_role_and_label(egui::accesskit::Role::Slider, "hue")
-            .is_some(),
-        "the inspector shows the selected node's parameters"
-    );
 }
 
 /// P-2: wiring a node to the output puts it in the program.
@@ -287,21 +279,30 @@ fn pan(harness: &mut Harness<'static, Store>, by: egui::Vec2) {
     settle(harness);
 }
 
-/// Recentre looks at the nodes, not at the origin: where it ends up does not
-/// depend on where the view was before.
+/// The view opens fitted to the patch, and `Recenter` puts it back there.
+///
+/// Where it ends up depends on the nodes, not on where the view was before.
+/// The preset fits the test's canvas, so it lands at zoom 1 and the pans
+/// below read in screen points.
 #[test]
-fn recentre_puts_the_nodes_in_the_middle() {
+fn the_view_opens_fitted_and_recenter_puts_it_back() {
     let mut harness = loaded();
-    let start = header(&harness);
-
-    click(&mut harness, "recentre");
     let home = header(&harness);
-    assert_ne!(home, start, "the preset is not centred to begin with");
+
+    // Every node is on the canvas the moment the preset arrives, with no
+    // click needed.
+    for name in ["shader1", "transform1", "level1", "mix1", "out1"] {
+        let rect = harness.get_by_label(name).rect();
+        assert!(
+            rect.min.x > 0.0 && rect.max.x < SIZE.x && rect.min.y > 0.0 && rect.max.y < SIZE.y,
+            "{name} opens off screen: {rect:?}"
+        );
+    }
 
     pan(&mut harness, egui::vec2(120.0, 60.0));
     assert_eq!(header(&harness), home + egui::vec2(120.0, 60.0));
 
-    click(&mut harness, "recentre");
+    click(&mut harness, "Recenter");
     assert_eq!(header(&harness), home);
 }
 
@@ -405,7 +406,7 @@ fn a_cycle_keeps_the_last_good_program() {
 
     assert!(
         harness.query_by_label_contains("a cycle").is_some(),
-        "the inspector says what is wrong"
+        "the panel says what is wrong"
     );
     assert_eq!(
         program(&mut harness),
@@ -418,29 +419,38 @@ fn a_cycle_keeps_the_last_good_program() {
     assert!(harness.query_by_label_contains("a cycle").is_none());
 }
 
+/// One node's parameter, by the name the node gives it (`"level1 bright"`).
+///
+/// Not by role: a drag value that has the keyboard is a spin button, and the
+/// role changes with it. What never changes is that the control carries a
+/// number.
+fn param<'h>(harness: &'h Harness<'static, Store>, name: &'h str) -> egui_kittest::Node<'h> {
+    harness
+        .get_all_by_label(name)
+        .find(|node| node.accesskit_node().numeric_value().is_some())
+        .unwrap_or_else(|| panic!("no {name} parameter"))
+}
+
 /// P-5, the one this example is for: a parameter is not part of the program.
 #[test]
 fn a_slider_does_not_recompile_and_a_wire_does() {
     let mut harness = loaded();
 
-    harness.get_by_label("level1").click();
-    settle(&mut harness);
     let before = program(&mut harness);
 
-    // The inspector's sliders are the wide version of the same components the
-    // node draws; "bright" is `level1`'s first parameter.
-    let slider = harness.get_by_role_and_label(egui::accesskit::Role::Slider, "bright");
-    let was = slider.accesskit_node().numeric_value();
-    slider.focus();
+    // Every parameter is edited in the node that owns it; "bright" is
+    // `level1`'s first.
+    let knob = param(&harness, "level1 bright");
+    let was = knob.accesskit_node().numeric_value();
+    knob.focus();
     harness.step();
-    harness.key_press(egui::Key::ArrowRight);
+    harness.key_press(egui::Key::ArrowUp);
     settle(&mut harness);
 
-    let now = harness
-        .get_by_role_and_label(egui::accesskit::Role::Slider, "bright")
+    let now = param(&harness, "level1 bright")
         .accesskit_node()
         .numeric_value();
-    assert!(now > was, "the slider moved: {was:?} -> {now:?}");
+    assert!(now > was, "the knob moved: {was:?} -> {now:?}");
     assert_eq!(
         program(&mut harness),
         before,
@@ -548,16 +558,16 @@ fn undo_puts_the_old_program_back() {
 
 /// The three columns stay inside the window, whatever the patch is doing.
 ///
-/// A `<Canvas>` and a `ScrollArea` both report the whole window as the size
-/// they could fill, so `grow` without `h={0}` next to it would push everything
-/// below them off the bottom (plan.md section 8).
+/// The canvas reports the whole window as the size it could fill, so `grow`
+/// without `h={0}` next to it would push the menu bar off the top (plan.md
+/// section 8), and the panel floats over the canvas rather than beside it.
 #[test]
-fn the_columns_stay_inside_the_window() {
+fn everything_stays_inside_the_window() {
     let mut harness = loaded();
     harness.get_by_label("level1").click();
     settle(&mut harness);
 
-    for label in ["play", "wgsl", "recentre"] {
+    for label in ["play", "Recenter", "preview", "7 / 32 nodes"] {
         let rect = harness.get_by_label(label).rect();
         assert!(
             rect.max.y <= SIZE.y && rect.max.x <= SIZE.x,
@@ -600,9 +610,10 @@ fn the_preset_arrives_through_a_boundary() {
 
     assert!(shown(&harness, "loading the preset"), "the fallback");
     assert!(!shown(&harness, "shader1"), "and no canvas under it yet");
-    // The palette is outside the boundary and does not wait.
+    // The menu bar is outside the boundary and does not wait.
     assert!(shown(&harness, "patch"), "the title");
-    assert!(shown(&harness, "level"), "and the palette's buttons");
+    assert!(shown(&harness, "Add node"), "and the menu");
+    assert!(shown(&harness, "pause"), "and the clock is running");
 
     passes.set(3);
     wait_for(&mut harness, "the preset", |harness| {
@@ -616,13 +627,13 @@ fn the_preset_arrives_through_a_boundary() {
     }
 }
 
-/// The inspector's copy of a shader's source editor, told apart from the ones
-/// in the nodes by which column it is in.
+/// `shader1`'s source editor: the leftmost of the two on the canvas, since
+/// the preset puts `shader1` above `shader2` in the same column.
 fn source_field<'h>(harness: &'h Harness<'static, Store>) -> egui_kittest::Node<'h> {
     harness
         .get_all_by_role(egui::accesskit::Role::MultilineTextInput)
-        .find(|node| node.rect().min.x > 900.0)
-        .expect("the inspector shows the selected shader's source")
+        .min_by(|a, b| a.rect().min.y.total_cmp(&b.rect().min.y))
+        .expect("the shader nodes carry their own source")
 }
 
 /// Whether something is drawn where the user could see it.

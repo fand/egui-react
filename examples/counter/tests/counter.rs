@@ -1,7 +1,6 @@
-//! Plan test A-1: the same clicks give the same number in both versions.
+//! Plan test A-1: the clicks give the numbers they should.
 
 use counter::App;
-use counter::plain::{self, PlainState};
 use egui_kittest::Harness;
 use egui_kittest::kittest::Queryable as _;
 use egui_react::prelude::*;
@@ -26,14 +25,6 @@ fn react<'a>() -> Harness<'a, Store> {
     )
 }
 
-/// The plain egui version, drawn the way its own binary draws it.
-fn plain<'a>() -> Harness<'a, PlainState> {
-    Harness::builder().with_size(SIZE).build_ui_state(
-        |ui, state: &mut PlainState| plain::ui(ui, state),
-        PlainState::default(),
-    )
-}
-
 /// `+`, `+`, `-`, `+` leaves 2; `reset` puts it back to 0.
 fn drive<S>(harness: &mut Harness<'_, S>) {
     assert!(harness.query_by_label("0").is_some());
@@ -52,13 +43,6 @@ fn drive<S>(harness: &mut Harness<'_, S>) {
 #[test]
 fn the_egui_react_version_counts() {
     let mut harness = react();
-    harness.run();
-    drive(&mut harness);
-}
-
-#[test]
-fn the_plain_egui_version_counts_the_same() {
-    let mut harness = plain();
     harness.run();
     drive(&mut harness);
 }

@@ -1,5 +1,12 @@
 target/
 dist/
+# `dist/` above matches only directories named exactly `dist`; the embed's
+# trunk output goes next to it (examples/gallery/Trunk-embed.toml).
+dist-embed/
+# The documentation site: Node is contained in site/, and so is its output.
+node_modules/
+site/.vitepress/dist/
+site/.vitepress/cache/
 # The `font` example's web font, 4.5 MB, downloaded by a trunk pre-build hook
 # (examples/font/fonts/fetch-web-font.sh).
 examples/font/fonts/NotoSansJP-Regular.otf

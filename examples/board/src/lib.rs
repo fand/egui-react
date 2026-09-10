@@ -24,9 +24,10 @@
 //!   an application has. None of them needed a change to the library.
 //! - **The usual reducer, with the usual company.** `use_reducer` (inside
 //!   `use_undoable`) owns the board, `use_persisted` keeps it across restarts,
-//!   `use_memo` filters each column, and `provide_context` hands the theme, the
-//!   drag session and the `Dispatch` to the tree without the `<View>`s in
-//!   between carrying any of them.
+//!   `use_memo` filters each column, and `provide_context` hands the theme
+//!   (egui's own, dark or light, read once at the top), the drag session and
+//!   the `Dispatch` to the tree without the `<View>`s in between carrying any
+//!   of them.
 //!
 //! Which way something travels is a decision, and it is made twice here. What
 //! a component *did* goes up as an event: `<Card>` tells its column that a
@@ -67,7 +68,6 @@ pub const META: Meta = Meta {
         "use_reducer",
         "use_persisted",
         "use_memo",
-        "use_effect",
         "use_handle",
         "provide_context",
         "use_context",
@@ -102,6 +102,10 @@ const FOOTER_H: f32 = 26.0;
 /// when a card is about to land there.
 const CARD_GAP: f32 = 6.0;
 
+/// The undo and redo glyphs, from egui's own icon font.
+const UNDO: &str = "⟲";
+const REDO: &str = "⟳";
+
 /// The theme, or the dark one if this is drawn outside a provider.
 ///
 /// A three-line `#[hook]`, because six components ask the same question.
@@ -132,27 +136,23 @@ pub fn App(cx: &mut Cx) {
     }
 }
 
-/// Owns the theme and the drag session and publishes both.
+/// Reads egui's theme, owns the drag session, and publishes both.
 ///
 /// A provider has to make the value it provides: `provide_context` takes a
 /// `Handle`, which borrows the store, and a prop may not name that lifetime
-/// (ARCHITECTURE 6). The same shape as the `theme` example.
+/// (ARCHITECTURE 6). The same shape as the `theme` example. The theme handle
+/// is written only when the theme changed: a write on every frame would ask
+/// for a repaint on every frame (ARCHITECTURE 5.6).
 #[component(shares_ui)]
 fn BoardProvider(cx: &mut Cx, children: impl View) {
-    let theme = use_handle(cx, || Theme::DARK);
+    let current = Theme::of(cx.ctx());
+    let theme = use_handle(cx, || current);
+    if theme.get() != current {
+        theme.set(current);
+    }
     // One session for the whole tree: the card that is picked up and the
     // column it lands in are in different branches of it.
     let dnd = use_dnd::<CardId, DropTarget>(cx);
-
-    let dark = theme.get().dark;
-    let ctx = cx.ctx().clone();
-    use_effect(cx, dark, move || {
-        ctx.set_visuals(if dark {
-            egui::Visuals::dark()
-        } else {
-            egui::Visuals::light()
-        });
-    });
 
     provide_context(cx, theme, |cx| {
         provide_context(cx, dnd, |cx| children.show(cx))
@@ -182,10 +182,7 @@ fn BoardView(cx: &mut Cx) {
     let live = search.clone();
     let query = use_debounced(cx, &live, DEBOUNCE);
 
-    // The provider owns the theme; the toolbar's button writes it back through
-    // the same handle, the way the `theme` example's toggles do.
-    let theme_handle = use_context::<Theme>(cx);
-    let theme = theme_handle.map_or(Theme::DARK, |theme| theme.get());
+    let theme = use_theme(cx);
     let dnd = use_drag(cx);
 
     // A drag that ended over a slot becomes exactly one message, which is what
@@ -216,11 +213,6 @@ fn BoardView(cx: &mut Cx) {
                 }}
                 on_undo={|| dispatch.send(Undoable::Undo)}
                 on_redo={|| dispatch.send(Undoable::Redo)}
-                on_theme={move || {
-                    if let Some(handle) = theme_handle {
-                        handle.set(Theme { dark: !theme.dark });
-                    }
-                }}
             />
             <Separator/>
             <View direction="row" grow={1.0} min_h={0.0} w="100%" gap={8}>
@@ -275,7 +267,6 @@ fn Toolbar(
     #[event] on_filter: bool,
     #[event] on_undo: (),
     #[event] on_redo: (),
-    #[event] on_theme: (),
 ) {
     let theme = use_theme(cx);
 
@@ -294,10 +285,13 @@ fn Toolbar(
                 />
             }
             <Text grow={1.0}>{format!("{count} cards")}</Text>
-            <IconButton enabled={can_undo} on_click={|| on_undo.emit(())}>"undo"</IconButton>
-            <IconButton enabled={can_redo} on_click={|| on_redo.emit(())}>"redo"</IconButton>
-            <IconButton on_click={|| on_theme.emit(())}>
-                {if theme.dark { "light" } else { "dark" }}
+            // Glyphs on screen, words in the tree: `name` is what a screen
+            // reader, and the test, call the button.
+            <IconButton name="undo" enabled={can_undo} on_click={|| on_undo.emit(())}>
+                {UNDO}
+            </IconButton>
+            <IconButton name="redo" enabled={can_redo} on_click={|| on_redo.emit(())}>
+                {REDO}
             </IconButton>
         </View>
     }
@@ -411,11 +405,35 @@ fn Column(
                         on_cancel={|| *renaming = false}
                     />
                 } else {
-                    <Text grow={1.0} strong color={theme.accent()}>{column.name.as_str()}</Text>
-                    <IconButton on_click={|| {
-                        *draft = column.name.clone();
-                        *renaming = true;
-                    }}>"rename"</IconButton>
+                    // The name, and a rename button that is only there while
+                    // the pointer is over the name. One leaf for both: the
+                    // question "is the pointer over this" needs a rectangle,
+                    // and a `<View>` hands none back (plan.md section 8.4).
+                    // The rectangle is the whole row the name is given, so the
+                    // button does not vanish as the pointer moves onto it.
+                    {view(|cx| {
+                        let clicked = cx.leaf(
+                            &ItemStyle::default().grow(1.0).min_w(0.0),
+                            |ui| {
+                                let over = ui.rect_contains_pointer(ui.max_rect());
+                                ui.horizontal(|ui| {
+                                    ui.spacing_mut().item_spacing.x = 4.0;
+                                    ui.style_mut().wrap_mode =
+                                        Some(egui::TextWrapMode::Truncate);
+                                    let text = egui::RichText::new(column.name.as_str())
+                                        .strong()
+                                        .color(theme.accent());
+                                    ui.add(egui::Label::new(text).selectable(false));
+                                    over && icon_button(ui, "✏", Some("rename"))
+                                })
+                                .inner
+                            },
+                        );
+                        if clicked {
+                            *draft = column.name.clone();
+                            *renaming = true;
+                        }
+                    })}
                 }
                 <Text>{format!("{}/{}", cards.len(), column.cards.len())}</Text>
             </View>
@@ -501,7 +519,9 @@ fn Column(
                             &ItemStyle::default().w("100%").h(FOOTER_H),
                             |ui| {
                                 let rect = ui.max_rect();
+                                // Fainter than a card: a place to make one.
                                 let button = egui::Button::new("+ card")
+                                    .fill(theme.footer())
                                     .wrap_mode(egui::TextWrapMode::Extend);
                                 let clicked = ui
                                     .with_visual_transform(lifted(footer_lift), |ui| {
@@ -642,6 +662,7 @@ fn Card(
                                 // a write. `<Checkbox bind>` wants the `&mut`
                                 // this card does not have.
                                 let mut done = card.done;
+                                theme.style_controls(ui);
                                 let response = ui.add(egui::Checkbox::without_text(&mut done));
                                 // A card is found by this name — by a screen
                                 // reader, and by the test, which needs a hold
@@ -857,6 +878,21 @@ fn Chip(
     if clicked {
         on_click.emit(());
     }
+}
+
+/// [`IconButton`] as a plain egui call, for the one place a button is drawn
+/// inside a hand-written leaf.
+fn icon_button(ui: &mut egui::Ui, glyph: &str, name: Option<&str>) -> bool {
+    let button = egui::Button::new(glyph)
+        .small()
+        .frame(false)
+        .wrap_mode(egui::TextWrapMode::Extend);
+    let response = ui.add(button);
+    if let Some(name) = name {
+        ui.ctx()
+            .accesskit_node_builder(response.id, |node| node.set_label(name));
+    }
+    response.clicked()
 }
 
 /// A small flat button, for the things a card and a column do to themselves.

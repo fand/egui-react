@@ -94,7 +94,7 @@ jobs:
         run: cargo test -p egui-react-app --no-default-features
 
   wasm:
-    name: wasm / trunk
+    name: wasm / trunk / site
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -130,8 +130,13 @@ jobs:
       # existence of. `0` is the one level trunk answers by not running
       # wasm-opt at all. pages.yml and the Cloudflare PR preview still build
       # the gallery optimised, so the optimised path is covered on every PR.
+      #
+      # `embed.html` is named separately because the glob only matches
+      # `index.html`, and the embed is one more build to keep cheap.
       - name: Turn off wasm-opt for the build check
-        run: sed -i 's/data-wasm-opt="[^"]*"/data-wasm-opt="0"/' examples/*/index.html
+        run: |
+          sed -i 's/data-wasm-opt="[^"]*"/data-wasm-opt="0"/' \
+            examples/*/index.html examples/gallery/embed.html
 
       # `trunk build <path>` resolves the cargo root package from the current
       # directory, so the example's Trunk.toml is passed instead.
@@ -144,6 +149,26 @@ jobs:
             echo "==> $config"
             trunk build --release --config "$config"
           done
+
+      # The site's iframe wasm. The loop's glob only matches `Trunk.toml`, and
+      # this one is `Trunk-embed.toml`, so it gets a line of its own.
+      - name: trunk build (the site's embed)
+        run: trunk build --release --config examples/gallery/Trunk-embed.toml
+
+      # The site build is the only thing that catches a dead link, a renamed
+      # example page or a broken `::: example-source` include, and it takes a
+      # few seconds. `cargo doc` is not run here: a doc warning is not worth a
+      # third toolchain step on every PR.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+
+      - name: vitepress build (site)
+        run: |
+          npm --prefix site ci
+          cd site && npx vitepress build
 
 # The pixel snapshot tests (`cargo test -p egui-react-elements --features
 # snapshot` and `cargo test -p gallery --features snapshot`) are deliberately

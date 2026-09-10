@@ -1,6 +1,9 @@
 name: Pages
 
-# Publishes the example gallery to https://fand.github.io/egui-react/.
+# Publishes the documentation site to https://fand.github.io/egui-react/:
+# the VitePress pages, the `embed` wasm every example page runs in an iframe,
+# and `cargo doc`. `site/build.sh` is what assembles the three; this workflow
+# only installs the toolchains it needs and uploads what it produced.
 #
 # One manual step, once per repository: set Settings -> Pages -> Build and
 # deployment -> Source to "GitHub Actions". Without it `deploy-pages` fails
@@ -25,13 +28,13 @@ concurrency:
 
 jobs:
   build:
-    name: trunk build (gallery)
+    name: build site
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # The same headers ci.yml installs. A wasm-only build should not need
-      # them, but a deploy is a bad place to find out otherwise.
+      # The same headers ci.yml installs. `cargo doc` builds for the host, so
+      # unlike a wasm-only build this really does need them.
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -52,21 +55,27 @@ jobs:
 
       - uses: Swatinem/rust-cache@v2
 
+      # build.sh calls `trunk` and does not install it.
       - uses: jetli/trunk-action@v0.5.1
         with:
           version: latest
 
-      # `--public-url` because the site is served from a subdirectory, so the
-      # generated `<script>` and `.wasm` paths need the prefix. The `#counter`
-      # deep links are read from `location.hash` inside the wasm and are not
-      # affected by it.
-      - name: trunk build
-        run: trunk build --release --public-url /egui-react/ --config examples/gallery/Trunk.toml
+      # Node lives only in site/; the cache key is that directory's lockfile.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
 
-      # `dist = "dist"` in Trunk.toml is relative to the config file.
+      # `SITE_BASE` is the subdirectory Pages serves from: VitePress uses it as
+      # its `base` and trunk as the `--public-url` of the embed, so every
+      # generated URL carries the prefix.
+      - name: Build the site
+        run: SITE_BASE=/egui-react/ bash site/build.sh
+
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: examples/gallery/dist
+          path: site/.vitepress/dist
 
   deploy:
     name: deploy

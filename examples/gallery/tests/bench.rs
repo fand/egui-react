@@ -126,7 +126,7 @@ fn running_pane(name: &'static str) -> f64 {
                         "board" => { <board::App/> }
                         "patch" => { <patch::App/> }
                         "spreadsheet" => { <spreadsheet::App/> }
-                        _ => { <showcase::App/> }
+                        _ => { <notes::App/> }
                     }
                 </View>
                 <View w="40%" min_w={360.0} shrink={0.0}/>
@@ -188,7 +188,7 @@ fn report() {
     for name in [
         "counter",
         "list-10k",
-        "showcase",
+        "notes",
         "board",
         "patch",
         "spreadsheet",

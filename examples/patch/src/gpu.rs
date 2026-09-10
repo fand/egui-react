@@ -75,6 +75,12 @@ pub fn setup(cc: &eframe::CreationContext<'_>) {
         log::warn!("patch: no wgpu render state, the preview will stay blank");
         return;
     };
+    setup_render_state(render_state);
+}
+
+/// The same, given the render state directly: for a harness that has no
+/// `CreationContext`, such as the gallery's thumbnail test.
+pub fn setup_render_state(render_state: &egui_wgpu::RenderState) {
     let device = &render_state.device;
 
     let buffer = device.create_buffer(&wgpu::BufferDescriptor {

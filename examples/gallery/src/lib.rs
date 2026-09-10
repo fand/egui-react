@@ -26,9 +26,9 @@ use font::App as FontApp;
 use form::App as FormApp;
 use layout::App as LayoutApp;
 use list_10k::App as ListApp;
+use notes::App as NotesApp;
 use patch::App as PatchApp;
 use shader::App as ShaderApp;
-use showcase::App as ShowcaseApp;
 use spreadsheet::App as SpreadsheetApp;
 use styles::App as StyleApp;
 use theme::App as ThemeApp;
@@ -41,7 +41,7 @@ use todo::App as TodoApp;
 /// `#[component]` has a props type of its own and they cannot share a `fn`
 /// pointer.
 pub const EXAMPLES: &[Meta] = &[
-    showcase::META,
+    notes::META,
     board::META,
     patch::META,
     spreadsheet::META,
@@ -439,8 +439,10 @@ fn Chip(
 /// every component its own props type, so the four `App`s have four different
 /// signatures and no common `fn` type to store. The plain versions have the
 /// same problem for the opposite reason — each has its own `PlainState`.
+///
+/// `pub` for the `embed` binary, which is this component and nothing else.
 #[component]
-fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
+pub fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
     rsx! {
         if plain {
             match name {
@@ -449,7 +451,9 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "form" => { <FormPlain/> }
                 "list-10k" => { <ListPlain/> }
                 "layout" => { <LayoutPlain/> }
-                _ => { <CounterPlain/> }
+                // Never reached: `plain` is only true for an example that
+                // has a plain version. The egui-react counter stands in.
+                _ => { <CounterApp/> }
             }
         } else {
             match name {
@@ -472,7 +476,7 @@ fn Running(cx: &mut Cx, name: &'static str, plain: bool) {
                 "styles" => { <StyleApp/> }
                 "fetch" => { <FetchApp/> }
                 "font" => { <FontApp/> }
-                _ => { <ShowcaseApp/> }
+                _ => { <NotesApp/> }
             }
         }
     }
@@ -502,7 +506,6 @@ macro_rules! plain_example {
 }
 
 plain_example!(BoardPlain, board::plain);
-plain_example!(CounterPlain, counter::plain);
 plain_example!(TodoPlain, todo::plain);
 plain_example!(FormPlain, form::plain);
 
@@ -621,9 +624,11 @@ pub fn Code(
 ///
 /// Dropped: the crate doc comment at the top (`//!` — design notes, for the
 /// repository, not for a pane next to the running example), the `META` block
-/// and its import, and anything between a `// gallery:hide` line and the next
-/// `// gallery:show` (the standalone binary's root in list-10k, say). Runs of
-/// blank lines that leaves behind are folded into one.
+/// and its import, `pub mod plain;` (the gallery's, not the example's), and
+/// anything between a `// gallery:hide` line and the next `// gallery:show`,
+/// and the `#[cfg(test)]` module at the end of the file
+/// (the standalone binary's root in list-10k, say). Runs of blank lines that
+/// leaves behind are folded into one.
 pub fn shown_source(source: &str) -> String {
     let mut out = String::new();
     let mut lines = source.lines().peekable();
@@ -638,7 +643,11 @@ pub fn shown_source(source: &str) -> String {
             "// gallery:hide" => hidden = true,
             "// gallery:show" => hidden = false,
             _ if hidden => {}
-            "use example_meta::Meta;" => {}
+            // The unit tests at the end of a file are the crate's, not the
+            // page's; the file keeps them.
+            _ if line == "#[cfg(test)]" => hidden = true,
+            // The plain version is the gallery's, not the example's.
+            "use example_meta::Meta;" | "pub mod plain;" => {}
             _ if in_meta => in_meta = line != "};",
             _ if line.starts_with("pub const META: Meta = Meta {") => in_meta = true,
             "" if blank => {}
@@ -903,12 +912,23 @@ mod tests {
         assert!(!shown.contains("//!"), "{shown}");
         assert!(!shown.contains("pub const META"), "{shown}");
         assert!(!shown.contains("example_meta"), "{shown}");
+        assert!(!shown.contains("pub mod plain;"), "{shown}");
         assert!(!shown.contains("fn Compare"), "{shown}");
         assert!(!shown.contains("fn PlainApp"), "{shown}");
         assert!(shown.contains("pub fn App"), "{shown}");
         assert!(shown.contains("pub fn Row"), "{shown}");
         assert!(!shown.contains("\n\n\n"), "{shown}");
         assert!(!shown.starts_with('\n'), "{shown:?}");
+        assert!(shown.ends_with("}\n"), "{shown:?}");
+    }
+
+    /// The `#[cfg(test)]` module at the end of a file is not shown.
+    #[test]
+    fn shown_source_drops_the_tests() {
+        let shown = shown_source(patch::META.source);
+        assert!(!shown.contains("#[cfg(test)]"), "{shown}");
+        assert!(!shown.contains("mod tests"), "{shown}");
+        assert!(shown.contains("fn wire("), "{shown}");
         assert!(shown.ends_with("}\n"), "{shown:?}");
     }
 

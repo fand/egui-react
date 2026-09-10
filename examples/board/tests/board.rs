@@ -437,7 +437,11 @@ fn searching<S>(harness: &mut Harness<'_, S>, mut wait: impl FnMut(&mut Harness<
 /// B-8: a column's name is edited in place, and the edit is a board message
 /// like any other. Escape puts it back.
 fn renaming_a_column<S>(harness: &mut Harness<'_, S>) {
+    // The button is only drawn while the pointer is over the column's name.
     let rename = |harness: &mut Harness<'_, S>| {
+        let name = harness.get_by_label("backlog").rect().center();
+        harness.hover_at(name);
+        harness.step();
         harness
             .get_all_by_label("rename")
             .next()

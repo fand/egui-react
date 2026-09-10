@@ -58,7 +58,7 @@ const SKIP: &[&str] = &["fetch"];
 ///   on the node — and the grid is deliberately not focusable, so nothing else
 ///   from the sheet reaches this list.
 const KNOWN_UNNAMED: &[&str] = &[
-    "showcase: TextInput",
+    "notes: TextInput",
     "board: TextInput",
     "patch: GenericContainer",
     "patch: MultilineTextInput",

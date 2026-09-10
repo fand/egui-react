@@ -1,0 +1,420 @@
+/* Everything the default theme does not already do: the page proportions, the
+   example pages' two-column layout, the home page's embed and its feature
+   cards.
+
+   Not scoped to a component on purpose. `ExamplePage` and `ExampleEmbed` show
+   and hide code fences that the *page* owns and passes through a slot, and a
+   scoped style cannot select those. */
+
+/* The brand colour: orange. The default theme's indigo scale is replaced
+   rather than recoloured per component, so links, the active sidebar entry,
+   the hero buttons, the search box and the code-block highlights all move
+   together. `-1` is text on the page background and is the darkest in light
+   and the lightest in dark, so it stays readable either way; `-3` is a solid
+   background under white button text. */
+:root {
+  --vp-c-brand-1: #b1400c;
+  --vp-c-brand-2: #c2410c;
+  --vp-c-brand-3: #d2510f;
+  --vp-c-brand-soft: rgba(234, 88, 12, 0.14);
+
+  --vp-home-hero-name-color: transparent;
+  --vp-home-hero-name-background: linear-gradient(120deg, #f97316, #c2410c);
+}
+
+.dark {
+  --vp-c-brand-1: #fdba74;
+  --vp-c-brand-2: #fb923c;
+  --vp-c-brand-3: #cf4d0a;
+  --vp-c-brand-soft: rgba(249, 115, 22, 0.18);
+
+  --vp-home-hero-name-background: linear-gradient(120deg, #fdba74, #f97316);
+}
+
+/* The home page's hero: the mark to the left of the name. On a wide window
+   the theme puts the image after the text (`order: 2`); this puts it first.
+   A narrow window keeps the theme's stacking, the mark above the text. */
+@media (min-width: 960px) {
+  /* The mark first, and only as wide as it is: the theme gives the image a
+     third of the hero and centres it there, which leaves the text stranded
+     in the right-hand half. Here the column is the mark, the gap is a gap,
+     and the text takes everything else. */
+  .VPHero.has-image .container {
+    gap: 48px;
+  }
+
+  .VPHero.has-image .container .image {
+    order: 0;
+    flex: 0 0 auto;
+    width: 240px;
+    min-height: 0;
+    /* The mark alone moves right; a margin here would push the text with
+       it. The theme's own `translate(-32px, -32px)` on the container inside
+       is what it is being nudged back from. */
+    transform: translateX(30px);
+  }
+
+  .VPHero.has-image .container .main {
+    width: auto;
+    flex: 1 1 auto;
+  }
+}
+
+/* 240px at every width. The theme grows the mark from 192px to 320px with
+   the window and reserves a square of its own around it; both are pinned so
+   the hero keeps the same proportions on a phone and on a desktop. */
+.VPHero .image-container {
+  width: 240px;
+  height: 240px;
+}
+
+.VPHero .image-src {
+  max-width: 240px;
+  max-height: 240px;
+}
+
+/* The columns. The default theme centres a 1440px layout, so on a wider
+   window the margin lands on the sidebar's side and the links sit far from
+   the edge. Here the layout is the window: the sidebar starts at the left
+   edge whatever the width, and the text has what is left of it, up to a line
+   length that still reads. That is how react-bits lays its documentation
+   out. The sidebar itself goes from 272px to 240px; the nav bar and the local
+   nav read both variables, so they move with it. */
+:root {
+  --vp-sidebar-width: 240px;
+  --vp-layout-max-width: 100vw;
+}
+
+/* The text of a guide or reference page: 960px at most, and centred in what
+   the sidebar and the outline leave, as the theme centres it.
+   `#VPContent`, because the theme's rule is a scoped one of the same
+   specificity and which of the two loads last is not a promise. */
+#VPContent .VPDoc.has-aside .content-container {
+  max-width: 960px;
+}
+
+/* The phone menu: the nav links, the appearance switch and the social links,
+   which the theme sets in a 288px column with 32px of padding either side.
+   On a phone that leaves the links floating in the middle of the sheet.
+   `.Layout .VPNav`, because the theme's rule is scoped and outranks a bare
+   class. */
+.Layout .VPNav .VPNavScreen {
+  padding: 0 16px;
+}
+
+.Layout .VPNav .VPNavScreen .container {
+  max-width: none;
+}
+
+/* ---- Shared by the example pages and the home page's embed ------------- */
+
+/* A tab row. Buttons rather than links because nothing about the page's URL
+   changes. */
+.example-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.example-tabs button {
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  padding: 4px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--vp-c-text-2);
+  background-color: var(--vp-c-bg-soft);
+  transition:
+    color 0.25s,
+    border-color 0.25s,
+    background-color 0.25s;
+}
+
+.example-tabs button:hover {
+  color: var(--vp-c-text-1);
+  border-color: var(--vp-c-brand-1);
+}
+
+.example-tabs button.active {
+  color: var(--vp-c-brand-1);
+  border-color: var(--vp-c-brand-1);
+  background-color: var(--vp-c-bg);
+}
+
+/* A fixed shape, so the page does not jump about while the wasm starts. The
+   box is the page's own background: the example is drawn in the page's theme,
+   so the box it starts in is that colour too. */
+.example-frame {
+  aspect-ratio: 4 / 3;
+  width: 100%;
+  overflow: hidden;
+  border: 1px solid var(--vp-c-divider);
+  border-radius: 8px;
+  background-color: var(--vp-c-bg-alt);
+}
+
+.example-frame iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+/* The code slot: one wrapper per version, and only the selected one is
+   shown. The page marks them, the component picks. */
+.example-code.show-react [data-version='plain'],
+.example-code.show-plain [data-version='react'] {
+  display: none;
+}
+
+/* ---- An example page ---------------------------------------------------- */
+
+/* Narrow: one column, one pane. Header, tabs, then the example or the code,
+   then the notes. The two inner wrappers are dissolved so the code can be
+   ordered between the example and the notes, where the pane it replaces is. */
+.example-view {
+  display: flex;
+  flex-direction: column;
+}
+
+.example-main,
+.example-side {
+  display: contents;
+}
+
+.example-header {
+  order: 1;
+}
+
+.example-tabs-narrow {
+  order: 2;
+  margin: 8px 0 12px;
+}
+
+.example-frame {
+  order: 3;
+}
+
+.example-side .example-code {
+  order: 4;
+}
+
+.example-notes {
+  order: 5;
+}
+
+.example-tabs-wide {
+  display: none;
+}
+
+/* The example is hidden, not removed, while the code is up: a clock keeps
+   time and a form keeps its draft, the way the gallery's compact layout keeps
+   them. */
+.example-view:not([data-pane='example']) .example-frame,
+.example-view[data-pane='example'] .example-side .example-code {
+  display: none;
+}
+
+/* The title is the component's, so the theme's first-heading margin has to be
+   set here; the summary follows it as the page's first paragraph. */
+.example-header {
+  margin-bottom: 16px;
+}
+
+.example-header h1 {
+  margin: 0 0 16px;
+}
+
+.example-header p {
+  margin: 0;
+}
+
+.example-notes > :first-child {
+  margin-top: 24px;
+}
+
+/* Wide: the gallery's layout. The content area is two columns the height of
+   the window, the example on the left with the notes scrolling under it, the
+   code on the right with its own scroll. */
+@media (min-width: 960px) {
+  /* The page's padding and its width cap are for text; the columns have their
+     own. `pageClass` lands on `.Layout`, the root, so the page is matched
+     from there; `#VPContent` outranks the theme's scoped rules. */
+  .example-page #VPContent .VPDoc {
+    padding: 0;
+  }
+
+  .example-page #VPContent .VPDoc .content {
+    padding: 0;
+  }
+
+  .example-page #VPContent .VPDoc .content-container {
+    max-width: none;
+  }
+
+  /* Previous / next: it would sit under two window-high columns, a scroll
+     away from anything; the sidebar is where the next example is. */
+  .example-page .VPDocFooter {
+    display: none;
+  }
+
+  .example-view {
+    display: grid;
+    /* `minmax(0, 1fr)`: the left column is the one that gives way, so a wide
+       example is cut off rather than pushing the code off the right edge.
+       The code has a fixed share, never less than 360px, as in the gallery. */
+    grid-template-columns: minmax(0, 1fr) minmax(360px, 40%);
+    height: calc(100vh - var(--vp-nav-height));
+  }
+
+  .example-main,
+  .example-side {
+    display: block;
+    min-height: 0;
+  }
+
+  .example-main {
+    overflow-y: auto;
+    padding: 32px 32px 96px;
+  }
+
+  .example-tabs-narrow {
+    display: none;
+  }
+
+  /* The example fills the column's width and as much of the window as leaves
+     the title above it and a line of notes below. */
+  .example-frame {
+    max-height: calc(100vh - var(--vp-nav-height) - 220px);
+  }
+
+  .example-notes > :first-child {
+    margin-top: 32px;
+  }
+
+  /* The code column: the tabs pinned at the top, the code scrolling under
+     them, on the code block's own background so the column reads as one
+     pane rather than a block floating in a white one. */
+  .example-side {
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--vp-c-divider);
+    background-color: var(--vp-code-block-bg);
+  }
+
+  .example-tabs-wide {
+    display: flex;
+    flex: none;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--vp-c-divider);
+  }
+
+  .example-side .example-code {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+  }
+
+  .example-side .example-code div[class*='language-'] {
+    margin: 0;
+    border-radius: 0;
+  }
+
+  /* Both panes are up on a wide window whatever the narrow tabs last said. */
+  .example-view:not([data-pane='example']) .example-frame,
+  .example-view[data-pane='example'] .example-side .example-code {
+    display: block;
+  }
+}
+
+/* ---- The home page ------------------------------------------------------ */
+
+.example-embed {
+  margin: 24px 0;
+}
+
+.example-embed .example-tabs {
+  margin-bottom: 12px;
+}
+
+/* The default hero padding pushes the demo below the fold. The hero here is
+   one name and one line, so it gives up its air and the running example is in
+   the first view, which is the page's whole argument. */
+.VPHome .VPHero {
+  padding-bottom: 16px;
+}
+
+.VPHome .VPHero.has-image .container,
+.VPHome .VPHero .container {
+  margin-bottom: 0;
+}
+
+.VPHome .example-embed {
+  margin-top: 8px;
+}
+
+/* On the home page the code sits beside the running example rather than under
+   it: the point being made there is that the one is the other. */
+@media (min-width: 960px) {
+  .VPHome .example-embed {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas:
+      'tabs tabs'
+      'frame code';
+    gap: 0 24px;
+    align-items: start;
+  }
+
+  .VPHome .example-tabs {
+    grid-area: tabs;
+  }
+
+  .VPHome .example-frame {
+    grid-area: frame;
+  }
+
+  .VPHome .example-code {
+    grid-area: code;
+    /* The source is longer than the canvas is tall; scroll it there rather
+       than stretching the row. */
+    max-height: 520px;
+    overflow: auto;
+  }
+
+  .VPHome .example-code div[class*='language-'] {
+    margin: 0;
+  }
+}
+
+/* The home page's feature cards. The default theme draws these from the
+   frontmatter, but it puts them above the markdown body, and here the live
+   counter is what should come first. */
+.home-features {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 16px;
+  margin: 32px 0;
+}
+
+.home-features .feature {
+  padding: 20px;
+  border: 1px solid var(--vp-c-bg-soft);
+  border-radius: 12px;
+  background-color: var(--vp-c-bg-soft);
+}
+
+.home-features .feature h3 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 24px;
+  letter-spacing: -0.02em;
+}
+
+.home-features .feature p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 24px;
+  color: var(--vp-c-text-2);
+}

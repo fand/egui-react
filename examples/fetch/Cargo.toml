@@ -23,6 +23,8 @@ egui-react.workspace = true
 egui-react-app.workspace = true
 egui-react-elements.workspace = true
 example-meta.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 
 # `fetch_async` needs `native-async` on native (it pulls in `async-channel`);
 # on wasm it is the browser's own fetch API and the feature would be dead weight.

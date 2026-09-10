@@ -4,15 +4,13 @@ use egui_react::prelude::*;
 use egui_react_elements::prelude::*;
 use example_meta::Meta;
 
-pub mod plain;
-
 pub const META: Meta = Meta {
     name: "counter",
     summary: "One piece of state, three handlers that borrow it in turn.",
     hooks: &["use_state"],
     elements: &["View", "Text", "Button"],
     source: include_str!("lib.rs"),
-    plain: Some(include_str!("plain.rs")),
+    plain: None,
 };
 
 #[component]

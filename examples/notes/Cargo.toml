@@ -1,0 +1,29 @@
+[package]
+name = "notes"
+description = "egui-react example: notes"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+name = "notes"
+path = "src/lib.rs"
+
+[[bin]]
+name = "notes"
+path = "src/main.rs"
+
+[dependencies]
+eframe.workspace = true
+egui.workspace = true
+egui-react.workspace = true
+egui-react-app.workspace = true
+egui-react-elements.workspace = true
+example-meta.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+egui_kittest.workspace = true
