@@ -12,6 +12,15 @@ The current design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); design de
 
 ## Usage
 
+```toml
+[dependencies]
+egui-reactor = "0.1"
+egui-reactor-elements = "0.1"
+egui-reactor-app = "0.1"
+egui = "0.36.1"
+eframe = "0.36.1"
+```
+
 ```rust
 use egui_reactor::prelude::*;
 use egui_reactor_app::{Options, run};

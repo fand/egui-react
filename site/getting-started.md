@@ -24,7 +24,7 @@ rustup target add wasm32-unknown-unknown
 
 ## Add the dependencies
 
-The crates are not on crates.io yet, so take them from git:
+Three crates from crates.io, plus egui and eframe:
 
 ```toml
 [package]
@@ -33,9 +33,9 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-egui-reactor = { git = "https://github.com/fand/egui-reactor" }
-egui-reactor-elements = { git = "https://github.com/fand/egui-reactor" }
-egui-reactor-app = { git = "https://github.com/fand/egui-reactor" }
+egui-reactor = "0.1"
+egui-reactor-elements = "0.1"
+egui-reactor-app = "0.1"
 egui = "0.36.1"
 eframe = "0.36.1"
 ```
