@@ -6,11 +6,11 @@
 
 egui-reactor is a Rust library for writing [egui](https://github.com/emilk/egui) applications the way you write React: a JSX-like `rsx!` macro, function components with `#[component]`, and hooks such as `use_state` and `use_effect`. Because egui is immediate mode there is no retained tree and no reconciler, so event handlers run where they are written and can borrow local state with `&mut` — none of the `'static` closures, `Rc<RefCell<_>>` or `.clone()` ceremony that retained-mode Rust UI frameworks require. Flexbox and Grid layout are first-class: `<View>` is a node in a small layout engine of our own, written over [taffy](https://github.com/DioxusLabs/taffy).
 
-The documentation — a guide, a reference and every example running in the browser next to its source — is at [fand.github.io/egui-reactor](https://fand.github.io/egui-reactor/).
+Documentation: [fand.github.io/egui-reactor](https://fand.github.io/egui-reactor/) — a guide, a reference, and every example running in the browser next to its source.
 
-The current design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); design decisions are in [docs/adr/](docs/adr/).
+## Quick start
 
-## Usage
+Add the three crates, plus egui and eframe, to `Cargo.toml`:
 
 ```toml
 [dependencies]
@@ -21,13 +21,15 @@ egui = "0.36.1"
 eframe = "0.36.1"
 ```
 
+Put a counter in `src/main.rs`:
+
 ```rust
 use egui_reactor::prelude::*;
 use egui_reactor_app::{Options, run};
 use egui_reactor_elements::prelude::*;
 
 #[component]
-pub fn App(cx: &mut Cx) {
+fn App(cx: &mut Cx) {
     let mut count = use_state(cx, || 0i32);
 
     rsx! {
@@ -45,60 +47,44 @@ pub fn App(cx: &mut Cx) {
 fn main() -> eframe::Result {
     run(
         Options {
-            title: String::from("egui-reactor: counter"),
+            title: String::from("counter"),
             ..Default::default()
         },
-        // Hooks belong in components, so that a view can borrow their guards;
-        // the root closure's `Cx` is normally unused.
         |_cx| rsx! { <App/> },
     )
 }
 ```
 
-That is the `counter` example: [`examples/counter/src/lib.rs`](examples/counter/src/lib.rs) and its [`src/main.rs`](examples/counter/src/main.rs).
+Then run it:
+
+```sh
+cargo run
+```
+
+`#[component]` makes `App` usable as `<App/>`. `use_state` returns a guard that derefs to the value, so `*count += 1` is the whole API: the three handlers borrow `count` as `&mut` in turn, because each runs during this frame and is dropped right after. `run` opens a window on native and takes over a canvas on wasm. Keep hooks in components rather than the root closure.
+
+The same program runs in a browser with [trunk](https://trunkrs.dev/): add an `index.html` with a `<canvas id="egui_reactor_canvas">` and `trunk serve`. [Getting Started](https://fand.github.io/egui-reactor/getting-started) has the file, and the rest of the site takes it from there:
+
+- [How it works](https://fand.github.io/egui-reactor/how-it-works): what immediate mode changes about React habits.
+- [Guide](https://fand.github.io/egui-reactor/guide/rsx): `rsx!`, components and events, state and hooks, layout, async, fonts, escape hatches to plain egui.
+- [Reference](https://fand.github.io/egui-reactor/reference/hooks): every hook, element and layout attribute.
+- [Examples](https://fand.github.io/egui-reactor/examples/notes): seventeen apps, each running on its page next to its source. Start with `notes`.
 
 ## Examples
 
-Every example runs in the browser on the [documentation site](https://fand.github.io/egui-reactor/), next to its source. Start with `notes`; the rest take one idea each. Some also have a plain egui version to compare against. `cargo run -p gallery` is the native version of the same thing.
-
-![The gallery: example list, the running example, and its source next to it](docs/gallery.png)
-
-| name | what | live | source | plain egui |
-|---|---|---|---|---|
-| `notes` | A notes app: reducer, persistence, context, memo and an editor, together. | [notes](https://fand.github.io/egui-reactor/examples/notes) | [lib.rs](examples/notes/src/lib.rs) | – |
-| `board` | Cards that keep the title being typed into them while they are dragged between columns. | [board](https://fand.github.io/egui-reactor/examples/board) | [lib.rs](examples/board/src/lib.rs) | [plain.rs](examples/board/src/plain.rs) |
-| `patch` | A node editor that generates, validates and previews its own WGSL shader. | [patch](https://fand.github.io/egui-reactor/examples/patch) | [lib.rs](examples/patch/src/lib.rs) | – |
-| `spreadsheet` | Formulas over 26 × 10,000 cells: two memo stages, and a draft that survives scrolling out of view. | [spreadsheet](https://fand.github.io/egui-reactor/examples/spreadsheet) | [lib.rs](examples/spreadsheet/src/lib.rs) | – |
-| `counter` | One piece of state, three handlers that borrow it in turn. | [counter](https://fand.github.io/egui-reactor/examples/counter) | [lib.rs](examples/counter/src/lib.rs) | – |
-| `todo` | A reducer drives the list; `use_persisted` keeps it across restarts. | [todo](https://fand.github.io/egui-reactor/examples/todo) | [lib.rs](examples/todo/src/lib.rs) | [plain.rs](examples/todo/src/plain.rs) |
-| `form` | Every bound widget, a change log, and settings that survive a restart. | [form](https://fand.github.io/egui-reactor/examples/form) | [lib.rs](examples/form/src/lib.rs) | [plain.rs](examples/form/src/plain.rs) |
-| `theme` | Two values provided at the top and read three levels down, with nothing in between. | [theme](https://fand.github.io/egui-reactor/examples/theme) | [lib.rs](examples/theme/src/lib.rs) | – |
-| `clock` | A stopwatch that asks for its own repaints, and an effect that cleans up after itself. | [clock](https://fand.github.io/egui-reactor/examples/clock) | [lib.rs](examples/clock/src/lib.rs) | – |
-| `custom-hook` | Three hooks of your own, each called from two components that keep their own state. | [custom-hook](https://fand.github.io/egui-reactor/examples/custom-hook) | [lib.rs](examples/custom-hook/src/lib.rs) | – |
-| `escape-hatch` | Four ways down to plain egui: a closure, a leaf, a painter, and a nested Cx. | [escape-hatch](https://fand.github.io/egui-reactor/examples/escape-hatch) | [lib.rs](examples/escape-hatch/src/lib.rs) | – |
-| `shader` | A wgpu fragment shader in a `<Canvas>`, with a slider wired to its uniform. | [shader](https://fand.github.io/egui-reactor/examples/shader) | [lib.rs](examples/shader/src/lib.rs) | – |
-| `list-10k` | Ten thousand rows: what drawing all of them costs, and what `<VirtualList>` saves. | [list-10k](https://fand.github.io/egui-reactor/examples/list-10k) | [lib.rs](examples/list-10k/src/lib.rs) | [plain.rs](examples/list-10k/src/plain.rs) |
-| `layout` | Every flex and grid attribute `<View>` understands, one section each. | [layout](https://fand.github.io/egui-reactor/examples/layout) | [lib.rs](examples/layout/src/lib.rs) | [plain.rs](examples/layout/src/plain.rs) |
-| `styles` | Every `style` attribute in a table: the name, the code that uses it, and what it draws. | [styles](https://fand.github.io/egui-reactor/examples/styles) | [lib.rs](examples/styles/src/lib.rs) | – |
-| `fetch` | `use_future` runs the request; the nearest `<Suspense>` draws the spinner. | [fetch](https://fand.github.io/egui-reactor/examples/fetch) | [lib.rs](examples/fetch/src/lib.rs) | – |
-| `font` | CSS-style font chains: a bundled subset, a 4.5 MB web font fetched on demand, and the installed fonts, with what each entry resolved to. | [font](https://fand.github.io/egui-reactor/examples/font) | [lib.rs](examples/font/src/lib.rs) | – |
-
-Run one natively, or in a browser with [trunk](https://trunkrs.dev/):
+The examples live in [`examples/`](examples/). Run one natively, or in a browser:
 
 ```sh
 cargo run -p counter
-cargo run -p todo --bin todo-plain          # the plain egui version
+cargo run -p todo --bin todo-plain          # the plain egui version, where there is one
 trunk serve --config examples/counter/Trunk.toml
 ```
 
-The gallery runs the same way, and takes the name of the example to open first:
+`cargo run -p gallery` opens all of them in one window, with the source next to the running app.
 
-```sh
-cargo run -p gallery todo
-trunk serve --config examples/gallery/Trunk.toml
-```
+![The gallery: example list, the running example, and its source next to it](docs/gallery.png)
 
-## Testing
+## Development
 
 ```sh
 cargo fmt --all --check
@@ -116,6 +102,8 @@ cargo test -p gallery --features snapshot
 UPDATE_SNAPSHOTS=1 cargo test -p egui-reactor-elements --features snapshot
 UPDATE_SNAPSHOTS=1 cargo test -p gallery --features snapshot egui_reactor
 ```
+
+The current design is in [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md); design decisions are in [docs/adr/](docs/adr/).
 
 ## License
 
